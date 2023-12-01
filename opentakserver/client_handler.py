@@ -3,16 +3,20 @@ import threading
 from threading import Thread
 from bs4 import BeautifulSoup
 import pika
+from extensions import db
+
+from opentakserver.models.CoT import CoT
 
 
 class ClientHandler(Thread):
-    def __init__(self, address, port, sock, lock, logger):
+    def __init__(self, address, port, sock, lock, logger, context):
         Thread.__init__(self)
         self.address = address
         self.port = port
         self.sock = sock
         self.lock = lock
         self.logger = logger
+        self.context = context
 
         # Device attributes
         self.uid = None
@@ -75,6 +79,7 @@ class ClientHandler(Thread):
 
             if data:
                 soup = BeautifulSoup(data, 'xml')
+                # self.logger.debug(soup)
 
                 event = soup.find('event')
                 if event:
@@ -174,6 +179,19 @@ class ClientHandler(Thread):
                     # Do nothing because the RabbitMQ channel hasn't opened yet or has closed
                     else:
                         self.logger.debug("Not publishing, channel closed")
+
+                    # self.logger.info("publishing to DB")
+                    # self.rabbit_channel.basic_publish(exchange='cot', routing_key='database', body=str(soup))
+
+                    cot = CoT()
+                    cot.how = event.attrs['how']
+                    cot.type = event.attrs['type']
+                    cot.sender_callsign = self.callsign
+                    cot.sender_device_name = self.device
+                    cot.xml = str(soup)
+                    with self.context:
+                        db.session.add(cot)
+                        db.session.commit()
             else:
                 self.logger.info('{} disconnected'.format(self.address))
                 self.rabbit_connection.close()

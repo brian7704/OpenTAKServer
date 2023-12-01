@@ -1,25 +1,19 @@
 import pika
 from flask import Flask
-import colorlog
 import socket
 import threading
-from flask_socketio import SocketIO
+# from flask_socketio import SocketIO
 
 from client_handler import ClientHandler
 from config import Config
-
-handler = colorlog.StreamHandler()
-handler.setFormatter(colorlog.ColoredFormatter(
-    '%(log_color)s[%(asctime)s] - %(levelname)s - %(name)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S"))
-
-logger = colorlog.getLogger('OpenTAKServer')
-logger.setLevel('DEBUG')
-logger.addHandler(handler)
+from extensions import logger, db
 
 app = Flask(__name__)
 app.config.from_object(Config)
-socketio = SocketIO(app)
+# socketio = SocketIO(app)
 clients = {}
+
+db.init_app(app)
 
 rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
 channel = rabbit_connection.channel()
@@ -58,7 +52,7 @@ def launch_server():
             s.listen(1)
             sock, addr = s.accept()
             logger.info("New connection from {}".format(addr[0]))
-            new_thread = ClientHandler(addr[0], addr[1], sock, lock, logger)
+            new_thread = ClientHandler(addr[0], addr[1], sock, lock, logger, app.app_context())
             new_thread.start()
             threads[addr[0]] = new_thread
         except KeyboardInterrupt:
@@ -66,6 +60,8 @@ def launch_server():
 
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
     t = threading.Thread(target=launch_server)
     t.daemon = True
     t.start()

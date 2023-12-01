@@ -8,3 +8,4 @@ class Config:
     SSL_PORT = 8089
     SECRET_KEY = secret_key
     VERSION = '0.1-OTS-DEV'
+    SQLALCHEMY_DATABASE_URI = "sqlite:////home/administrator/ots.db"
