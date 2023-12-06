@@ -9,3 +9,4 @@ class Config:
     SECRET_KEY = secret_key
     VERSION = '0.1-OTS-DEV'
     SQLALCHEMY_DATABASE_URI = "sqlite:////home/administrator/ots.db"
+    SQLALCHEMY_ECHO = False

@@ -4,9 +4,10 @@ import socket
 import threading
 # from flask_socketio import SocketIO
 
-from client_handler import ClientHandler
+from opentakserver.controllers.client_controller import ClientController
 from config import Config
 from extensions import logger, db
+from opentakserver.controllers.cot_controller import CoTController
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -52,7 +53,8 @@ def launch_server():
             s.listen(1)
             sock, addr = s.accept()
             logger.info("New connection from {}".format(addr[0]))
-            new_thread = ClientHandler(addr[0], addr[1], sock, lock, logger, app.app_context())
+            new_thread = ClientController(addr[0], addr[1], sock, lock, logger, app.app_context())
+            new_thread.daemon = True
             new_thread.start()
             threads[addr[0]] = new_thread
         except KeyboardInterrupt:
@@ -61,8 +63,16 @@ def launch_server():
 
 if __name__ == '__main__':
     with app.app_context():
+        logger.debug("Creating DB")
         db.create_all()
     t = threading.Thread(target=launch_server)
     t.daemon = True
     t.start()
+    # t.join()
+
+    cot_thread = CoTController(app.app_context(), logger, db)
+    cot_thread.daemon = True
+    cot_thread.start()
+    # cot_thread.join()
+
     app.run(host='0.0.0.0', debug=True, use_reloader=False, port=Config.HTTP_PORT)
