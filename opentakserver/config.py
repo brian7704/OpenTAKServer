@@ -10,3 +10,5 @@ class Config:
     VERSION = '0.1-OTS-DEV'
     SQLALCHEMY_DATABASE_URI = "sqlite:////home/administrator/ots.db"
     SQLALCHEMY_ECHO = False
+    UPLOAD_FOLDER = "/home/administrator/ots/uploads"
+    ALLOWED_EXTENSIONS = {'zip'}

@@ -77,7 +77,7 @@ class ClientController(Thread):
         while True:
             try:
                 data = self.sock.recv(4096)
-            except (ConnectionError, TimeoutError) as e:
+            except (ConnectionError, TimeoutError, ConnectionResetError) as e:
                 self.send_disconnect_cot()
                 break
 
@@ -137,17 +137,18 @@ class ClientController(Thread):
                 self.logger.debug("{} is consuming".format(self.callsign))
 
     def send_disconnect_cot(self):
-        now = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
-        stale = (datetime.datetime.now() + datetime.timedelta(seconds=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        if self.uid:
+            now = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+            stale = (datetime.datetime.now() + datetime.timedelta(seconds=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        event = Element('event', {'how': 'h-g-i-g-o', 'type': 't-x-d-d', 'version': '2.0',
-                                  'uid': str(uuid.uuid4()), 'start': now, 'time': now, 'stale': stale})
-        point = SubElement(event, 'point', {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0',
-                                            'lon': '0'})
-        detail = SubElement(event, 'detail')
-        link = SubElement(detail, 'link', {'relation': 'p-p', 'uid': self.uid, 'type': 'a-f-G-U-C'})
-        flow_tags = SubElement(detail, '_flow-tags_', {'TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0': now})
-        self.logger.debug(tostring(event))
-        self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='', body=tostring(event))
+            event = Element('event', {'how': 'h-g-i-g-o', 'type': 't-x-d-d', 'version': '2.0',
+                                      'uid': str(uuid.uuid4()), 'start': now, 'time': now, 'stale': stale})
+            point = SubElement(event, 'point', {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0',
+                                                'lon': '0'})
+            detail = SubElement(event, 'detail')
+            link = SubElement(detail, 'link', {'relation': 'p-p', 'uid': self.uid, 'type': 'a-f-G-U-C'})
+            flow_tags = SubElement(detail, '_flow-tags_', {'TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0': now})
+            self.logger.debug(tostring(event))
+            self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='', body=tostring(event))
         self.logger.info('{} disconnected'.format(self.address))
         self.rabbit_connection.close()

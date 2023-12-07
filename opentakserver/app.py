@@ -1,13 +1,19 @@
+import os
+
 import pika
-from flask import Flask
+from flask import Flask, request, send_from_directory
 import socket
 import threading
+
+from werkzeug.utils import secure_filename
+
 # from flask_socketio import SocketIO
 
 from opentakserver.controllers.client_controller import ClientController
 from config import Config
 from extensions import logger, db
 from opentakserver.controllers.cot_controller import CoTController
+from opentakserver.models.DataPackage import DataPackage
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -37,6 +43,42 @@ def marti_config():
     return {"version": "3", "type": "ServerConfig",
             "data": {"version": Config.VERSION, "api": "3", "hostname": "0.0.0.0"},
             "nodeId": "jhtsjls2925a1e2ldaclrwjec2d2pa8w"}
+
+
+@app.route('/Marti/sync/missionupload', methods=['POST'])
+def data_package_share():
+    if not len(request.files):
+        logger.error(('no file: {} --- {}'.format(request.files, len(request.files))))
+        return {'error': 'no file'}, 400, {'Content-Type': 'application/json'}
+    for file in request.files:
+        logger.debug(request.files[file])
+        file = request.files['assetfile']
+        if file:
+            if file.content_type != 'application/x-zip-compressed':
+                return {'error': 'Please only upload zip files'}, 400, {'Content-Type': 'application/json'}
+            filename = secure_filename(request.args.get('hash') + '.zip')
+            logger.debug(filename)
+            file.save(os.path.join(Config.UPLOAD_FOLDER, filename))
+
+            data_package = DataPackage()
+            data_package.filename = filename
+            data_package.hash = request.args.get('hash')
+            data_package.creatorUid = request.args.get('creatorUid')
+            db.session.add(data_package)
+            db.session.commit()
+
+            return ('http://{}/Marti/api/sync/metadata/{}/tool'.format(
+                request.headers.get('Host'), request.args.get('hash')), 200,
+                    {'Content-Type': 'application/json'})
+
+
+@app.route('/Marti/api/sync/metadata/<file_hash>/tool', methods=['GET', 'PUT'])
+def data_package_metadata(file_hash):
+    if request.method == 'PUT':
+        return "Okay", 200
+    elif request.method == 'GET':
+        data_package = db.session.execute(db.select(DataPackage).filter_by(hash=file_hash)).scalar_one()
+        return send_from_directory(Config.UPLOAD_FOLDER, data_package.hash + ".zip", download_name=data_package.filename)
 
 
 def launch_server():

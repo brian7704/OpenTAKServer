@@ -46,7 +46,7 @@ class CoTController(Thread):
         self.rabbit_channel.queue_bind(exchange='cot_controller', queue='cot_controller')
         self.rabbit_channel.basic_consume(queue='cot_controller', on_message_callback=self.on_message, auto_ack=True)
 
-    def parse_point(self, event):
+    def parse_point(self, event, uid):
         # hae = Height above the WGS ellipsoid in meters
         # ce = Circular 1-sigma or a circular area about the point in meters
         # le = Linear 1-sigma error or an altitude range about the point in meters
@@ -54,7 +54,7 @@ class CoTController(Thread):
         if point:
 
             p = Point()
-            p.device_uid = event.attrs['uid']
+            p.device_uid = uid
             p.ce = point.attrs['ce']
             p.hae = point.attrs['hae']
             p.le = point.attrs['le']
@@ -85,12 +85,15 @@ class CoTController(Thread):
 
     def parse_device_info(self, soup, event):
         link = event.find('link')
+        fileshare = event.find('fileshare')
         uid = event.attrs['uid']
         callsign = None
         phone_number = None
 
         if link:
             uid = link.attrs['uid']
+        elif fileshare:
+            uid = fileshare.attrs['senderUid']
         elif uid.startswith('GeoChat'):
             uid = uid.split('.')[1]
 
@@ -151,14 +154,10 @@ class CoTController(Thread):
                         self.db.session.commit()
                         self.logger.debug("Updated {}".format(uid))
 
-    def parse_groups(self, event):
-        groups = event.find_all('__group')
-        uid = event.attrs['uid']
-        callsign = None
+        return uid
 
-        contact = event.find('contact')
-        if contact and 'callsign' in contact.attrs:
-            callsign = contact.attrs['callsign']
+    def parse_groups(self, event, uid):
+        groups = event.find_all('__group')
 
         for group in groups:
             # Declare an exchange for each group and bind the callsign's queue
@@ -190,18 +189,10 @@ class CoTController(Thread):
         else:
             self.logger.debug("Not publishing, channel closed")
 
-    def insert_cot(self, soup, event):
+    def insert_cot(self, soup, event, uid):
         cot = CoT()
         cot.how = event.attrs['how']
         cot.type = event.attrs['type']
-
-        link = event.find('link')
-        uid = event.attrs['uid']
-        if uid.startswith('GeoChat'):
-            uid = uid.split('.')[1]
-        elif uid not in self.online_euds and link:
-            uid = link.attrs['uid']
-
         cot.sender_callsign = self.online_euds[uid]['callsign']
         cot.sender_uid = uid
         cot.xml = str(soup)
@@ -215,10 +206,10 @@ class CoTController(Thread):
             soup = BeautifulSoup(body, 'xml')
             event = soup.find('event')
             if event:
-                self.parse_device_info(soup, event)
-                self.parse_point(event)
-                self.parse_groups(event)
-                self.insert_cot(soup, event)
+                uid = self.parse_device_info(soup, event)
+                self.parse_point(event, uid)
+                self.parse_groups(event, uid)
+                self.insert_cot(soup, event, uid)
                 self.rabbitmq_routing(event, body)
 
                 if event.attrs['type'] == 't-x-d-d':
