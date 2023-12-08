@@ -18,4 +18,4 @@ class EUD(Base):
     phone_number: Mapped[int] = mapped_column(Integer, nullable=True)
     points: Mapped[List["Point"]] = relationship(back_populates="eud")
     cots: Mapped[List["CoT"]] = relationship(back_populates="eud")
-    data_packages: Mapped[List["DataPackage"]] = relationship(back_populates="eud")
+    # data_packages: Mapped[List["DataPackage"]] = relationship(back_populates="eud")
