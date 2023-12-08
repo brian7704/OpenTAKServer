@@ -60,6 +60,7 @@ class CoTController(Thread):
             p.le = point.attrs['le']
             p.latitude = point.attrs['lat']
             p.longitude = point.attrs['lon']
+            p.timestamp = datetime.datetime.now().isoformat() + "Z"
 
             # We only really care about the rest of the data if there's a valid lat/lon
 
@@ -137,6 +138,8 @@ class CoTController(Thread):
                 eud.platform = platform
                 eud.version = version
                 eud.phone_number = phone_number
+                eud.last_event_time = event.attrs['start']
+                eud.last_status = 'Connected'
 
                 with self.context:
                     try:
@@ -151,6 +154,8 @@ class CoTController(Thread):
                         eud.platform = platform
                         eud.version = version
                         eud.phone_number = phone_number
+                        eud.last_event_time = event.attrs['start']
+                        eud.last_status = 'Connected'
                         self.db.session.commit()
                         self.logger.debug("Updated {}".format(uid))
 
@@ -195,6 +200,7 @@ class CoTController(Thread):
         cot.type = event.attrs['type']
         cot.sender_callsign = self.online_euds[uid]['callsign']
         cot.sender_uid = uid
+        cot.timestamp = datetime.datetime.now().isoformat() + "Z"
         cot.xml = str(soup)
 
         with self.context:
@@ -212,8 +218,20 @@ class CoTController(Thread):
                 self.insert_cot(soup, event, uid)
                 self.rabbitmq_routing(event, body)
 
+                # EUD went offline
                 if event.attrs['type'] == 't-x-d-d':
                     link = event.find('link')
+
+                    try:
+                        with self.context:
+                            eud = self.db.session.execute(self.db.select(EUD).filter_by(uid=uid)).scalar_one()
+                            eud.last_event_time = event.attrs['start']
+                            eud.last_status = 'Disconnected'
+                            self.db.session.commit()
+                            self.logger.debug("Updated {}".format(uid))
+                    except BaseException as e:
+                        self.logger.error("Failed to update EUD: {}".format(e))
+
                     self.online_euds.pop(link.attrs['uid'])
         except BaseException as e:
             self.logger.error(traceback.format_exc())

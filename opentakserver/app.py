@@ -43,8 +43,8 @@ def client_end_points():
             'callsign': eud.callsign,
             'uid': eud.uid,
             'username': 'anonymous',  # TODO: change this once auth is working
-            'lastEventTime': '2023-11-15T19:52:52.801Z',  # TODO: start keeping track of connect/disconnect time
-            'lastStatus': 'Disconnected'
+            'lastEventTime': eud.last_event_time,
+            'lastStatus': eud.last_status
         })
 
     return return_value, 200, {'Content-Type': 'application/json'}

@@ -17,4 +17,5 @@ class Point(Base):
     speed: Mapped[float] = mapped_column(Float, nullable=True)
     location_source: Mapped[str] = mapped_column(String, nullable=True)
     battery: Mapped[float] = mapped_column(Float, nullable=True)
+    timestamp: Mapped[str] = mapped_column(String)
     eud: Mapped["EUD"] = relationship(back_populates="points")

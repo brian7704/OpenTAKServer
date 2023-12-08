@@ -16,6 +16,8 @@ class EUD(Base):
     platform: Mapped[str] = mapped_column(String, nullable=True)
     version: Mapped[str] = mapped_column(String, nullable=True)
     phone_number: Mapped[int] = mapped_column(Integer, nullable=True)
+    last_event_time: Mapped[str] = mapped_column(String, nullable=True)
+    last_status: Mapped[str] = mapped_column(String, nullable=True)
     points: Mapped[List["Point"]] = relationship(back_populates="eud")
     cots: Mapped[List["CoT"]] = relationship(back_populates="eud")
     # data_packages: Mapped[List["DataPackage"]] = relationship(back_populates="eud")
