@@ -212,7 +212,8 @@ class CoTController(Thread):
             if 'type' in emergency.attrs:
                 emergency_type = emergency.attrs['type']
                 alert = Alert()
-                alert.uid = uid
+                alert.sender_uid = uid
+                alert.uid = event.attrs['uid']
                 alert.start_time = event.attrs['start']
                 alert.point_id = point_pk
                 alert.alert_type = emergency_type
@@ -223,15 +224,13 @@ class CoTController(Thread):
                     self.db.session.commit()
             elif 'cancel' in emergency.attrs:
                 with self.context:
-                    self.db.session.execute(update(Alert).where(Alert.uid == uid and Alert.cancel_time is None)
+                    self.db.session.execute(update(Alert).where(Alert.uid == event.attrs['uid'])
                                             .values(cancel_time=event.attrs['start']))
                     self.db.session.commit()
 
     def parse_casevac(self, event, uid, point_pk, cot_pk):
-        self.logger.debug("casevac {}".format(event.attrs['uid']))
         medevac = event.find('_medevac_')
         if medevac:
-            self.logger.debug("got medevac")
             zmist = medevac.find('zMist')
             with self.context:
                 for a in medevac.attrs:
