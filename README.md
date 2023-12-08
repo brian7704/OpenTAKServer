@@ -8,6 +8,7 @@ This project is just beginning and not yet suitable for production.
 - Connect via TCP from ATAK
 - Send and receive messages
 - Send and receive points
+- Send and receive routes
 - Share location with other users
 - Save CoT messages to a database
 - Data Packages

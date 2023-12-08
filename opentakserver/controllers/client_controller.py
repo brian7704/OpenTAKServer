@@ -1,3 +1,4 @@
+import json
 import traceback
 import uuid
 from xml.etree.ElementTree import Element, SubElement, tostring, fromstring, ParseError
@@ -101,8 +102,9 @@ class ClientController(Thread):
                     if not self.uid:
                         self.parse_device_info(event)
 
-                    self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='', body=str(soup))
-
+                    message = {'uid': self.uid, 'cot': str(soup)}
+                    self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='',
+                                                      body=json.dumps(message))
 
                 else:
                     self.logger.error("{} sent unexpected CoT: {} {}".format(self.callsign, soup, event))

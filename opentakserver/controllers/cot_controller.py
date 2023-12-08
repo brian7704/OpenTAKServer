@@ -1,4 +1,5 @@
 import datetime
+import json
 import traceback
 from threading import Thread
 
@@ -84,19 +85,12 @@ class CoTController(Thread):
                 self.db.session.add(p)
                 self.db.session.commit()
 
-    def parse_device_info(self, soup, event):
+    def parse_device_info(self, uid, soup, event):
         link = event.find('link')
         fileshare = event.find('fileshare')
-        uid = event.attrs['uid']
+        # uid = event.attrs['uid']
         callsign = None
         phone_number = None
-
-        if link:
-            uid = link.attrs['uid']
-        elif fileshare:
-            uid = fileshare.attrs['senderUid']
-        elif uid.startswith('GeoChat'):
-            uid = uid.split('.')[1]
 
         if uid not in self.online_euds and not uid.endswith('ping'):
 
@@ -159,8 +153,6 @@ class CoTController(Thread):
                         self.db.session.commit()
                         self.logger.debug("Updated {}".format(uid))
 
-        return uid
-
     def parse_groups(self, event, uid):
         groups = event.find_all('__group')
 
@@ -209,14 +201,15 @@ class CoTController(Thread):
 
     def on_message(self, unused_channel, basic_deliver, properties, body):
         try:
-            soup = BeautifulSoup(body, 'xml')
+            body = json.loads(body)
+            soup = BeautifulSoup(body['cot'], 'xml')
             event = soup.find('event')
             if event:
-                uid = self.parse_device_info(soup, event)
-                self.parse_point(event, uid)
-                self.parse_groups(event, uid)
-                self.insert_cot(soup, event, uid)
-                self.rabbitmq_routing(event, body)
+                self.parse_device_info(body['uid'], soup, event)
+                self.parse_point(event, body['uid'])
+                self.parse_groups(event, body['uid'])
+                self.insert_cot(soup, event, body['uid'])
+                self.rabbitmq_routing(event, body['cot'])
 
                 # EUD went offline
                 if event.attrs['type'] == 't-x-d-d':
@@ -224,11 +217,11 @@ class CoTController(Thread):
 
                     try:
                         with self.context:
-                            eud = self.db.session.execute(self.db.select(EUD).filter_by(uid=uid)).scalar_one()
+                            eud = self.db.session.execute(self.db.select(EUD).filter_by(uid=body['uid'])).scalar_one()
                             eud.last_event_time = event.attrs['start']
                             eud.last_status = 'Disconnected'
                             self.db.session.commit()
-                            self.logger.debug("Updated {}".format(uid))
+                            self.logger.debug("Updated {}".format(body['uid']))
                     except BaseException as e:
                         self.logger.error("Failed to update EUD: {}".format(e))
 
