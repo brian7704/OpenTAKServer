@@ -9,18 +9,18 @@ This project is just beginning and not yet suitable for production.
 - Send and receive messages
 - Send and receive points
 - Share location with other users
+- Save CoT messages to a database
+- Data Packages
 
 ## Planned Features
 - WinTAK and iTAK support (This may already work, just needs to be tested)
 - SSL Support
 - Authentication
-- Save CoT messages to a database (either SQLite or MySQL via SQLAlchemy)
 - API to query saved CoT messages
 - WebUI
   - Live Map
   - View saved CoT messages
   - Chat with EUDs
-- Android app
 - Mission support
 
 ## Requirements
