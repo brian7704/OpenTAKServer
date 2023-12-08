@@ -8,8 +8,10 @@ from bs4 import BeautifulSoup
 import pika
 
 from opentakserver.models.Alert import Alert
+from opentakserver.models.CasEvac import CasEvac
 from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
+from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.point import Point
 
 
@@ -89,7 +91,6 @@ class CoTController(Thread):
                     timestamp=event.attrs['start'] + "Z")
                 )
                 pk = res.inserted_primary_key[0]
-                self.logger.debug("Got point PK {}".format(pk))
                 self.db.session.commit()
                 return pk
 
@@ -196,13 +197,15 @@ class CoTController(Thread):
 
     def insert_cot(self, soup, event, uid):
         with self.context:
-            self.db.session.execute(insert(CoT).values(
+            res = self.db.session.execute(insert(CoT).values(
                 how=event.attrs['how'], type=event.attrs['type'], sender_callsign=self.online_euds[uid]['callsign'],
-                sender_uid=uid, timestamp=datetime.datetime.now().isoformat() + "Z", xml=str(soup)
+                sender_uid=uid, timestamp=event.attrs['start'], xml=str(soup)
             ))
+            pk = res.inserted_primary_key[0]
             self.db.session.commit()
+            return pk
 
-    def parse_alert(self, event, uid, point_pk):
+    def parse_alert(self, event, uid, point_pk, cot_pk):
         emergency = event.find('emergency')
         if emergency:
             if 'type' in emergency.attrs:
@@ -212,6 +215,7 @@ class CoTController(Thread):
                 alert.start_time = event.attrs['start']
                 alert.point_id = point_pk
                 alert.alert_type = emergency_type
+                alert.cot_id = cot_pk
 
                 with self.context:
                     self.db.session.add(alert)
@@ -222,18 +226,37 @@ class CoTController(Thread):
                                             .values(cancel_time=event.attrs['start']))
                     self.db.session.commit()
 
+    def parse_casevac(self, event, uid, point_pk, cot_pk):
+        medevac = event.find('_medevac_')
+        if medevac:
+            with self.context:
+                for a in medevac.attrs:
+                    if medevac.attrs[a].lower() == 'true':
+                        medevac.attrs[a] = True
+                    elif medevac.attrs[a].lower() == 'false':
+                        medevac.attrs[a] = False
+
+                res = self.db.session.execute(insert(CasEvac).values(timestamp=event.attrs['start'], uid=uid,
+                                                                     point_id=point_pk, cot_id=cot_pk, **medevac.attrs))
+                casevac_pk = res.inserted_primary_key[0]
+
+                zmist = medevac.find('zMist')
+                if zmist:
+                    self.db.session.execute(insert(ZMIST).values(casevac_id=casevac_pk, **zmist.attrs))
+                self.db.session.commit()
+
     def on_message(self, unused_channel, basic_deliver, properties, body):
         try:
             body = json.loads(body)
             soup = BeautifulSoup(body['cot'], 'xml')
-            self.logger.warning(soup)
             event = soup.find('event')
             if event:
                 self.parse_device_info(body['uid'], soup, event)
+                cot_pk = self.insert_cot(soup, event, body['uid'])
                 point_pk = self.parse_point(event, body['uid'])
                 self.parse_groups(event, body['uid'])
-                self.parse_alert(event, body['uid'], point_pk)
-                self.insert_cot(soup, event, body['uid'])
+                self.parse_alert(event, body['uid'], point_pk, cot_pk)
+                self.parse_casevac(event, body['uid'], point_pk, cot_pk)
                 self.rabbitmq_routing(event, body['cot'])
 
                 # EUD went offline

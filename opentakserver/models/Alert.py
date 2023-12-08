@@ -11,4 +11,5 @@ class Alert(Base):
     start_time: Mapped[str] = mapped_column(String)
     cancel_time: Mapped[str] = mapped_column(String, nullable=True)
     alert_type: Mapped[str] = mapped_column(String)
-    point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id"))
+    point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id"), nullable=True)
+    cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
