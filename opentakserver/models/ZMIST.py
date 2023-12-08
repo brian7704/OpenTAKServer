@@ -13,4 +13,4 @@ class ZMIST(Base):
     t: Mapped[str] = mapped_column(String, nullable=True)  # treatment_given
     title: Mapped[str] = mapped_column(String, nullable=True)
     z: Mapped[int] = mapped_column(Integer, nullable=True)  # zap_number
-    casevac_id: Mapped[int] = mapped_column(Integer, ForeignKey("casevac.id"))
+    casevac_uid: Mapped[str] = mapped_column(String, ForeignKey("casevac.uid"))

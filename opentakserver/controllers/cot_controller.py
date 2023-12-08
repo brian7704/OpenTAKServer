@@ -184,7 +184,8 @@ class CoTController(Thread):
         elif destinations:
             for destination in destinations:
                 self.rabbit_channel.basic_publish(exchange='dms',
-                                                  routing_key=self.online_callsigns[destination.attrs['callsign']]['uid'],
+                                                  routing_key=self.online_callsigns[destination.attrs['callsign']][
+                                                      'uid'],
                                                   body=data)
 
         # If no destination or callsign is specified, broadcast to all TAK clients
@@ -227,8 +228,11 @@ class CoTController(Thread):
                     self.db.session.commit()
 
     def parse_casevac(self, event, uid, point_pk, cot_pk):
+        self.logger.debug("casevac {}".format(event.attrs['uid']))
         medevac = event.find('_medevac_')
         if medevac:
+            self.logger.debug("got medevac")
+            zmist = medevac.find('zMist')
             with self.context:
                 for a in medevac.attrs:
                     if medevac.attrs[a].lower() == 'true':
@@ -236,13 +240,21 @@ class CoTController(Thread):
                     elif medevac.attrs[a].lower() == 'false':
                         medevac.attrs[a] = False
 
-                res = self.db.session.execute(insert(CasEvac).values(timestamp=event.attrs['start'], uid=uid,
-                                                                     point_id=point_pk, cot_id=cot_pk, **medevac.attrs))
-                casevac_pk = res.inserted_primary_key[0]
+                try:
+                    res = self.db.session.execute(insert(CasEvac).values(timestamp=event.attrs['start'], sender_uid=uid,
+                                                                         uid=event.attrs['uid'], point_id=point_pk,
+                                                                         cot_id=cot_pk, **medevac.attrs))
+                    casevac_pk = res.inserted_primary_key[0]
 
-                zmist = medevac.find('zMist')
-                if zmist:
-                    self.db.session.execute(insert(ZMIST).values(casevac_id=casevac_pk, **zmist.attrs))
+                    if zmist:
+                        self.db.session.execute(insert(ZMIST).values(casevac_uid=event.attrs['uid'], **zmist.attrs))
+                except exc.IntegrityError as e:
+                    self.db.session.rollback()
+                    self.db.session.execute(update(CasEvac).where(CasEvac.uid == event.attrs['uid'])
+                                            .values(**medevac.attrs))
+
+                    self.db.session.execute(
+                        update(ZMIST).where(CasEvac.uid == event.attrs['uid']).values(**zmist.attrs))
                 self.db.session.commit()
 
     def on_message(self, unused_channel, basic_deliver, properties, body):

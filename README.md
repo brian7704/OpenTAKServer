@@ -13,6 +13,7 @@ This project is just beginning and not yet suitable for production.
 - Save CoT messages to a database
 - Data Packages
 - Alerts
+- CasEvac
 
 ## Planned Features
 - WinTAK and iTAK support (This may already work, just needs to be tested)

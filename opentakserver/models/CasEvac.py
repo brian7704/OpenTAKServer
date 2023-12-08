@@ -7,7 +7,8 @@ class CasEvac(Base):
     __tablename__ = 'casevac'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    uid: Mapped[str] = mapped_column(String, ForeignKey("eud.id"))
+    sender_uid: Mapped[str] = mapped_column(String, ForeignKey("eud.id"))
+    uid: Mapped[str] = mapped_column(String, unique=True)
     timestamp: Mapped[str] = mapped_column(String)
 
     # The following are taken from CoT attributes generated from ATAK
@@ -40,7 +41,7 @@ class CasEvac(Base):
     terrain_none: Mapped[bool] = mapped_column(Boolean, nullable=True)
     terrain_rough: Mapped[bool] = mapped_column(Boolean, nullable=True)
     terrain_slope: Mapped[bool] = mapped_column(Boolean, nullable=True)
-    terrain_slope_direction: Mapped[str] = mapped_column(String, nullable=True)
+    terrain_slope_dir: Mapped[str] = mapped_column(String, nullable=True)
     title: Mapped[str] = mapped_column(String)
     urgent: Mapped[int] = mapped_column(Integer, nullable=True)
     us_civilian: Mapped[int] = mapped_column(Integer, nullable=True)
