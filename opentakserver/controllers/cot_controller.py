@@ -3,10 +3,11 @@ import json
 import traceback
 from threading import Thread
 
-import sqlalchemy
+from sqlalchemy import exc, insert, update
 from bs4 import BeautifulSoup
 import pika
 
+from opentakserver.models.Alert import Alert
 from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
 from opentakserver.models.point import Point
@@ -82,8 +83,15 @@ class CoTController(Thread):
                     p.battery = status.attrs['battery']
 
             with self.context:
-                self.db.session.add(p)
+                res = self.db.session.execute(insert(Point).values(
+                    device_uid=uid, ce=point.attrs['ce'], hae=point.attrs['hae'], le=point.attrs['le'],
+                    latitude=point.attrs['lat'], longitude=point.attrs['lon'],
+                    timestamp=event.attrs['start'] + "Z")
+                )
+                pk = res.inserted_primary_key[0]
+                self.logger.debug("Got point PK {}".format(pk))
                 self.db.session.commit()
+                return pk
 
     def parse_device_info(self, uid, soup, event):
         link = event.find('link')
@@ -139,7 +147,7 @@ class CoTController(Thread):
                     try:
                         self.db.session.add(eud)
                         self.db.session.commit()
-                    except sqlalchemy.exc.IntegrityError as e:
+                    except exc.IntegrityError as e:
                         # This EUD/uid is already in the DB, update it in case anything changed like callsign or app version
                         self.db.session.rollback()
                         eud = self.db.session.execute(self.db.select(EUD).filter_by(uid=uid)).scalar_one()
@@ -187,27 +195,44 @@ class CoTController(Thread):
             self.logger.debug("Not publishing, channel closed")
 
     def insert_cot(self, soup, event, uid):
-        cot = CoT()
-        cot.how = event.attrs['how']
-        cot.type = event.attrs['type']
-        cot.sender_callsign = self.online_euds[uid]['callsign']
-        cot.sender_uid = uid
-        cot.timestamp = datetime.datetime.now().isoformat() + "Z"
-        cot.xml = str(soup)
-
         with self.context:
-            self.db.session.add(cot)
+            self.db.session.execute(insert(CoT).values(
+                how=event.attrs['how'], type=event.attrs['type'], sender_callsign=self.online_euds[uid]['callsign'],
+                sender_uid=uid, timestamp=datetime.datetime.now().isoformat() + "Z", xml=str(soup)
+            ))
             self.db.session.commit()
+
+    def parse_alert(self, event, uid, point_pk):
+        emergency = event.find('emergency')
+        if emergency:
+            if 'type' in emergency.attrs:
+                emergency_type = emergency.attrs['type']
+                alert = Alert()
+                alert.uid = uid
+                alert.start_time = event.attrs['start']
+                alert.point_id = point_pk
+                alert.alert_type = emergency_type
+
+                with self.context:
+                    self.db.session.add(alert)
+                    self.db.session.commit()
+            elif 'cancel' in emergency.attrs:
+                with self.context:
+                    self.db.session.execute(update(Alert).where(Alert.uid == uid and Alert.cancel_time is None)
+                                            .values(cancel_time=event.attrs['start']))
+                    self.db.session.commit()
 
     def on_message(self, unused_channel, basic_deliver, properties, body):
         try:
             body = json.loads(body)
             soup = BeautifulSoup(body['cot'], 'xml')
+            self.logger.warning(soup)
             event = soup.find('event')
             if event:
                 self.parse_device_info(body['uid'], soup, event)
-                self.parse_point(event, body['uid'])
+                point_pk = self.parse_point(event, body['uid'])
                 self.parse_groups(event, body['uid'])
+                self.parse_alert(event, body['uid'], point_pk)
                 self.insert_cot(soup, event, body['uid'])
                 self.rabbitmq_routing(event, body['cot'])
 
