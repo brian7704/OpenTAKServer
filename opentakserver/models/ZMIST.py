@@ -1,9 +1,9 @@
-from opentakserver.extensions import Base
+from extensions import db
 from sqlalchemy import Integer, String, ForeignKey, Boolean, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
-class ZMIST(Base):
+class ZMIST(db.Model):
     __tablename__ = 'zmist'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

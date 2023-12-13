@@ -1,11 +1,9 @@
-from typing import List
-
-from opentakserver.extensions import Base
+from extensions import db
 from sqlalchemy import Integer, String, ForeignKey, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
-class DataPackage(Base):
+class DataPackage(db.Model):
     __tablename__ = 'data_packages'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

@@ -1,11 +1,11 @@
 from typing import List
 
-from opentakserver.extensions import Base
+from extensions import db
 from sqlalchemy import Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
-class EUD(Base):
+class EUD(db.Model):
     __tablename__ = "eud"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

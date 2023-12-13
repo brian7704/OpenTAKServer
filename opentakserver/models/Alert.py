@@ -1,9 +1,9 @@
-from opentakserver.extensions import Base
+from extensions import db
 from sqlalchemy import Integer, String, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
-class Alert(Base):
+class Alert(db.Model):
     __tablename__ = 'alerts'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

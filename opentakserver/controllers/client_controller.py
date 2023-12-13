@@ -8,11 +8,6 @@ from threading import Thread
 import sqlalchemy
 from bs4 import BeautifulSoup
 import pika
-from extensions import db
-
-from opentakserver.models.CoT import CoT
-from opentakserver.models.EUD import EUD
-from opentakserver.models.point import Point
 
 
 class ClientController(Thread):
@@ -150,7 +145,8 @@ class ClientController(Thread):
             detail = SubElement(event, 'detail')
             link = SubElement(detail, 'link', {'relation': 'p-p', 'uid': self.uid, 'type': 'a-f-G-U-C'})
             flow_tags = SubElement(detail, '_flow-tags_', {'TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0': now})
-            self.logger.debug(tostring(event))
-            self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='', body=tostring(event))
+
+            message = json.dumps({'uid': self.uid, 'cot': tostring(event).decode('utf-8')})
+            self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='', body=message)
         self.logger.info('{} disconnected'.format(self.address))
         self.rabbit_connection.close()

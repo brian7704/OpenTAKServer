@@ -1,9 +1,9 @@
-from opentakserver.extensions import Base
+from extensions import db
 from sqlalchemy import Integer, String, JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
-class CoT(Base):
+class CoT(db.Model):
     __tablename__ = "cot"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
