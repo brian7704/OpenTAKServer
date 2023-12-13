@@ -6,6 +6,7 @@ This project is just beginning and not yet suitable for production.
 
 ## Current Features
 - Connect via TCP from ATAK
+- SSL
 - Send and receive messages
 - Send and receive points
 - Send and receive routes
@@ -17,7 +18,6 @@ This project is just beginning and not yet suitable for production.
 
 ## Planned Features
 - WinTAK and iTAK support (This may already work, just needs to be tested)
-- SSL Support
 - Authentication
 - API to query saved CoT messages
 - WebUI

@@ -169,29 +169,8 @@ class AtakOfTheCerts(CertificateAuthority):
 
                 return cert_data
 
-    def pem_to_p12(self, p12_file, subject_key, subject_certificate, common_name, maximum_days=3650):
+    def pem_to_p12(self, p12_file, subject_key, subject_certificate):
         ca_private_key = serialization.load_pem_private_key(self.key_bytes, None, default_backend())
-        self.logger.info("ca_priv_key: {}".format(type(ca_private_key)))
-        self.logger.info("self.cert: {}".format(type(self.cert)))
-        self.logger.info("key_data.key: {}".format(type(subject_key.key)))
-        '''one_day = datetime.timedelta(1, 0, 0)
-
-        cert = x509.CertificateBuilder()
-        cert = cert.subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)]))
-        cert = cert.serial_number(x509.random_serial_number())
-        cert = cert.not_valid_before(datetime.datetime.today() - one_day)
-        cert = cert.not_valid_after(datetime.datetime.today() + (one_day * maximum_days))
-        self.logger.warning("pk bytes: {}".format(self.public_key_bytes))
-        ca_subject = self.cert.subject
-        self.logger.info("got subject {}".format(ca_subject))
-        cert = cert.issuer_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME,
-                                                              str(ca_subject.rfc4514_string().split("=")[1]))]))
-        cert = cert.public_key(subject_key.public_key)
-        cert = cert.add_extension(x509.SubjectKeyIdentifier.from_public_key(self.public_key), critical=False)
-        cert = cert.add_extension(x509.SubjectAlternativeName([x509.DNSName(common_name)]), critical=False)
-        cert = cert.sign(private_key=self.key, algorithm=hashes.SHA256())
-
-        self.logger.info("ca_private_key type {}".format(type(ca_private_key)))'''
 
         p12 = pkcs12.serialize_key_and_certificates(
             key=subject_key.key, cert=subject_certificate,
@@ -328,7 +307,7 @@ class AtakOfTheCerts(CertificateAuthority):
 
             store_file(certificate_bytes, host_cert_path, False, None)
 
-            self.pem_to_p12(p12_path, key_data, certificate, common_name, maximum_days)
+            self.pem_to_p12(p12_path, key_data, certificate)
 
             cert_data = OwncaCertData(
                 {
@@ -502,7 +481,7 @@ class AtakOfTheCerts(CertificateAuthority):
 
     def generate_zip(self, server_address: str = None, server_filename: str = "truststore.p12",
                      user_filename: str = "user.p12",
-                     cert_password: str = "atakatak", ssl_port: str = "8089") -> None:
+                     cert_password: str = "atakatak", ssl_port: str = "8089") -> str:
         """
         A Function to generate a Client connection Data Package (DP) from a server and user p12 file in the current
         working directory.
@@ -513,13 +492,8 @@ class AtakOfTheCerts(CertificateAuthority):
         :param ssl_port: The port used for SSL CoT, defaults to 8089
         """
 
-        self.logger.info("sfn: {}".format(server_filename))
-
         server_file_path, server_filename = os.path.split(server_filename)
         user_file_path, user_filename = os.path.split(user_filename)
-
-        self.logger.info("sfn: {}".format(server_filename))
-        self.logger.info("sfp: {}".format(server_file_path))
 
         pref_file_template = Template("""<?xml version='1.0' standalone='yes'?>
         <preferences>
@@ -638,3 +612,5 @@ class AtakOfTheCerts(CertificateAuthority):
         rmtree(os.path.join(user_file_path, "MANIFEST"))
         rmtree(os.path.join(user_file_path, parent_folder))
         os.remove(os.path.join(user_file_path, "{}.zip".format(username)))
+
+        return "{}_DP.zip".format(username)
