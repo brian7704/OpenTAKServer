@@ -14,3 +14,16 @@ class ZMIST(db.Model):
     title: Mapped[str] = mapped_column(String, nullable=True)
     z: Mapped[int] = mapped_column(Integer, nullable=True)  # zap_number
     casevac_uid: Mapped[str] = mapped_column(String, ForeignKey("casevac.uid"))
+    casevac = relationship("CasEvac", back_populates="zmist")
+
+    def serialize(self):
+        return {
+            'zmist': {
+                'i': self.i,
+                'm': self.m,
+                's': self.s,
+                't': self.t,
+                'title': self.title,
+                'z': self.z
+            }
+        }

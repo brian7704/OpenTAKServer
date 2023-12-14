@@ -15,4 +15,20 @@ class CoT(db.Model):
     recipients: Mapped[JSON] = mapped_column(JSON, nullable=True)
     timestamp: Mapped[str] = mapped_column(String)
     xml: Mapped[str] = mapped_column(String)
-    eud: Mapped["EUD"] = relationship(back_populates="cots")
+    eud = relationship("EUD", back_populates="cots")
+    alert = relationship("Alert", back_populates="cot")
+    point = relationship("Point", back_populates="cot")
+    casevac = relationship("CasEvac", back_populates="cot")
+
+    def serialize(self):
+        return {
+            'cot':{
+                'how': self.how,
+                'type': self.type,
+                'sender_callsign': self.sender_callsign,
+                'sender_uid': self.sender_uid,
+                'recipients': self.recipients,
+                'timestamp': self.timestamp,
+                'xml': self.xml
+            }
+        }

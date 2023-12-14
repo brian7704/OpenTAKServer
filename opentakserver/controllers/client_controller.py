@@ -85,7 +85,10 @@ class ClientController(Thread):
                         fromstring(data)
                         break
                     except ParseError as e:
-                        data += self.sock.recv(4096)
+                        try:
+                            data += self.sock.recv(4096)
+                        except (ConnectionError, TimeoutError, ConnectionResetError) as e:
+                            break
 
                 soup = BeautifulSoup(data, 'xml')
 

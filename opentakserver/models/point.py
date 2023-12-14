@@ -18,4 +18,23 @@ class Point(db.Model):
     location_source: Mapped[str] = mapped_column(String, nullable=True)
     battery: Mapped[float] = mapped_column(Float, nullable=True)
     timestamp: Mapped[str] = mapped_column(String)
-    eud: Mapped["EUD"] = relationship(back_populates="points")
+    cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
+    cot = relationship("CoT", back_populates="point")
+    eud = relationship("EUD", back_populates="points")
+    casevac = relationship("CasEvac", back_populates="point")
+
+    def serialize(self):
+        return {
+            'point': {
+                'latitude': self.latitude,
+                'longitude': self.longitude,
+                'ce': self.ce,
+                'hae': self.hae,
+                'le': self.le,
+                'course': self.course,
+                'speed': self.speed,
+                'location_source': self.location_source,
+                'battery': self.battery,
+                'timestamp': self.timestamp
+            }
+        }

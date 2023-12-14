@@ -32,8 +32,10 @@ app = Flask(__name__)
 app.config.from_object(Config)
 
 from blueprints.marti import marti_blueprint
-
 app.register_blueprint(marti_blueprint)
+
+from blueprints.api import api_blueprint
+app.register_blueprint(api_blueprint)
 
 # socketio = SocketIO(app)
 db.init_app(app)
@@ -130,7 +132,11 @@ def launch_ssl_server():
         sconn.listen(0)
 
         while True:
-            conn, addr = sconn.accept()
+            try:
+                conn, addr = sconn.accept()
+            except ssl.SSLError:
+                # Prevents crashing this thread if a client tries to connect without using SSL
+                continue
             logger.info("New SSL connection from {}".format(addr[0]))
             new_thread = ClientController(addr[0], addr[1], conn, lock, logger, app.app_context())
             new_thread.daemon = True

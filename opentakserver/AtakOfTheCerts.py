@@ -499,7 +499,7 @@ class AtakOfTheCerts(CertificateAuthority):
         <preferences>
             <preference version="1" name="cot_streams">
                 <entry key="count" class="class java.lang.Integer">1</entry>
-                <entry key="description0" class="class java.lang.String">FreeTAKServer_{{ server }}</entry>
+                <entry key="description0" class="class java.lang.String">OpenTAKServer_{{ server }}</entry>
                 <entry key="enabled0" class="class java.lang.Boolean">true</entry>
                 <entry key="connectString0" class="class java.lang.String">{{ server }}:{{ ssl_port }}:ssl</entry>
             </preference>
@@ -516,7 +516,7 @@ class AtakOfTheCerts(CertificateAuthority):
         manifest_file_template = Template("""<MissionPackageManifest version="2">
            <Configuration>
               <Parameter name="uid" value="{{ uid }}"/>
-              <Parameter name="name" value="FreeTAKServer_{{ server }}"/>
+              <Parameter name="name" value="OpenTAKServer_{{ server }}"/>
               <Parameter name="onReceiveDelete" value="true"/>
            </Configuration>
            <Contents>
@@ -530,7 +530,7 @@ class AtakOfTheCerts(CertificateAuthority):
         manifest_file_parent_template = Template("""<MissionPackageManifest version="2">
                <Configuration>
                   <Parameter name="uid" value="{{ uid }}"/>
-                  <Parameter name="name" value="FreeTAKServer_{{ server }}_DP"/>
+                  <Parameter name="name" value="OpenTAKServer_{{ server }}_DP"/>
                </Configuration>
                <Contents>
                   <Content ignore="false" zipEntry="{{ folder }}/{{ internal_dp_name }}.zip"/>

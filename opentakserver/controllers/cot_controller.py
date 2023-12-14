@@ -50,13 +50,12 @@ class CoTController(Thread):
         self.rabbit_channel.queue_bind(exchange='cot_controller', queue='cot_controller')
         self.rabbit_channel.basic_consume(queue='cot_controller', on_message_callback=self.on_message, auto_ack=True)
 
-    def parse_point(self, event, uid):
+    def parse_point(self, event, uid, cot_id):
         # hae = Height above the WGS ellipsoid in meters
         # ce = Circular 1-sigma or a circular area about the point in meters
         # le = Linear 1-sigma error or an altitude range about the point in meters
         point = event.find('point')
         if point:
-
             p = Point()
             p.device_uid = uid
             p.ce = point.attrs['ce']
@@ -65,6 +64,7 @@ class CoTController(Thread):
             p.latitude = point.attrs['lat']
             p.longitude = point.attrs['lon']
             p.timestamp = datetime.datetime.now().isoformat() + "Z"
+            p.cot_id = cot_id
 
             # We only really care about the rest of the data if there's a valid lat/lon
 
@@ -86,13 +86,13 @@ class CoTController(Thread):
 
             with self.context:
                 res = self.db.session.execute(insert(Point).values(
-                    device_uid=uid, ce=point.attrs['ce'], hae=point.attrs['hae'], le=point.attrs['le'],
-                    latitude=point.attrs['lat'], longitude=point.attrs['lon'],
-                    timestamp=event.attrs['start'] + "Z")
+                    device_uid=uid, ce=p.ce, hae=p.hae, le=p.le, latitude=p.latitude, longitude=p.longitude,
+                    timestamp=event.attrs['start'] + "Z", cot_id=cot_id, location_source=p.location_source,
+                    course=p.course, speed=p.speed, battery=p.battery)
                 )
-                pk = res.inserted_primary_key[0]
+
                 self.db.session.commit()
-                return pk
+                return res.inserted_primary_key[0]
 
     def parse_device_info(self, uid, soup, event):
         link = event.find('link')
@@ -202,9 +202,9 @@ class CoTController(Thread):
                 how=event.attrs['how'], type=event.attrs['type'], sender_callsign=self.online_euds[uid]['callsign'],
                 sender_uid=uid, timestamp=event.attrs['start'], xml=str(soup)
             ))
-            pk = res.inserted_primary_key[0]
+
             self.db.session.commit()
-            return pk
+            return res.inserted_primary_key[0]
 
     def parse_alert(self, event, uid, point_pk, cot_pk):
         emergency = event.find('emergency')
@@ -264,7 +264,7 @@ class CoTController(Thread):
             if event:
                 self.parse_device_info(body['uid'], soup, event)
                 cot_pk = self.insert_cot(soup, event, body['uid'])
-                point_pk = self.parse_point(event, body['uid'])
+                point_pk = self.parse_point(event, body['uid'], cot_pk)
                 self.parse_groups(event, body['uid'])
                 self.parse_alert(event, body['uid'], point_pk, cot_pk)
                 self.parse_casevac(event, body['uid'], point_pk, cot_pk)

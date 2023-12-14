@@ -22,7 +22,7 @@ class Config:
     SQLALCHEMY_RECORD_QUERIES = True
 
     ALLOWED_EXTENSIONS = {'zip'}
-    SERVER_DOMAIN_OR_IP = 'serotina.io'
+    SERVER_DOMAIN_OR_IP = server_domain_or_ip
     NODE_ID = node_id
     UPLOAD_FOLDER = os.path.join(DATA_FOLDER, 'uploads')
     if not os.path.exists(UPLOAD_FOLDER):
