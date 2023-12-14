@@ -1,32 +1,25 @@
-import datetime
-import hashlib
 import os
 import ssl
 import sys
 import traceback
-import uuid
-from shutil import copyfile
 from gevent.pywsgi import WSGIServer
 
-import bleach
 import pika
-from flask import Flask, request, render_template_string
+from flask import Flask, jsonify
 import socket
 import threading
 
 # from flask_socketio import SocketIO
 
-from flask_security import Security, SQLAlchemyUserDatastore, auth_required, hash_password, current_user, roles_accepted
+from flask_security import Security, SQLAlchemyUserDatastore, hash_password
 from flask_security.models import fsqla_v3 as fsqla
 
 from extensions import logger, db
-
 from AtakOfTheCerts import AtakOfTheCerts
 from config import Config
 
 from controllers.client_controller import ClientController
 from controllers.cot_controller import CoTController
-from opentakserver.models.DataPackage import DataPackage
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -74,43 +67,8 @@ aotc = atak_of_the_certs()
 
 
 @app.route("/")
-@roles_accepted("administrator")
 def home():
-    return render_template_string('Hello {{current_user.username}}!')
-
-
-@app.route("/api/certificate", methods=['GET', 'POST'])
-def certificate():
-    if request.method == 'POST' and 'common_name' in request.form.keys():
-        try:
-            common_name = bleach.clean(request.form.get('common_name'))
-            aotc.issue_certificate(hostname=common_name, common_name=common_name, cert_password=Config.CERT_PASSWORD)
-            filename = aotc.generate_zip(server_address=Config.SERVER_DOMAIN_OR_IP,
-                                         server_filename=os.path.join(Config.CA_FOLDER, 'certs',
-                                                                      Config.SERVER_DOMAIN_OR_IP,
-                                                                      "{}.p12".format(Config.SERVER_DOMAIN_OR_IP)),
-                                         user_filename=os.path.join(Config.CA_FOLDER, 'certs', common_name,
-                                                                    "{}.p12".format(common_name)))
-            file_hash = hashlib.file_digest(open(os.path.join(Config.CA_FOLDER, 'certs', common_name, filename),
-                                                 'rb'), 'sha256').hexdigest()
-            data_package = DataPackage()
-            data_package.filename = filename
-            data_package.keywords = "public"
-            data_package.creator_uid = str(uuid.uuid4())
-            data_package.submission_time = datetime.datetime.now().isoformat() + "Z"
-            data_package.mime_type = "application/x-zip-compressed"
-            data_package.size = os.path.getsize(os.path.join(Config.CA_FOLDER, 'certs', common_name, filename))
-            data_package.hash = file_hash
-            db.session.add(data_package)
-            db.session.commit()
-
-            copyfile(os.path.join(Config.CA_FOLDER, 'certs', common_name, "{}_DP.zip".format(common_name)),
-                     os.path.join(Config.UPLOAD_FOLDER, "{}.zip".format(file_hash)))
-
-            return '', 200
-        except BaseException as e:
-            logger.error(traceback.format_exc())
-            return {'error': str(e)}, 500, {'Content-Type': 'application/json'}
+    return jsonify([])
 
 
 def launch_ssl_server():
@@ -173,10 +131,11 @@ if __name__ == '__main__':
         app.security.datastore.find_or_create_role(
             name="user", permissions={"user-read", "user-write"}
         )
+
         app.security.datastore.find_or_create_role(
             name="administrator", permissions={"administrator"}
         )
-        db.session.commit()
+
         if not app.security.datastore.find_user(username="administrator"):
             logger.info("Creating administrator account. The password is 'password'")
             app.security.datastore.create_user(username="administrator",
