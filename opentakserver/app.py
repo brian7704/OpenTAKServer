@@ -2,9 +2,11 @@ import datetime
 import hashlib
 import os
 import ssl
+import sys
 import traceback
 import uuid
 from shutil import copyfile
+from gevent.pywsgi import WSGIServer
 
 import bleach
 import pika
@@ -88,7 +90,7 @@ def certificate():
                                          user_filename=os.path.join(Config.CA_FOLDER, 'certs', common_name,
                                                                     "{}.p12".format(common_name)))
             file_hash = hashlib.file_digest(open(os.path.join(Config.CA_FOLDER, 'certs', common_name, filename),
-                                                'rb'), 'sha256').hexdigest()
+                                                 'rb'), 'sha256').hexdigest()
             data_package = DataPackage()
             data_package.filename = filename
             data_package.keywords = "public"
@@ -187,8 +189,16 @@ if __name__ == '__main__':
     cot_thread.daemon = True
     cot_thread.start()
 
-    app.run(host='0.0.0.0', debug=True, use_reloader=False, port=Config.HTTPS_PORT,
-            ssl_context=(os.path.join(Config.CA_FOLDER, 'certs', Config.SERVER_DOMAIN_OR_IP,
-                                      Config.SERVER_DOMAIN_OR_IP + ".crt"),
-                         os.path.join(Config.CA_FOLDER, 'certs', Config.SERVER_DOMAIN_OR_IP,
-                                      Config.SERVER_DOMAIN_OR_IP + ".pem")))
+    http_server = WSGIServer(('0.0.0.0', Config.HTTP_PORT), app)
+    http_server.start()
+
+    https_server = WSGIServer(('0.0.0.0', Config.HTTPS_PORT), app,
+                              keyfile=os.path.join(Config.CA_FOLDER, 'certs', Config.SERVER_DOMAIN_OR_IP,
+                                                   Config.SERVER_DOMAIN_OR_IP + ".pem"),
+                              certfile=os.path.join(Config.CA_FOLDER, 'certs', Config.SERVER_DOMAIN_OR_IP,
+                                                    Config.SERVER_DOMAIN_OR_IP + ".crt"))
+
+    try:
+        https_server.serve_forever()
+    except KeyboardInterrupt:
+        sys.exit()
