@@ -3,7 +3,10 @@ import os
 import datetime
 import traceback
 
+from xml.etree.ElementTree import Element, tostring, fromstring
+
 import sqlalchemy
+from bs4 import BeautifulSoup
 from flask import current_app as app, request, Blueprint, send_from_directory
 from extensions import logger, db
 
@@ -11,6 +14,8 @@ from config import Config
 from opentakserver.models.EUD import EUD
 from opentakserver.models.DataPackage import DataPackage
 from werkzeug.utils import secure_filename
+
+from opentakserver.models.Video import Video
 
 marti_blueprint = Blueprint('marti_blueprint', __name__)
 
@@ -48,6 +53,7 @@ def data_package_share():
         if file:
             file_hash = request.args.get('hash')
             if file.content_type != 'application/x-zip-compressed':
+                logger.error("Not a zip")
                 return {'error': 'Please only upload zip files'}, 415, {'Content-Type': 'application/json'}
             filename = secure_filename(file_hash + '.zip')
             file.save(os.path.join(Config.UPLOAD_FOLDER, filename))
@@ -128,3 +134,71 @@ def download_data_package():
     data_package = db.session.execute(db.select(DataPackage).filter_by(hash=file_hash)).scalar_one()
 
     return send_from_directory(Config.UPLOAD_FOLDER, file_hash + ".zip", download_name=data_package.filename)
+
+
+@marti_blueprint.route('/Marti/vcm', methods=['GET', 'POST'])
+def video():
+    if request.method == 'POST':
+        soup = BeautifulSoup(request.data, 'xml')
+        video_connections = soup.find('videoConnections')
+        if video_connections:
+            v = Video()
+            v.protocol = video_connections.find('protocol').text
+            v.alias = video_connections.find('alias').text
+            v.uid = video_connections.find('uid').text
+            v.address = video_connections.find('address').text
+            v.port = video_connections.find('port').text
+            v.rover_port = video_connections.find('roverPort').text
+            v.ignore_embedded_klv = (video_connections.find('ignoreEmbeddedKLV').text.lower() == 'true')
+            v.preferred_mac_address = video_connections.find('preferredMacAddress').text
+            v.preferred_interface_address = video_connections.find('preferredInterfaceAddress').text
+            v.path = video_connections.find('path').text
+            v.buffer_time = video_connections.find('buffer').text
+            v.network_timeout = video_connections.find('timeout').text
+            v.rtsp_reliable = video_connections.find('rtspReliable').text
+            v.xml = str(soup.find('feed'))
+
+            with app.app_context():
+                try:
+                    db.session.add(v)
+                    db.session.commit()
+                    logger.debug("Inserted Video")
+                except sqlalchemy.exc.IntegrityError as e:
+                    logger.debug(e)
+                    db.session.rollback()
+                    v = db.session.execute(db.select(Video).filter_by(uid=v.uid)).scalar_one()
+                    v.protocol = video_connections.find('protocol').text
+                    v.alias = video_connections.find('alias').text
+                    v.uid = video_connections.find('uid').text
+                    v.address = video_connections.find('address').text
+                    v.port = video_connections.find('port').text
+                    v.rover_port = video_connections.find('roverPort').text
+                    v.ignore_embedded_klv = (video_connections.find('ignoreEmbeddedKLV').text.lower() == 'true')
+                    v.preferred_mac_address = video_connections.find('preferredMacAddress').text
+                    v.preferred_interface_address = video_connections.find('preferredInterfaceAddress').text
+                    v.path = video_connections.find('path').text
+                    v.buffer_time = video_connections.find('buffer').text
+                    v.network_timeout = video_connections.find('timeout').text
+                    v.rtsp_reliable = video_connections.find('rtspReliable').text
+                    v.xml = str(soup.find('feed'))
+
+                    db.session.commit()
+                    logger.debug("Updated video")
+
+        return '', 200
+
+    elif request.method == 'GET':
+        try:
+            with app.app_context():
+                videos = db.session.execute(db.select(Video)).scalars()
+                videoconnections = Element('videoConnections')
+
+                for video in videos:
+                    v = video.serialize()
+                    videoconnections.append(fromstring(v['video']['xml']))
+
+            return tostring(videoconnections), 200
+        except BaseException as e:
+            logger.error(traceback.format_exc())
+            return '', 500
+

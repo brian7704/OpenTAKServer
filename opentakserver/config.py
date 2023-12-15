@@ -21,7 +21,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = True
 
-    ALLOWED_EXTENSIONS = {'zip'}
+    ALLOWED_EXTENSIONS = {'zip', 'xml'}
     SERVER_DOMAIN_OR_IP = server_domain_or_ip
     NODE_ID = node_id
     UPLOAD_FOLDER = os.path.join(DATA_FOLDER, 'uploads')

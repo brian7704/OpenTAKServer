@@ -19,6 +19,7 @@ class CoT(db.Model):
     alert = relationship("Alert", back_populates="cot")
     point = relationship("Point", back_populates="cot")
     casevac = relationship("CasEvac", back_populates="cot")
+    video = relationship("Video", back_populates="cot")
 
     def serialize(self):
         return {

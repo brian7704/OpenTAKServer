@@ -2,6 +2,7 @@ import datetime
 import json
 import traceback
 from threading import Thread
+from xml.etree.ElementTree import Element, SubElement, tostring
 
 from sqlalchemy import exc, insert, update
 from bs4 import BeautifulSoup
@@ -11,6 +12,7 @@ from opentakserver.models.Alert import Alert
 from opentakserver.models.CasEvac import CasEvac
 from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
+from opentakserver.models.Video import Video
 from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.point import Point
 
@@ -256,6 +258,65 @@ class CoTController(Thread):
                         update(ZMIST).where(CasEvac.uid == event.attrs['uid']).values(**zmist.attrs))
                 self.db.session.commit()
 
+    def parse_video(self, event, cot_pk):
+        video = event.find("__video")
+        if video:
+            self.logger.debug("Got video stream")
+            connection_entry = video.find('ConnectionEntry')
+
+            v = Video()
+            v.network_timeout = connection_entry.attrs['networkTimeout']
+            v.uid = connection_entry.attrs['uid']
+            v.path = connection_entry.attrs['path']
+            v.protocol = connection_entry.attrs['protocol']
+            v.buffer_time = connection_entry.attrs['bufferTime']
+            v.address = connection_entry.attrs['address']
+            v.port = connection_entry.attrs['port']
+            v.rover_port = connection_entry.attrs['roverPort']
+            v.rtsp_reliable = connection_entry.attrs['rtspReliable']
+            v.ignore_embedded_klv = (connection_entry.attrs['ignoreEmbeddedKLV'].lower() == 'true')
+            v.alias = connection_entry.attrs['alias']
+            v.cot_id = cot_pk
+
+            feed = Element('feed')
+            SubElement(feed, 'protocol').text = v.protocol
+            SubElement(feed, 'alias').text = v.alias
+            SubElement(feed, 'uid').text = v.uid
+            SubElement(feed, 'address').text = v.address
+            SubElement(feed, 'port').text = v.port
+            SubElement(feed, 'roverPort').text = v.rover_port
+            SubElement(feed, 'ignoreEmbeddedKLV').text = connection_entry.attrs['ignoreEmbeddedKLV']
+            SubElement(feed, 'preferredMacAddress').text = v.preferred_mac_address
+            SubElement(feed, 'preferredInterfaceAddress').text = v.preferred_interface_address
+            SubElement(feed, 'path').text = v.path
+            SubElement(feed, 'buffer').text = v.buffer_time
+            SubElement(feed, 'timeout').text = v.network_timeout
+            SubElement(feed, 'rtspReliable').text = v.rtsp_reliable
+
+            v.xml = tostring(feed)
+
+            with self.context:
+                try:
+                    self.db.session.add(v)
+                    self.db.session.commit()
+                    self.logger.debug("Added video")
+                except exc.IntegrityError as e:
+                    self.db.session.rollback()
+                    self.db.session.execute(update(Video).where(Video.uid == connection_entry.attrs['uid'])
+                                            .values(network_timeout=connection_entry.attrs['networkTimeout'],
+                                                    path=connection_entry.attrs['uid'],
+                                                    protocol=connection_entry.attrs['protocol'],
+                                                    buffer_time=connection_entry.attrs['bufferTime'],
+                                                    address=connection_entry.attrs['address'],
+                                                    port=connection_entry.attrs['port'],
+                                                    rover_port=connection_entry.attrs['roverPort'],
+                                                    rtsp_reliable=connection_entry.attrs['rtspReliable'],
+                                                    ignore_embedded_klv=(connection_entry.attrs['ignoreEmbeddedKLV'].lower() == 'true'),
+                                                    alias=connection_entry.attrs['alias'],
+                                                    xml=v.xml))
+
+                    self.db.session.commit()
+
     def on_message(self, unused_channel, basic_deliver, properties, body):
         try:
             body = json.loads(body)
@@ -265,6 +326,7 @@ class CoTController(Thread):
                 self.parse_device_info(body['uid'], soup, event)
                 cot_pk = self.insert_cot(soup, event, body['uid'])
                 point_pk = self.parse_point(event, body['uid'], cot_pk)
+                self.parse_video(event, cot_pk)
                 self.parse_groups(event, body['uid'])
                 self.parse_alert(event, body['uid'], point_pk, cot_pk)
                 self.parse_casevac(event, body['uid'], point_pk, cot_pk)
