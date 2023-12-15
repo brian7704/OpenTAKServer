@@ -6,10 +6,12 @@ import uuid
 from shutil import copyfile
 
 import bleach
+import sqlalchemy.exc
 from flask import current_app as app, request, Blueprint, jsonify
 from flask_security import auth_required, roles_accepted, permissions_accepted, hash_password, current_user, \
-    admin_change_password
+    admin_change_password, verify_password
 from extensions import logger, db
+from sqlalchemy import update
 
 from opentakserver.AtakOfTheCerts import AtakOfTheCerts
 from opentakserver.config import Config
@@ -18,6 +20,7 @@ from opentakserver.models.CasEvac import CasEvac
 from opentakserver.models.CoT import CoT
 from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.EUD import EUD
+from opentakserver.models.VideoStream import VideoStream
 from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.point import Point
 
@@ -235,3 +238,42 @@ def admin_reset_password():
     else:
         return ({'success': False, 'error': 'Could not find user {}'.format(username)}, 400,
                 {'Content-Type': 'application/json'})
+
+
+# This is mainly for mediamtx authentication
+@api_blueprint.route('/api/external_auth', methods=['POST'])
+def external_auth():
+    username = bleach.clean(request.json.get('user'))
+    password = bleach.clean(request.json.get('password'))
+    action = bleach.clean(request.json.get('action'))
+
+    user = app.security.datastore.find_user(username=username)
+    if user and verify_password(password, user.password):
+        if action == 'publish':
+            video_stream = VideoStream()
+            video_stream.id = bleach.clean(request.json.get('id'))
+            video_stream.ip = bleach.clean(request.json.get('ip'))
+            video_stream.username = bleach.clean(request.json.get('user'))
+            video_stream.path = bleach.clean(request.json.get('path'))
+            video_stream.protocol = bleach.clean(request.json.get('protocol'))
+            video_stream.action = bleach.clean(request.json.get('action'))
+            video_stream.query = bleach.clean(request.json.get('query'))
+
+            with app.app_context():
+                try:
+                    db.session.add(video_stream)
+                    db.session.commit()
+                    logger.debug("Inserted video stream {}".format(video_stream.id))
+                except sqlalchemy.exc.IntegrityError:
+                    db.session.rollback()
+                    db.session.execute(update(VideoStream).where(VideoStream.ip == video_stream.ip and
+                                                                 VideoStream.path == video_stream.path)
+                                       .values(id=video_stream.id, username=video_stream.username,
+                                               protocol=video_stream.protocol, action=video_stream.action,
+                                               query=video_stream.query))
+                    db.session.commit()
+                    logger.debug("Updated video stream {}".format(video_stream.id))
+
+        return '', 200
+    else:
+        return '', 401

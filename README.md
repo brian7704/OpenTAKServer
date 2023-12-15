@@ -43,6 +43,7 @@ This project is just beginning and not yet suitable for production.
 - flask-sqlalchemy = "^3.1.1"
 - Flask-Security-Too = "^5.3.2"
 - RabbitMQ
+- MediaMTX (Only required for video streaming)
 
 ## Installation
 ```
