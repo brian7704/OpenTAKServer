@@ -4,14 +4,18 @@ import traceback
 from threading import Thread
 from xml.etree.ElementTree import Element, SubElement, tostring
 
+import sqlalchemy.exc
 from sqlalchemy import exc, insert, update
 from bs4 import BeautifulSoup
 import pika
 
+from opentakserver.models.Chatrooms import Chatroom
 from opentakserver.models.Alert import Alert
 from opentakserver.models.CasEvac import CasEvac
+from opentakserver.models.ChatroomsUids import ChatroomsUids
 from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
+from opentakserver.models.GeoChat import GeoChat
 from opentakserver.models.Video import Video
 from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.point import Point
@@ -51,6 +55,65 @@ class CoTController(Thread):
         self.rabbit_channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
         self.rabbit_channel.queue_bind(exchange='cot_controller', queue='cot_controller')
         self.rabbit_channel.basic_consume(queue='cot_controller', on_message_callback=self.on_message, auto_ack=True)
+
+    def parse_geochat(self, event, cot_id, point_id):
+        chat = event.find('__chat')
+        if chat:
+            chat_group = event.find('chatgrp')
+            remarks = event.find('remarks')
+
+            chatroom = Chatroom()
+
+            chatroom.name = chat.attrs['chatroom']
+            chatroom.id = chat.attrs['id']
+            chatroom.parent = chat.attrs['parent']
+
+            with self.context:
+                try:
+                    self.db.session.add(chatroom)
+                    self.db.session.commit()
+                except sqlalchemy.exc.IntegrityError:
+                    self.db.session.rollback()
+
+            geochat = GeoChat()
+
+            geochat.uid = event.attrs['uid']
+            geochat.chatroom_id = chat.attrs['id']
+            geochat.sender_uid = chat_group.attrs['uid0']
+            geochat.remarks = remarks.text
+            geochat.timestamp = remarks.attrs['time']
+            geochat.point_id = point_id
+            geochat.cot_id = cot_id
+
+            with self.context:
+                try:
+
+                    self.db.session.add(geochat)
+                    self.db.session.commit()
+                except sqlalchemy.exc.IntegrityError:
+                    # TODO: Check if remarks can be edited and if so do an update here
+                    self.db.session.rollback()
+
+            for attr in chat_group.attrs:
+                if attr.startswith("uid") and attr != 'uid':
+
+                    if chat.attrs['groupOwner'].lower() == 'true' and attr == 'uid0':
+                        with self.context:
+                            self.db.session.execute(update(Chatroom).where(Chatroom.id == chat.attrs['id'])
+                                                    .values(group_owner=chat_group.attrs[attr]))
+                            self.db.session.commit()
+
+                    chatroom_uid = ChatroomsUids()
+                    chatroom_uid.chatroom_id = chat.attrs['id']
+                    chatroom_uid.uid = chat_group.attrs[attr]
+
+                    with self.context:
+                        try:
+                            self.db.session.add(chatroom_uid)
+                            self.db.session.commit()
+                            self.logger.debug("add {} to chatroom {}".format(chatroom_uid.uid, chatroom_uid.chatroom_id))
+                        except sqlalchemy.exc.IntegrityError:
+                            self.db.session.rollback()
 
     def parse_point(self, event, uid, cot_id):
         # hae = Height above the WGS ellipsoid in meters
@@ -326,6 +389,7 @@ class CoTController(Thread):
                 self.parse_device_info(body['uid'], soup, event)
                 cot_pk = self.insert_cot(soup, event, body['uid'])
                 point_pk = self.parse_point(event, body['uid'], cot_pk)
+                self.parse_geochat(event, cot_pk, point_pk)
                 self.parse_video(event, cot_pk)
                 self.parse_groups(event, body['uid'])
                 self.parse_alert(event, body['uid'], point_pk, cot_pk)

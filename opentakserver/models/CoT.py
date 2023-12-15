@@ -20,6 +20,7 @@ class CoT(db.Model):
     point = relationship("Point", back_populates="cot")
     casevac = relationship("CasEvac", back_populates="cot")
     video = relationship("Video", back_populates="cot")
+    geochat = relationship("GeoChat", back_populates="cot")
 
     def serialize(self):
         return {

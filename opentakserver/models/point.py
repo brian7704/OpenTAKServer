@@ -22,6 +22,7 @@ class Point(db.Model):
     cot = relationship("CoT", back_populates="point")
     eud = relationship("EUD", back_populates="points")
     casevac = relationship("CasEvac", back_populates="point")
+    geochat = relationship("GeoChat", back_populates="point")
 
     def serialize(self):
         return {
