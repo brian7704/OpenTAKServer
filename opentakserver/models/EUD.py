@@ -21,6 +21,7 @@ class EUD(db.Model):
     casevacs = relationship("CasEvac", back_populates="eud")
     geochats = relationship("GeoChat", back_populates="eud")
     chatroom_uid = relationship("ChatroomsUids", back_populates="eud")
+    user = relationship("UsersEuds", back_populates="eud")
     # data_packages: Mapped[List["DataPackage"]] = relationship(back_populates="eud")
 
     def serialize(self):

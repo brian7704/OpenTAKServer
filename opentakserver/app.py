@@ -24,12 +24,6 @@ from controllers.cot_controller import CoTController
 app = Flask(__name__)
 app.config.from_object(Config)
 
-from blueprints.marti import marti_blueprint
-app.register_blueprint(marti_blueprint)
-
-from blueprints.api import api_blueprint
-app.register_blueprint(api_blueprint)
-
 # socketio = SocketIO(app)
 db.init_app(app)
 fsqla.FsModels.set_db_info(db)
@@ -39,6 +33,13 @@ from models.role import Role
 
 user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 app.security = Security(app, user_datastore)
+
+
+from blueprints.marti import marti_blueprint
+app.register_blueprint(marti_blueprint)
+
+from blueprints.api import api_blueprint
+app.register_blueprint(api_blueprint)
 
 rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
 channel = rabbit_connection.channel()
@@ -79,12 +80,11 @@ def launch_ssl_server():
 
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
-        '''context.load_cert_chain(os.path.join(Config.CA_FOLDER, "certs", Config.SERVER_DOMAIN_OR_IP,
+        context.load_cert_chain(os.path.join(Config.CA_FOLDER, "certs", Config.SERVER_DOMAIN_OR_IP,
                                              Config.SERVER_DOMAIN_OR_IP + ".crt"),
                                 os.path.join(Config.CA_FOLDER, "certs", Config.SERVER_DOMAIN_OR_IP,
-                                             Config.SERVER_DOMAIN_OR_IP + ".pem"))'''
-        context.load_cert_chain("/etc/letsencrypt/archive/serotina.io/fullchain1.pem",
-                                "/etc/letsencrypt/archive/serotina.io/privkey1.pem")
+                                             Config.SERVER_DOMAIN_OR_IP + ".pem"))
+
         context.verify_mode = ssl.CERT_REQUIRED
         context.load_verify_locations(os.path.join(Config.CA_FOLDER, 'ca.crt'))
         sconn = context.wrap_socket(sock, server_side=True)
@@ -159,15 +159,11 @@ if __name__ == '__main__':
     http_server = WSGIServer(('0.0.0.0', Config.HTTP_PORT), app)
     http_server.start()
 
-    '''https_server = WSGIServer(('0.0.0.0', Config.HTTPS_PORT), app,
+    https_server = WSGIServer(('0.0.0.0', Config.HTTPS_PORT), app,
                               keyfile=os.path.join(Config.CA_FOLDER, 'certs', Config.SERVER_DOMAIN_OR_IP,
                                                    Config.SERVER_DOMAIN_OR_IP + ".pem"),
                               certfile=os.path.join(Config.CA_FOLDER, 'certs', Config.SERVER_DOMAIN_OR_IP,
-                                                    Config.SERVER_DOMAIN_OR_IP + ".crt"))'''
-
-    https_server = WSGIServer(('0.0.0.0', Config.HTTPS_PORT), app,
-                              keyfile=os.path.join("/etc/letsencrypt/archive/serotina.io/privkey1.pem"),
-                              certfile=os.path.join("/etc/letsencrypt/archive/serotina.io/fullchain1.pem"))
+                                                    Config.SERVER_DOMAIN_OR_IP + ".crt"))
 
     try:
         https_server.serve_forever()

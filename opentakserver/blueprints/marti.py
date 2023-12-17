@@ -11,11 +11,11 @@ from flask import current_app as app, request, Blueprint, send_from_directory
 from extensions import logger, db
 
 from config import Config
-from opentakserver.models.EUD import EUD
-from opentakserver.models.DataPackage import DataPackage
+from models.EUD import EUD
+from models.DataPackage import DataPackage
 from werkzeug.utils import secure_filename
 
-from opentakserver.models.Video import Video
+from models.Video import Video
 
 marti_blueprint = Blueprint('marti_blueprint', __name__)
 

@@ -38,3 +38,4 @@ class Config:
     SECURITY_USER_IDENTITY_ATTRIBUTES = [{"username": {"mapper": uia_username_mapper, "case_insensitive": True}}]
     SECURITY_USERNAME_ENABLE = True
     SECURITY_USERNAME_REQUIRED = True
+    SECURITY_TRACKABLE = True

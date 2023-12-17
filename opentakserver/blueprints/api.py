@@ -13,16 +13,18 @@ from flask_security import auth_required, roles_accepted, permissions_accepted, 
 from extensions import logger, db
 from sqlalchemy import update
 
-from opentakserver.AtakOfTheCerts import AtakOfTheCerts
-from opentakserver.config import Config
-from opentakserver.models.Alert import Alert
-from opentakserver.models.CasEvac import CasEvac
-from opentakserver.models.CoT import CoT
-from opentakserver.models.DataPackage import DataPackage
-from opentakserver.models.EUD import EUD
-from opentakserver.models.VideoStream import VideoStream
-from opentakserver.models.ZMIST import ZMIST
-from opentakserver.models.point import Point
+from AtakOfTheCerts import AtakOfTheCerts
+from config import Config
+from models.Alert import Alert
+from models.CasEvac import CasEvac
+from models.CoT import CoT
+from models.DataPackage import DataPackage
+from models.EUD import EUD
+from models.VideoStream import VideoStream
+from models.ZMIST import ZMIST
+from models.point import Point
+from models.UsersEUDs import UsersEuds
+from models.user import User
 
 api_blueprint = Blueprint('api_blueprint', __name__)
 
@@ -277,3 +279,42 @@ def external_auth():
         return '', 200
     else:
         return '', 401
+
+
+@api_blueprint.route('/api/user/assign_eud', methods=['POST'])
+@auth_required()
+def assign_eud_to_user():
+    username = bleach.clean(request.json.get('username')) if 'username' in request.json else None
+    eud_uid = bleach.clean(request.json.get('uid')) if 'uid' in request.json else None
+    user = None
+
+    if not eud_uid:
+        return {'success': False, 'error': 'Please specify an EUD'}, 400, {'Content-Type': 'application/json'}
+    if not username or username == current_user.username:
+        username = current_user.username
+        user = current_user
+    elif username != current_user.username and current_user.has_role('administrator'):
+        user = app.security.datastore.find_user(username=username)
+        if not user:
+            return {'success': False, 'error': 'User {} does not exist'.format(username)}, 404, {'Content-Type': 'application/json'}
+
+    eud = db.session.query(EUD).filter_by(uid=eud_uid).first()
+
+    if not eud:
+        return {'success': False, 'error': 'EUD {} not found'.format(eud_uid)}, 404, {'Content-Type': 'application/json'}
+    else:
+        query = (db.session.query(User, EUD, UsersEuds)
+                 .join(User, User.id == UsersEuds.user_id)
+                 .join(EUD, EUD.uid == UsersEuds.eud_uid)
+                 .where(EUD.uid == eud_uid))
+
+        try:
+            user_eud = UsersEuds()
+            user_eud.user_id = user.id
+            user_eud.eud_uid = eud.uid
+            db.session.add(user_eud)
+            db.session.commit()
+            return jsonify({'success': True})
+        except sqlalchemy.exc.IntegrityError:
+            return ({'success': False, 'error': '{} is already assigned to a user'.format(eud_uid)}, 409,
+                    {'Content-Type': 'application/json'})
