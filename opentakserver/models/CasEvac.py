@@ -53,7 +53,7 @@ class CasEvac(db.Model):
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
     point = relationship("Point", back_populates="casevac")
     cot = relationship("CoT", back_populates="casevac")
-    zmist = relationship("ZMIST", back_populates="casevac")
+    zmist = relationship("ZMIST", back_populates="casevac", uselist=False)
     eud = relationship("EUD", back_populates="casevacs")
 
     def serialize(self):
@@ -98,6 +98,7 @@ class CasEvac(db.Model):
                 'us_military': self.us_military,
                 'ventilator': self.ventilator,
                 'winds_are_from': self.winds_are_from,
-                'zone_prot_selection': self.zone_prot_selection
+                'zone_prot_selection': self.zone_prot_selection,
+                'zmist': self.zmist.serialize() if self.zmist else None
             }
         }

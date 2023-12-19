@@ -77,10 +77,8 @@ def search(query, model, field):
 @api_blueprint.route('/api/cot', methods=['GET'])
 @auth_required()
 def query_cot():
-    logger.info(request.args)
     query = db.session.query(CoT)
     query = search(query, CoT, 'how')
-    query = search(query, CoT, 'type')
     query = search(query, CoT, 'type')
     query = search(query, CoT, 'sender_callsign')
     query = search(query, CoT, 'sender_uid')
@@ -88,25 +86,6 @@ def query_cot():
     rows = db.session.execute(query).scalars()
 
     return jsonify([row.serialize() for row in rows])
-
-
-@api_blueprint.route("/api/eud", methods=['GET'])
-@auth_required()
-def query_euds():
-    query = db.session.query(EUD)
-
-    query = search(query, EUD, 'uid')
-    query = search(query, EUD, 'callsign')
-
-    rows = db.session.execute(query)
-
-    result = []
-    if rows:
-        for row in rows:
-            for r in row:
-                result.append(r.serialize())
-
-    return jsonify(result)
 
 
 @api_blueprint.route("/api/alert", methods=['GET'])
@@ -206,7 +185,8 @@ def create_user():
         return {'success': True}, 200, {'Content-Type': 'application/json'}
     else:
         logger.error("exists")
-        return {'success': False, 'error': 'User {} already exists'.format(username)}, 409, {'Content-Type': 'application/json'}
+        return {'success': False, 'error': 'User {} already exists'.format(username)}, 409, {
+            'Content-Type': 'application/json'}
 
 
 @api_blueprint.route("/api/user/delete", methods=['POST'])
@@ -291,30 +271,72 @@ def assign_eud_to_user():
     if not eud_uid:
         return {'success': False, 'error': 'Please specify an EUD'}, 400, {'Content-Type': 'application/json'}
     if not username or username == current_user.username:
-        username = current_user.username
         user = current_user
     elif username != current_user.username and current_user.has_role('administrator'):
         user = app.security.datastore.find_user(username=username)
         if not user:
-            return {'success': False, 'error': 'User {} does not exist'.format(username)}, 404, {'Content-Type': 'application/json'}
+            return {'success': False, 'error': 'User {} does not exist'.format(username)}, 404, {
+                'Content-Type': 'application/json'}
 
     eud = db.session.query(EUD).filter_by(uid=eud_uid).first()
 
     if not eud:
-        return {'success': False, 'error': 'EUD {} not found'.format(eud_uid)}, 404, {'Content-Type': 'application/json'}
+        return {'success': False, 'error': 'EUD {} not found'.format(eud_uid)}, 404, {
+            'Content-Type': 'application/json'}
+    elif eud.user_id and not current_user.has_role('administrator') and current_user.id != eud.user_id:
+        return ({'success': False, 'error': '{} is already assigned to another user'.format(eud.uid)}, 403,
+                {'Content-Type': 'application/json'})
     else:
-        query = (db.session.query(User, EUD, UsersEuds)
-                 .join(User, User.id == UsersEuds.user_id)
-                 .join(EUD, EUD.uid == UsersEuds.eud_uid)
-                 .where(EUD.uid == eud_uid))
+        eud.user_id = user.id
+        db.session.add(eud)
+        db.session.commit()
 
-        try:
-            user_eud = UsersEuds()
-            user_eud.user_id = user.id
-            user_eud.eud_uid = eud.uid
-            db.session.add(user_eud)
-            db.session.commit()
-            return jsonify({'success': True})
-        except sqlalchemy.exc.IntegrityError:
-            return ({'success': False, 'error': '{} is already assigned to a user'.format(eud_uid)}, 409,
-                    {'Content-Type': 'application/json'})
+        return jsonify({'success': True})
+
+
+@api_blueprint.route('/api/eud')
+@auth_required()
+def get_euds():
+    query = db.session.query(EUD)
+    query = search(query, EUD, 'callsign')
+    query = search(query, EUD, 'uid')
+
+    rows = db.session.execute(query).all()
+
+    results = []
+    for row in rows:
+        for table in row:
+            results.append(table.serialize())
+    return jsonify(results)
+
+
+@api_blueprint.route('/api/alerts')
+@auth_required()
+def get_alerts():
+    query = (db.session.query(Alert, Point, CoT, EUD)
+             .join(EUD, EUD.uid == Alert.sender_uid)
+             .join(Point, Point.id == Alert.point_id)
+             .join(CoT, CoT.id == Alert.cot_id))
+
+    query = search(query, EUD, 'callsign')
+    query = search(query, EUD, 'sender_uid')
+    query = search(query, User, 'username')
+    query = search(query, Alert, 'alert_type')
+
+    rows = db.session.execute(query).scalars()
+
+    return jsonify([row.serialize() for row in rows])
+
+
+@api_blueprint.route('/api/case')
+@auth_required()
+def get_casevac():
+    query = db.session.query(CasEvac)
+
+    query = search(query, EUD, 'callsign')
+    query = search(query, EUD, 'sender_uid')
+    query = search(query, User, 'username')
+
+    rows = db.session.execute(query).scalars()
+
+    return jsonify([row.serialize() for row in rows])

@@ -94,7 +94,7 @@ def launch_ssl_server():
         while True:
             try:
                 conn, addr = sconn.accept()
-            except ssl.SSLError:
+            except (ConnectionResetError, ssl.SSLError):
                 # Prevents crashing this thread if a client tries to connect without using SSL
                 continue
             logger.info("New SSL connection from {}".format(addr[0]))

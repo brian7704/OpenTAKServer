@@ -87,6 +87,7 @@ class ClientController(Thread):
                     except ParseError as e:
                         try:
                             data += self.sock.recv(4096)
+                            break
                         except (ConnectionError, TimeoutError, ConnectionResetError) as e:
                             break
 
