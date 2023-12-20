@@ -85,7 +85,7 @@ def paginate(query):
     pagination = db.paginate(query, page=page, per_page=per_page)
     rows = pagination.items
 
-    results = {'results': [], 'total_pages': pagination.pages}
+    results = {'results': [], 'total_pages': pagination.pages, 'current_page': page, 'per_page': per_page}
 
     for row in rows:
         results['results'].append(row.serialize())
@@ -120,7 +120,7 @@ def query_cot():
     return paginate(query)
 
 
-@api_blueprint.route("/api/alert", methods=['GET'])
+@api_blueprint.route("/api/alerts", methods=['GET'])
 @auth_required()
 def query_alerts():
     query = db.session.query(Alert)
