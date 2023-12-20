@@ -17,4 +17,4 @@ class DataPackage(db.Model):
     size: Mapped[int] = mapped_column(Integer)
     tool: Mapped[str] = mapped_column(String, nullable=True)
     expiration: Mapped[str] = mapped_column(String, nullable=True)
-    # eud: Mapped["EUD"] = relationship(back_populates="data_packages")
+    eud: Mapped["EUD"] = relationship(back_populates="data_packages")

@@ -83,7 +83,7 @@ def query_cot():
     query = search(query, CoT, 'sender_callsign')
     query = search(query, CoT, 'sender_uid')
 
-    rows = db.session.execute(query).scalars()
+    rows = db.paginate(db.session.execute(query)).scalars()
 
     return jsonify([row.serialize() for row in rows])
 
@@ -91,24 +91,14 @@ def query_cot():
 @api_blueprint.route("/api/alert", methods=['GET'])
 @auth_required()
 def query_alerts():
-    query = (db.session.query(Alert, CoT, EUD, Point)
-             .join(CoT, CoT.id == Alert.cot_id)
-             .join(EUD, EUD.uid == Alert.sender_uid)
-             .join(Point, Point.id == Alert.point_id))
-
+    query = db.session.query(Alert)
     query = search(query, Alert, 'uid')
     query = search(query, Alert, 'sender_uid')
     query = search(query, Alert, 'alert_type')
 
-    rows = db.session.execute(query)
+    rows = db.session.execute(query).scalars()
 
-    result = []
-    if rows:
-        for row in rows:
-            for r in row:
-                result.append(r.serialize())
-
-    return jsonify(result)
+    return jsonify([row.serialize() for row in rows])
 
 
 @api_blueprint.route("/api/point", methods=['GET'])
@@ -310,31 +300,27 @@ def get_euds():
     return jsonify(results)
 
 
-@api_blueprint.route('/api/alerts')
-@auth_required()
-def get_alerts():
-    query = (db.session.query(Alert, Point, CoT, EUD)
-             .join(EUD, EUD.uid == Alert.sender_uid)
-             .join(Point, Point.id == Alert.point_id)
-             .join(CoT, CoT.id == Alert.cot_id))
-
-    query = search(query, EUD, 'callsign')
-    query = search(query, EUD, 'sender_uid')
-    query = search(query, User, 'username')
-    query = search(query, Alert, 'alert_type')
-
-    rows = db.session.execute(query).scalars()
-
-    return jsonify([row.serialize() for row in rows])
 
 
-@api_blueprint.route('/api/case')
+
+@api_blueprint.route('/api/casevac')
 @auth_required()
 def get_casevac():
     query = db.session.query(CasEvac)
 
     query = search(query, EUD, 'callsign')
     query = search(query, EUD, 'sender_uid')
+    query = search(query, User, 'username')
+
+    rows = db.session.execute(query).scalars()
+
+    return jsonify([row.serialize() for row in rows])
+
+
+@api_blueprint.route('/api/users')
+@auth_required()
+def get_users():
+    query = db.session.query(User)
     query = search(query, User, 'username')
 
     rows = db.session.execute(query).scalars()

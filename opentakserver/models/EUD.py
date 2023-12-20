@@ -27,7 +27,7 @@ class EUD(db.Model):
     chatroom_uid = relationship("ChatroomsUids", back_populates="eud")
     user: Mapped["User"] = relationship(back_populates="euds")
     alert = relationship("Alert", back_populates="eud")
-    # data_packages: Mapped[List["DataPackage"]] = relationship(back_populates="eud")
+    data_packages = relationship("DataPackage", back_populates="eud")
 
     def serialize(self):
         return {

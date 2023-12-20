@@ -1,8 +1,11 @@
+from dataclasses import dataclass
+
 from extensions import db
 from sqlalchemy import Integer, String, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
+@dataclass
 class VideoStream(db.Model):
     __tablename__ = "video_streams"
 
@@ -15,3 +18,16 @@ class VideoStream(db.Model):
     action: Mapped[str] = mapped_column(String)
     query: Mapped[str] = mapped_column(String, nullable=True)
     user = relationship("User", back_populates="video_streams")
+
+    def serialize(self):
+        return {
+            'video_stream': {
+                'ip': self.ip,
+                'path': self.path,
+                'username': self.username,
+                'protocol': self.protocol,
+                'action': self.action,
+                'query': self.query,
+                'user': self.user.serialize() if self.user else None
+            }
+        }

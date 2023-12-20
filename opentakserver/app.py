@@ -2,10 +2,13 @@ import os
 import ssl
 import sys
 import traceback
+
+import flask_wtf
 from gevent.pywsgi import WSGIServer
 
 import pika
 from flask import Flask, jsonify
+from flask_cors import CORS
 import socket
 import threading
 
@@ -23,6 +26,8 @@ from controllers.cot_controller import CoTController
 
 app = Flask(__name__)
 app.config.from_object(Config)
+cors = CORS(app, resources={r"/api/*": {"origins": "*"}, r"/Marti/*": {"origins": "*"}, r"/*": {"origins": "*"}}, supports_credentials=True)
+flask_wtf.CSRFProtect(app)
 
 # socketio = SocketIO(app)
 db.init_app(app)

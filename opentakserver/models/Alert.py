@@ -26,5 +26,6 @@ class Alert(db.Model):
                 'start_time': self.start_time,
                 'cancel_time': self.cancel_time,
                 'alert_type': self.alert_type,
+                'eud': self.eud.serialize() if self.eud else None,
             }
         }

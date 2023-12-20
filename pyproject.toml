@@ -20,6 +20,7 @@ sqlalchemy = "^2.0.23"
 sqlalchemy-utils = "^0.41.1"
 flask-sqlalchemy = "^3.1.1"
 Flask-Security-Too = "^5.3.2"
+flask-cors = "^4.0.0"
 
 
 [build-system]
