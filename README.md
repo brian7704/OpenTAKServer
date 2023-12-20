@@ -25,7 +25,8 @@ This project is just beginning and not yet suitable for production.
   - View saved CoT messages
   - Chat with EUDs
 - Mission support
-- Video Streamimg
+- Video Streaming
+- Federation
 
 ## Requirements
 - python = "^3.10"

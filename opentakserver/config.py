@@ -1,3 +1,5 @@
+import ssl
+
 from secret_key import *
 from pathlib import Path
 import os
@@ -13,6 +15,7 @@ class Config:
     COT_SSL_PORT = 8089
     SECRET_KEY = secret_key
     VERSION = '0.1-OTS-DEV'
+    OTS_SSL_VERIFICATION_MODE = ssl.CERT_OPTIONAL  # https://docs.python.org/3/library/ssl.html#ssl.SSLContext.verify_mode
 
     # flask-sqlalchemy
     SQLALCHEMY_DATABASE_URI = "sqlite:////{}".format(os.path.join(DATA_FOLDER, 'ots.db'))

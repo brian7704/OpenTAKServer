@@ -5,6 +5,7 @@ import traceback
 
 from xml.etree.ElementTree import Element, tostring, fromstring
 
+import bleach
 import sqlalchemy
 from bs4 import BeautifulSoup
 from flask import current_app as app, request, Blueprint, send_from_directory
@@ -72,6 +73,7 @@ def data_package_share():
                 db.session.rollback()
                 logger.error("Failed to save data package: {}".format(e))
 
+            # TODO: Handle HTTP/HTTPS properly
             return 'http://{}:{}/Marti/api/sync/metadata/{}/tool'.format(
                 Config.SERVER_DOMAIN_OR_IP, Config.HTTP_PORT, file_hash), 200
 
@@ -82,7 +84,7 @@ def data_package_metadata(file_hash):
         try:
             data_package = db.session.execute(db.select(DataPackage).filter_by(hash=file_hash)).scalar_one()
             if data_package:
-                data_package.keywords = request.data
+                data_package.keywords = bleach.clean(request.data.decode("utf-8"))
                 db.session.add(data_package)
                 db.session.commit()
                 return '', 200
@@ -103,8 +105,9 @@ def data_package_query():
     try:
         data_package = db.session.execute(db.select(DataPackage).filter_by(hash=request.args.get('hash'))).scalar_one()
         if data_package:
-            return 'https://{}/Marti/api/sync/metadata/{}/tool'.format(
-                request.headers.get('Host'), request.args.get('hash')), 200
+            # TODO: Handle HTTP/HTTPS properly
+            return 'http://{}:{}/Marti/api/sync/metadata/{}/tool'.format(
+                Config.SERVER_DOMAIN_OR_IP, Config.HTTP_PORT, request.args.get('hash')), 200
         else:
             return {'error': '404'}, 404, {'Content-Type': 'application/json'}
     except sqlalchemy.exc.NoResultFound as e:

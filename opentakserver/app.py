@@ -90,7 +90,7 @@ def launch_ssl_server():
                                 os.path.join(Config.CA_FOLDER, "certs", Config.SERVER_DOMAIN_OR_IP,
                                              Config.SERVER_DOMAIN_OR_IP + ".pem"))
 
-        context.verify_mode = ssl.CERT_REQUIRED
+        context.verify_mode = Config.OTS_SSL_VERIFICATION_MODE
         context.load_verify_locations(os.path.join(Config.CA_FOLDER, 'ca.crt'))
         sconn = context.wrap_socket(sock, server_side=True)
         sconn.bind(('0.0.0.0', Config.COT_SSL_PORT))
@@ -164,11 +164,18 @@ if __name__ == '__main__':
     http_server = WSGIServer(('0.0.0.0', Config.HTTP_PORT), app)
     http_server.start()
 
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+
+    context.load_cert_chain(os.path.join(Config.CA_FOLDER, "certs", Config.SERVER_DOMAIN_OR_IP,
+                                         Config.SERVER_DOMAIN_OR_IP + ".crt"),
+                            os.path.join(Config.CA_FOLDER, "certs", Config.SERVER_DOMAIN_OR_IP,
+                                         Config.SERVER_DOMAIN_OR_IP + ".pem"))
+
+    context.verify_mode = Config.OTS_SSL_VERIFICATION_MODE
+    context.load_verify_locations(os.path.join(Config.CA_FOLDER, 'ca.crt'))
+
     https_server = WSGIServer(('0.0.0.0', Config.HTTPS_PORT), app,
-                              keyfile=os.path.join(Config.CA_FOLDER, 'certs', Config.SERVER_DOMAIN_OR_IP,
-                                                   Config.SERVER_DOMAIN_OR_IP + ".pem"),
-                              certfile=os.path.join(Config.CA_FOLDER, 'certs', Config.SERVER_DOMAIN_OR_IP,
-                                                    Config.SERVER_DOMAIN_OR_IP + ".crt"))
+                              ssl_context=context)
 
     try:
         https_server.serve_forever()

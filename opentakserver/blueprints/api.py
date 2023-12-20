@@ -54,6 +54,7 @@ def certificate():
             data_package.mime_type = "application/x-zip-compressed"
             data_package.size = os.path.getsize(os.path.join(Config.CA_FOLDER, 'certs', common_name, filename))
             data_package.hash = file_hash
+            data_package.submission_user = current_user.id
             db.session.add(data_package)
             db.session.commit()
 
@@ -74,6 +75,39 @@ def search(query, model, field):
     return query
 
 
+def paginate(query):
+    try:
+        page = int(request.args.get('page')) if 'page' in request.args else 1
+        per_page = int(request.args.get('per_page')) if 'per_page' in request.args else 10
+    except ValueError:
+        return {'success': False, 'error': 'Invalid page or per_page number'}, 400, {'Content-Type': 'application/json'}
+
+    pagination = db.paginate(query, page=page, per_page=per_page)
+    rows = pagination.items
+
+    results = {'results': [], 'total_pages': pagination.pages}
+
+    for row in rows:
+        results['results'].append(row.serialize())
+
+    return jsonify(results)
+
+
+@api_blueprint.route('/api/data_packages')
+@auth_required()
+def data_packages():
+    query = db.session.query(DataPackage)
+    query = search(query, DataPackage, 'filename')
+    query = search(query, DataPackage, 'hash')
+    query = search(query, DataPackage, 'createor_uid')
+    query = search(query, DataPackage, 'keywords')
+    query = search(query, DataPackage, 'mime_type')
+    query = search(query, DataPackage, 'size')
+    query = search(query, DataPackage, 'tool')
+
+    return paginate(query)
+
+
 @api_blueprint.route('/api/cot', methods=['GET'])
 @auth_required()
 def query_cot():
@@ -83,9 +117,7 @@ def query_cot():
     query = search(query, CoT, 'sender_callsign')
     query = search(query, CoT, 'sender_uid')
 
-    rows = db.paginate(db.session.execute(query)).scalars()
-
-    return jsonify([row.serialize() for row in rows])
+    return paginate(query)
 
 
 @api_blueprint.route("/api/alert", methods=['GET'])
@@ -96,53 +128,30 @@ def query_alerts():
     query = search(query, Alert, 'sender_uid')
     query = search(query, Alert, 'alert_type')
 
-    rows = db.session.execute(query).scalars()
-
-    return jsonify([row.serialize() for row in rows])
+    return paginate(query)
 
 
 @api_blueprint.route("/api/point", methods=['GET'])
 @auth_required()
 def query_points():
-    query = (db.session.query(Point, CoT, EUD)
-             .join(CoT, CoT.id == Point.cot_id)
-             .join(EUD, EUD.uid == Point.device_uid))
+    query = db.session.query(Point)
 
     query = search(query, EUD, 'uid')
     query = search(query, EUD, 'callsign')
 
-    rows = db.session.execute(query)
-
-    result = []
-    if rows:
-        for row in rows:
-            for r in row:
-                result.append(r.serialize())
-
-    return jsonify(result)
+    return paginate(query)
 
 
 @api_blueprint.route("/api/casevac", methods=['GET'])
 @auth_required()
 def query_casevac():
-    query = (db.session.query(CasEvac, CoT, EUD, Point)
-             .join(CoT, CoT.id == CasEvac.cot_id)
-             .join(EUD, EUD.uid == CasEvac.sender_uid)
-             .join(Point, Point.id == CasEvac.point_id))
+    query = db.session.query(CasEvac)
 
     query = search(query, EUD, 'callsign')
     query = search(query, CasEvac, 'sender_uid')
     query = search(query, CasEvac, 'uid')
 
-    rows = db.session.execute(query)
-
-    result = []
-    if rows:
-        for row in rows:
-            for r in row:
-                result.append(r.serialize())
-
-    return jsonify(result)
+    return paginate(query)
 
 
 @api_blueprint.route("/api/user/create", methods=['POST'])
@@ -174,7 +183,7 @@ def create_user():
         db.session.commit()
         return {'success': True}, 200, {'Content-Type': 'application/json'}
     else:
-        logger.error("exists")
+        logger.error("User {} already exists".format(username))
         return {'success': False, 'error': 'User {} already exists'.format(username)}, 409, {
             'Content-Type': 'application/json'}
 
@@ -291,30 +300,7 @@ def get_euds():
     query = search(query, EUD, 'callsign')
     query = search(query, EUD, 'uid')
 
-    rows = db.session.execute(query).all()
-
-    results = []
-    for row in rows:
-        for table in row:
-            results.append(table.serialize())
-    return jsonify(results)
-
-
-
-
-
-@api_blueprint.route('/api/casevac')
-@auth_required()
-def get_casevac():
-    query = db.session.query(CasEvac)
-
-    query = search(query, EUD, 'callsign')
-    query = search(query, EUD, 'sender_uid')
-    query = search(query, User, 'username')
-
-    rows = db.session.execute(query).scalars()
-
-    return jsonify([row.serialize() for row in rows])
+    return paginate(query)
 
 
 @api_blueprint.route('/api/users')
@@ -323,6 +309,4 @@ def get_users():
     query = db.session.query(User)
     query = search(query, User, 'username')
 
-    rows = db.session.execute(query).scalars()
-
-    return jsonify([row.serialize() for row in rows])
+    return paginate(query)
