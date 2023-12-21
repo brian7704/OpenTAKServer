@@ -8,10 +8,10 @@ from shutil import copyfile
 import bleach
 import sqlalchemy.exc
 from flask import current_app as app, request, Blueprint, jsonify
-from flask_security import auth_required, roles_accepted, permissions_accepted, hash_password, current_user, \
+from flask_security import auth_required, roles_accepted, hash_password, current_user, \
     admin_change_password, verify_password
+
 from extensions import logger, db
-from sqlalchemy import update
 
 from AtakOfTheCerts import AtakOfTheCerts
 from config import Config
@@ -377,5 +377,18 @@ def get_euds():
 def get_users():
     query = db.session.query(User)
     query = search(query, User, 'username')
+
+    return paginate(query)
+
+
+@api_blueprint.route('/api/video_streams')
+@auth_required()
+def get_video_streams():
+    query = db.session.query(Video)
+    query = search(query, Video, 'username')
+    query = search(query, Video, 'protocol')
+    query = search(query, Video, 'address')
+    query = search(query, Video, 'path')
+    query = search(query, Video, 'uid')
 
     return paginate(query)
