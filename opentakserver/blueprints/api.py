@@ -93,6 +93,13 @@ def paginate(query):
     return jsonify(results)
 
 
+@api_blueprint.route('/api/me')
+@auth_required()
+def me():
+    me = db.session.execute(db.session.query(User).where(User.id == current_user.id)).first()[0]
+    return jsonify(me.serialize())
+
+
 @api_blueprint.route('/api/data_packages')
 @auth_required()
 def data_packages():
