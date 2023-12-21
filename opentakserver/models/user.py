@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from extensions import db
-from sqlalchemy import String
+from sqlalchemy import String, Integer, ForeignKey
 from flask_security.models import fsqla_v3 as fsqla
 from sqlalchemy.orm import relationship
 
@@ -23,6 +23,7 @@ class User(db.Model, fsqla.FsUserMixin):
                 'email': self.email,
                 'login_count': self.login_count,
                 'euds': self.euds,
-                'video_streams': self.video_streams
+                'video_streams': self.video_streams,
+                'roles': [role.serialize() for role in self.roles]
             }
         }
