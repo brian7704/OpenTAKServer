@@ -166,6 +166,11 @@ def query_casevac():
 def create_user():
     username = bleach.clean(request.json.get('username'))
     password = bleach.clean(request.json.get('password'))
+    confirm_password = bleach.clean(request.json.get('confirm_password'))
+
+    if password != confirm_password:
+        return {'success': False, 'error': 'Passwords do not match'}, 400, {'Content-Type': 'application/json'}
+
     roles = request.json.get("roles")
     roles_cleaned = []
 
@@ -304,8 +309,13 @@ def assign_eud_to_user():
 @auth_required()
 def get_euds():
     query = db.session.query(EUD)
+
+    if 'username' in request.args.keys():
+        query = query.join(User, User.id == EUD.user_id)
+
     query = search(query, EUD, 'callsign')
     query = search(query, EUD, 'uid')
+    query = search(query, User, 'username')
 
     return paginate(query)
 
