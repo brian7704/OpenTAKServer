@@ -144,6 +144,7 @@ def video():
     if request.method == 'POST':
         soup = BeautifulSoup(request.data, 'xml')
         video_connections = soup.find('videoConnections')
+
         if video_connections:
             v = Video()
             v.protocol = video_connections.find('protocol').text

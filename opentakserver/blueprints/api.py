@@ -20,51 +20,14 @@ from models.CasEvac import CasEvac
 from models.CoT import CoT
 from models.DataPackage import DataPackage
 from models.EUD import EUD
-from models.VideoStream import VideoStream
 from models.ZMIST import ZMIST
 from models.point import Point
 from models.UsersEUDs import UsersEuds
 from models.user import User
+from models.Certificate import Certificate
+from models.Video import Video
 
 api_blueprint = Blueprint('api_blueprint', __name__)
-
-
-@api_blueprint.route("/api/certificate", methods=['GET', 'POST'])
-@roles_accepted('administrator')
-def certificate():
-    if request.method == 'POST' and 'common_name' in request.json.keys():
-        try:
-            common_name = bleach.clean(request.json.get('common_name'))
-            aotc = AtakOfTheCerts(logger=logger, pwd=Config.CERT_PASSWORD, ca_storage=Config.CA_FOLDER,
-                                  maximum_days=Config.CA_EXPIRATION_TIME)
-            aotc.issue_certificate(hostname=common_name, common_name=common_name, cert_password=Config.CERT_PASSWORD)
-            filename = aotc.generate_zip(server_address=Config.SERVER_DOMAIN_OR_IP,
-                                         server_filename=os.path.join(Config.CA_FOLDER, 'certs',
-                                                                      Config.SERVER_DOMAIN_OR_IP,
-                                                                      "{}.p12".format(Config.SERVER_DOMAIN_OR_IP)),
-                                         user_filename=os.path.join(Config.CA_FOLDER, 'certs', common_name,
-                                                                    "{}.p12".format(common_name)))
-            file_hash = hashlib.file_digest(open(os.path.join(Config.CA_FOLDER, 'certs', common_name, filename),
-                                                 'rb'), 'sha256').hexdigest()
-            data_package = DataPackage()
-            data_package.filename = filename
-            data_package.keywords = "public"
-            data_package.creator_uid = str(uuid.uuid4())
-            data_package.submission_time = datetime.datetime.now().isoformat() + "Z"
-            data_package.mime_type = "application/x-zip-compressed"
-            data_package.size = os.path.getsize(os.path.join(Config.CA_FOLDER, 'certs', common_name, filename))
-            data_package.hash = file_hash
-            data_package.submission_user = current_user.id
-            db.session.add(data_package)
-            db.session.commit()
-
-            copyfile(os.path.join(Config.CA_FOLDER, 'certs', common_name, "{}_DP.zip".format(common_name)),
-                     os.path.join(Config.UPLOAD_FOLDER, "{}.zip".format(file_hash)))
-
-            return '', 200
-        except BaseException as e:
-            logger.error(traceback.format_exc())
-            return {'error': str(e)}, 500, {'Content-Type': 'application/json'}
 
 
 def search(query, model, field):
@@ -91,6 +54,87 @@ def paginate(query):
         results['results'].append(row.serialize())
 
     return jsonify(results)
+
+
+@api_blueprint.route("/api/certificate", methods=['GET', 'POST'])
+@roles_accepted('administrator')
+def certificate():
+    if request.method == 'POST' and 'callsign' in request.json.keys():
+        try:
+            callsign = bleach.clean(request.json.get('callsign'))
+            truststore_filename = os.path.join(Config.CA_FOLDER, 'certs',
+                                               Config.SERVER_DOMAIN_OR_IP,
+                                               "{}.p12".format(Config.SERVER_DOMAIN_OR_IP))
+            user_filename = os.path.join(Config.CA_FOLDER, 'certs', callsign,
+                                         "{}.p12".format(callsign))
+
+            eud = db.session.execute(db.session.query(EUD).where(EUD.callsign == callsign)).first()
+
+            if not eud:
+                return ({'success': False, 'error': 'Invalid callsign: {}'.format(callsign)}, 400,
+                        {'Content-Type': 'application/json'})
+
+            eud = eud[0]
+
+            aotc = AtakOfTheCerts(logger=logger, pwd=Config.CERT_PASSWORD, ca_storage=Config.CA_FOLDER,
+                                  maximum_days=Config.CA_EXPIRATION_TIME)
+            aotc.issue_certificate(hostname=Config.SERVER_DOMAIN_OR_IP, common_name=callsign,
+                                   cert_password=Config.CERT_PASSWORD)
+
+            filename = aotc.generate_zip(server_address=Config.SERVER_DOMAIN_OR_IP,
+                                         server_filename=truststore_filename,
+                                         user_filename=user_filename,
+                                         cert_password=Config.CERT_PASSWORD)
+            file_hash = hashlib.file_digest(open(os.path.join(Config.CA_FOLDER, 'certs', callsign, filename),
+                                                 'rb'), 'sha256').hexdigest()
+
+            data_package = DataPackage()
+            data_package.filename = filename
+            data_package.keywords = "public"
+            data_package.creator_uid = str(uuid.uuid4())
+            data_package.submission_time = datetime.datetime.now().isoformat() + "Z"
+            data_package.mime_type = "application/x-zip-compressed"
+            data_package.size = os.path.getsize(os.path.join(Config.CA_FOLDER, 'certs', callsign, filename))
+            data_package.hash = file_hash
+            data_package.submission_user = current_user.id
+
+            try:
+                db.session.add(data_package)
+                db.session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                db.session.rollback()
+                return ({'success': False, 'error': 'Certificate already exists for {}'.format(callsign)}, 400,
+                        {'Content-Type': 'application/json'})
+
+            copyfile(os.path.join(Config.CA_FOLDER, 'certs', callsign, "{}_DP.zip".format(callsign)),
+                     os.path.join(Config.UPLOAD_FOLDER, "{}.zip".format(file_hash)))
+
+            cert = Certificate()
+            cert.callsign = callsign
+            cert.expiration_date = datetime.datetime.today() + datetime.timedelta(days=Config.CA_EXPIRATION_TIME)
+            cert.server_address = Config.SERVER_DOMAIN_OR_IP
+            cert.server_port = Config.COT_SSL_PORT
+            cert.truststore_filename = truststore_filename
+            cert.user_cert_filename = user_filename
+            cert.cert_password = Config.CERT_PASSWORD
+            cert.data_package_id = data_package.id
+            cert.eud_uid = eud.uid
+
+            db.session.add(cert)
+            db.session.commit()
+
+            return {'success': True}, 200, {'Content-Type': 'application/json'}
+        except BaseException as e:
+            logger.error(traceback.format_exc())
+            return {'success': False, 'error': str(e)}, 500, {'Content-Type': 'application/json'}
+    elif request.method == 'POST':
+        return ({'success': False, 'error': "Please specify a callsign"}, 400,
+                {'Content-Type': 'application/json'})
+    elif request.method == 'GET':
+        query = db.session.query(Certificate)
+        query = search(query, Certificate, 'callsign')
+
+        return paginate(query)
 
 
 @api_blueprint.route('/api/me')
@@ -243,29 +287,37 @@ def external_auth():
     user = app.security.datastore.find_user(username=username)
     if user and verify_password(password, user.password):
         if action == 'publish':
-            video_stream = VideoStream()
-            video_stream.id = bleach.clean(request.json.get('id'))
-            video_stream.ip = bleach.clean(request.json.get('ip'))
-            video_stream.username = bleach.clean(request.json.get('user'))
-            video_stream.path = bleach.clean(request.json.get('path'))
-            video_stream.protocol = bleach.clean(request.json.get('protocol'))
-            video_stream.action = bleach.clean(request.json.get('action'))
-            video_stream.query = bleach.clean(request.json.get('query'))
+            v = Video()
+            v.uid = bleach.clean(request.json.get('id'))
+            v.rover_port = -1
+            v.ignore_embedded_klv = False
+            v.buffer_time = 5000
+            v.network_timeout = 10000
+            v.protocol = bleach.clean(request.json.get('protocol'))
+            v.address = Config.SERVER_DOMAIN_OR_IP
+            v.path = "/" + bleach.clean(request.json.get('path'))
+            v.alias = v.path.split("/")[-1]
+            v.username = bleach.clean(request.json.get('user'))
+
+            if v.protocol == 'rtsp':
+                v.port = 8554
+                v.rtsp_reliable = 1
+            elif v.protocol == 'rtmp':
+                v.port = 1935
+                v.rtsp_reliable = 0
+            else:
+                v.rtsp_reliable = 0
+
+            v.generate_xml()
 
             with app.app_context():
                 try:
-                    db.session.add(video_stream)
+                    db.session.add(v)
                     db.session.commit()
-                    logger.debug("Inserted video stream {}".format(video_stream.id))
-                except sqlalchemy.exc.IntegrityError:
+                    logger.debug("Inserted video stream {}".format(v.uid))
+                except sqlalchemy.exc.IntegrityError as e:
                     db.session.rollback()
-                    db.session.execute(update(VideoStream).where(VideoStream.ip == video_stream.ip and
-                                                                 VideoStream.path == video_stream.path)
-                                       .values(id=video_stream.id, username=video_stream.username,
-                                               protocol=video_stream.protocol, action=video_stream.action,
-                                               query=video_stream.query))
-                    db.session.commit()
-                    logger.debug("Updated video stream {}".format(video_stream.id))
+                    logger.error("Video failed: {}".format(e))
 
         return '', 200
     else:

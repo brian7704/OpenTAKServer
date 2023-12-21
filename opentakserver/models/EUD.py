@@ -28,6 +28,7 @@ class EUD(db.Model):
     user: Mapped["User"] = relationship(back_populates="euds")
     alert = relationship("Alert", back_populates="eud")
     data_packages = relationship("DataPackage", back_populates="eud")
+    certificate = relationship("Certificate", back_populates="eud", uselist=False)
 
     def serialize(self):
         return {
@@ -41,6 +42,7 @@ class EUD(db.Model):
                 'phone_number': self.phone_number,
                 'last_event_time': self.last_event_time,
                 'last_status': self.last_status,
-                'username': self.user.username if self.user else None
+                'username': self.user.username if self.user else None,
+                'certificate': self.certificate.serialize() if self.certificate else None
             }
         }

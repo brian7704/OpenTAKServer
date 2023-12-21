@@ -324,6 +324,7 @@ class CoTController(Thread):
     def parse_video(self, event, cot_pk):
         video = event.find("__video")
         if video:
+            logger.warning(video)
             self.logger.debug("Got video stream")
             connection_entry = video.find('ConnectionEntry')
 
@@ -340,23 +341,7 @@ class CoTController(Thread):
             v.ignore_embedded_klv = (connection_entry.attrs['ignoreEmbeddedKLV'].lower() == 'true')
             v.alias = connection_entry.attrs['alias']
             v.cot_id = cot_pk
-
-            feed = Element('feed')
-            SubElement(feed, 'protocol').text = v.protocol
-            SubElement(feed, 'alias').text = v.alias
-            SubElement(feed, 'uid').text = v.uid
-            SubElement(feed, 'address').text = v.address
-            SubElement(feed, 'port').text = v.port
-            SubElement(feed, 'roverPort').text = v.rover_port
-            SubElement(feed, 'ignoreEmbeddedKLV').text = connection_entry.attrs['ignoreEmbeddedKLV']
-            SubElement(feed, 'preferredMacAddress').text = v.preferred_mac_address
-            SubElement(feed, 'preferredInterfaceAddress').text = v.preferred_interface_address
-            SubElement(feed, 'path').text = v.path
-            SubElement(feed, 'buffer').text = v.buffer_time
-            SubElement(feed, 'timeout').text = v.network_timeout
-            SubElement(feed, 'rtspReliable').text = v.rtsp_reliable
-
-            v.xml = tostring(feed)
+            v.generate_xml()
 
             with self.context:
                 try:

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from extensions import db
-from sqlalchemy import Integer, String, ForeignKey, Float
+from sqlalchemy import Integer, String, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
@@ -21,6 +21,7 @@ class DataPackage(db.Model):
     tool: Mapped[str] = mapped_column(String, nullable=True)
     expiration: Mapped[str] = mapped_column(String, nullable=True)
     eud: Mapped["EUD"] = relationship(back_populates="data_packages")
+    certificate = relationship("Certificate", back_populates="data_package")
 
     def serialize(self):
         return {

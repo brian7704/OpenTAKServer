@@ -184,8 +184,8 @@ class AtakOfTheCerts(CertificateAuthority):
     def issue_certificate(
             self,
             hostname,
+            common_name,
             maximum_days=825,
-            common_name=None,
             dns_names=None,
             oids=None,
             public_exponent=65537,
@@ -231,12 +231,12 @@ class AtakOfTheCerts(CertificateAuthority):
                 + f"the hostname rules r'{HOSTNAME_REGEX}'"
             )
 
-        host_cert_dir = os.path.join(self.ca_storage, CA_CERTS_DIR, hostname)
-        host_key_path = os.path.join(host_cert_dir, f"{hostname}.pem")
-        host_public_path = os.path.join(host_cert_dir, f"{hostname}.pub")
-        host_csr_path = os.path.join(host_cert_dir, f"{hostname}.csr")
-        host_cert_path = os.path.join(host_cert_dir, f"{hostname}.crt")
-        p12_path = os.path.join(host_cert_dir, f"{hostname}.p12")
+        host_cert_dir = os.path.join(self.ca_storage, CA_CERTS_DIR, common_name)
+        host_key_path = os.path.join(host_cert_dir, f"{common_name}.pem")
+        host_public_path = os.path.join(host_cert_dir, f"{common_name}.pub")
+        host_csr_path = os.path.join(host_cert_dir, f"{common_name}.csr")
+        host_cert_path = os.path.join(host_cert_dir, f"{common_name}.crt")
+        p12_path = os.path.join(host_cert_dir, f"{common_name}.p12")
         crl_file = os.path.join(self.ca_storage, CA_CRL)
 
         files = {
@@ -246,12 +246,10 @@ class AtakOfTheCerts(CertificateAuthority):
             "p12": p12_path
         }
 
-        if common_name is None:
-            common_name = hostname
-
         self.logger.info("Doing cert for {}".format(common_name))
 
         if os.path.isdir(host_cert_dir):
+            self.logger.info("loading cert {} {}".format(host_cert_dir, host_public_path))
             cert_data = load_cert_files(
                 common_name=common_name,
                 key_file=host_key_path,
@@ -262,6 +260,7 @@ class AtakOfTheCerts(CertificateAuthority):
             )
 
         else:
+            self.logger.info("making dirs {}".format(host_cert_dir))
             os.mkdir(host_cert_dir)
             key_data = keys.generate(
                 public_exponent=public_exponent, key_size=key_size
