@@ -7,7 +7,7 @@ from shutil import copyfile
 
 import bleach
 import sqlalchemy.exc
-from flask import current_app as app, request, Blueprint, jsonify
+from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
 from flask_security import auth_required, roles_accepted, hash_password, current_user, \
     admin_change_password, verify_password
 
@@ -157,6 +157,28 @@ def data_packages():
     query = search(query, DataPackage, 'tool')
 
     return paginate(query)
+
+
+@api_blueprint.route('/api/data_packages/download')
+@auth_required()
+def data_package_download():
+    if 'hash' not in request.args.keys():
+        return ({'success': False, 'error': 'Please provide a data package hash'}, 400,
+                {'Content-Type': 'application/json'})
+
+    file_hash = request.args.get('hash')
+
+    query = db.session.query(DataPackage)
+    query = search(query, DataPackage, 'hash')
+
+    data_package = db.session.execute(query).first()
+
+    if not data_package:
+        return ({'success': False, 'error': "Data package with hash '{}' not found".format(file_hash)}, 404,
+                {'Content-Type': 'application/json'})
+
+    return send_from_directory(Config.UPLOAD_FOLDER, "{}.zip".format(file_hash), as_attachment=True,
+                               download_name=data_package[0].filename)
 
 
 @api_blueprint.route('/api/cot', methods=['GET'])
@@ -317,7 +339,6 @@ def external_auth():
                     logger.debug("Inserted video stream {}".format(v.uid))
                 except sqlalchemy.exc.IntegrityError as e:
                     db.session.rollback()
-                    logger.error("Video failed: {}".format(e))
 
         return '', 200
     else:

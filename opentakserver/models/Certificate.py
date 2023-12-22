@@ -33,6 +33,7 @@ class Certificate(db.Model):
                 'user_cert_filename': self.user_cert_filename,
                 'cert_password': self.cert_password,
                 'data_package_filename': self.data_package.filename,
+                'data_package_hash': self.data_package.hash,
                 'eud_uid': self.eud_uid
             }
         }
