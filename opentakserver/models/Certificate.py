@@ -13,7 +13,7 @@ class Certificate(db.Model):
     common_name: Mapped[str] = mapped_column(String)
     eud_uid: Mapped[str] = mapped_column(Integer, ForeignKey("eud.uid"), unique=True)
     data_package_id: Mapped[int] = mapped_column(Integer, ForeignKey("data_packages.id"), nullable=True)
-    callsign: Mapped[str] = mapped_column(String, unique=True)
+    callsign: Mapped[str] = mapped_column(String, nullable=True)
     expiration_date: Mapped[str] = mapped_column(String)
     server_address: Mapped[str] = mapped_column(String)
     server_port: Mapped[int] = mapped_column(Integer)
@@ -34,8 +34,8 @@ class Certificate(db.Model):
                 'truststore_filename': self.truststore_filename,
                 'user_cert_filename': self.user_cert_filename,
                 'cert_password': self.cert_password,
-                'data_package_filename': self.data_package.filename,
-                'data_package_hash': self.data_package.hash,
+                'data_package_filename': self.data_package.filename if self.data_package else None,
+                'data_package_hash': self.data_package.hash if self.data_package else None,
                 'eud_uid': self.eud_uid
             }
         }

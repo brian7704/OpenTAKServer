@@ -38,7 +38,6 @@ def basic_auth(credentials):
 
 @marti_blueprint.route('/Marti/api/clientEndPoints', methods=['GET'])
 def client_end_points():
-    logger.warning(request.headers)
     euds = db.session.execute(db.select(EUD)).scalars()
     return_value = {'version': 3, "type": "com.bbn.marti.remote.ClientEndpoint", 'data': [],
                     'nodeId': Config.OTS_NODE_ID}
@@ -60,7 +59,6 @@ def tls_config():
     if not basic_auth(request.headers.get('Authorization')):
         return '', 401
 
-    logger.warning(request.headers)
     root_element = Element('ns2:certificateConfig')
     root_element.set('xmlns', "http://bbn.com/marti/xml/config")
     root_element.set('xmlns:ns2', "com.bbn.marti.config")
@@ -129,24 +127,53 @@ def sign_csr_v2():
     response = tostring(enrollment).decode('utf-8')
     response = '<?xml version="1.0" encoding="UTF-8"?>\n' + response
 
-    eud = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()[0]
+    username, password = base64.b64decode(request.headers.get("Authorization").split(" ")[-1].encode('utf-8')).decode(
+        'utf-8').split(":")
+    username = bleach.clean(username)
+    user = app.security.datastore.find_user(username=username)
 
-    logger.info(eud)
+    try:
+        eud = EUD()
+        eud.uid = uid
+        eud.user_id = user.id
 
-    certificate = Certificate()
-    certificate.common_name = common_name
-    certificate.eud_uid = uid
-    certificate.callsign = eud.callsign
-    certificate.expiration_date = datetime.datetime.today() + datetime.timedelta(days=app.config.get("OTS_CA_EXPIRATION_TIME"))
-    certificate.server_address = app.config.get("OTS_SERVER_ADDRESS")
-    certificate.server_port = app.config.get("OTS_HTTPS_PORT")
-    certificate.truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "truststore-root.p12")
-    certificate.user_cert_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".pem")
-    certificate.csr = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".csr")
-    certificate.cert_password = app.config.get("OTS_CA_PASSWORD")
+        db.session.add(eud)
+        db.session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        db.session.rollback()
+        eud = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()[0]
 
-    db.session.add(certificate)
-    db.session.commit()
+    try:
+        certificate = Certificate()
+        certificate.common_name = common_name
+        certificate.eud_uid = uid
+        certificate.callsign = eud.callsign
+        certificate.expiration_date = datetime.datetime.today() + datetime.timedelta(days=app.config.get("OTS_CA_EXPIRATION_TIME"))
+        certificate.server_address = app.config.get("OTS_SERVER_ADDRESS")
+        certificate.server_port = app.config.get("OTS_HTTPS_PORT")
+        certificate.truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "truststore-root.p12")
+        certificate.user_cert_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".pem")
+        certificate.csr = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".csr")
+        certificate.cert_password = app.config.get("OTS_CA_PASSWORD")
+
+        db.session.add(certificate)
+        db.session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        db.session.rollback()
+        certificate = db.session.execute(db.session.query(Certificate).filter_by(eud_uid=eud.uid)).scalar_one()
+        certificate.common_name = common_name
+        certificate.callsign = eud.callsign
+        certificate.expiration_date = datetime.datetime.today() + datetime.timedelta(
+            days=app.config.get("OTS_CA_EXPIRATION_TIME"))
+        certificate.server_address = app.config.get("OTS_SERVER_ADDRESS")
+        certificate.server_port = app.config.get("OTS_HTTPS_PORT")
+        certificate.truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "truststore-root.p12")
+        certificate.user_cert_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name,
+                                                      common_name + ".pem")
+        certificate.csr = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".csr")
+        certificate.cert_password = app.config.get("OTS_CA_PASSWORD")
+
+        db.session.commit()
 
     return response, 200, {'Content-Type': 'application/xml', 'Content-Encoding': 'charset=UTF-8'}
 
@@ -160,8 +187,6 @@ def marti_config():
 
 @marti_blueprint.route('/Marti/sync/missionupload', methods=['POST'])
 def data_package_share():
-    logger.warning(request.headers)
-    logger.warning(request.data)
     if not len(request.files):
         return {'error': 'no file'}, 400, {'Content-Type': 'application/json'}
     for file in request.files:

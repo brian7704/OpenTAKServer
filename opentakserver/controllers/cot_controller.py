@@ -219,6 +219,7 @@ class CoTController(Thread):
                         eud = self.db.session.execute(self.db.select(EUD).filter_by(uid=uid)).scalar_one()
                         eud.callsign = callsign
                         eud.os = os
+                        eud.device = device
                         eud.platform = platform
                         eud.version = version
                         eud.phone_number = phone_number
@@ -324,7 +325,6 @@ class CoTController(Thread):
     def parse_video(self, event, cot_pk):
         video = event.find("__video")
         if video:
-            logger.warning(video)
             self.logger.debug("Got video stream")
             connection_entry = video.find('ConnectionEntry')
 
