@@ -18,15 +18,16 @@ from flask_security import Security, SQLAlchemyUserDatastore, hash_password
 from flask_security.models import fsqla_v3 as fsqla
 
 from extensions import logger, db
-from AtakOfTheCerts import AtakOfTheCerts
 from config import Config
 
 from controllers.client_controller import ClientController
 from controllers.cot_controller import CoTController
+from opentakserver.certificate_authority import CertificateAuthority
 
 app = Flask(__name__)
 app.config.from_object(Config)
-cors = CORS(app, resources={r"/api/*": {"origins": "*"}, r"/Marti/*": {"origins": "*"}, r"/*": {"origins": "*"}}, supports_credentials=True)
+cors = CORS(app, resources={r"/api/*": {"origins": "*"}, r"/Marti/*": {"origins": "*"}, r"/*": {"origins": "*"}},
+            supports_credentials=True)
 flask_wtf.CSRFProtect(app)
 
 # socketio = SocketIO(app)
@@ -38,7 +39,6 @@ from models.role import Role
 
 user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 app.security = Security(app, user_datastore)
-
 
 from blueprints.marti import marti_blueprint
 app.register_blueprint(marti_blueprint)
@@ -52,29 +52,19 @@ channel.exchange_declare('cot', durable=True, exchange_type='fanout')
 channel.exchange_declare('dms', durable=True, exchange_type='direct')
 channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
 
-
-def atak_of_the_certs():
-    logger.info("Loading CA...")
-
-    aotc = AtakOfTheCerts(logger=logger, pwd=Config.CERT_PASSWORD, ca_storage=Config.CA_FOLDER,
-                          common_name=Config.SERVER_DOMAIN_OR_IP + "-CA", maximum_days=Config.CA_EXPIRATION_TIME)
-
-    if Config.SERVER_DOMAIN_OR_IP not in aotc.certificates:
-        aotc.issue_certificate(hostname=Config.SERVER_DOMAIN_OR_IP, maximum_days=Config.CA_EXPIRATION_TIME,
-                               common_name=Config.SERVER_DOMAIN_OR_IP, ca=False)
-
-        logger.info("Created Server Cert")
-
-    logger.info("CA loaded!")
-    return aotc
-
-
-aotc = atak_of_the_certs()
+ca = CertificateAuthority(logger, app)
+ca.create_ca()
 
 
 @app.route("/")
 def home():
     return jsonify([])
+
+
+@app.after_request
+def after_request_func(response):
+    response.direct_passthrough = False
+    return response
 
 
 def launch_ssl_server():
@@ -85,15 +75,14 @@ def launch_ssl_server():
 
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
-        context.load_cert_chain(os.path.join(Config.CA_FOLDER, "certs", Config.SERVER_DOMAIN_OR_IP,
-                                             Config.SERVER_DOMAIN_OR_IP + ".crt"),
-                                os.path.join(Config.CA_FOLDER, "certs", Config.SERVER_DOMAIN_OR_IP,
-                                             Config.SERVER_DOMAIN_OR_IP + ".pem"))
+        context.load_cert_chain(
+            os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".pem"),
+            os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
 
-        context.verify_mode = Config.OTS_SSL_VERIFICATION_MODE
-        context.load_verify_locations(os.path.join(Config.CA_FOLDER, 'ca.crt'))
+        context.verify_mode = app.config.get("OTS_SSL_VERIFICATION_MODE")
+        context.load_verify_locations(cafile=os.path.join(app.config.get("OTS_CA_FOLDER"), 'ca.pem'))
         sconn = context.wrap_socket(sock, server_side=True)
-        sconn.bind(('0.0.0.0', Config.COT_SSL_PORT))
+        sconn.bind(('0.0.0.0', app.config.get("OTS_SSL_STREAMING_PORT")))
         sconn.listen(0)
 
         while True:
@@ -111,7 +100,7 @@ def launch_ssl_server():
 def launch_tcp_server():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(('0.0.0.0', Config.COT_STREAMING_PORT))
+    s.bind(('0.0.0.0', app.config.get("OTS_TCP_STREAMING_PORT")))
     s.listen(1)
     lock = threading.Lock()
 
@@ -161,20 +150,22 @@ if __name__ == '__main__':
     cot_thread.daemon = True
     cot_thread.start()
 
-    http_server = WSGIServer(('0.0.0.0', Config.HTTP_PORT), app)
+    http_server = WSGIServer(('0.0.0.0', app.config.get("OTS_HTTP_PORT")), app)
     http_server.start()
 
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
-    context.load_cert_chain(os.path.join(Config.CA_FOLDER, "certs", Config.SERVER_DOMAIN_OR_IP,
-                                         Config.SERVER_DOMAIN_OR_IP + ".crt"),
-                            os.path.join(Config.CA_FOLDER, "certs", Config.SERVER_DOMAIN_OR_IP,
-                                         Config.SERVER_DOMAIN_OR_IP + ".pem"))
+    context.load_cert_chain(os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".pem"),
+                            os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
 
-    context.verify_mode = Config.OTS_SSL_VERIFICATION_MODE
-    context.load_verify_locations(os.path.join(Config.CA_FOLDER, 'ca.crt'))
+    context.verify_mode = app.config.get("OTS_SSL_VERIFICATION_MODE")
+    context.load_verify_locations(cafile=os.path.join(app.config.get("OTS_CA_FOLDER"), 'ca.pem'))
 
-    https_server = WSGIServer(('0.0.0.0', Config.HTTPS_PORT), app,
+    certificate_enrollment_server = WSGIServer(('0.0.0.0', app.config.get("OTS_CERTIFICATE_ENROLLMENT_PORT")),
+                                               app, ssl_context=context)
+    certificate_enrollment_server.start()
+
+    https_server = WSGIServer(('0.0.0.0', app.config.get("OTS_HTTPS_PORT")), app,
                               ssl_context=context)
 
     try:

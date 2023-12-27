@@ -7,32 +7,43 @@ from flask_security import uia_username_mapper
 
 
 class Config:
-    DATA_FOLDER = os.path.join(Path.home(), 'ots')
-    HTTP_PORT = 8080
-    HTTPS_PORT = 8443
-    COT_PORT = 8087
-    COT_STREAMING_PORT = 8088
-    COT_SSL_PORT = 8089
     SECRET_KEY = secret_key
-    VERSION = '0.1-OTS-DEV'
+
+    OTS_DATA_FOLDER = os.path.join(Path.home(), 'ots')
+    OTS_HTTP_PORT = 8080
+    OTS_HTTPS_PORT = 8443
+    OTS_CERTIFICATE_ENROLLMENT_PORT = 8446
+    OTS_COT_PORT = 8087
+    OTS_TCP_STREAMING_PORT = 8088
+    OTS_SSL_STREAMING_PORT = 8089
+    OTS_VERSION = '0.1-OTS-DEV'
     OTS_SSL_VERIFICATION_MODE = ssl.CERT_OPTIONAL  # https://docs.python.org/3/library/ssl.html#ssl.SSLContext.verify_mode
+    OTS_SERVER_ADDRESS = server_domain_or_ip
+    OTS_NODE_ID = node_id
+    OTS_CA_NAME = 'OpenTAKServer-CA'
+    OTS_CA_FOLDER = os.path.join(OTS_DATA_FOLDER, 'ca')
+    OTS_CA_PASSWORD = 'atakatak'
+    OTS_CA_EXPIRATION_TIME = 3650  # In days, defaults to 10 years
+    OTS_CA_COUNTRY = 'WW'
+    OTS_CA_STATE = 'XX'
+    OTS_CA_CITY = 'YY'
+    OTS_CA_ORGANIZATION = 'ZZ'
+    OTS_CA_ORGANIZATIONAL_UNIT = 'OpenTAKServer'
+    OTS_CA_SUBJECT = '/C={}/ST={}/L={}/O={}/OU={}'.format(OTS_CA_COUNTRY, OTS_CA_STATE, OTS_CA_CITY,
+                                                          OTS_CA_ORGANIZATION, OTS_CA_ORGANIZATIONAL_UNIT)
 
     # flask-sqlalchemy
-    SQLALCHEMY_DATABASE_URI = "sqlite:////{}".format(os.path.join(DATA_FOLDER, 'ots.db'))
+    SQLALCHEMY_DATABASE_URI = "sqlite:////{}".format(os.path.join(OTS_DATA_FOLDER, 'ots.db'))
     SQLALCHEMY_ECHO = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = True
 
     ALLOWED_EXTENSIONS = {'zip', 'xml'}
-    SERVER_DOMAIN_OR_IP = server_domain_or_ip
-    NODE_ID = node_id
-    UPLOAD_FOLDER = os.path.join(DATA_FOLDER, 'uploads')
+
+    UPLOAD_FOLDER = os.path.join(OTS_DATA_FOLDER, 'uploads')
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-    CA_FOLDER = os.path.join(DATA_FOLDER, 'ca')
-    CERT_PASSWORD = 'atakatak'
-    CA_EXPIRATION_TIME = 3650  # In days, defaults to 10 years
 
     # Flask-Security-Too
     SECURITY_PASSWORD_SALT = security_password_salt

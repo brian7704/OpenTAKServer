@@ -13,7 +13,6 @@ from flask_security import auth_required, roles_accepted, hash_password, current
 
 from extensions import logger, db
 
-from AtakOfTheCerts import AtakOfTheCerts
 from config import Config
 from models.Alert import Alert
 from models.CasEvac import CasEvac
@@ -26,6 +25,8 @@ from models.UsersEUDs import UsersEuds
 from models.user import User
 from models.Certificate import Certificate
 from models.Video import Video
+
+from opentakserver.certificate_authority import CertificateAuthority
 
 api_blueprint = Blueprint('api_blueprint', __name__)
 
@@ -62,10 +63,10 @@ def certificate():
     if request.method == 'POST' and 'callsign' in request.json.keys():
         try:
             callsign = bleach.clean(request.json.get('callsign'))
-            truststore_filename = os.path.join(Config.CA_FOLDER, 'certs',
-                                               Config.SERVER_DOMAIN_OR_IP,
-                                               "{}.p12".format(Config.SERVER_DOMAIN_OR_IP))
-            user_filename = os.path.join(Config.CA_FOLDER, 'certs', callsign,
+            truststore_filename = os.path.join(Config.OTS_CA_FOLDER, 'certs',
+                                               Config.OTS_SERVER_ADDRESS,
+                                               "{}.p12".format(Config.OTS_SERVER_ADDRESS))
+            user_filename = os.path.join(Config.OTS_CA_FOLDER, 'certs', callsign,
                                          "{}.p12".format(callsign))
 
             eud = db.session.execute(db.session.query(EUD).where(EUD.callsign == callsign)).first()
@@ -76,16 +77,10 @@ def certificate():
 
             eud = eud[0]
 
-            aotc = AtakOfTheCerts(logger=logger, pwd=Config.CERT_PASSWORD, ca_storage=Config.CA_FOLDER,
-                                  maximum_days=Config.CA_EXPIRATION_TIME)
-            aotc.issue_certificate(hostname=Config.SERVER_DOMAIN_OR_IP, common_name=callsign,
-                                   cert_password=Config.CERT_PASSWORD)
+            ca = CertificateAuthority(logger, app)
+            filename = ca.issue_certificate(callsign, False)
 
-            filename = aotc.generate_zip(server_address=Config.SERVER_DOMAIN_OR_IP,
-                                         server_filename=truststore_filename,
-                                         user_filename=user_filename,
-                                         cert_password=Config.CERT_PASSWORD)
-            file_hash = hashlib.file_digest(open(os.path.join(Config.CA_FOLDER, 'certs', callsign, filename),
+            file_hash = hashlib.file_digest(open(os.path.join(Config.OTS_CA_FOLDER, 'certs', callsign, filename),
                                                  'rb'), 'sha256').hexdigest()
 
             data_package = DataPackage()
@@ -94,29 +89,30 @@ def certificate():
             data_package.creator_uid = str(uuid.uuid4())
             data_package.submission_time = datetime.datetime.now().isoformat() + "Z"
             data_package.mime_type = "application/x-zip-compressed"
-            data_package.size = os.path.getsize(os.path.join(Config.CA_FOLDER, 'certs', callsign, filename))
+            data_package.size = os.path.getsize(os.path.join(Config.OTS_CA_FOLDER, 'certs', callsign, filename))
             data_package.hash = file_hash
             data_package.submission_user = current_user.id
 
             try:
                 db.session.add(data_package)
                 db.session.commit()
-            except sqlalchemy.exc.IntegrityError:
+            except sqlalchemy.exc.IntegrityError as e:
                 db.session.rollback()
+                logger.error(e)
                 return ({'success': False, 'error': 'Certificate already exists for {}'.format(callsign)}, 400,
                         {'Content-Type': 'application/json'})
 
-            copyfile(os.path.join(Config.CA_FOLDER, 'certs', callsign, "{}_DP.zip".format(callsign)),
+            copyfile(os.path.join(Config.OTS_CA_FOLDER, 'certs', callsign, "{}_DP.zip".format(callsign)),
                      os.path.join(Config.UPLOAD_FOLDER, "{}.zip".format(file_hash)))
 
             cert = Certificate()
             cert.callsign = callsign
-            cert.expiration_date = datetime.datetime.today() + datetime.timedelta(days=Config.CA_EXPIRATION_TIME)
-            cert.server_address = Config.SERVER_DOMAIN_OR_IP
-            cert.server_port = Config.COT_SSL_PORT
+            cert.expiration_date = datetime.datetime.today() + datetime.timedelta(days=Config.OTS_CA_EXPIRATION_TIME)
+            cert.server_address = Config.OTS_SERVER_ADDRESS
+            cert.server_port = Config.OTS_SSL_STREAMING_PORT
             cert.truststore_filename = truststore_filename
             cert.user_cert_filename = user_filename
-            cert.cert_password = Config.CERT_PASSWORD
+            cert.cert_password = Config.OTS_CA_PASSWORD
             cert.data_package_id = data_package.id
             cert.eud_uid = eud.uid
 
@@ -316,7 +312,7 @@ def external_auth():
             v.buffer_time = 5000
             v.network_timeout = 10000
             v.protocol = bleach.clean(request.json.get('protocol'))
-            v.address = Config.SERVER_DOMAIN_OR_IP
+            v.address = Config.OTS_SERVER_ADDRESS
             v.path = "/" + bleach.clean(request.json.get('path'))
             v.alias = v.path.split("/")[-1]
             v.username = bleach.clean(request.json.get('user'))
@@ -413,3 +409,8 @@ def get_video_streams():
     query = search(query, Video, 'uid')
 
     return paginate(query)
+
+
+@api_blueprint.route('/api/truststore')
+def get_truststore():
+    return send_from_directory(app.config.get("OTS_CA_FOLDER"), 'truststore-root.p12', as_attachment=True)

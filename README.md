@@ -7,9 +7,12 @@ This project is just beginning and not yet suitable for production.
 ## Current Features
 - Connect via TCP from ATAK
 - SSL
+- Authentication
+- Client certificate enrollment
 - Send and receive messages
 - Send and receive points
 - Send and receive routes
+- Send and receive images
 - Share location with other users
 - Save CoT messages to a database
 - Data Packages
@@ -45,10 +48,11 @@ This project is just beginning and not yet suitable for production.
 - Flask-Security-Too = "^5.3.2"
 - RabbitMQ
 - MediaMTX (Only required for video streaming)
+- openssl
 
 ## Installation
 ```
-apt install python3-pip rabbitmq-server git # Or substitude your distro's package manager
+apt install python3-pip rabbitmq-server git openssl # Or substitude your distro's package manager
 pip3 install poetry
 git clone https://github.com/brian7704/OpenTAKServer.git
 cd OpenTAKServer

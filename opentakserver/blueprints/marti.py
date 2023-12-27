@@ -1,14 +1,17 @@
+import base64
 import json
 import os
 import datetime
 import traceback
 
-from xml.etree.ElementTree import Element, tostring, fromstring
+from xml.etree.ElementTree import Element, tostring, fromstring, SubElement
 
 import bleach
 import sqlalchemy
+from OpenSSL import crypto
 from bs4 import BeautifulSoup
 from flask import current_app as app, request, Blueprint, send_from_directory
+from flask_security import verify_password
 from extensions import logger, db
 
 from config import Config
@@ -18,13 +21,25 @@ from werkzeug.utils import secure_filename
 
 from models.Video import Video
 
+from certificate_authority import CertificateAuthority
+
 marti_blueprint = Blueprint('marti_blueprint', __name__)
+
+
+def basic_auth(credentials):
+    username, password = base64.b64decode(credentials.split(" ")[-1].encode('utf-8')).decode('utf-8').split(":")
+    username = bleach.clean(username)
+    password = bleach.clean(password)
+    user = app.security.datastore.find_user(username=username)
+    return user and verify_password(password, user.password)
 
 
 @marti_blueprint.route('/Marti/api/clientEndPoints', methods=['GET'])
 def client_end_points():
+    logger.warning(request.headers)
     euds = db.session.execute(db.select(EUD)).scalars()
-    return_value = {'version': 3, "type": "com.bbn.marti.remote.ClientEndpoint", 'data': [], 'nodeId': Config.NODE_ID}
+    return_value = {'version': 3, "type": "com.bbn.marti.remote.ClientEndpoint", 'data': [],
+                    'nodeId': Config.OTS_NODE_ID}
     for eud in euds:
         return_value['data'].append({
             'callsign': eud.callsign,
@@ -37,11 +52,90 @@ def client_end_points():
     return return_value, 200, {'Content-Type': 'application/json'}
 
 
+# require basic auth
+@marti_blueprint.route('/Marti/api/tls/config')
+def tls_config():
+    if not basic_auth(request.headers.get('Authorization')):
+        return '', 401
+
+    logger.warning(request.headers)
+    root_element = Element('ns2:certificateConfig')
+    root_element.set('xmlns', "http://bbn.com/marti/xml/config")
+    root_element.set('xmlns:ns2', "com.bbn.marti.config")
+
+    name_entries = SubElement(root_element, "nameEntries")
+    first_name_entry = SubElement(name_entries, "nameEntry")
+    first_name_entry.set('name', 'O')
+    first_name_entry.set('value', 'Test Organization Name')
+
+    second_name_entry = SubElement(name_entries, "nameEntry")
+    second_name_entry.set('name', 'OU')
+    second_name_entry.set('value', 'Test Organization Unit Name')
+
+    return tostring(root_element), 200, {'Content-Type': 'application/xml', 'Content-Encoding': 'charset=UTF-8'}
+
+
+@marti_blueprint.route('/Marti/api/tls/profile/enrollment')
+def enrollment():
+    if not basic_auth(request.headers.get('Authorization')):
+        return '', 401
+    logger.error("enrollment {}".format(request.args.get('clientUid')))
+    return '', 204
+
+
+@marti_blueprint.route('/Marti/api/tls/signClient/', methods=['POST'])
+def sign_csr():
+    if not basic_auth(request.headers.get('Authorization')):
+        return '', 401
+    logger.error(request.headers)
+    logger.error(request.data)
+    return '', 200
+
+
+# require basic auth
+@marti_blueprint.route('/Marti/api/tls/signClient/v2', methods=['POST'])
+def sign_csr_v2():
+    if not basic_auth(request.headers.get('Authorization')):
+        return '', 401
+    logger.info(request.headers)
+    uid = request.args.get("clientUid")
+    csr = '-----BEGIN CERTIFICATE REQUEST-----\n' + request.data.decode('utf-8') + '-----END CERTIFICATE REQUEST-----'
+    logger.warning(csr)
+
+    x509 = crypto.load_certificate_request(crypto.FILETYPE_PEM, csr.encode())
+    logger.error("CN=" + x509.get_subject().CN)
+
+    cert_authority = CertificateAuthority(logger, app)
+
+    signed_csr = cert_authority.sign_csr(csr.encode(), x509.get_subject().CN, False).decode("utf-8")
+    signed_csr = signed_csr.replace("-----BEGIN CERTIFICATE-----\n", "")
+    signed_csr = signed_csr.replace("\n-----END CERTIFICATE-----\n", "")
+
+    enrollment = Element('enrollment')
+    signed_cert = SubElement(enrollment, 'signedCert')
+    signed_cert.text = signed_csr
+    ca = SubElement(enrollment, 'ca')
+
+    f = open(os.path.join(app.config.get("OTS_CA_FOLDER"), "ca.pem"), 'r')
+    cert = f.read()
+    f.close()
+
+    cert = cert.replace("-----BEGIN CERTIFICATE-----\n", "")
+    cert = cert.replace("\n-----END CERTIFICATE-----\n", "")
+
+    ca.text = cert
+
+    response = tostring(enrollment).decode('utf-8')
+    response = '<?xml version="1.0" encoding="UTF-8"?>\n' + response
+
+    return response, 200, {'Content-Type': 'application/xml', 'Content-Encoding': 'charset=UTF-8'}
+
+
 @marti_blueprint.route('/Marti/api/version/config', methods=['GET'])
 def marti_config():
     return {"version": "3", "type": "ServerConfig",
-            "data": {"version": Config.VERSION, "api": "3", "hostname": Config.SERVER_DOMAIN_OR_IP},
-            "nodeId": Config.NODE_ID}, 200, {'Content-Type': 'application/json'}
+            "data": {"version": Config.OTS_VERSION, "api": "3", "hostname": Config.OTS_SERVER_ADDRESS},
+            "nodeId": Config.OTS_NODE_ID}, 200, {'Content-Type': 'application/json'}
 
 
 @marti_blueprint.route('/Marti/sync/missionupload', methods=['POST'])
@@ -75,7 +169,7 @@ def data_package_share():
 
             # TODO: Handle HTTP/HTTPS properly
             return 'http://{}:{}/Marti/api/sync/metadata/{}/tool'.format(
-                Config.SERVER_DOMAIN_OR_IP, Config.HTTP_PORT, file_hash), 200
+                Config.OTS_SERVER_ADDRESS, Config.OTS_HTTP_PORT, file_hash), 200
 
 
 @marti_blueprint.route('/Marti/api/sync/metadata/<file_hash>/tool', methods=['GET', 'PUT'])
@@ -107,7 +201,7 @@ def data_package_query():
         if data_package:
             # TODO: Handle HTTP/HTTPS properly
             return 'http://{}:{}/Marti/api/sync/metadata/{}/tool'.format(
-                Config.SERVER_DOMAIN_OR_IP, Config.HTTP_PORT, request.args.get('hash')), 200
+                Config.OTS_SERVER_ADDRESS, Config.OTS_HTTP_PORT, request.args.get('hash')), 200
         else:
             return {'error': '404'}, 404, {'Content-Type': 'application/json'}
     except sqlalchemy.exc.NoResultFound as e:
@@ -205,4 +299,3 @@ def video():
         except BaseException as e:
             logger.error(traceback.format_exc())
             return '', 500
-
