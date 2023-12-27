@@ -23,6 +23,8 @@ from models.Video import Video
 
 from certificate_authority import CertificateAuthority
 
+from models.Certificate import Certificate
+
 marti_blueprint = Blueprint('marti_blueprint', __name__)
 
 
@@ -92,22 +94,21 @@ def sign_csr():
     return '', 200
 
 
-# require basic auth
 @marti_blueprint.route('/Marti/api/tls/signClient/v2', methods=['POST'])
 def sign_csr_v2():
     if not basic_auth(request.headers.get('Authorization')):
         return '', 401
-    logger.info(request.headers)
+
     uid = request.args.get("clientUid")
     csr = '-----BEGIN CERTIFICATE REQUEST-----\n' + request.data.decode('utf-8') + '-----END CERTIFICATE REQUEST-----'
-    logger.warning(csr)
 
     x509 = crypto.load_certificate_request(crypto.FILETYPE_PEM, csr.encode())
-    logger.error("CN=" + x509.get_subject().CN)
+    common_name = x509.get_subject().CN
+    logger.debug("Attempting to sign CSR for {}".format(common_name))
 
     cert_authority = CertificateAuthority(logger, app)
 
-    signed_csr = cert_authority.sign_csr(csr.encode(), x509.get_subject().CN, False).decode("utf-8")
+    signed_csr = cert_authority.sign_csr(csr.encode(), common_name, False).decode("utf-8")
     signed_csr = signed_csr.replace("-----BEGIN CERTIFICATE-----\n", "")
     signed_csr = signed_csr.replace("\n-----END CERTIFICATE-----\n", "")
 
@@ -128,6 +129,25 @@ def sign_csr_v2():
     response = tostring(enrollment).decode('utf-8')
     response = '<?xml version="1.0" encoding="UTF-8"?>\n' + response
 
+    eud = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()[0]
+
+    logger.info(eud)
+
+    certificate = Certificate()
+    certificate.common_name = common_name
+    certificate.eud_uid = uid
+    certificate.callsign = eud.callsign
+    certificate.expiration_date = datetime.datetime.today() + datetime.timedelta(days=app.config.get("OTS_CA_EXPIRATION_TIME"))
+    certificate.server_address = app.config.get("OTS_SERVER_ADDRESS")
+    certificate.server_port = app.config.get("OTS_HTTPS_PORT")
+    certificate.truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "truststore-root.p12")
+    certificate.user_cert_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".pem")
+    certificate.csr = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".csr")
+    certificate.cert_password = app.config.get("OTS_CA_PASSWORD")
+
+    db.session.add(certificate)
+    db.session.commit()
+
     return response, 200, {'Content-Type': 'application/xml', 'Content-Encoding': 'charset=UTF-8'}
 
 
@@ -140,6 +160,8 @@ def marti_config():
 
 @marti_blueprint.route('/Marti/sync/missionupload', methods=['POST'])
 def data_package_share():
+    logger.warning(request.headers)
+    logger.warning(request.data)
     if not len(request.files):
         return {'error': 'no file'}, 400, {'Content-Type': 'application/json'}
     for file in request.files:

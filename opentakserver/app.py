@@ -7,7 +7,7 @@ import flask_wtf
 from gevent.pywsgi import WSGIServer
 
 import pika
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import socket
 import threading
@@ -41,9 +41,11 @@ user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 app.security = Security(app, user_datastore)
 
 from blueprints.marti import marti_blueprint
+
 app.register_blueprint(marti_blueprint)
 
 from blueprints.api import api_blueprint
+
 app.register_blueprint(api_blueprint)
 
 rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
@@ -155,8 +157,9 @@ if __name__ == '__main__':
 
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
-    context.load_cert_chain(os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".pem"),
-                            os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
+    context.load_cert_chain(
+        os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".pem"),
+        os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
 
     context.verify_mode = app.config.get("OTS_SSL_VERIFICATION_MODE")
     context.load_verify_locations(cafile=os.path.join(app.config.get("OTS_CA_FOLDER"), 'ca.pem'))

@@ -65,7 +65,7 @@ def certificate():
             callsign = bleach.clean(request.json.get('callsign'))
             truststore_filename = os.path.join(Config.OTS_CA_FOLDER, 'certs',
                                                Config.OTS_SERVER_ADDRESS,
-                                               "{}.p12".format(Config.OTS_SERVER_ADDRESS))
+                                               "truststore-root.p12")
             user_filename = os.path.join(Config.OTS_CA_FOLDER, 'certs', callsign,
                                          "{}.p12".format(callsign))
 
@@ -106,6 +106,7 @@ def certificate():
                      os.path.join(Config.UPLOAD_FOLDER, "{}.zip".format(file_hash)))
 
             cert = Certificate()
+            cert.common_name = callsign
             cert.callsign = callsign
             cert.expiration_date = datetime.datetime.today() + datetime.timedelta(days=Config.OTS_CA_EXPIRATION_TIME)
             cert.server_address = Config.OTS_SERVER_ADDRESS
