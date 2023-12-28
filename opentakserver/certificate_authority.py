@@ -55,7 +55,7 @@ class CertificateAuthority:
             if exit_code:
                 raise Exception("Failed to add trust to CA. Exit code {}".format(exit_code))
 
-            command = ('openssl pkcs12 -export -in {} -out {} -passout pass:{} -nokeys -caname {}'
+            command = ('openssl pkcs12 -legacy -export -in {} -out {} -passout pass:{} -nokeys -caname {}'
                        .format(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca-trusted.pem"),
                                os.path.join(self.app.config.get("OTS_CA_FOLDER"), "truststore-root.p12"),
                                self.app.config.get("OTS_CA_PASSWORD"),

@@ -7,7 +7,7 @@ import flask_wtf
 from gevent.pywsgi import WSGIServer
 
 import pika
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from flask_cors import CORS
 import socket
 import threading
@@ -69,20 +69,29 @@ def after_request_func(response):
     return response
 
 
+def get_ssl_context():
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+
+    context.load_cert_chain(
+        os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", app.config.get("OTS_SERVER_ADDRESS"),
+                     app.config.get("OTS_SERVER_ADDRESS") + ".pem"),
+        os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", app.config.get("OTS_SERVER_ADDRESS"),
+                     app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
+
+    context.verify_mode = app.config.get("OTS_SSL_VERIFICATION_MODE")
+    context.load_verify_locations(cafile=os.path.join(app.config.get("OTS_CA_FOLDER"), 'ca.pem'))
+
+    return context
+
+
 def launch_ssl_server():
     lock = threading.Lock()
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0) as sock:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context = get_ssl_context()
 
-        context.load_cert_chain(
-            os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".pem"),
-            os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
-
-        context.verify_mode = app.config.get("OTS_SSL_VERIFICATION_MODE")
-        context.load_verify_locations(cafile=os.path.join(app.config.get("OTS_CA_FOLDER"), 'ca.pem'))
         sconn = context.wrap_socket(sock, server_side=True)
         sconn.bind(('0.0.0.0', app.config.get("OTS_SSL_STREAMING_PORT")))
         sconn.listen(0)
@@ -155,21 +164,12 @@ if __name__ == '__main__':
     http_server = WSGIServer(('0.0.0.0', app.config.get("OTS_HTTP_PORT")), app)
     http_server.start()
 
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-
-    context.load_cert_chain(
-        os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".pem"),
-        os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
-
-    context.verify_mode = app.config.get("OTS_SSL_VERIFICATION_MODE")
-    context.load_verify_locations(cafile=os.path.join(app.config.get("OTS_CA_FOLDER"), 'ca.pem'))
-
     certificate_enrollment_server = WSGIServer(('0.0.0.0', app.config.get("OTS_CERTIFICATE_ENROLLMENT_PORT")),
-                                               app, ssl_context=context)
+                                               app, ssl_context=get_ssl_context())
     certificate_enrollment_server.start()
 
     https_server = WSGIServer(('0.0.0.0', app.config.get("OTS_HTTPS_PORT")), app,
-                              ssl_context=context)
+                              ssl_context=get_ssl_context())
 
     try:
         https_server.serve_forever()
