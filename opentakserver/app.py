@@ -1,3 +1,6 @@
+from gevent import monkey
+monkey.patch_all()
+
 import os
 import ssl
 import sys
@@ -7,17 +10,15 @@ import flask_wtf
 from gevent.pywsgi import WSGIServer
 
 import pika
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from flask_cors import CORS
 import socket
 import threading
 
-# from flask_socketio import SocketIO
-
 from flask_security import Security, SQLAlchemyUserDatastore, hash_password
 from flask_security.models import fsqla_v3 as fsqla
 
-from extensions import logger, db
+from extensions import logger, db, websocket
 from config import Config
 
 from controllers.client_controller import ClientController
@@ -29,8 +30,7 @@ app.config.from_object(Config)
 cors = CORS(app, resources={r"/api/*": {"origins": "*"}, r"/Marti/*": {"origins": "*"}, r"/*": {"origins": "*"}},
             supports_credentials=True)
 flask_wtf.CSRFProtect(app)
-
-# socketio = SocketIO(app)
+websocket.init_app(app)
 db.init_app(app)
 fsqla.FsModels.set_db_info(db)
 
@@ -69,20 +69,29 @@ def after_request_func(response):
     return response
 
 
+def get_ssl_context():
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+
+    context.load_cert_chain(
+        os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", app.config.get("OTS_SERVER_ADDRESS"),
+                     app.config.get("OTS_SERVER_ADDRESS") + ".pem"),
+        os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", app.config.get("OTS_SERVER_ADDRESS"),
+                     app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
+
+    context.verify_mode = app.config.get("OTS_SSL_VERIFICATION_MODE")
+    context.load_verify_locations(cafile=os.path.join(app.config.get("OTS_CA_FOLDER"), 'ca.pem'))
+
+    return context
+
+
 def launch_ssl_server():
     lock = threading.Lock()
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0) as sock:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context = get_ssl_context()
 
-        context.load_cert_chain(
-            os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".pem"),
-            os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
-
-        context.verify_mode = app.config.get("OTS_SSL_VERIFICATION_MODE")
-        context.load_verify_locations(cafile=os.path.join(app.config.get("OTS_CA_FOLDER"), 'ca.pem'))
         sconn = context.wrap_socket(sock, server_side=True)
         sconn.bind(('0.0.0.0', app.config.get("OTS_SSL_STREAMING_PORT")))
         sconn.listen(0)
@@ -152,26 +161,8 @@ if __name__ == '__main__':
     cot_thread.daemon = True
     cot_thread.start()
 
-    http_server = WSGIServer(('0.0.0.0', app.config.get("OTS_HTTP_PORT")), app)
-    http_server.start()
-
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-
-    context.load_cert_chain(
-        os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".pem"),
-        os.path.join(app.config.get("OTS_CA_FOLDER"), app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
-
-    context.verify_mode = app.config.get("OTS_SSL_VERIFICATION_MODE")
-    context.load_verify_locations(cafile=os.path.join(app.config.get("OTS_CA_FOLDER"), 'ca.pem'))
-
-    certificate_enrollment_server = WSGIServer(('0.0.0.0', app.config.get("OTS_CERTIFICATE_ENROLLMENT_PORT")),
-                                               app, ssl_context=context)
-    certificate_enrollment_server.start()
-
-    https_server = WSGIServer(('0.0.0.0', app.config.get("OTS_HTTPS_PORT")), app,
-                              ssl_context=context)
-
+    http_server = WSGIServer(('0.0.0.0', app.config.get("OTS_LISTENER_PORT")), app)
     try:
-        https_server.serve_forever()
+        http_server.serve_forever()
     except KeyboardInterrupt:
         sys.exit()

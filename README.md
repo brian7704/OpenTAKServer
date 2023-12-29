@@ -49,6 +49,7 @@ This project is just beginning and not yet suitable for production.
 - RabbitMQ
 - MediaMTX (Only required for video streaming)
 - openssl
+- nginx
 
 ## Installation
 ```
