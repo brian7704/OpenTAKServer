@@ -161,17 +161,9 @@ if __name__ == '__main__':
     cot_thread.daemon = True
     cot_thread.start()
 
-    http_server = WSGIServer(('0.0.0.0', app.config.get("OTS_HTTP_PORT")), app)
-    http_server.start()
-
-    certificate_enrollment_server = WSGIServer(('0.0.0.0', app.config.get("OTS_CERTIFICATE_ENROLLMENT_PORT")),
-                                               app, ssl_context=get_ssl_context())
-    certificate_enrollment_server.start()
-
-    https_server = WSGIServer(('0.0.0.0', app.config.get("OTS_HTTPS_PORT")), app,
-                              ssl_context=get_ssl_context())
+    http_server = WSGIServer(('0.0.0.0', app.config.get("OTS_LISTENER_PORT")), app)
 
     try:
-        https_server.serve_forever()
+        http_server.serve_forever()
     except KeyboardInterrupt:
         sys.exit()
