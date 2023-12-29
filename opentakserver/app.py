@@ -1,23 +1,22 @@
+import eventlet
+eventlet.monkey_patch()
+
 import os
 import ssl
-import sys
 import traceback
 
 import flask_wtf
-from gevent.pywsgi import WSGIServer
 
 import pika
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import socket
 import threading
 
-# from flask_socketio import SocketIO
-
 from flask_security import Security, SQLAlchemyUserDatastore, hash_password
 from flask_security.models import fsqla_v3 as fsqla
 
-from extensions import logger, db
+from extensions import logger, db, socketio
 from config import Config
 
 from controllers.client_controller import ClientController
@@ -30,7 +29,7 @@ cors = CORS(app, resources={r"/api/*": {"origins": "*"}, r"/Marti/*": {"origins"
             supports_credentials=True)
 flask_wtf.CSRFProtect(app)
 
-# socketio = SocketIO(app)
+socketio.init_app(app)
 db.init_app(app)
 fsqla.FsModels.set_db_info(db)
 
@@ -41,12 +40,13 @@ user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 app.security = Security(app, user_datastore)
 
 from blueprints.marti import marti_blueprint
-
 app.register_blueprint(marti_blueprint)
 
 from blueprints.api import api_blueprint
-
 app.register_blueprint(api_blueprint)
+
+from blueprints.ots_socketio import ots_socketio_blueprint
+app.register_blueprint(ots_socketio_blueprint)
 
 rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
 channel = rabbit_connection.channel()
@@ -157,13 +157,8 @@ if __name__ == '__main__':
     ssl_thread.daemon = True
     ssl_thread.start()
 
-    cot_thread = CoTController(app.app_context(), logger, db)
+    cot_thread = CoTController(app.app_context(), logger, db, socketio)
     cot_thread.daemon = True
     cot_thread.start()
 
-    http_server = WSGIServer(('0.0.0.0', app.config.get("OTS_LISTENER_PORT")), app)
-
-    try:
-        http_server.serve_forever()
-    except KeyboardInterrupt:
-        sys.exit()
+    socketio.run(app, host="127.0.0.1", port=app.config.get("OTS_LISTENER_PORT"), debug=False, log_output=True)

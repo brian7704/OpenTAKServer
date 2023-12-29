@@ -22,6 +22,7 @@ Flask-Security-Too = "^5.3.2"
 flask-cors = "^4.0.0"
 pyOpenSSL = "^23.3.0"
 cryptography = "^41.0.7"
+python-socketio = {extras = ["client", "websocket_client", "asyncio_client"], version = "5.10.0"}
 
 
 [build-system]

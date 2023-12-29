@@ -29,11 +29,15 @@ marti_blueprint = Blueprint('marti_blueprint', __name__)
 
 
 def basic_auth(credentials):
-    username, password = base64.b64decode(credentials.split(" ")[-1].encode('utf-8')).decode('utf-8').split(":")
-    username = bleach.clean(username)
-    password = bleach.clean(password)
-    user = app.security.datastore.find_user(username=username)
-    return user and verify_password(password, user.password)
+    try:
+        username, password = base64.b64decode(credentials.split(" ")[-1].encode('utf-8')).decode('utf-8').split(":")
+        username = bleach.clean(username)
+        password = bleach.clean(password)
+        user = app.security.datastore.find_user(username=username)
+        return user and verify_password(password, user.password)
+    except BaseException as e:
+        logger.error("Failed to verify credentials: {}".format(e))
+        return False
 
 
 @marti_blueprint.route('/Marti/api/clientEndPoints', methods=['GET'])
