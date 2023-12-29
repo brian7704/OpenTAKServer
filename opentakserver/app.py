@@ -1,6 +1,3 @@
-from gevent import monkey
-monkey.patch_all()
-
 import os
 import ssl
 import sys
@@ -15,10 +12,12 @@ from flask_cors import CORS
 import socket
 import threading
 
+# from flask_socketio import SocketIO
+
 from flask_security import Security, SQLAlchemyUserDatastore, hash_password
 from flask_security.models import fsqla_v3 as fsqla
 
-from extensions import logger, db, websocket
+from extensions import logger, db
 from config import Config
 
 from controllers.client_controller import ClientController
@@ -30,7 +29,8 @@ app.config.from_object(Config)
 cors = CORS(app, resources={r"/api/*": {"origins": "*"}, r"/Marti/*": {"origins": "*"}, r"/*": {"origins": "*"}},
             supports_credentials=True)
 flask_wtf.CSRFProtect(app)
-websocket.init_app(app)
+
+# socketio = SocketIO(app)
 db.init_app(app)
 fsqla.FsModels.set_db_info(db)
 
@@ -161,8 +161,17 @@ if __name__ == '__main__':
     cot_thread.daemon = True
     cot_thread.start()
 
-    http_server = WSGIServer(('0.0.0.0', app.config.get("OTS_LISTENER_PORT")), app)
+    http_server = WSGIServer(('0.0.0.0', app.config.get("OTS_HTTP_PORT")), app)
+    http_server.start()
+
+    certificate_enrollment_server = WSGIServer(('0.0.0.0', app.config.get("OTS_CERTIFICATE_ENROLLMENT_PORT")),
+                                               app, ssl_context=get_ssl_context())
+    certificate_enrollment_server.start()
+
+    https_server = WSGIServer(('0.0.0.0', app.config.get("OTS_HTTPS_PORT")), app,
+                              ssl_context=get_ssl_context())
+
     try:
-        http_server.serve_forever()
+        https_server.serve_forever()
     except KeyboardInterrupt:
         sys.exit()
