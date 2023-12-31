@@ -15,7 +15,7 @@ if not logger.hasHandlers():
 
 db = SQLAlchemy(model_class=Base)
 
-socketio = SocketIO(logger=logger, engineio_logger=logger)
+socketio = SocketIO(logger=False, engineio_logger=False)
 
 nginx_config_template = Template("""server {
         listen {{http_streaming_port}} default_server;

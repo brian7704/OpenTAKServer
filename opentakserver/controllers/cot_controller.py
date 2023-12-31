@@ -2,7 +2,6 @@ import datetime
 import json
 import traceback
 from threading import Thread
-from xml.etree.ElementTree import Element, SubElement, tostring
 
 import sqlalchemy.exc
 from sqlalchemy import exc, insert, update
@@ -22,12 +21,13 @@ from models.point import Point
 
 
 class CoTController(Thread):
-    def __init__(self, context, logger, db):
+    def __init__(self, context, logger, db, socketio):
         super().__init__()
 
         self.context = context
         self.logger = logger
         self.db = db
+        self.socketio = socketio
 
         self.online_euds = {}
         self.online_callsigns = {}
@@ -365,12 +365,17 @@ class CoTController(Thread):
 
                     self.db.session.commit()
 
+    def send_to_websocket(self, soup, event):
+        if event.attrs['how'].startswith("m-g") or event.attrs['how'].startswith('h-e'):
+            self.socketio.emit("position", str(soup))
+
     def on_message(self, unused_channel, basic_deliver, properties, body):
         try:
             body = json.loads(body)
             soup = BeautifulSoup(body['cot'], 'xml')
             event = soup.find('event')
             if event:
+                self.send_to_websocket(soup, event)
                 self.parse_device_info(body['uid'], soup, event)
                 cot_pk = self.insert_cot(soup, event, body['uid'])
                 point_pk = self.parse_point(event, body['uid'], cot_pk)

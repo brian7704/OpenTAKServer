@@ -21,8 +21,10 @@ def authenticated_only(f):
 
 @socketio.on('connect', namespace="/")
 def connect(data):
-    if current_user.is_authenticated:
-        logger.info('got a socketio connection from {}'.format(current_user.username))
+    if not current_user.is_authenticated:
+        disconnect()
+        return
+    logger.info('got a socketio connection from {}'.format(current_user.username))
 
 @socketio.on('message', namespace="/")
 @authenticated_only
