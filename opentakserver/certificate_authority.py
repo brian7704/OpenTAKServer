@@ -7,6 +7,7 @@ import zipfile
 from pathlib import Path
 from shutil import copyfile, rmtree
 from jinja2 import Template
+from ca_config import ca_config, server_config
 
 
 class CertificateAuthority:
@@ -20,8 +21,9 @@ class CertificateAuthority:
             self.logger.info("Creating CA...")
             os.makedirs(self.app.config.get("OTS_CA_FOLDER"), exist_ok=True)
 
-            copyfile(os.path.join("opentakserver", "ca_config.cfg"),
-                     os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca_config.cfg"))
+            f = open(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca_config.cfg"), 'w')
+            f.write(ca_config)
+            f.close()
 
             subject = self.app.config.get("OTS_CA_SUBJECT") + "/CN={}".format(self.app.config.get("OTS_CA_NAME"))
 
@@ -195,15 +197,11 @@ class CertificateAuthority:
             else:
                 alt_name_field = "DNS.1"
 
-            copyfile(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca_config.cfg"),
-                     os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name,
-                                  "{}_config.cfg".format(common_name)))
-
             f = open(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name,
-                                  "{}_config.cfg".format(common_name)), 'a')
-            f.write("\nsubjectAltName = @alt_names\n")
-            f.write("\n[alt_names]\n")
-            f.write("\n{} = {}\n".format(alt_name_field, common_name))
+                                  "{}_config.cfg".format(common_name)), 'w')
+
+            f.write(server_config.render(alt_name_field=alt_name_field, common_name=common_name))
+
             f.close()
 
             config_file = os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name,

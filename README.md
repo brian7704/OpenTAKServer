@@ -5,7 +5,7 @@ OpenTAKServer (OTS) is yet another open source TAK Server for ATAK, iTAK, and Wi
 This project is just beginning and not yet suitable for production.
 
 ## Current Features
-- Connect via TCP from ATAK
+- Connect via TCP from ATAK and WinTAK
 - SSL
 - Authentication
 - Client certificate enrollment
@@ -20,7 +20,7 @@ This project is just beginning and not yet suitable for production.
 - CasEvac
 
 ## Planned Features
-- WinTAK and iTAK support (This may already work, just needs to be tested)
+- iTAK support (This may already work, just needs to be tested)
 - Authentication
 - API to query saved CoT messages
 - WebUI
