@@ -138,7 +138,7 @@ class CertificateAuthority:
         self.sign_csr(csr_bytes, common_name, server)
 
         command = (
-            'openssl pkcs12 -export -in {}.pem -inkey {}.key -out {}.p12 -name {} -CAfile {} -passin pass:{} -passout pass:{}'
+            'openssl pkcs12 -legacy -export -in {}.pem -inkey {}.key -out {}.p12 -name {} -CAfile {} -passin pass:{} -passout pass:{}'
             .format(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name),
                     os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name),
                     os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name),

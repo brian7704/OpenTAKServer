@@ -60,7 +60,7 @@ def paginate(query):
 @api_blueprint.route("/api/certificate", methods=['GET', 'POST'])
 @roles_accepted('administrator')
 def certificate():
-    if request.method == 'POST' and 'callsign' in request.json.keys():
+    if request.method == 'POST' and 'callsign' in request.json.keys() and 'uid' in request.json.keys():
         try:
             callsign = bleach.clean(request.json.get('callsign'))
             truststore_filename = os.path.join(Config.OTS_CA_FOLDER, 'certs',

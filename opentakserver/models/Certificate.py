@@ -11,7 +11,7 @@ class Certificate(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     common_name: Mapped[str] = mapped_column(String)
-    eud_uid: Mapped[str] = mapped_column(Integer, ForeignKey("eud.uid"), unique=True)
+    eud_uid: Mapped[str] = mapped_column(Integer, ForeignKey("eud.uid"), nullable=True)
     data_package_id: Mapped[int] = mapped_column(Integer, ForeignKey("data_packages.id"), nullable=True)
     callsign: Mapped[str] = mapped_column(String, nullable=True)
     expiration_date: Mapped[str] = mapped_column(String)

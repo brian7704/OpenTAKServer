@@ -2,7 +2,11 @@ import base64
 import json
 import os
 import datetime
+import time
 import traceback
+import uuid
+
+import jwt
 
 from xml.etree.ElementTree import Element, tostring, fromstring, SubElement
 
@@ -10,7 +14,7 @@ import bleach
 import sqlalchemy
 from OpenSSL import crypto
 from bs4 import BeautifulSoup
-from flask import current_app as app, request, Blueprint, send_from_directory
+from flask import current_app as app, request, Blueprint, send_from_directory, jsonify
 from flask_security import verify_password
 from extensions import logger, db
 
@@ -152,11 +156,13 @@ def sign_csr_v2():
         certificate.common_name = common_name
         certificate.eud_uid = uid
         certificate.callsign = eud.callsign
-        certificate.expiration_date = datetime.datetime.today() + datetime.timedelta(days=app.config.get("OTS_CA_EXPIRATION_TIME"))
+        certificate.expiration_date = datetime.datetime.today() + datetime.timedelta(
+            days=app.config.get("OTS_CA_EXPIRATION_TIME"))
         certificate.server_address = app.config.get("OTS_SERVER_ADDRESS")
         certificate.server_port = app.config.get("OTS_HTTPS_PORT")
         certificate.truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "truststore-root.p12")
-        certificate.user_cert_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".pem")
+        certificate.user_cert_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name,
+                                                      common_name + ".pem")
         certificate.csr = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".csr")
         certificate.cert_password = app.config.get("OTS_CA_PASSWORD")
 
@@ -187,6 +193,139 @@ def marti_config():
     return {"version": "3", "type": "ServerConfig",
             "data": {"version": Config.OTS_VERSION, "api": "3", "hostname": Config.OTS_SERVER_ADDRESS},
             "nodeId": Config.OTS_NODE_ID}, 200, {'Content-Type': 'application/json'}
+
+
+@marti_blueprint.route('/Marti/api/missions/citrap/subscription', methods=['PUT'])
+def citrap_subscription():
+    uid = bleach.clean(request.args.get('uid'))
+    response = {
+        'version': 3, 'type': 'com.bbn.marti.sync.model.MissionSubscription',
+        'data': {
+
+        }
+    }
+    return '', 201
+
+
+@marti_blueprint.route('/Marti/api/missions/invitations')
+def mission_invitations():
+    uid = bleach.clean(request.args.get('clientUid'))
+    response = {
+        'version': 3, 'type': 'MissionInvitation', 'data': [], 'nodeId': app.config.get('OTS_NODE_ID')
+    }
+
+    return jsonify(response)
+
+
+@marti_blueprint.route('/Marti/api/missions')
+def missions():
+    password_protected = request.args.get('passwordProtected')
+    if password_protected:
+        password_protected = bleach.clean(password_protected).lower() == 'true'
+
+    default_role = request.args.get('defaultRole')
+    if default_role:
+        default_role = bleach.clean(default_role).lower() == 'true'
+
+    response = {
+        'version': 3, 'type': 'Mission', 'data': [], 'nodeId': app.config.get('OTS_NODE_ID')
+    }
+
+    return jsonify(response)
+
+
+@marti_blueprint.route('/Marti/api/groups/all')
+def groups():
+    use_cache = bleach.clean(request.args.get('useCache'))  # bool
+
+    response = {
+        'version': 3, 'type': 'com.bbn.marti.remote.groups.Group', 'data': [{}], 'nodeId': app.config.get("OTS_NODE_ID")
+    }
+
+    return jsonify(response)
+
+
+@marti_blueprint.route('/Marti/api/missions/all/invitations')
+def all_invitations():
+    clientUid = bleach.clean(request.args.get('clientUid'))
+    return '', 200
+
+
+@marti_blueprint.route('/Marti/api/missions/<mission_name>', methods=['GET', 'PUT'])
+def put_mission(mission_name):
+    if request.method == 'PUT':
+        creator_uid = bleach.clean(request.args.get('creatorUid'))
+        description = bleach.clean(request.args.get('description'))
+        tool = bleach.clean(request.args.get('tool'))
+        group = bleach.clean(request.args.get('group'))
+        default_role = bleach.clean(request.args.get('defaultRole'))
+        password = request.args.get('password')
+        password_protected = False
+        if password:
+            password = bleach.clean(password)
+            password_protected = True
+
+        uid = str(uuid.uuid4())
+        creation_time = int(time.time())
+        creation_datetime = datetime.datetime.now()
+
+        payload = {'jti': uid, 'iat': creation_time, 'sub': 'SUBSCRIPTION', 'iss': '',
+                 'SUBSCRIPTION': uid, 'MISSION_NAME': mission_name}
+
+        server_key = open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", app.config.get("OTS_SERVER_ADDRESS"),
+                                       app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"), "rb")
+
+        token = jwt.encode(payload, server_key.read(), algorithm="HS256")
+        server_key.close()
+
+        response = {
+            'version': 3, 'type': 'Mission', 'data': [{
+                'name': mission_name, 'description': description, 'chatRoom': '', 'baseLayer': '', 'path': '', 'classification': '',
+                'tool': tool, 'keywords': [], 'creatorUid': creator_uid, 'createTime': creation_datetime, 'externalData': [],
+                'feeds': [], 'mapLayers': [], 'defaultRole': {
+                    'permissions': ["MISSION_WRITE","MISSION_READ"],"type":"MISSION_SUBSCRIBER"},
+
+                'ownerRole': {"permissions": ["MISSION_MANAGE_FEEDS", "MISSION_SET_PASSWORD", "MISSION_WRITE",
+                                              "MISSION_MANAGE_LAYERS", "MISSION_UPDATE_GROUPS", "MISSION_SET_ROLE",
+                                              "MISSION_READ", "MISSION_DELETE"], "type": "MISSION_OWNER"},
+                'inviteOnly': False, 'expiration': -1, 'guid': '', 'uids': [], 'contents': [], 'token': token,
+                'passwordProtected': password_protected, 'nodeId': app.config.get("OTS_NODE_ID")
+            }]
+        }
+
+        return jsonify(response), 201
+    elif request.method == 'GET':
+        # Pull it from the DB
+
+        return '', 200
+
+
+@marti_blueprint.route('/Marti/api/missions/<mission_name>/keywords', methods=['PUT'])
+def put_mission_keywords(mission_name):
+    keywords = request.json()
+
+    return '', 200
+
+
+@marti_blueprint.route('/Marti/api/missions/<mission_name>/subscription', methods=['PUT'])
+def mission_subscribe(mission_name):
+    uid = bleach.clean(request.args.get("uid"))
+
+    return '', 200
+
+
+@marti_blueprint.route('/Marti/api/citrap')
+def citrap():
+    return jsonify([])
+
+
+@marti_blueprint.route('/Marti/api/groups/groupCacheEnabled')
+def group_cache_enabled():
+    response = {
+        'version': 3, 'type': 'java.lang.Boolean', 'data': False, 'nodeId': app.config.get('OTS_NODE_ID')
+    }
+
+    return jsonify(response)
 
 
 @marti_blueprint.route('/Marti/sync/missionupload', methods=['POST'])
