@@ -3,8 +3,6 @@ from datetime import datetime
 import eventlet
 eventlet.monkey_patch()
 
-import os
-import ssl
 import traceback
 
 import flask_wtf
@@ -12,8 +10,6 @@ import flask_wtf
 import pika
 from flask import Flask, jsonify
 from flask_cors import CORS
-import socket
-import threading
 
 from flask_security import Security, SQLAlchemyUserDatastore, hash_password
 from flask_security.models import fsqla_v3 as fsqla
@@ -21,9 +17,9 @@ from flask_security.models import fsqla_v3 as fsqla
 from extensions import logger, db, socketio
 from config import Config
 
-from controllers.client_controller import ClientController
 from controllers.cot_controller import CoTController
-from opentakserver.certificate_authority import CertificateAuthority
+from certificate_authority import CertificateAuthority
+from SocketServer import SocketServer
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -71,63 +67,6 @@ def after_request_func(response):
     return response
 
 
-def get_ssl_context():
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-
-    context.load_cert_chain(
-        os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", app.config.get("OTS_SERVER_ADDRESS"),
-                     app.config.get("OTS_SERVER_ADDRESS") + ".pem"),
-        os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", app.config.get("OTS_SERVER_ADDRESS"),
-                     app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
-
-    context.verify_mode = app.config.get("OTS_SSL_VERIFICATION_MODE")
-    context.load_verify_locations(cafile=os.path.join(app.config.get("OTS_CA_FOLDER"), 'ca.pem'))
-
-    return context
-
-
-def launch_ssl_server():
-    lock = threading.Lock()
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0) as sock:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-        context = get_ssl_context()
-
-        sconn = context.wrap_socket(sock, server_side=True)
-        sconn.bind(('0.0.0.0', app.config.get("OTS_SSL_STREAMING_PORT")))
-        sconn.listen(0)
-
-        while True:
-            try:
-                conn, addr = sconn.accept()
-            except (ConnectionResetError, ssl.SSLError):
-                # Prevents crashing this thread if a client tries to connect without using SSL
-                continue
-            logger.info("New SSL connection from {}".format(addr[0]))
-            new_thread = ClientController(addr[0], addr[1], conn, lock, logger, app.app_context())
-            new_thread.daemon = True
-            new_thread.start()
-
-
-def launch_tcp_server():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(('0.0.0.0', app.config.get("OTS_TCP_STREAMING_PORT")))
-    s.listen(1)
-    lock = threading.Lock()
-
-    while True:
-        try:
-            sock, addr = s.accept()
-            logger.info("New TCP connection from {}".format(addr[0]))
-            new_thread = ClientController(addr[0], addr[1], sock, lock, logger, app.app_context())
-            new_thread.daemon = True
-            new_thread.start()
-        except KeyboardInterrupt:
-            break
-
-
 if __name__ == '__main__':
     with app.app_context():
         logger.debug("Creating DB")
@@ -151,13 +90,11 @@ if __name__ == '__main__':
                                                password=hash_password("password"), roles=["administrator"])
         db.session.commit()
 
-    tcp_thread = threading.Thread(target=launch_tcp_server)
-    tcp_thread.daemon = True
+    tcp_thread = SocketServer(logger, app.config.get("OTS_TCP_STREAMING_PORT"))
     tcp_thread.start()
     app.tcp_thread = tcp_thread
 
-    ssl_thread = threading.Thread(target=launch_ssl_server)
-    ssl_thread.daemon = True
+    ssl_thread = SocketServer(logger, app.config.get("OTS_SSL_STREAMING_PORT"), True)
     ssl_thread.start()
     app.ssl_thread = ssl_thread
 

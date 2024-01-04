@@ -1,24 +1,23 @@
 import json
-import traceback
+import socket
 import uuid
 from xml.etree.ElementTree import Element, SubElement, tostring, fromstring, ParseError
 import datetime
 from threading import Thread
 
-import sqlalchemy
 from bs4 import BeautifulSoup
 import pika
 
 
 class ClientController(Thread):
-    def __init__(self, address, port, sock, lock, logger, context):
+    def __init__(self, address, port, sock, logger):
         Thread.__init__(self)
         self.address = address
         self.port = port
         self.sock = sock
-        self.lock = lock
         self.logger = logger
-        self.context = context
+        self.shutdown = False
+        self.sock.settimeout(1.0)
 
         # Device attributes
         self.uid = None
@@ -70,12 +69,21 @@ class ClientController(Thread):
         self.sock.send(body)
 
     def run(self):
-        while True:
+        while not self.shutdown:
             try:
                 data = self.sock.recv(4096)
-            except (ConnectionError, TimeoutError, ConnectionResetError) as e:
+            except (ConnectionError, ConnectionResetError) as e:
                 self.send_disconnect_cot()
                 break
+            except TimeoutError:
+                if self.shutdown:
+                    self.logger.warning("Closing connection to {}".format(self.address))
+                    self.send_disconnect_cot()
+                    self.sock.shutdown(socket.SHUT_RDWR)
+                    self.sock.close()
+                    break
+                else:
+                    continue
 
             if data:
                 # Sometimes recv() doesn't get all of the XML data in one go. Test if the XML is well-formed
@@ -111,6 +119,9 @@ class ClientController(Thread):
             else:
                 self.send_disconnect_cot()
                 break
+
+    def stop(self):
+        self.shutdown = True
 
     def pong(self, event):
         if 'uid' in event.attrs and event.attrs['uid'].endswith('ping'):

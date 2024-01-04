@@ -27,6 +27,7 @@ from models.user import User
 from models.Certificate import Certificate
 from models.Video import Video
 
+from opentakserver.SocketServer import SocketServer
 from opentakserver.certificate_authority import CertificateAuthority
 
 api_blueprint = Blueprint('api_blueprint', __name__)
@@ -61,6 +62,7 @@ def paginate(query):
 
 
 @api_blueprint.route('/api/status')
+@auth_required()
 def status():
     now = datetime.datetime.now()
     system_boot_time = datetime.datetime.fromtimestamp(psutil.boot_time())
@@ -106,6 +108,58 @@ def status():
     }
 
     return jsonify(response)
+
+
+@api_blueprint.route('/api/tcp/<action>')
+@roles_accepted('administrator')
+def control_tcp_socket(action):
+    action = bleach.clean(action).lower()
+
+    if action == 'start':
+        if app.tcp_thread.is_alive():
+            return jsonify({'success': False, 'error': 'TCP thread is already active'}), 400
+
+        tcp_thread = SocketServer(logger, app.config.get("OTS_TCP_STREAMING_PORT"))
+        tcp_thread.start()
+        app.tcp_thread = tcp_thread
+
+        return jsonify({'success': True})
+
+    elif action == 'stop':
+        if not app.tcp_thread.is_alive():
+            return jsonify({'success': False, 'error': 'TCP thread is not active'}), 400
+
+        app.tcp_thread.stop()
+        return jsonify({'success': True})
+
+    else:
+        return jsonify({'success': False, 'error': 'Valid actions are start and stop'}), 400
+
+
+@api_blueprint.route('/api/ssl/<action>')
+@roles_accepted('administrator')
+def control_ssl_socket(action):
+    action = bleach.clean(action).lower()
+
+    if action == 'start':
+        if app.ssl_thread.is_alive():
+            return jsonify({'success': False, 'error': 'ssl thread is already active'}), 400
+
+        ssl_thread = SocketServer(logger, app.config.get("OTS_SSL_STREAMING_PORT"), True)
+        ssl_thread.start()
+        app.ssl_thread = ssl_thread
+
+        return jsonify({'success': True})
+
+    elif action == 'stop':
+        if not app.ssl_thread.is_alive():
+            return jsonify({'success': False, 'error': 'SSL thread is not active'}), 400
+
+        app.ssl_thread.stop()
+        return jsonify({'success': True})
+
+    else:
+        return jsonify({'success': False, 'error': 'Valid actions are start and stop'}), 400
 
 
 @api_blueprint.route("/api/certificate", methods=['GET', 'POST'])
