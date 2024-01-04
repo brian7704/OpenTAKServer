@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import eventlet
 eventlet.monkey_patch()
 
@@ -8,7 +10,7 @@ import traceback
 import flask_wtf
 
 import pika
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from flask_cors import CORS
 import socket
 import threading
@@ -152,13 +154,16 @@ if __name__ == '__main__':
     tcp_thread = threading.Thread(target=launch_tcp_server)
     tcp_thread.daemon = True
     tcp_thread.start()
+    app.tcp_thread = tcp_thread
 
     ssl_thread = threading.Thread(target=launch_ssl_server)
     ssl_thread.daemon = True
     ssl_thread.start()
+    app.ssl_thread = ssl_thread
 
     cot_thread = CoTController(app.app_context(), logger, db, socketio)
-    cot_thread.daemon = True
-    cot_thread.start()
+    app.cot_thread = cot_thread
+
+    app.start_time = datetime.now()
 
     socketio.run(app, host="127.0.0.1", port=app.config.get("OTS_LISTENER_PORT"), debug=False, log_output=True)

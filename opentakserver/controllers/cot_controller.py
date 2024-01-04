@@ -20,10 +20,8 @@ from models.ZMIST import ZMIST
 from models.point import Point
 
 
-class CoTController(Thread):
+class CoTController:
     def __init__(self, context, logger, db, socketio):
-        super().__init__()
-
         self.context = context
         self.logger = logger
         self.db = db
@@ -186,7 +184,7 @@ class CoTController(Thread):
                             self.rabbit_channel.basic_publish(exchange='dms', routing_key=uid,
                                                               body=str(self.online_euds[eud]['cot']))
 
-                        self.online_euds[uid] = {'cot': soup, 'callsign': callsign}
+                        self.online_euds[uid] = {'cot': str(soup), 'callsign': callsign}
 
                 if 'phone' in contact.attrs:
                     phone_number = contact.attrs['phone']

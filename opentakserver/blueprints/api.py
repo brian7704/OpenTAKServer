@@ -6,6 +6,7 @@ import uuid
 from shutil import copyfile
 
 import bleach
+import psutil
 import sqlalchemy.exc
 from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
 from flask_security import auth_required, roles_accepted, hash_password, current_user, \
@@ -29,6 +30,8 @@ from models.Video import Video
 from opentakserver.certificate_authority import CertificateAuthority
 
 api_blueprint = Blueprint('api_blueprint', __name__)
+
+p = psutil.Process()
 
 
 def search(query, model, field):
@@ -55,6 +58,54 @@ def paginate(query):
         results['results'].append(row.serialize())
 
     return jsonify(results)
+
+
+@api_blueprint.route('/api/status')
+def status():
+    now = datetime.datetime.now()
+    system_boot_time = datetime.datetime.fromtimestamp(psutil.boot_time())
+    system_uptime = now - system_boot_time
+
+    ots_uptime = now - app.start_time
+
+    cpu_time = psutil.cpu_times()
+    cpu_time_dict = {'user': cpu_time.user, 'system': cpu_time.system, 'idle': cpu_time.idle}
+
+    vmem = psutil.virtual_memory()
+    vmem_dict = {'total': vmem.total, 'available': vmem.available, 'used': vmem.used, 'free': vmem.free, 'percent': vmem.percent}
+
+    disk_usage = psutil.disk_usage('/')
+    disk_usage_dict = {'total': disk_usage.total, 'used': disk_usage.used, 'free': disk_usage.free, 'percent': disk_usage.percent}
+
+    temps_dict = {}
+
+    if hasattr(psutil, "sensors_temperatures"):
+        for name, value in psutil.sensors_temperatures().items():
+            temps_dict[name] = {}
+            for val in value:
+                temps_dict[name][val.label] = {'current': val.current, 'high': val.high, 'critical': val.critical}
+
+    fans_dict = {}
+    if hasattr(psutil, 'sensors_fans'):
+        for name, value in psutil.sensors_fans():
+            for val in value:
+                fans_dict[name][val.label] = {val.current}
+
+    battery_dict = {}
+    if hasattr(psutil, "sensors_battery") and psutil.sensors_battery():
+        battery = psutil.sensors_battery()
+        battery_dict = {'percent': battery.percent, 'charging': battery.power_plugged, 'time_left': battery.secsleft}
+
+    response = {
+        'tcp': app.tcp_thread.is_alive(), 'ssl': app.ssl_thread.is_alive(), 'cot_router': app.cot_thread.iothread.is_alive(),
+        'online_euds': app.cot_thread.online_euds, 'system_boot_time': system_boot_time.strftime("%Y-%m-%d %H:%M:%SZ"),
+        'system_uptime': system_uptime.total_seconds(), 'ots_start_time': app.start_time.strftime("%Y-%m-%d %H:%M:%SZ"),
+        'ots_uptime': ots_uptime.total_seconds(), 'cpu_time': cpu_time_dict, 'cpu_percent': p.cpu_percent(),
+        'load_avg': psutil.getloadavg(), 'memory': vmem_dict, 'disk_usage': disk_usage_dict, 'temps': temps_dict,
+        'fans': fans_dict, 'battery': battery_dict, 'ots_version': app.config.get("OTS_VERSION")
+    }
+
+    return jsonify(response)
 
 
 @api_blueprint.route("/api/certificate", methods=['GET', 'POST'])
