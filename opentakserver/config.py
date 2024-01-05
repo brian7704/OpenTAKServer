@@ -9,6 +9,7 @@ from flask_security import uia_username_mapper
 class Config:
     SECRET_KEY = secret_key
 
+    OTS_FIRST_RUN = True
     OTS_DATA_FOLDER = os.path.join(Path.home(), 'ots')
     OTS_LISTENER_PORT = 8081  # OTS will listen for HTTP requests on this port. Nginx will listen on OTS_HTTP_PORT,
                               # OTS_HTTPS_PORT, and OTS_CERTIFICATE_ENROLLMENT_PORT and proxy requests to OTS_LISTENER_PORT
@@ -20,7 +21,7 @@ class Config:
     OTS_SSL_STREAMING_PORT = 8089
     OTS_VERSION = '0.1-OTS-DEV'
     OTS_SSL_VERIFICATION_MODE = ssl.CERT_OPTIONAL  # https://docs.python.org/3/library/ssl.html#ssl.SSLContext.verify_mode
-    OTS_SERVER_ADDRESS = server_domain_or_ip
+    OTS_SERVER_ADDRESS = server_address
     OTS_NODE_ID = node_id
     OTS_CA_NAME = 'OpenTAKServer-CA'
     OTS_CA_FOLDER = os.path.join(OTS_DATA_FOLDER, 'ca')
