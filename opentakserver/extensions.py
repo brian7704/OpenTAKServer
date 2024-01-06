@@ -18,14 +18,14 @@ db = SQLAlchemy(model_class=Base)
 socketio = SocketIO(logger=False, engineio_logger=False)
 
 nginx_config_template = Template("""server {
-        listen {{http_streaming_port}} default_server;
-        listen [::]:{{http_streaming_port}} default_server;
+        listen {{http_port}} default_server;
+        listen [::]:{{http_port}} default_server;
 
         root /var/www/html;
 
         index index.html index.htm index.nginx-debian.html;
 
-        server_name opentakserver_8080;
+        server_name opentakserver_{{http_port}};
 
         location / {
                  proxy_pass http://127.0.0.1:8081;
@@ -53,7 +53,7 @@ server {
 
         index index.html index.htm index.nginx-debian.html;
 
-        server_name opentakserver_8443;
+        server_name opentakserver_{{https_port}};
 
         location /Marti/api/tls {
                 return 404;
@@ -90,12 +90,12 @@ server {
         }
 
 
-    # listen [::]:8443 ssl ipv6only=on;
-    listen 8443 ssl;
-    ssl_certificate /root/ots/ca/certs/serotina.io/serotina.io.pem;
-    ssl_certificate_key /root/ots/ca/certs/serotina.io/serotina.io.nopass.key;
+    # listen [::]:{{https_port}} ssl ipv6only=on;
+    listen {{https_port}} ssl;
+    ssl_certificate {{server_cert_file}};
+    ssl_certificate_key {{server_key_file}};
     ssl_verify_client optional;
-    ssl_client_certificate  /root/ots/ca/ca.pem;
+    ssl_client_certificate {{ca_cert}};
 }
 
 
@@ -104,7 +104,7 @@ server {
     root /var/www/html;
     index index.html index.htm index.nginx-debian.html;
 
-    server_name opentakserver_8446;
+    server_name opentakserver_{{certificate_enrollment_port}};
 
     location /Marti/api/tls {
         proxy_pass http://127.0.0.1:8081;
@@ -113,8 +113,8 @@ server {
         proxy_set_header X-Forwarded-For $remote_addr;
     }
 
-    # listen [::]:8446 ssl ipv6only=on;
-    listen 8446 ssl;
+    # listen [::]:{{certificate_enrollment_port}} ssl ipv6only=on;
+    listen {{certificate_enrollment_port}} ssl;
     ssl_certificate {{server_cert_file}};
     ssl_certificate_key {{server_key_file}};
     ssl_verify_client optional;

@@ -22,7 +22,6 @@ from models.DataPackage import DataPackage
 from models.EUD import EUD
 from models.ZMIST import ZMIST
 from models.point import Point
-from models.UsersEUDs import UsersEuds
 from models.user import User
 from models.Certificate import Certificate
 from models.Video import Video
@@ -519,4 +518,5 @@ def get_video_streams():
 
 @api_blueprint.route('/api/truststore')
 def get_truststore():
+    logger.info("truststore {}".format(os.path.join(app.config.get("OTS_CA_FOLDER"), 'truststore-root.p12')))
     return send_from_directory(app.config.get("OTS_CA_FOLDER"), 'truststore-root.p12', as_attachment=True)

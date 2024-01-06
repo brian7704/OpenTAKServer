@@ -3,12 +3,11 @@ import socket
 import ssl
 from threading import Thread
 
-from config import Config
 from controllers.client_controller import ClientController
 
 
 class SocketServer(Thread):
-    def __init__(self, logger, port=8088, ssl_server=False):
+    def __init__(self, logger, app, port=8088, ssl_server=False):
         super().__init__()
 
         self.logger = logger
@@ -18,6 +17,7 @@ class SocketServer(Thread):
         self.daemon = True
         self.socket = None
         self.clients = []
+        self.app = app
 
     def run(self):
         if self.ssl:
@@ -81,16 +81,21 @@ class SocketServer(Thread):
             self.logger.debug('Attempting to stop client {}'.format(client.address))
             client.stop()
 
-    @staticmethod
-    def get_ssl_context():
+    def get_ssl_context(self):
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
-        context.load_cert_chain(
-            os.path.join(Config.OTS_CA_FOLDER, "certs", Config.OTS_SERVER_ADDRESS, Config.OTS_SERVER_ADDRESS + ".pem"),
-            os.path.join(Config.OTS_CA_FOLDER, "certs", Config.OTS_SERVER_ADDRESS,
-                         Config.OTS_SERVER_ADDRESS + ".nopass.key"))
+        self.logger.info("cert: {}".format(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", self.app.config.get("OTS_SERVER_ADDRESS"),
+                         self.app.config.get("OTS_SERVER_ADDRESS") + ".pem")))
+        self.logger.info("key: {}".format(self.app.config.get("OTS_CA_FOLDER"), "certs", self.app.config.get("OTS_SERVER_ADDRESS"),
+                         self.app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
 
-        context.verify_mode = Config.OTS_SSL_VERIFICATION_MODE
-        context.load_verify_locations(cafile=os.path.join(Config.OTS_CA_FOLDER, 'ca.pem'))
+        context.load_cert_chain(
+            os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", self.app.config.get("OTS_SERVER_ADDRESS"),
+                         self.app.config.get("OTS_SERVER_ADDRESS") + ".pem"),
+            os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", self.app.config.get("OTS_SERVER_ADDRESS"),
+                         self.app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
+
+        context.verify_mode = self.app.config.get("OTS_SSL_VERIFICATION_MODE")
+        context.load_verify_locations(cafile=os.path.join(self.app.config.get("OTS_CA_FOLDER"), 'ca.pem'))
 
         return context
