@@ -18,12 +18,10 @@ class ZMIST(db.Model):
 
     def serialize(self):
         return {
-            'zmist': {
-                'i': self.i,
-                'm': self.m,
-                's': self.s,
-                't': self.t,
-                'title': self.title,
-                'z': self.z
-            }
+            'i': self.i,
+            'm': self.m,
+            's': self.s,
+            't': self.t,
+            'title': self.title,
+            'z': self.z
         }

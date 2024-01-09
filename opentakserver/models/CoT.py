@@ -24,19 +24,17 @@ class CoT(db.Model):
 
     def serialize(self):
         return {
-            'cot':{
-                'how': self.how,
-                'type': self.type,
-                'sender_callsign': self.sender_callsign,
-                'sender_uid': self.sender_uid,
-                'recipients': self.recipients,
-                'timestamp': self.timestamp,
-                'xml': self.xml,
-                'eud': self.eud.serialize() if self.eud else None,
-                'alert': self.alert.serialize() if self.alert else None,
-                'point': self.point.serialize() if self.point else None,
-                'casevac': self.casevac.serialize() if self.casevac else None,
-                'video': self.video.serialize() if self.video else None,
-                'geochat': self.geochat.serialize() if self.geochat else None,
-            }
+            'how': self.how,
+            'type': self.type,
+            'sender_callsign': self.sender_callsign,
+            'sender_uid': self.sender_uid,
+            'recipients': self.recipients,
+            'timestamp': self.timestamp,
+            'xml': self.xml,
+            'eud': self.eud.serialize() if self.eud else None,
+            'alert': self.alert.serialize() if self.alert else None,
+            'point': self.point.serialize() if self.point else None,
+            'casevac': self.casevac.serialize() if self.casevac else None,
+            'video': self.video.serialize() if self.video else None,
+            'geochat': self.geochat.serialize() if self.geochat else None,
         }

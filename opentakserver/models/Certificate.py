@@ -26,16 +26,14 @@ class Certificate(db.Model):
 
     def serialize(self):
         return {
-            'certificate': {
-                'callsign': self.callsign,
-                'expiration_date': self.expiration_date,
-                'server_address': self.server_address,
-                'server_port': self.server_port,
-                'truststore_filename': self.truststore_filename,
-                'user_cert_filename': self.user_cert_filename,
-                'cert_password': self.cert_password,
-                'data_package_filename': self.data_package.filename if self.data_package else None,
-                'data_package_hash': self.data_package.hash if self.data_package else None,
-                'eud_uid': self.eud_uid
-            }
+            'callsign': self.callsign,
+            'expiration_date': self.expiration_date,
+            'server_address': self.server_address,
+            'server_port': self.server_port,
+            'truststore_filename': self.truststore_filename,
+            'user_cert_filename': self.user_cert_filename,
+            'cert_password': self.cert_password,
+            'data_package_filename': self.data_package.filename if self.data_package else None,
+            'data_package_hash': self.data_package.hash if self.data_package else None,
+            'eud_uid': self.eud_uid
         }

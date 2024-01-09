@@ -20,12 +20,10 @@ class Alert(db.Model):
 
     def serialize(self):
         return {
-            'alert': {
-                'uid': self.uid,
-                'sender_uid': self.sender_uid,
-                'start_time': self.start_time,
-                'cancel_time': self.cancel_time,
-                'alert_type': self.alert_type,
-                'eud': self.eud.serialize() if self.eud else None,
-            }
+            'uid': self.uid,
+            'sender_uid': self.sender_uid,
+            'start_time': self.start_time,
+            'cancel_time': self.cancel_time,
+            'alert_type': self.alert_type,
+            'eud': self.eud.serialize() if self.eud else None,
         }

@@ -27,16 +27,14 @@ class Point(db.Model):
 
     def serialize(self):
         return {
-            'point': {
-                'latitude': self.latitude,
-                'longitude': self.longitude,
-                'ce': self.ce,
-                'hae': self.hae,
-                'le': self.le,
-                'course': self.course,
-                'speed': self.speed,
-                'location_source': self.location_source,
-                'battery': self.battery,
-                'timestamp': self.timestamp
-            }
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'ce': self.ce,
+            'hae': self.hae,
+            'le': self.le,
+            'course': self.course,
+            'speed': self.speed,
+            'location_source': self.location_source,
+            'battery': self.battery,
+            'timestamp': self.timestamp
         }

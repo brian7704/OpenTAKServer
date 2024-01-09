@@ -25,17 +25,15 @@ class DataPackage(db.Model):
 
     def serialize(self):
         return {
-            'data_package': {
-                'filename': self.filename,
-                'hash': self.hash,
-                'creator_uid': self.creator_uid,
-                'submission_time': self.submission_time,
-                'submission_user': self.submission_user,
-                'keywords': self.keywords,
-                'mime_type': self.mime_type,
-                'size': self.size,
-                'tool': self.tool,
-                'expiration': self.expiration,
-                'eud': self.eud.serialize() if self.eud else None
-            }
+            'filename': self.filename,
+            'hash': self.hash,
+            'creator_uid': self.creator_uid,
+            'submission_time': self.submission_time,
+            'submission_user': self.submission_user,
+            'keywords': self.keywords,
+            'mime_type': self.mime_type,
+            'size': self.size,
+            'tool': self.tool,
+            'expiration': self.expiration,
+            'eud': self.eud.serialize() if self.eud else None
         }

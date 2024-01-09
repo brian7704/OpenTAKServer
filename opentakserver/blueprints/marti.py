@@ -95,8 +95,6 @@ def enrollment():
 def sign_csr():
     if not basic_auth(request.headers.get('Authorization')):
         return '', 401
-    logger.error(request.headers)
-    logger.error(request.data)
     return '', 200
 
 

@@ -44,15 +44,14 @@ nginx_config_template = Template("""server {
                 proxy_set_header X-Forwarded-For $remote_addr;
                 proxy_pass http://127.0.0.1:8081/socket.io;
         }
-
+        
+        try_files $uri /index.html;
 }
 
 server {
 
         root /var/www/html;
-
         index index.html index.htm index.nginx-debian.html;
-
         server_name opentakserver_{{https_port}};
 
         location /Marti/api/tls {
@@ -88,6 +87,8 @@ server {
                 proxy_set_header X-Forwarded-For $remote_addr;
                 proxy_pass http://127.0.0.1:8081/socket.io;
         }
+        
+        try_files $uri /index.html;
 
 
     # listen [::]:{{https_port}} ssl ipv6only=on;

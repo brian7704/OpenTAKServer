@@ -32,17 +32,15 @@ class EUD(db.Model):
 
     def serialize(self):
         return {
-            'eud': {
-                'uid': self.uid,
-                'callsign': self.callsign,
-                'device': self.device,
-                'os': self.os,
-                'platform': self.platform,
-                'version': self.version,
-                'phone_number': self.phone_number,
-                'last_event_time': self.last_event_time,
-                'last_status': self.last_status,
-                'username': self.user.username if self.user else None,
-                'certificate': self.certificate.serialize() if self.certificate else None
-            }
+            'uid': self.uid,
+            'callsign': self.callsign,
+            'device': self.device,
+            'os': self.os,
+            'platform': self.platform,
+            'version': self.version,
+            'phone_number': self.phone_number,
+            'last_event_time': self.last_event_time,
+            'last_status': self.last_status,
+            'username': self.user.username if self.user else None,
+            'certificate': self.certificate.serialize() if self.certificate else None
         }

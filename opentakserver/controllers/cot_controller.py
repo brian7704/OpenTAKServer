@@ -288,7 +288,7 @@ class CoTController:
                     self.db.session.commit()
             elif 'cancel' in emergency.attrs:
                 with self.context:
-                    self.db.session.execute(update(Alert).where(Alert.uid == event.attrs['uid'])
+                    self.db.session.execute(update(Alert).where(Alert.cancel_time is None).order_by(Alert.id.desc).limit(1)
                                             .values(cancel_time=event.attrs['start']))
                     self.db.session.commit()
 
