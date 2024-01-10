@@ -46,6 +46,7 @@ nginx_config_template = Template("""server {
         }
         
         try_files $uri /index.html;
+        client_max_body_size 100M;
 }
 
 server {
@@ -89,6 +90,7 @@ server {
         }
         
         try_files $uri /index.html;
+        client_max_body_size 100M;
 
 
     # listen [::]:{{https_port}} ssl ipv6only=on;
