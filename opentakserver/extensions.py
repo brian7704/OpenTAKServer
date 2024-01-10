@@ -1,17 +1,27 @@
+import logging
+import os
+
 import colorlog
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
 from models.Base import Base
 from jinja2 import Template
 
-handler = colorlog.StreamHandler()
-handler.setFormatter(colorlog.ColoredFormatter(
-    '%(log_color)s[%(asctime)s] - %(levelname)s - %(name)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S"))
+from config import Config
+
+color_log_handler = colorlog.StreamHandler()
+color_log_formatter = colorlog.ColoredFormatter(
+    '%(log_color)s[%(asctime)s] - %(levelname)s - %(name)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
+color_log_handler.setFormatter(color_log_formatter)
 
 logger = colorlog.getLogger('OpenTAKServer')
 logger.setLevel('DEBUG')
-if not logger.hasHandlers():
-    logger.addHandler(handler)
+logger.addHandler(color_log_handler)
+
+fh = logging.FileHandler(os.path.join(Config.OTS_DATA_FOLDER, 'opentakserver.log'))
+fh.setLevel(logging.DEBUG)
+fh.setFormatter(color_log_formatter)
+logger.addHandler(fh)
 
 db = SQLAlchemy(model_class=Base)
 
