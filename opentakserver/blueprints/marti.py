@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 import os
 import datetime
@@ -15,7 +16,7 @@ import sqlalchemy
 from OpenSSL import crypto
 from bs4 import BeautifulSoup
 from flask import current_app as app, request, Blueprint, send_from_directory, jsonify
-from flask_security import verify_password
+from flask_security import verify_password, current_user
 from extensions import logger, db
 
 from config import Config
@@ -332,12 +333,22 @@ def data_package_share():
         return {'error': 'no file'}, 400, {'Content-Type': 'application/json'}
     for file in request.files:
         file = request.files[file]
-        logger.debug("Got file: {} - {}".format(file.filename, request.args.get('hash')))
+
+        if file.content_type != 'application/x-zip-compressed':
+            logger.error("Not a zip")
+            return {'error': 'Please only upload zip files'}, 415, {'Content-Type': 'application/json'}
+
         if file:
             file_hash = request.args.get('hash')
-            if file.content_type != 'application/x-zip-compressed':
-                logger.error("Not a zip")
-                return {'error': 'Please only upload zip files'}, 415, {'Content-Type': 'application/json'}
+            if not file_hash:
+                sha256 = hashlib.sha256()
+                sha256.update(file.stream.read())
+                file.stream.seek(0)
+                file_hash = sha256.hexdigest()
+                logger.debug("got sha256 {}".format(file_hash))
+
+            logger.debug("Got file: {} - {}".format(file.filename, file_hash))
+
             filename = secure_filename(file_hash + '.zip')
             file.save(os.path.join(Config.UPLOAD_FOLDER, filename))
 
@@ -345,7 +356,8 @@ def data_package_share():
                 data_package = DataPackage()
                 data_package.filename = file.filename
                 data_package.hash = file_hash
-                data_package.creator_uid = request.args.get('creatorUid')
+                data_package.creator_uid = request.args.get('creatorUid') if request.args.get('creatorUid') else str(uuid.uuid4())
+                data_package.submission_user = current_user.username if current_user.is_authenticated else None
                 data_package.submission_time = datetime.datetime.now().isoformat() + "Z"
                 data_package.mime_type = file.mimetype
                 data_package.size = os.path.getsize(os.path.join(Config.UPLOAD_FOLDER, filename))
@@ -354,10 +366,14 @@ def data_package_share():
             except sqlalchemy.exc.IntegrityError as e:
                 db.session.rollback()
                 logger.error("Failed to save data package: {}".format(e))
+                return jsonify({'success': False, 'error': 'This data package has already been uploaded'}), 400
 
             # TODO: Handle HTTP/HTTPS properly
             return 'http://{}:{}/Marti/api/sync/metadata/{}/tool'.format(
                 Config.OTS_SERVER_ADDRESS, Config.OTS_HTTP_PORT, file_hash), 200
+
+        else:
+            return jsonify({'success': False, 'error': 'I have no fucking clue'}), 400
 
 
 @marti_blueprint.route('/Marti/api/sync/metadata/<file_hash>/tool', methods=['GET', 'PUT'])

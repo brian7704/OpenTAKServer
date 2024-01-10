@@ -440,12 +440,13 @@ def external_auth():
     username = bleach.clean(request.json.get('user'))
     password = bleach.clean(request.json.get('password'))
     action = bleach.clean(request.json.get('action'))
+    logger.warning(request.json)
 
     user = app.security.datastore.find_user(username=username)
     if user and verify_password(password, user.password):
         if action == 'publish':
             v = Video()
-            v.uid = bleach.clean(request.json.get('id'))
+            v.uid = bleach.clean(request.json.get('id')) if request.json.get('id') else None
             v.rover_port = -1
             v.ignore_embedded_klv = False
             v.buffer_time = 5000
