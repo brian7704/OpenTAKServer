@@ -1,12 +1,15 @@
 import datetime
 import hashlib
+import json
 import os
 import traceback
 import uuid
 from shutil import copyfile
+from werkzeug.datastructures import ImmutableMultiDict
 
 import bleach
 import psutil
+import requests
 import sqlalchemy.exc
 from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
 from flask_security import auth_required, roles_accepted, hash_password, current_user, \
@@ -26,9 +29,12 @@ from models.point import Point
 from models.user import User
 from models.Certificate import Certificate
 from models.Video import Video
+from models.MediaMTXPath import MediaMTXPath
 
-from opentakserver.SocketServer import SocketServer
-from opentakserver.certificate_authority import CertificateAuthority
+from forms.MediaMTXPathConfig import MediaMTXPathConfig
+
+from SocketServer import SocketServer
+from certificate_authority import CertificateAuthority
 
 api_blueprint = Blueprint('api_blueprint', __name__)
 
@@ -74,10 +80,12 @@ def status():
     cpu_time_dict = {'user': cpu_time.user, 'system': cpu_time.system, 'idle': cpu_time.idle}
 
     vmem = psutil.virtual_memory()
-    vmem_dict = {'total': vmem.total, 'available': vmem.available, 'used': vmem.used, 'free': vmem.free, 'percent': vmem.percent}
+    vmem_dict = {'total': vmem.total, 'available': vmem.available, 'used': vmem.used, 'free': vmem.free,
+                 'percent': vmem.percent}
 
     disk_usage = psutil.disk_usage('/')
-    disk_usage_dict = {'total': disk_usage.total, 'used': disk_usage.used, 'free': disk_usage.free, 'percent': disk_usage.percent}
+    disk_usage_dict = {'total': disk_usage.total, 'used': disk_usage.used, 'free': disk_usage.free,
+                       'percent': disk_usage.percent}
 
     temps_dict = {}
 
@@ -99,7 +107,8 @@ def status():
         battery_dict = {'percent': battery.percent, 'charging': battery.power_plugged, 'time_left': battery.secsleft}
 
     response = {
-        'tcp': app.tcp_thread.is_alive(), 'ssl': app.ssl_thread.is_alive(), 'cot_router': app.cot_thread.iothread.is_alive(),
+        'tcp': app.tcp_thread.is_alive(), 'ssl': app.ssl_thread.is_alive(),
+        'cot_router': app.cot_thread.iothread.is_alive(),
         'online_euds': app.cot_thread.online_euds, 'system_boot_time': system_boot_time.strftime("%Y-%m-%d %H:%M:%SZ"),
         'system_uptime': system_uptime.total_seconds(), 'ots_start_time': app.start_time.strftime("%Y-%m-%d %H:%M:%SZ"),
         'ots_uptime': ots_uptime.total_seconds(), 'cpu_time': cpu_time_dict, 'cpu_percent': p.cpu_percent(),
@@ -245,10 +254,12 @@ def me():
     me = db.session.execute(db.session.query(User).where(User.id == current_user.id)).first()[0]
     return jsonify(me.serialize())
 
+
 @api_blueprint.route('/api/data_packages/upload', methods=['POST'])
 @auth_required()
 def upload_data_package():
     return data_package_share()
+
 
 @api_blueprint.route('/api/data_packages/delete', methods=['DELETE'])
 @auth_required()
@@ -272,7 +283,6 @@ def delete_data_package():
         return jsonify({'success': False, 'error': str(e)}), 500
 
     return jsonify({'success': True})
-
 
 
 @api_blueprint.route('/api/data_packages')
@@ -555,3 +565,165 @@ def get_video_streams():
 def get_truststore():
     logger.info("truststore {}".format(os.path.join(app.config.get("OTS_CA_FOLDER"), 'truststore-root.p12')))
     return send_from_directory(app.config.get("OTS_CA_FOLDER"), 'truststore-root.p12', as_attachment=True)
+
+
+@api_blueprint.route('/api/mediamtx/webhook')
+def mediamtx_webhook():
+    token = request.args.get('token')
+    if not token or bleach.clean(token) != app.config.get("OTS_MEDIAMTX_TOKEN"):
+        return jsonify({'success': False, 'error': 'Invalid token'}), 401
+
+    event = bleach.clean(request.args.get('event'))
+    if event == 'init':
+        rtsp_port = bleach.clean(request.args.get("rtsp_port"))
+        path = bleach.clean(request.args.get("path"))
+
+        if path == 'startup':
+            paths = MediaMTXPath.query.all()
+            for path in paths:
+                r = requests.post("http://localhost:9997/v3/config/paths/add/{}".format(path.path),
+                                  json=json.loads(path.settings))
+                logger.warning("Iniit added {} {}".format(path, r.status_code))
+
+    elif event == 'connect':
+        connection_type = bleach.clean(request.args.get("connection_type"))
+        connection_id = bleach.clean(request.args.get("connection_id"))
+        rtsp_port = bleach.clean(request.args.get("rtsp_port"))
+    elif event == 'ready' or event == 'notready':
+        rtsp_port = bleach.clean(request.args.get("rtsp_port"))
+        path = bleach.clean(request.args.get("path"))
+        query = bleach.clean(request.args.get("query"))
+        source_type = bleach.clean(request.args.get("source_type"))
+        source_id = bleach.clean(request.args.get("source_id"))
+
+        video_stream = db.session.query(Video).where(Video.path == path).first()
+        if video_stream:
+            video_stream.ready = event == 'ready'
+            db.session.add(video_stream)
+            db.session.commit()
+        else:
+            video_stream = Video()
+            if source_type.startswith('rtsps'):
+                video_stream.protocol = 'rtsps'
+            if source_type.startswith('rtsp'):
+                video_stream.protocol = "rtsp"
+            elif source_type == 'hlsSource':
+                video_stream.protocol = "hls"
+            elif source_type == 'rpiCameraSource':
+                video_stream.protocol = "rpi_camera"
+            elif source_type.startswith('rtmp'):
+                video_stream.protocol = 'rtmp'
+            elif source_type.startswith('srt'):
+                video_stream.protocol = 'srt'
+            elif source_type.startswith('udp'):
+                video_stream.protocol = 'udp'
+            elif source_type.startswith('webRTC'):
+                video_stream.protocol = 'webrtc'
+
+            video_stream.address = app.config.get("OTS_SERVER_ADDRESS")
+            video_stream.query = query
+            video_stream.port = rtsp_port
+            video_stream.path = path
+            video_stream.ready = event == 'ready'
+
+            db.session.add(video_stream)
+            db.session.commit()
+
+            mediamtx_path = db.session.query(MediaMTXPath).where(MediaMTXPath.path == path).first()
+            if mediamtx_path:
+                r = requests.patch("http://localhost:9997/v3/config/paths/patch/{}".format(path),
+                                   json=json.loads(mediamtx_path.settings))
+                logger.debug("Read Patched path {}: {}".format(path, r.status_code))
+            else:
+                mediamtx_path = MediaMTXPath()
+                mediamtx_path.path = path
+                settings = {'record': False}
+
+                mediamtx_path.settings = json.dumps(settings)
+                db.session.add(mediamtx_path)
+                db.session.commit()
+
+    elif event == 'read':
+        rtsp_port = bleach.clean(request.args.get("rtsp_port"))
+        path = bleach.clean(request.args.get("path"))
+        query = bleach.clean(request.args.get("query"))
+        reader_type = bleach.clean(request.args.get("reader_type"))
+        reader_id = bleach.clean(request.args.get("reader_id"))
+    elif event == 'disconnect':
+        connection_type = bleach.clean(request.args.get("connection_type"))
+        connection_id = bleach.clean(request.args.get("connection_id"))
+        rtsp_port = bleach.clean(request.args.get("rtsp_port"))
+
+    return '', 200
+
+
+@api_blueprint.route('/api/mediamtx/stream/add', methods=['POST'])
+@api_blueprint.route('/api/mediamtx/stream/update', methods=['PATCH'])
+@auth_required()
+def add_update_stream():
+    try:
+        form = MediaMTXPathConfig(formdata=ImmutableMultiDict(request.json), logger=logger)
+        if not form.validate():
+            return jsonify({'success': False, 'errors': form.errors}), 400
+
+        path = bleach.clean(request.json.get("path", ""))
+        protocol = bleach.clean(request.json.get("protocol", ""))
+        port = request.json.get("port", "")
+
+        if not path or not protocol or not port:
+            return jsonify({'success': False, 'error': 'Please specify a path name, protocol, and port'}), 400
+
+        video = db.session.query(Video).where(Video.path == path).first()
+        if not video:
+            video = Video()
+            video.path = path
+            video.protocol = protocol
+            video.address = app.config.get("OTS_SERVER_NAME")
+            video.port = port
+            video.username = current_user.username
+            video.generate_xml()
+            db.session.add(video)
+            db.session.commit()
+
+        mediamtx_path = db.session.query(MediaMTXPath).where(MediaMTXPath.path == path).first()
+        if mediamtx_path:
+            settings = json.loads(mediamtx_path.settings)
+            for setting in settings:
+                try:
+                    if getattr(form, setting) is None:
+                        form[getattr(form, setting)] = settings[setting]
+                except AttributeError:
+                    continue
+
+        else:
+            mediamtx_path = MediaMTXPath()
+            mediamtx_path.path = path
+            settings = {}
+
+        for key in settings:
+            key = bleach.clean(key)
+            value = request.json.get(key)
+            if isinstance(value, str):
+                value = bleach.clean(value)
+            form.key = value
+
+        if request.path.endswith('update'):
+            r = requests.patch("http://localhost:9997/v3/config/paths/patch/{}".format(path), json=form.serialize())
+        else:
+            r = requests.post("http://localhost:9997/v3/config/paths/add/{}".format(path), json=form.serialize())
+
+        if r.status_code == 200:
+            logger.debug("Patched path {}: {}".format(path, r.status_code))
+            mediamtx_path.settings = json.dumps(form.serialize())
+            db.session.add(mediamtx_path)
+            db.session.commit()
+            return jsonify({'success': True})
+
+        else:
+            action = 'add' if request.path.endswith('add') else 'update'
+            logger.error("Failed to {} mediamtx path: {} - {}".format(action, r.status_code, r.json()['error']))
+            return jsonify({'success': False, 'error': r.json()['error']}), 400
+
+    except BaseException as e:
+        logger.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500

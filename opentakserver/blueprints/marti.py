@@ -373,7 +373,7 @@ def data_package_share():
                 Config.OTS_SERVER_ADDRESS, Config.OTS_HTTP_PORT, file_hash), 200
 
         else:
-            return jsonify({'success': False, 'error': 'I have no fucking clue'}), 400
+            return jsonify({'success': False, 'error': 'Something went wrong'}), 400
 
 
 @marti_blueprint.route('/Marti/api/sync/metadata/<file_hash>/tool', methods=['GET', 'PUT'])
@@ -448,7 +448,7 @@ def video():
             v.protocol = video_connections.find('protocol').text
             v.alias = video_connections.find('alias').text
             v.uid = video_connections.find('uid').text
-            v.address = video_connections.find('address').text
+            v.address = video_connections.find('address').text.split("@")[-1]
             v.port = video_connections.find('port').text
             v.rover_port = video_connections.find('roverPort').text
             v.ignore_embedded_klv = (video_connections.find('ignoreEmbeddedKLV').text.lower() == 'true')
@@ -458,7 +458,14 @@ def video():
             v.buffer_time = video_connections.find('buffer').text
             v.network_timeout = video_connections.find('timeout').text
             v.rtsp_reliable = video_connections.find('rtspReliable').text
-            v.xml = str(soup.find('feed'))
+
+            feed = soup.find('feed')
+            address = feed.find('address')
+            new_address = soup.new_tag("address")
+            new_address.string = address.text.split("@")[-1]
+            address.replace_with(new_address)
+
+            v.xml = str(feed)
 
             with app.app_context():
                 try:
@@ -466,9 +473,8 @@ def video():
                     db.session.commit()
                     logger.debug("Inserted Video")
                 except sqlalchemy.exc.IntegrityError as e:
-                    logger.debug(e)
                     db.session.rollback()
-                    v = db.session.execute(db.select(Video).filter_by(uid=v.uid)).scalar_one()
+                    v = db.session.execute(db.select(Video).filter_by(path=v.path)).scalar_one()
                     v.protocol = video_connections.find('protocol').text
                     v.alias = video_connections.find('alias').text
                     v.uid = video_connections.find('uid').text
@@ -482,7 +488,13 @@ def video():
                     v.buffer_time = video_connections.find('buffer').text
                     v.network_timeout = video_connections.find('timeout').text
                     v.rtsp_reliable = video_connections.find('rtspReliable').text
-                    v.xml = str(soup.find('feed'))
+                    feed = soup.find('feed')
+                    address = feed.find('address')
+                    new_address = soup.new_tag("address")
+                    new_address.string = address.text.split("@")[-1]
+                    address.replace_with(new_address)
+
+                    v.xml = str(feed)
 
                     db.session.commit()
                     logger.debug("Updated video")
@@ -496,8 +508,7 @@ def video():
                 videoconnections = Element('videoConnections')
 
                 for video in videos:
-                    v = video.serialize()
-                    videoconnections.append(fromstring(v['video']['xml']))
+                    videoconnections.append(fromstring(video.xml))
 
             return tostring(videoconnections), 200
         except BaseException as e:

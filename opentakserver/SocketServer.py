@@ -84,11 +84,6 @@ class SocketServer(Thread):
     def get_ssl_context(self):
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
-        self.logger.info("cert: {}".format(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", self.app.config.get("OTS_SERVER_ADDRESS"),
-                         self.app.config.get("OTS_SERVER_ADDRESS") + ".pem")))
-        self.logger.info("key: {}".format(self.app.config.get("OTS_CA_FOLDER"), "certs", self.app.config.get("OTS_SERVER_ADDRESS"),
-                         self.app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
-
         context.load_cert_chain(
             os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", self.app.config.get("OTS_SERVER_ADDRESS"),
                          self.app.config.get("OTS_SERVER_ADDRESS") + ".pem"),

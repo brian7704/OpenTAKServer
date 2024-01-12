@@ -1,19 +1,9 @@
-import ipaddress
-import os
-import re
-import subprocess
 from datetime import datetime
-from pathlib import Path
-from shutil import copyfile
-
 import eventlet
-import psutil
-import requests
 
 eventlet.monkey_patch()
 
 import traceback
-
 import flask_wtf
 
 import pika
@@ -72,7 +62,9 @@ def create_app():
 
     return app
 
+
 app = create_app()
+
 
 @app.route("/")
 def home():
@@ -83,6 +75,7 @@ def home():
 def after_request_func(response):
     response.direct_passthrough = False
     return response
+
 
 if __name__ == '__main__':
     with app.app_context():

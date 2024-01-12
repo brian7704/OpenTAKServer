@@ -2,19 +2,21 @@ from dataclasses import dataclass
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from extensions import db
-from sqlalchemy import Integer, String, ForeignKey, Boolean, Float
+from sqlalchemy import Integer, String, ForeignKey, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from config import Config
 
 
 @dataclass
 class Video(db.Model):
     __tablename__ = 'video'
 
-    protocol: Mapped[str] = mapped_column(String, primary_key=True, default='rtsp')
-    address: Mapped[str] = mapped_column(String, primary_key=True)
-    port: Mapped[int] = mapped_column(Integer, primary_key=True, default=8554)
     path: Mapped[str] = mapped_column(String, primary_key=True)
 
+    protocol: Mapped[str] = mapped_column(String, default='rtsp')
+    address: Mapped[str] = mapped_column(String, default=Config.OTS_SERVER_ADDRESS)
+    port: Mapped[int] = mapped_column(Integer, default=8554)
     network_timeout: Mapped[int] = mapped_column(Integer, default=12000)
     uid: Mapped[str] = mapped_column(String, nullable=True)
     buffer_time: Mapped[int] = mapped_column(Integer, default=5000)
@@ -26,6 +28,7 @@ class Video(db.Model):
     preferred_interface_address: Mapped[str] = mapped_column(String, nullable=True)
     username: Mapped[str] = mapped_column(String, ForeignKey("user.username"), nullable=True)
     xml: Mapped[str] = mapped_column(String, nullable=True)
+    ready: Mapped[bool] = mapped_column(Boolean, default=False)
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
     cot = relationship("CoT", back_populates="video")
     user = relationship("User", back_populates="video_streams")
@@ -46,6 +49,7 @@ class Video(db.Model):
             'preferred_mac_address': self.preferred_mac_address,
             'preferred_interface_address': self.preferred_interface_address,
             'username': self.username,
+            'ready': self.ready,
             'link': "{}://{}:{}{}".format(self.protocol, self.address, self.port, self.path)
         }
 

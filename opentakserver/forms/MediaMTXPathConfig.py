@@ -1,0 +1,91 @@
+from flask_wtf import FlaskForm
+from wtforms import StringField, IntegerField, BooleanField
+
+
+class MediaMTXPathConfig(FlaskForm):
+    def __init__(self, formdata, logger, **kwargs):
+        super().__init__(formdata, **kwargs)
+        self.logger = logger
+
+    name = StringField()
+    source = StringField()
+    sourceFingerprint = StringField()
+    sourceOnDemand = BooleanField()
+    sourceOnDemandStartTimeout = StringField()
+    sourceOnDemandCloseAfter = StringField()
+    maxReaders = IntegerField()
+    srtReadPassphrase = StringField()
+    fallback = StringField()
+    record = BooleanField()
+    recordPath = StringField()
+    recordFormat = StringField()
+    recordPartDuration = StringField()
+    recordSegmentDuration = StringField()
+    recordDeleteAfter = StringField()
+    publishUser = StringField()
+    publishPass = StringField()
+    #publishIPs
+    readUser = StringField()
+    readPass = StringField()
+    #readIPs
+    overridePublisher = BooleanField()
+    srtPublishPassphrase = StringField()
+    rtspTransport = StringField()
+    rtspAnyPort = BooleanField()
+    rtspRangeType = StringField()
+    rtspRangeStart = StringField()
+    sourceRedirect = StringField()
+    rpiCameraCamID = IntegerField()
+    rpiCameraWidth = IntegerField()
+    rpiCameraHeight = IntegerField()
+    rpiCameraHFlip = BooleanField()
+    rpiCameraVFlip = BooleanField()
+    rpiCameraBrightness = IntegerField()
+    rpiCameraContrast = IntegerField()
+    rpiCameraSaturation = IntegerField()
+    rpiCameraSharpness = IntegerField()
+    rpiCameraExposure = StringField()
+    rpiCameraAWB = StringField()
+    rpiCameraDenoise = StringField()
+    rpiCameraShutter = IntegerField()
+    rpiCameraMetering = StringField()
+    rpiCameraGain = IntegerField()
+    rpiCameraEV = IntegerField()
+    rpiCameraROI = StringField()
+    rpiCameraHDR = BooleanField()
+    rpiCameraTuningFile = StringField()
+    rpiCameraMode = StringField()
+    rpiCameraFPS = IntegerField()
+    rpiCameraIDRPeriod = IntegerField()
+    rpiCameraBitrate = IntegerField()
+    rpiCameraProfile = StringField()
+    rpiCameraLevel = StringField()
+    rpiCameraAfMode = StringField()
+    rpiCameraAfRange = StringField()
+    rpiCameraAfSpeed = StringField()
+    rpiCameraLensPosition = IntegerField()
+    rpiCameraAfWindow = StringField()
+    rpiCameraTextOverlayEnable = BooleanField()
+    rpiCameraTextOverlay = StringField()
+    runOnInit = StringField()
+    runOnInitRestart = BooleanField()
+    runOnDemand = StringField()
+    runOnDemandRestart = BooleanField()
+    runOnDemandStartTimeout = StringField()
+    runOnDemandCloseAfter = StringField()
+    runOnUnDemand = StringField()
+    runOnReady = StringField()
+    runOnReadyRestart = BooleanField()
+    runOnNotReady = StringField()
+    runOnRead = StringField()
+    runOnReadRestart = BooleanField()
+    runOnUnread = StringField()
+    runOnRecordSegmentCreate = StringField()
+    runOnRecordSegmentComplete = StringField()
+
+    def serialize(self):
+        return_value = {}
+        for field in self._fields:
+            if field != 'csrf_token':
+                return_value[field] = self._fields[field].data
+        return return_value
