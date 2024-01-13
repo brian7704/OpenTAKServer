@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 import traceback
 from threading import Thread
 
@@ -288,9 +289,12 @@ class CoTController:
                     self.db.session.commit()
             elif 'cancel' in emergency.attrs:
                 with self.context:
-                    self.db.session.execute(update(Alert).where(Alert.cancel_time is None).order_by(Alert.id.desc).limit(1)
-                                            .values(cancel_time=event.attrs['start']))
-                    self.db.session.commit()
+                    try:
+                        alert = self.db.session.execute(Alert.query.filter(Alert.cancel_time == None, Alert.sender_uid == uid).order_by(Alert.start_time.desc())).first()[0]
+                        alert.cancel_time = event.attrs['start']
+                        self.db.session.commit()
+                    except BaseException as e:
+                        self.logger.error("Failed to set alert cancel time: {}".format(e))
 
     def parse_casevac(self, event, uid, point_pk, cot_pk):
         medevac = event.find('_medevac_')
