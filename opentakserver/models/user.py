@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from extensions import db
+from opentakserver.extensions import db
 from sqlalchemy import String
 from flask_security.models import fsqla_v3 as fsqla
 from sqlalchemy.orm import relationship

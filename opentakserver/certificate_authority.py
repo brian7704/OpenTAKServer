@@ -7,7 +7,7 @@ import zipfile
 from pathlib import Path
 from shutil import copyfile, rmtree
 from jinja2 import Template
-from ca_config import ca_config, server_config
+from .ca_config import ca_config, server_config
 
 
 class CertificateAuthority:

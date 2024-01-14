@@ -9,16 +9,16 @@ from sqlalchemy import exc, insert, update
 from bs4 import BeautifulSoup
 import pika
 
-from models.Chatrooms import Chatroom
-from models.Alert import Alert
-from models.CasEvac import CasEvac
-from models.ChatroomsUids import ChatroomsUids
-from models.CoT import CoT
-from models.EUD import EUD
-from models.GeoChat import GeoChat
-from models.Video import Video
-from models.ZMIST import ZMIST
-from models.point import Point
+from opentakserver.models.Chatrooms import Chatroom
+from opentakserver.models.Alert import Alert
+from opentakserver.models.CasEvac import CasEvac
+from opentakserver.models.ChatroomsUids import ChatroomsUids
+from opentakserver.models.CoT import CoT
+from opentakserver.models.EUD import EUD
+from opentakserver.models.GeoChat import GeoChat
+from opentakserver.models.Video import Video
+from opentakserver.models.ZMIST import ZMIST
+from opentakserver.models.point import Point
 
 
 class CoTController:

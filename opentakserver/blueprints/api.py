@@ -15,26 +15,26 @@ from flask import current_app as app, request, Blueprint, jsonify, send_from_dir
 from flask_security import auth_required, roles_accepted, hash_password, current_user, \
     admin_change_password, verify_password
 
-from extensions import logger, db
+from opentakserver.extensions import logger, db
 from .marti import data_package_share
 
-from config import Config
-from models.Alert import Alert
-from models.CasEvac import CasEvac
-from models.CoT import CoT
-from models.DataPackage import DataPackage
-from models.EUD import EUD
-from models.ZMIST import ZMIST
-from models.point import Point
-from models.user import User
-from models.Certificate import Certificate
-from models.Video import Video
-from models.MediaMTXPath import MediaMTXPath
+from opentakserver.config import Config
+from opentakserver.models.Alert import Alert
+from opentakserver.models.CasEvac import CasEvac
+from opentakserver.models.CoT import CoT
+from opentakserver.models.DataPackage import DataPackage
+from opentakserver.models.EUD import EUD
+from opentakserver.models.ZMIST import ZMIST
+from opentakserver.models.point import Point
+from opentakserver.models.user import User
+from opentakserver.models.Certificate import Certificate
+from opentakserver.models.Video import Video
+from opentakserver.models.MediaMTXPath import MediaMTXPath
 
-from forms.MediaMTXPathConfig import MediaMTXPathConfig
+from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
 
-from SocketServer import SocketServer
-from certificate_authority import CertificateAuthority
+from opentakserver.SocketServer import SocketServer
+from opentakserver.certificate_authority import CertificateAuthority
 
 api_blueprint = Blueprint('api_blueprint', __name__)
 

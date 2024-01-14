@@ -1,5 +1,5 @@
-from extensions import db
-from sqlalchemy import Integer, String, ForeignKey, Boolean, Float, DateTime
+from opentakserver.extensions import db
+from sqlalchemy import String, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 

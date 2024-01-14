@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 from xml.etree.ElementTree import Element, SubElement, tostring
 
-from extensions import db
+from opentakserver.extensions import db
 from sqlalchemy import Integer, String, ForeignKey, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from config import Config
+from opentakserver.config import Config
 
 
 @dataclass

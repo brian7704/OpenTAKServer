@@ -1,6 +1,6 @@
 import ssl
 
-from secret_key import *
+from opentakserver.secret_key import *
 from pathlib import Path
 import os
 from flask_security import uia_username_mapper

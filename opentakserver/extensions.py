@@ -4,10 +4,10 @@ import os
 import colorlog
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
-from models.Base import Base
+from opentakserver.models.Base import Base
 from jinja2 import Template
 
-from config import Config
+from opentakserver.config import Config
 
 color_log_handler = colorlog.StreamHandler()
 color_log_formatter = colorlog.ColoredFormatter(

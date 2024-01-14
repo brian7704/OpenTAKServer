@@ -1,7 +1,11 @@
 from datetime import datetime
 import eventlet
+import sqlalchemy
 
-eventlet.monkey_patch()
+try:
+    eventlet.monkey_patch()
+except:
+    pass
 
 import traceback
 import flask_wtf
@@ -13,12 +17,12 @@ from flask_cors import CORS
 from flask_security import Security, SQLAlchemyUserDatastore, hash_password
 from flask_security.models import fsqla_v3 as fsqla
 
-from extensions import logger, db, socketio
-from config import Config
+from opentakserver.extensions import logger, db, socketio
+from opentakserver.config import Config
 
-from controllers.cot_controller import CoTController
-from certificate_authority import CertificateAuthority
-from SocketServer import SocketServer
+from opentakserver.controllers.cot_controller import CoTController
+from opentakserver.certificate_authority import CertificateAuthority
+from opentakserver.SocketServer import SocketServer
 
 
 def create_app():
@@ -34,23 +38,26 @@ def create_app():
 
     socketio.init_app(app)
     db.init_app(app)
-    fsqla.FsModels.set_db_info(db)
+    try:
+        fsqla.FsModels.set_db_info(db)
+    except sqlalchemy.exc.InvalidRequestError:
+        pass
 
-    from models.user import User
-    from models.role import Role
+    from opentakserver.models.user import User
+    from opentakserver.models.role import Role
 
     user_datastore = SQLAlchemyUserDatastore(db, User, Role)
     app.security = Security(app, user_datastore)
 
-    from blueprints.marti import marti_blueprint
+    from opentakserver.blueprints.marti import marti_blueprint
 
     app.register_blueprint(marti_blueprint)
 
-    from blueprints.api import api_blueprint
+    from opentakserver.blueprints.api import api_blueprint
 
     app.register_blueprint(api_blueprint)
 
-    from blueprints.ots_socketio import ots_socketio_blueprint
+    from opentakserver.blueprints.ots_socketio import ots_socketio_blueprint
 
     app.register_blueprint(ots_socketio_blueprint)
 

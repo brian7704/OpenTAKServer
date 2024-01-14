@@ -3,7 +3,7 @@ import socket
 import ssl
 from threading import Thread
 
-from controllers.client_controller import ClientController
+from opentakserver.controllers.client_controller import ClientController
 
 
 class SocketServer(Thread):

@@ -1,4 +1,4 @@
-from extensions import db
+from opentakserver.extensions import db
 from sqlalchemy import Integer, String, JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
