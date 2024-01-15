@@ -330,10 +330,14 @@ class CoTController:
             self.logger.debug("Got video stream")
             connection_entry = video.find('ConnectionEntry')
 
+            path = connection_entry.attrs['path']
+            if path.startswith("/"):
+                path = path[1:]
+
             v = Video()
             v.network_timeout = connection_entry.attrs['networkTimeout']
             v.uid = connection_entry.attrs['uid']
-            v.path = connection_entry.attrs['path']
+            v.path = path
             v.protocol = connection_entry.attrs['protocol']
             v.buffer_time = connection_entry.attrs['bufferTime']
             v.address = connection_entry.attrs['address']
@@ -354,7 +358,6 @@ class CoTController:
                     self.db.session.rollback()
                     self.db.session.execute(update(Video).where(Video.uid == connection_entry.attrs['uid'])
                                             .values(network_timeout=connection_entry.attrs['networkTimeout'],
-                                                    path=connection_entry.attrs['uid'],
                                                     protocol=connection_entry.attrs['protocol'],
                                                     buffer_time=connection_entry.attrs['bufferTime'],
                                                     address=connection_entry.attrs['address'],

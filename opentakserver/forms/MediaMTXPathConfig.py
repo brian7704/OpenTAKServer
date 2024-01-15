@@ -3,9 +3,8 @@ from wtforms import StringField, IntegerField, BooleanField
 
 
 class MediaMTXPathConfig(FlaskForm):
-    def __init__(self, formdata, logger, **kwargs):
+    def __init__(self, formdata, **kwargs):
         super().__init__(formdata, **kwargs)
-        self.logger = logger
 
     name = StringField()
     source = StringField()

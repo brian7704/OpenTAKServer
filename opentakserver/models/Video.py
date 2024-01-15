@@ -1,3 +1,4 @@
+import uuid
 from dataclasses import dataclass
 from xml.etree.ElementTree import Element, SubElement, tostring
 
@@ -21,7 +22,7 @@ class Video(db.Model):
     uid: Mapped[str] = mapped_column(String, nullable=True)
     buffer_time: Mapped[int] = mapped_column(Integer, default=5000)
     rover_port: Mapped[int] = mapped_column(Integer, nullable=True)
-    rtsp_reliable: Mapped[int] = mapped_column(Integer, nullable=True)
+    rtsp_reliable: Mapped[int] = mapped_column(Integer, nullable=True, default=1)
     ignore_embedded_klv: Mapped[bool] = mapped_column(Boolean, nullable=True)
     alias: Mapped[str] = mapped_column(String, nullable=True)
     preferred_mac_address: Mapped[str] = mapped_column(String, nullable=True)
@@ -29,6 +30,7 @@ class Video(db.Model):
     username: Mapped[str] = mapped_column(String, ForeignKey("user.username"), nullable=True)
     xml: Mapped[str] = mapped_column(String, nullable=True)
     ready: Mapped[bool] = mapped_column(Boolean, default=False)
+    mediamtx_settings: Mapped[str] = mapped_column(String, default=False)
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
     cot = relationship("CoT", back_populates="video")
     user = relationship("User", back_populates="video_streams")
@@ -57,8 +59,8 @@ class Video(db.Model):
 
         feed = Element('feed')
         SubElement(feed, 'protocol').text = self.protocol
-        SubElement(feed, 'alias').text = self.alias
-        SubElement(feed, 'uid').text = self.uid
+        SubElement(feed, 'alias').text = self.alias if self.alias else self.path
+        SubElement(feed, 'uid').text = self.uid if self.uid else str(uuid.uuid4())
         SubElement(feed, 'address').text = self.address
         SubElement(feed, 'port').text = str(self.port)
         SubElement(feed, 'roverPort').text = str(self.rover_port)
@@ -66,8 +68,8 @@ class Video(db.Model):
         SubElement(feed, 'preferredMacAddress').text = self.preferred_mac_address
         SubElement(feed, 'preferredInterfaceAddress').text = self.preferred_interface_address
         SubElement(feed, 'path').text = self.path
-        SubElement(feed, 'buffer').text = str(self.buffer_time)
-        SubElement(feed, 'timeout').text = str(self.network_timeout)
-        SubElement(feed, 'rtspReliable').text = str(self.rtsp_reliable)
+        SubElement(feed, 'buffer').text = str(self.buffer_time) if self.buffer_time else ""
+        SubElement(feed, 'timeout').text = str(self.network_timeout) if self.network_timeout else "10000"
+        SubElement(feed, 'rtspReliable').text = str(self.rtsp_reliable) if self.rtsp_reliable else "1"
 
         self.xml = tostring(feed).decode('utf-8')
