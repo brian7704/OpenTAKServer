@@ -9,7 +9,7 @@ class MediaMTXPathConfig(FlaskForm):
     name = StringField()
     source = StringField()
     sourceFingerprint = StringField()
-    sourceOnDemand = BooleanField()
+    sourceOnDemand = BooleanField(default=True)
     sourceOnDemandStartTimeout = StringField()
     sourceOnDemandCloseAfter = StringField()
     maxReaders = IntegerField()

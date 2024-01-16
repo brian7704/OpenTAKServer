@@ -684,12 +684,8 @@ def add_update_stream():
             return jsonify({'success': False, 'errors': form.errors}), 400
 
         path = bleach.clean(request.json.get("path", ""))
-        protocol = bleach.clean(request.json.get("protocol", ""))
-        port = request.json.get("port", "")
 
-        if request.path.endswith('add') and (not path or not protocol or not port):
-            return jsonify({'success': False, 'error': 'Please specify a path name, protocol, and port'}), 400
-        elif request.path.endswith('update') and not path:
+        if not path:
             return jsonify({'success': False, 'error': 'Please specify a path name'}), 400
 
         if path.startswith("/"):
@@ -699,14 +695,13 @@ def add_update_stream():
         if not video and request.path.endswith('add'):
             video = Video()
             video.path = path
-            video.protocol = protocol
             video.address = app.config.get("OTS_SERVER_ADDRESS")
-            video.port = port
             video.username = current_user.username
             video.mediamtx_settings = json.dumps(form.serialize())
             video.rover_port = -1
             video.ignore_embedded_klv = False
-            video.buffer_time = 5000
+            video.buffer_time = None
+            video.rtsp_reliable = 1
             video.network_timeout = 10000
             video.generate_xml()
             db.session.add(video)
@@ -715,28 +710,26 @@ def add_update_stream():
             return jsonify({'success': False, 'error': 'Path {} not found'.format(path)}), 400
 
         settings = json.loads(video.mediamtx_settings)
-        for setting in settings:
-            try:
-                if getattr(form, setting) is None:
-                    form[getattr(form, setting)] = settings[setting]
-            except AttributeError:
-                continue
 
-        for key in settings:
-            key = bleach.clean(key)
-            value = request.json.get(key)
+        for f in form:
+            if f.name == 'csrf_token':
+                continue
+            key = bleach.clean(f.name)
+            value = f.data
             if isinstance(value, str):
                 value = bleach.clean(value)
-            form.key = value
+            if value is not None:
+                settings[key] = value
+                logger.debug("set {} to {}".format(key, value))
 
         if request.path.endswith('update'):
-            r = requests.patch("http://localhost:9997/v3/config/paths/patch/{}".format(path), json=form.serialize())
+            r = requests.patch("http://localhost:9997/v3/config/paths/patch/{}".format(path), json=settings)
         else:
-            r = requests.post("http://localhost:9997/v3/config/paths/add/{}".format(path), json=form.serialize())
+            r = requests.post("http://localhost:9997/v3/config/paths/add/{}".format(path), json=settings)
 
         if r.status_code == 200:
             logger.debug("Patched path {}: {}".format(path, r.status_code))
-            video.mediamtx_settings = json.dumps(form.serialize())
+            video.mediamtx_settings = json.dumps(settings)
             db.session.add(video)
             db.session.commit()
             return jsonify({'success': True})
@@ -752,22 +745,23 @@ def add_update_stream():
 
 
 @api_blueprint.route('/api/mediamtx/stream/delete', methods=['DELETE'])
-def remove_stream():
-    path = bleach.clean(request.json.get("path", ""))
-
-    if not path:
-        return jsonify({'success': False, 'error': 'Please specify a path name'}), 400
-
-    r = requests.delete('http://localhost:9997/v3/config/paths/delete/{}'.format(path))
-    logger.debug("Delete status code: {}".format(r.status_code))
+def delete_stream():
     try:
+        path = bleach.clean(request.args.get("path", ""))
+
+        if not path:
+            return jsonify({'success': False, 'error': 'Please specify a path name'}), 400
+
+        r = requests.delete('http://localhost:9997/v3/config/paths/delete/{}'.format(path))
+        logger.debug("Delete status code: {}".format(r.status_code))
         video = db.session.query(Video).filter(Video.path == path)
         if not video:
             return jsonify({'success': False, 'error': 'Path {} not found'.format(path)}), 400
 
         video.delete()
         db.session.commit()
-    except BaseException as e:
+    except requests.exceptions.ConnectionError as e:
         logger.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': 'MediaMTX is not running'}), 500
 
     return r.text, r.status_code

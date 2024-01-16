@@ -1,3 +1,4 @@
+import json
 import uuid
 from dataclasses import dataclass
 from xml.etree.ElementTree import Element, SubElement, tostring
@@ -18,9 +19,9 @@ class Video(db.Model):
     protocol: Mapped[str] = mapped_column(String, default='rtsp')
     address: Mapped[str] = mapped_column(String, default=Config.OTS_SERVER_ADDRESS)
     port: Mapped[int] = mapped_column(Integer, default=8554)
-    network_timeout: Mapped[int] = mapped_column(Integer, default=12000)
+    network_timeout: Mapped[int] = mapped_column(Integer, default=10000)
     uid: Mapped[str] = mapped_column(String, nullable=True)
-    buffer_time: Mapped[int] = mapped_column(Integer, default=5000)
+    buffer_time: Mapped[int] = mapped_column(Integer, nullable=True)
     rover_port: Mapped[int] = mapped_column(Integer, nullable=True)
     rtsp_reliable: Mapped[int] = mapped_column(Integer, nullable=True, default=1)
     ignore_embedded_klv: Mapped[bool] = mapped_column(Boolean, nullable=True)
@@ -30,12 +31,20 @@ class Video(db.Model):
     username: Mapped[str] = mapped_column(String, ForeignKey("user.username"), nullable=True)
     xml: Mapped[str] = mapped_column(String, nullable=True)
     ready: Mapped[bool] = mapped_column(Boolean, default=False)
-    mediamtx_settings: Mapped[str] = mapped_column(String, default=False)
+    mediamtx_settings: Mapped[str] = mapped_column(String, default="")
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
     cot = relationship("CoT", back_populates="video")
     user = relationship("User", back_populates="video_streams")
 
     def serialize(self):
+        try:
+            mediamtx_settings = json.loads(self.mediamtx_settings)
+            source = mediamtx_settings['source']
+            record = mediamtx_settings['record']
+        except json.decoder.JSONDecodeError:
+            source = ""
+            record = False
+
         return {
             'network_timeout': self.network_timeout,
             'uid': self.uid,
@@ -52,17 +61,20 @@ class Video(db.Model):
             'preferred_interface_address': self.preferred_interface_address,
             'username': self.username,
             'ready': self.ready,
-            'link': "{}://{}:{}{}".format(self.protocol, self.address, self.port, self.path)
+            'source': source,
+            'record': record,
+            'rtsp_link': "{}://{}:{}/{}".format(self.protocol, self.address, self.port, self.path),
+            'webrtc_link': "https://{}:8889/{}".format(self.address, self.path),
         }
 
     def generate_xml(self):
 
         feed = Element('feed')
-        SubElement(feed, 'protocol').text = self.protocol
+        SubElement(feed, 'protocol').text = self.protocol if self.protocol else 'rtsp'
         SubElement(feed, 'alias').text = self.alias if self.alias else self.path
         SubElement(feed, 'uid').text = self.uid if self.uid else str(uuid.uuid4())
         SubElement(feed, 'address').text = self.address
-        SubElement(feed, 'port').text = str(self.port)
+        SubElement(feed, 'port').text = str(self.port) if self.port else "8554"
         SubElement(feed, 'roverPort').text = str(self.rover_port)
         SubElement(feed, 'ignoreEmbeddedKLV').text = self.ignore_embedded_klv
         SubElement(feed, 'preferredMacAddress').text = self.preferred_mac_address
