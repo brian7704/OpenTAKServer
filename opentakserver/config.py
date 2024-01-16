@@ -55,7 +55,7 @@ class Config:
     SECURITY_PASSWORD_SALT = security_password_salt
     REMEMBER_COOKIE_SAMESITE = "strict"
     SESSION_COOKIE_SAMESITE = "strict"
-    SECURITY_USER_IDENTITY_ATTRIBUTES = [{"username": {"mapper": uia_username_mapper, "case_insensitive": True}}]
+    SECURITY_USER_IDENTITY_ATTRIBUTES = [{"username": {"mapper": uia_username_mapper, "case_insensitive": False}}]
     SECURITY_USERNAME_ENABLE = True
     SECURITY_USERNAME_REQUIRED = True
     SECURITY_TRACKABLE = True
@@ -65,3 +65,6 @@ class Config:
     WTF_CSRF_CHECK_DEFAULT = False
     SECURITY_RETURN_GENERIC_RESPONSES = True
     SECURITY_URL_PREFIX = "/api"
+    SECURITY_CHANGEABLE = True
+    SECURITY_CHANGE_URL = "/user/password/change"
+    SECURITY_PASSWORD_LENGTH_MIN = 8

@@ -371,7 +371,7 @@ def query_casevac():
     return paginate(query)
 
 
-@api_blueprint.route("/api/user/create", methods=['POST'])
+@api_blueprint.route("/api/user/add", methods=['POST'])
 @roles_accepted("administrator")
 def create_user():
     username = bleach.clean(request.json.get('username'))
@@ -434,13 +434,95 @@ def admin_reset_password():
     username = bleach.clean(request.json.get("username"))
     new_password = bleach.clean(request.json.get("new_password"))
 
+    if not username or not new_password:
+        return jsonify({'success': False, 'error': 'Please specify a username and new password'}), 400
+
+    if len(new_password) < app.config.get("SECURITY_PASSWORD_LENGTH_MIN"):
+        return jsonify({'success': False, 'error': 'Your password must be at least {} characters long'
+                       .format(app.config.get("SECURITY_PASSWORD_LENGTH_MIN"))}), 400
+
     user = app.security.datastore.find_user(username=username)
     if user:
         admin_change_password(user, new_password, False)
+        db.session.commit()
         return {'success': True}, 200, {'Content-Type': 'application/json'}
     else:
         return ({'success': False, 'error': 'Could not find user {}'.format(username)}, 400,
                 {'Content-Type': 'application/json'})
+
+
+@api_blueprint.route('/api/user/deactivate', methods=['POST'])
+@roles_accepted('administrator')
+def deactivate_user():
+    username = bleach.clean(request.json.get("username", ""))
+    if not username:
+        return jsonify({'success': False, 'error': 'Please specify the username to deactivate'}), 400
+
+    user = app.security.datastore.find_user(username=username)
+    if not user:
+        return jsonify({'success': False, 'error': 'User {} does not exist'.format(username)})
+
+    deactivated = app.security.datastore.deactivate_user(user)
+    if deactivated:
+        db.session.commit()
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': '{} is already deactivated'.format(username)})
+
+
+@api_blueprint.route('/api/user/activate', methods=['POST'])
+@roles_accepted('administrator')
+def activate_user():
+    username = bleach.clean(request.json.get("username", ""))
+    if not username:
+        return jsonify({'success': False, 'error': 'Please specify the username to activate'}), 400
+
+    user = app.security.datastore.find_user(username=username)
+    if not user:
+        return jsonify({'success': False, 'error': 'User {} does not exist'.format(username)})
+
+    activated = app.security.datastore.activate_user(user)
+    if activated:
+        db.session.commit()
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': '{} is already activated'.format(username)})
+
+
+@api_blueprint.route("/api/user/role", methods=['POST'])
+@roles_accepted("administrator")
+def set_user_role():
+    username = bleach.clean(request.json.get("username", ""))
+    roles = request.json.get("roles")
+    roles_cleaned = []
+
+    if not username or not roles:
+        return jsonify({'success': False, 'error': 'Please specify a username and roles'}), 400
+
+    for role in roles:
+        role = bleach.clean(role)
+        role_exists = app.security.datastore.find_role(role)
+
+        if not role_exists:
+            return ({'success': False, 'error': 'Role {} does not exist'.format(role)}, 409,
+                    {'Content-Type': 'application/json'})
+
+        elif role not in roles_cleaned:
+            roles_cleaned.append(role)
+
+    user = app.security.datastore.find_user(username=username)
+    if not user:
+        return ({'success': False, 'error': 'User {} does not exist'.format(username)}, 400,
+                {'Content-Type': 'application/json'})
+
+    for role in user.roles:
+        app.security.datastore.remove_role_from_user(user, role)
+
+    for role in roles_cleaned:
+        app.security.datastore.add_role_to_user(user, role)
+
+    db.session.commit()
+    return jsonify({'success': True})
 
 
 # This is mainly for mediamtx authentication
@@ -499,7 +581,8 @@ def external_auth():
                         if r.status_code == 200:
                             logger.debug("Added path {} to mediamtx".format(v.path))
                         else:
-                            logger.error("Failed to add path {} to mediamtx. Status code {}".format(v.path, r.status_code))
+                            logger.error(
+                                "Failed to add path {} to mediamtx. Status code {}".format(v.path, r.status_code))
                     except:
                         logger.error(traceback.format_exc())
 

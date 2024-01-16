@@ -150,6 +150,10 @@ def sign_csr_v2():
         except sqlalchemy.exc.IntegrityError:
             db.session.rollback()
             eud = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()[0]
+            if user and not eud.user_id:
+                eud.user_id = user.id
+                db.session.add(eud)
+                db.session.commit()
 
         try:
             certificate = Certificate()
