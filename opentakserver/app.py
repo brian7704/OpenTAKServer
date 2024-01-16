@@ -1,3 +1,4 @@
+from werkzeug.middleware.proxy_fix import ProxyFix
 from datetime import datetime
 import eventlet
 import sqlalchemy
@@ -66,6 +67,8 @@ def create_app():
     channel.exchange_declare('cot', durable=True, exchange_type='fanout')
     channel.exchange_declare('dms', durable=True, exchange_type='direct')
     channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
+
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
     return app
 

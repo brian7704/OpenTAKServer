@@ -18,6 +18,7 @@ class User(db.Model, fsqla.FsUserMixin):
             'active': self.active,
             'last_login_at': self.last_login_at,
             'last_login_ip': self.last_login_ip,
+            'current_login_at': self.current_login_at,
             'current_login_ip': self.current_login_ip,
             'email': self.email,
             'login_count': self.login_count,
