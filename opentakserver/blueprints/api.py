@@ -589,6 +589,7 @@ def get_truststore():
 def mediamtx_webhook():
     token = request.args.get('token')
     if not token or bleach.clean(token) != app.config.get("OTS_MEDIAMTX_TOKEN"):
+        logger.error('Invalid token')
         return jsonify({'success': False, 'error': 'Invalid token'}), 401
 
     event = bleach.clean(request.args.get('event'))
@@ -600,8 +601,8 @@ def mediamtx_webhook():
             paths = Video.query.all()
             for path in paths:
                 r = requests.post("http://localhost:9997/v3/config/paths/add/{}".format(path.path),
-                                  json=json.loads(path.settings))
-                logger.warning("Init added {} {}".format(path, r.status_code))
+                                  json=json.loads(path.mediamtx_settings))
+                logger.debug("Init added {} {}".format(path, r.status_code))
 
     elif event == 'connect':
         connection_type = bleach.clean(request.args.get("connection_type"))
