@@ -10,6 +10,7 @@ python = "^3.10"
 flask = "^3.0.0"
 bleach = "*"
 colorlog = "^6.7.0"
+flask-mail = "^0.9.1"
 flask-socketio = "^5.3.6"
 bs4 = "^0.0.1"
 datetime = "^5.3"
@@ -29,6 +30,7 @@ pyOpenSSL = "^23.3.0"
 cryptography = "^41.0.7"
 python-socketio = {extras = ["client", "websocket_client", "asyncio_client"], version = "5.10.0"}
 PyJWT = "^2.8.0"
+qrcode = "^7.4.2"
 
 
 [build-system]

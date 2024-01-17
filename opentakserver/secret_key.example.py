@@ -7,3 +7,5 @@ node_id = 'changeme'  # ''.join(random.choices(string.ascii_lowercase + string.d
 security_password_salt = 'changeme'  # secrets.SystemRandom().getrandbits(128)
 mediamtx_token = 'changeme'  # secrets.SystemRandom().getrandbits(128)
 server_address = "example.com"
+mail_username = 'me@example.com'  # Only required if you enable email
+mail_password = 'changeme'  # Only required if you enable email

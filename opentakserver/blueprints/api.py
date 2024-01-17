@@ -422,7 +422,7 @@ def delete_user():
         app.security.datastore.delete_user(user)
     except BaseException as e:
         logger.error(traceback.format_exc())
-        return {'success': False, 'error': 'Failed to delete user: {}'.format(e)}
+        return {'success': False, 'error': 'Failed to delete user: {}'.format(e)}, 400
 
     db.session.commit()
     return {'success': True}, 200, {'Content-Type': 'application/json'}

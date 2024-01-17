@@ -17,8 +17,9 @@ from flask_cors import CORS
 
 from flask_security import Security, SQLAlchemyUserDatastore, hash_password
 from flask_security.models import fsqla_v3 as fsqla
+from flask_security.signals import user_registered
 
-from opentakserver.extensions import logger, db, socketio
+from opentakserver.extensions import logger, db, socketio, mail
 from opentakserver.config import Config
 
 from opentakserver.controllers.cot_controller import CoTController
@@ -70,6 +71,8 @@ def create_app():
 
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
+    mail.init_app(app)
+
     return app
 
 
@@ -85,6 +88,14 @@ def home():
 def after_request_func(response):
     response.direct_passthrough = False
     return response
+
+
+@user_registered.connect_via(app)
+def user_registered_sighandler(app, user, confirmation_token, **kwargs):
+    default_role = app.security.datastore.find_or_create_role(
+        name="user", permissions={"user-read", "user-write"}
+    )
+    app.security.datastore.add_role_to_user(user, default_role)
 
 
 if __name__ == '__main__':

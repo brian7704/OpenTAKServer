@@ -6,6 +6,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
 from opentakserver.models.Base import Base
 from jinja2 import Template
+from flask_mail import Mail
 
 from opentakserver.config import Config
 
@@ -22,6 +23,8 @@ fh = logging.FileHandler(os.path.join(Config.OTS_DATA_FOLDER, 'opentakserver.log
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(color_log_formatter)
 logger.addHandler(fh)
+
+mail = Mail()
 
 db = SQLAlchemy(model_class=Base)
 

@@ -3,11 +3,12 @@ import ssl
 from opentakserver.secret_key import *
 from pathlib import Path
 import os
-from flask_security import uia_username_mapper
+from flask_security import uia_username_mapper, uia_email_mapper
 
 
 class Config:
     SECRET_KEY = secret_key
+    #SERVER_NAME = server_name
 
     OTS_DATA_FOLDER = os.path.join(Path.home(), 'ots')
     OTS_LISTENER_PORT = 8081  # OTS will listen for HTTP requests on this port. Nginx will listen on OTS_HTTP_PORT,
@@ -38,6 +39,14 @@ class Config:
     OTS_CA_SUBJECT = '/C={}/ST={}/L={}/O={}/OU={}'.format(OTS_CA_COUNTRY, OTS_CA_STATE, OTS_CA_CITY,
                                                           OTS_CA_ORGANIZATION, OTS_CA_ORGANIZATIONAL_UNIT)
 
+    # Gmail settings
+    OTS_ENABLE_EMAIL = True
+    MAIL_SERVER = 'smtp.gmail.com'
+    MAIL_PORT = '465'
+    MAIL_USE_SSL = True
+    MAIL_USERNAME = mail_username
+    MAIL_PASSWORD = mail_password
+
     # flask-sqlalchemy
     SQLALCHEMY_DATABASE_URI = "sqlite:////{}".format(os.path.join(OTS_DATA_FOLDER, 'ots.db'))
     SQLALCHEMY_ECHO = False
@@ -56,6 +65,8 @@ class Config:
     REMEMBER_COOKIE_SAMESITE = "strict"
     SESSION_COOKIE_SAMESITE = "strict"
     SECURITY_USER_IDENTITY_ATTRIBUTES = [{"username": {"mapper": uia_username_mapper, "case_insensitive": False}}]
+    if OTS_ENABLE_EMAIL:
+        SECURITY_USER_IDENTITY_ATTRIBUTES.append({"email": {"mapper": uia_email_mapper, "case_insensitive": True}})
     SECURITY_USERNAME_ENABLE = True
     SECURITY_USERNAME_REQUIRED = True
     SECURITY_TRACKABLE = True
@@ -66,5 +77,18 @@ class Config:
     SECURITY_RETURN_GENERIC_RESPONSES = True
     SECURITY_URL_PREFIX = "/api"
     SECURITY_CHANGEABLE = True
-    SECURITY_CHANGE_URL = "/user/password/change"
+    SECURITY_CHANGE_URL = "/password/change"
+    SECURITY_RESET_URL = "/password/reset"
     SECURITY_PASSWORD_LENGTH_MIN = 8
+    SECURITY_REGISTERABLE = OTS_ENABLE_EMAIL
+    SECURITY_CONFIRMABLE = OTS_ENABLE_EMAIL
+    SECURITY_RECOVERABLE = OTS_ENABLE_EMAIL
+    SECURITY_TWO_FACTOR = True
+    SECURITY_TOTP_SECRETS = totp_secrets
+    SECURITY_TOTP_ISSUER = "OpenTAKServer"
+    SECURITY_TWO_FACTOR_ENABLED_METHODS = ["authenticator"]
+    if OTS_ENABLE_EMAIL:
+        SECURITY_TWO_FACTOR_ENABLED_METHODS.append("email")
+    SECURITY_TWO_FACTOR_RESCUE_MAIL = MAIL_USERNAME
+    SECURITY_TWO_FACTOR_ALWAYS_VALIDATE = False
+    SECURITY_LOGIN_WITHOUT_CONFIRMATION = True
