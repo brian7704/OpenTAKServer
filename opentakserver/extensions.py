@@ -28,7 +28,7 @@ mail = Mail()
 
 db = SQLAlchemy(model_class=Base)
 
-socketio = SocketIO(logger=False, engineio_logger=False)
+socketio = SocketIO(logger=logger, engineio_logger=logger, async_mode='eventlet')
 
 nginx_config_template = Template("""server {
         listen {{http_port}} default_server;

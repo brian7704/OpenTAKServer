@@ -9,6 +9,7 @@ from sqlalchemy import exc, insert, update
 from bs4 import BeautifulSoup
 import pika
 
+from opentakserver.extensions import socketio
 from opentakserver.models.Chatrooms import Chatroom
 from opentakserver.models.Alert import Alert
 from opentakserver.models.CasEvac import CasEvac
@@ -121,6 +122,7 @@ class CoTController:
         point = event.find('point')
         if point:
             p = Point()
+            p.uid = event.attrs['uid']
             p.device_uid = uid
             p.ce = point.attrs['ce']
             p.hae = point.attrs['hae']
@@ -131,6 +133,8 @@ class CoTController:
             p.cot_id = cot_id
 
             # We only really care about the rest of the data if there's a valid lat/lon
+            if p.latitude == 0 and p.longitude == 0:
+                return None
 
             track = event.find('track')
             if track:
@@ -148,14 +152,24 @@ class CoTController:
                 if 'battery' in status.attrs:
                     p.battery = status.attrs['battery']
 
+            detail = event.find('detail')
+            if detail:
+                contact = detail.find('contact')
+                if contact and 'callsign' in contact.attrs:
+                    p.point_callsign = contact.attrs['callsign']
+
             with self.context:
                 res = self.db.session.execute(insert(Point).values(
-                    device_uid=uid, ce=p.ce, hae=p.hae, le=p.le, latitude=p.latitude, longitude=p.longitude,
+                    uid=p.uid, device_uid=p.device_uid, ce=p.ce, hae=p.hae, le=p.le, latitude=p.latitude, longitude=p.longitude,
                     timestamp=event.attrs['start'] + "Z", cot_id=cot_id, location_source=p.location_source,
-                    course=p.course, speed=p.speed, battery=p.battery)
+                    course=p.course, speed=p.speed, battery=p.battery, point_callsign=p.point_callsign)
                 )
 
                 self.db.session.commit()
+                p = self.db.session.execute(self.db.session.query(Point).filter(Point.id == res.inserted_primary_key[0])).first()[0]
+
+                socketio.emit('point', p.serialize(), namespace='/socket.io')
+
                 return res.inserted_primary_key[0]
 
     def parse_device_info(self, uid, soup, event):

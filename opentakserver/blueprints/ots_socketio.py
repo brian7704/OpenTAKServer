@@ -1,7 +1,6 @@
 import functools
-import time
 
-from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
+from flask import request, Blueprint
 from flask_security import current_user
 from flask_socketio import disconnect
 
@@ -22,15 +21,13 @@ def authenticated_only(f):
     return wrapped
 
 
-@socketio.on('connect', namespace="/")
+@socketio.on('connect', namespace="/socket.io")
+@authenticated_only
 def connect(data):
-    if not current_user.is_authenticated:
-        disconnect()
-        return
     logger.info('got a socketio connection from {}'.format(current_user.username))
 
 
-@socketio.on('message', namespace="/")
+@socketio.on('message', namespace="/socket.io")
 @authenticated_only
 def message(message):
     logger.info("Got a message".format(message))

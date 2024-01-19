@@ -3,10 +3,7 @@ from datetime import datetime
 import eventlet
 import sqlalchemy
 
-try:
-    eventlet.monkey_patch()
-except:
-    pass
+eventlet.monkey_patch()
 
 import traceback
 import flask_wtf

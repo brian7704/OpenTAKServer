@@ -54,7 +54,7 @@ def client_end_points():
         return_value['data'].append({
             'callsign': eud.callsign,
             'uid': eud.uid,
-            'username': current_user.username,
+            'username': current_user.username if current_user.is_authenticated else 'anonymous',
             'lastEventTime': eud.last_event_time,
             'lastStatus': eud.last_status
         })
