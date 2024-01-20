@@ -19,13 +19,16 @@ class Point(db.Model):
     location_source: Mapped[str] = mapped_column(String, nullable=True)
     battery: Mapped[float] = mapped_column(Float, nullable=True)
     timestamp: Mapped[str] = mapped_column(String)
-    point_callsign: Mapped[str] = mapped_column(String, nullable=True)
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
     cot = relationship("CoT", back_populates="point")
+
+    # Only populate this field of the CoT type matches ^a- and how matches either ^m-g or ^h-e
     eud = relationship("EUD", back_populates="points")
     casevac = relationship("CasEvac", back_populates="point")
     geochat = relationship("GeoChat", back_populates="point")
     alert = relationship("Alert", back_populates="point")
+    #eud_last_location = relationship("EUD", back_populates="last_location")
+    marker: Mapped["Marker"] = relationship(back_populates="point")
 
     def serialize(self):
         return {
@@ -43,5 +46,5 @@ class Point(db.Model):
             'timestamp': self.timestamp,
             'how': self.cot.how,
             'type': self.cot.type,
-            'point_callsign': self.point_callsign
+            'callsign': self.eud.callsign if self.eud else None
         }

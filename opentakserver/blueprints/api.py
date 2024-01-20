@@ -25,7 +25,7 @@ from opentakserver.models.CoT import CoT
 from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.EUD import EUD
 from opentakserver.models.ZMIST import ZMIST
-from opentakserver.models.point import Point
+from opentakserver.models.Point import Point
 from opentakserver.models.user import User
 from opentakserver.models.Certificate import Certificate
 from opentakserver.models.Video import Video
@@ -34,6 +34,7 @@ from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
 
 from opentakserver.SocketServer import SocketServer
 from opentakserver.certificate_authority import CertificateAuthority
+from ..models.Marker import Marker
 
 api_blueprint = Blueprint('api_blueprint', __name__)
 
@@ -828,6 +829,7 @@ def add_update_stream():
 
 
 @api_blueprint.route('/api/mediamtx/stream/delete', methods=['DELETE'])
+@auth_required()
 def delete_stream():
     try:
         path = bleach.clean(request.args.get("path", ""))
@@ -848,3 +850,37 @@ def delete_stream():
         return jsonify({'success': False, 'error': 'MediaMTX is not running'}), 500
 
     return r.text, r.status_code
+
+
+@api_blueprint.route('/api/markers')
+@auth_required()
+def get_markers():
+    query = db.session.query(Marker)
+    query = search(query, Marker, 'uid')
+    query = search(query, Marker, 'affiliation')
+    query = search(query, Marker, 'callsign')
+
+    return paginate(query)
+
+
+@api_blueprint.route('/api/map_state')
+@auth_required()
+def get_map_state():
+    try:
+        euds = db.session.execute(db.session.query(EUD)).all()
+
+        results = []
+
+        for eud in euds:
+            serialized = eud[0].serialize()
+            if len(eud[0].points):
+                serialized['last_point'] = eud[0].points[-1].serialize()
+            else:
+                serialized['last_point'] = None
+            results.append(serialized)
+
+    except BaseException as e:
+        logger.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    return jsonify(results)

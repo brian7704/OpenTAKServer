@@ -101,5 +101,6 @@ class CasEvac(db.Model):
             'winds_are_from': self.winds_are_from,
             'zone_prot_selection': self.zone_prot_selection,
             'zmist': self.zmist.serialize() if self.zmist else None,
-            'eud': self.eud
+            'eud': self.eud,
+            'point': self.point.serialize() if self.point else None
         }
