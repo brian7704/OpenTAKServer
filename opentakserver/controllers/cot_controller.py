@@ -425,22 +425,14 @@ class CoTController:
         if re.match("^u-rb", event.attrs['type']):
             self.logger.debug("Got an R&B line")
             rb_line = RBLine()
-            # rangeunits == 0 is standard
-            # rangeunits == 1 is metric
-            # rangeunits == 2 is nautical
-
-            # bearingUnits == 0 degress
-            # bearingUnits == 1 mils
-
-            # northRef == 0 true
-            # northRef == 1 mag
-            # northRef == 2 grid
 
             detail = event.find('detail')
             if detail:
                 rb_line.uid = event.attrs['uid']
                 rb_line.sender_uid = uid
                 rb_line.timestamp = event.attrs['start']
+                rb_line.point_id = point_pk
+                rb_line.cot_id = cot_pk
 
                 for tag in detail:
                     if tag.name == 'range':
@@ -459,6 +451,7 @@ class CoTController:
                         rb_line.north_ref = tag.attrs['value']
                     if tag.name == 'color':
                         rb_line.color = tag.attrs['value']
+                        rb_line.color_hex = rb_line.color_to_hex()
                     if tag.name == 'contact':
                         rb_line.callsign = tag.attrs['callsign']
                     if tag.name == 'strokeColor':
@@ -468,22 +461,31 @@ class CoTController:
                     if tag.name == 'labels_on':
                         rb_line.labels_on = (tag.attrs['value'] == 'true')
 
-            with self.context:
-                try:
-                    self.db.session.add(rb_line)
-                    self.db.session.commit()
-                    self.logger.debug("Inserted new R&B line: {}".format(rb_line.uid))
-                except exc.IntegrityError:
-                    self.db.session.rollback()
-                    serialized = rb_line.serialize()
-                    serialized.pop('range_unit_name')
-                    serialized.pop('bearing_unit_name')
-                    serialized.pop('north_ref_name')
-                    serialized.pop('point')
-                    self.db.session.execute(update(RBLine).where(RBLine.uid == rb_line.uid)
-                                            .values(**serialized))
-                    self.db.session.commit()
-                    self.logger.debug('Updated R&B line: {}'.format(rb_line.uid))
+                with self.context:
+
+                    start_point = self.db.session.execute(self.db.session.query(Point).filter(Point.id == point_pk)).first()[0]
+                    end_point = rb_line.calc_end_point(start_point)
+                    rb_line.end_latitude = end_point['latitude']
+                    rb_line.end_longitude = end_point['longitude']
+
+                    try:
+                        self.db.session.add(rb_line)
+                        self.db.session.commit()
+                        self.logger.debug("Inserted new R&B line: {}".format(rb_line.uid))
+                    except exc.IntegrityError:
+                        self.db.session.rollback()
+                        serialized = rb_line.serialize()
+                        serialized.pop('range_unit_name')
+                        serialized.pop('bearing_unit_name')
+                        serialized.pop('north_ref_name')
+                        serialized.pop('point')
+                        self.db.session.execute(update(RBLine).where(RBLine.uid == rb_line.uid)
+                                                .values(**serialized))
+                        self.db.session.commit()
+                        self.logger.debug('Updated R&B line: {}'.format(rb_line.uid))
+
+                    rb_line.point = start_point
+                    socketio.emit("rb_line", rb_line.serialize(), namespace='/socket.io')
 
     def rabbitmq_routing(self, event, data):
         # RabbitMQ Routing

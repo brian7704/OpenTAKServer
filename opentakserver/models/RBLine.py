@@ -1,8 +1,10 @@
+import math
 from dataclasses import dataclass
 
 from opentakserver.extensions import db
 from sqlalchemy import Integer, String, ForeignKey, Float, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pygc import great_circle
 
 
 @dataclass
@@ -25,6 +27,7 @@ class RBLine(db.Model):
     bearing_units: Mapped[int] = mapped_column(Integer, nullable=True)
     north_ref: Mapped[int] = mapped_column(Integer, nullable=True)
     color: Mapped[int] = mapped_column(Integer, nullable=True)
+    color_hex: Mapped[str] = mapped_column(String, nullable=True)
     callsign: Mapped[str] = mapped_column(String, nullable=True)
     stroke_color: Mapped[int] = mapped_column(Integer, nullable=True)
     stroke_weight: Mapped[float] = mapped_column(Float, nullable=True)
@@ -32,6 +35,8 @@ class RBLine(db.Model):
     labels_on: Mapped[bool] = mapped_column(Boolean, nullable=True)
     point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id"), nullable=True)
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
+    end_latitude: Mapped[float] = mapped_column(Float, nullable=True)
+    end_longitude: Mapped[float] = mapped_column(Float, nullable=True)
     point = relationship("Point", back_populates="rb_line")
     cot = relationship("CoT", back_populates="rb_line")
     eud = relationship("EUD", back_populates="rb_lines")
@@ -39,6 +44,19 @@ class RBLine(db.Model):
     range_unit_names = ['standard', 'metric', 'nautical']
     bearing_unit_names = ['degrees', 'mils']
     north_ref_names = ['true', 'magnetic', 'grid']
+
+    def color_to_hex(self):
+        if self.color:
+            return format(int(self.color) & 0xFFFFFFFF, '08X')
+
+    def calc_end_point(self, start_point):
+        if not int(self.bearing_units):
+            azimuth = float(self.bearing)
+        else:
+            azimuth = math.degrees(float(self.bearing))
+
+        return great_circle(distance=float(self.range), azimuth=azimuth, latitude=start_point.latitude,
+                            longitude=start_point.longitude)
 
     def serialize(self):
         return {
@@ -54,8 +72,11 @@ class RBLine(db.Model):
             'north_ref': self.north_ref,
             'north_ref_name': self.north_ref_names[int(self.north_ref)] if self.north_ref else None,
             'color': self.color,
+            'color_hex': self.color_hex,
             'stroke_weight': self.stroke_weight,
             'stroke_style': self.stroke_style,
             'labels_on': self.labels_on,
-            'point': self.point.serialize() if self.point else None
+            'point': self.point.serialize() if self.point else None,
+            'end_latitude': self.end_latitude,
+            'end_longitude': self.end_longitude
         }
