@@ -32,6 +32,7 @@ class EUD(db.Model):
     data_packages = relationship("DataPackage", back_populates="eud")
     certificate = relationship("Certificate", back_populates="eud", uselist=False)
     markers = relationship("Marker", back_populates="eud")
+    rb_lines = relationship("RBLine", back_populates="eud")
 
     def serialize(self):
         return {

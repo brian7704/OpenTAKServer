@@ -29,5 +29,5 @@ class Alert(db.Model):
             'cancel_time': self.cancel_time,
             'alert_type': self.alert_type,
             'point': self.point.serialize() if self.point else None,
-            'eud': self.eud.serialize() if self.eud else None,
+            'callsign': self.eud.callsign if self.eud else None,
         }

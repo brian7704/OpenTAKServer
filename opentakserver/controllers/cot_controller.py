@@ -16,6 +16,7 @@ from opentakserver.models.ChatroomsUids import ChatroomsUids
 from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
 from opentakserver.models.GeoChat import GeoChat
+from opentakserver.models.RBLine import RBLine
 from opentakserver.models.Video import Video
 from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.Point import Point
@@ -420,6 +421,70 @@ class CoTController:
                 self.logger.error("Failed to parse marker: {}".format(e))
                 self.logger.error(traceback.format_exc())
 
+    def parse_rbline(self, event, uid, point_pk, cot_pk):
+        if re.match("^u-rb", event.attrs['type']):
+            self.logger.debug("Got an R&B line")
+            rb_line = RBLine()
+            # rangeunits == 0 is standard
+            # rangeunits == 1 is metric
+            # rangeunits == 2 is nautical
+
+            # bearingUnits == 0 degress
+            # bearingUnits == 1 mils
+
+            # northRef == 0 true
+            # northRef == 1 mag
+            # northRef == 2 grid
+
+            detail = event.find('detail')
+            if detail:
+                rb_line.uid = event.attrs['uid']
+                rb_line.sender_uid = uid
+                rb_line.timestamp = event.attrs['start']
+
+                for tag in detail:
+                    if tag.name == 'range':
+                        rb_line.range = tag.attrs['value']
+                    if tag.name == 'bearing':
+                        rb_line.bearing = tag.attrs['value']
+                    if tag.name == 'inclination':
+                        rb_line.inclination = tag.attrs['value']
+                    if tag.name == 'anchorUID':
+                        rb_line.anchor_uid = tag.attrs['value']
+                    if tag.name == 'rangeUnits':
+                        rb_line.range_units = tag.attrs['value']
+                    if tag.name == 'bearingUnits':
+                        rb_line.bearing_units = tag.attrs['value']
+                    if tag.name == 'northRef':
+                        rb_line.north_ref = tag.attrs['value']
+                    if tag.name == 'color':
+                        rb_line.color = tag.attrs['value']
+                    if tag.name == 'contact':
+                        rb_line.callsign = tag.attrs['callsign']
+                    if tag.name == 'strokeColor':
+                        rb_line.stroke_color = tag.attrs['value']
+                    if tag.name == 'strokeWeight':
+                        rb_line.stroke_weight = tag.attrs['value']
+                    if tag.name == 'labels_on':
+                        rb_line.labels_on = (tag.attrs['value'] == 'true')
+
+            with self.context:
+                try:
+                    self.db.session.add(rb_line)
+                    self.db.session.commit()
+                    self.logger.debug("Inserted new R&B line: {}".format(rb_line.uid))
+                except exc.IntegrityError:
+                    self.db.session.rollback()
+                    serialized = rb_line.serialize()
+                    serialized.pop('range_unit_name')
+                    serialized.pop('bearing_unit_name')
+                    serialized.pop('north_ref_name')
+                    serialized.pop('point')
+                    self.db.session.execute(update(RBLine).where(RBLine.uid == rb_line.uid)
+                                            .values(**serialized))
+                    self.db.session.commit()
+                    self.logger.debug('Updated R&B line: {}'.format(rb_line.uid))
+
     def rabbitmq_routing(self, event, data):
         # RabbitMQ Routing
         chat = event.find("__chat")
@@ -528,6 +593,7 @@ class CoTController:
                 self.parse_alert(event, body['uid'], point_pk, cot_pk)
                 self.parse_casevac(event, body['uid'], point_pk, cot_pk)
                 self.parse_marker(event, body['uid'], point_pk, cot_pk)
+                self.parse_rbline(event, body['uid'], point_pk, cot_pk)
                 self.rabbitmq_routing(event, body['cot'])
 
                 # EUD went offline

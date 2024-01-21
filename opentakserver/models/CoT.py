@@ -22,6 +22,7 @@ class CoT(db.Model):
     video = relationship("Video", back_populates="cot", uselist=False)
     geochat = relationship("GeoChat", back_populates="cot", uselist=False)
     marker = relationship("Marker", back_populates="cot", uselist=False)
+    rb_line = relationship("RBLine", back_populates="cot")
 
     def serialize(self):
         return {
