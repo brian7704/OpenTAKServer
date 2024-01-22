@@ -159,8 +159,8 @@ class CoTController:
 
             track = event.find('track')
             if track:
-                p.course = track.attrs['course']
-                p.speed = track.attrs['speed']
+                p.course = track.attrs['course'] if 'course' in track.attrs else 0
+                p.speed = track.attrs['speed'] if 'speed' in track.attrs else 0
 
             precision_location = event.find('precisionlocation')
             if precision_location and 'geolocationsrc' in precision_location.attrs:
@@ -368,8 +368,10 @@ class CoTController:
 
     def parse_marker(self, event, uid, point_pk, cot_pk):
         if ((re.match("^a-[a-z]-[A-Z]$", event.attrs['type']) or
+            re.match("^a-[a-z]-[A-Z]-I", event.attrs['type']) or
+            re.match("^b-m-p", event.attrs['type']) or
              # The type field should match this when a marker is sent by someone who didn't create it
-             re.match("^a-[a-z]{1}(-[A-Z]){5}", event.attrs['type']))
+             re.match("^a-[a-z]{1}(-[a-zA-Z]){5}", event.attrs['type']))
                 and event.attrs['how'] == 'h-g-i-g-o'):
             try:
                 marker = Marker()
@@ -385,6 +387,7 @@ class CoTController:
                             marker.readiness = tag.attrs['readiness'] == "true"
                         if 'argb' in tag.attrs:
                             marker.argb = tag.attrs['argb']
+                            marker.color_hex = marker.color_to_hex()
                         if 'callsign' in tag.attrs:
                             marker.callsign = tag.attrs['callsign']
                         if 'iconsetpath' in tag.attrs:
@@ -406,16 +409,21 @@ class CoTController:
                     try:
                         self.db.session.add(marker)
                         self.db.session.commit()
-                        self.logger.warning('added marker')
+                        self.logger.debug('added marker')
                     except exc.IntegrityError:
                         self.db.session.rollback()
+                        serialized = marker.serialize()
+                        serialized.pop("point")
                         self.db.session.execute(
                             update(Marker).where(Marker.uid == marker.uid).values(point_id=marker.point_id,
-                                                                                  **marker.serialize()))
+                                                                                  **serialized))
                         self.db.session.commit()
-                        self.logger.info('updated marker')
+                        self.logger.debug('updated marker')
 
-                    socketio.emit('marker', marker.serialize(), namespace='/socket.io')
+                    point = self.db.session.execute(self.db.session.query(Point).filter(Point.id == point_pk)).first()[0]
+                    serialized = marker.serialize()
+                    serialized['point'] = point.serialize()
+                    socketio.emit('marker', serialized, namespace='/socket.io')
 
             except BaseException as e:
                 self.logger.error("Failed to parse marker: {}".format(e))

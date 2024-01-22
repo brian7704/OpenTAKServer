@@ -20,6 +20,7 @@ class Marker(db.Model):
     callsign: Mapped[str] = mapped_column(String, nullable=True)
     readiness: Mapped[bool] = mapped_column(Boolean, nullable=True)
     argb: Mapped[int] = mapped_column(Integer, nullable=True)
+    color_hex: Mapped[str] = mapped_column(String, nullable=True)
     iconset_path: Mapped[str] = mapped_column(String, nullable=True)
     parent_callsign: Mapped[str] = mapped_column(String, nullable=True)
     production_time: Mapped[str] = mapped_column(String, nullable=True)
@@ -36,6 +37,10 @@ class Marker(db.Model):
     cot = relationship("CoT", back_populates="marker")
     eud = relationship("EUD", back_populates="markers")
 
+    def color_to_hex(self):
+        if self.argb:
+            return format(int(self.argb) & 0xFFFFFFFF, '08X')
+
     def serialize(self):
         return {
             'uid': self.uid,
@@ -44,10 +49,12 @@ class Marker(db.Model):
             'callsign': self.callsign,
             'readiness': self.readiness,
             'argb': self.argb,
+            'color_hex': self.color_hex,
             'iconset_path': self.iconset_path,
             'parent_callsign': self.parent_callsign,
             'relation': self.relation,
             'relation_type': self.relation_type,
             'production_time': self.production_time,
-            'location_source': self.location_source
+            'location_source': self.location_source,
+            'point': self.point.serialize() if self.point else None
         }
