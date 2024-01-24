@@ -20,9 +20,7 @@ class EUD(db.Model):
     last_event_time: Mapped[str] = mapped_column(String, nullable=True)
     last_status: Mapped[str] = mapped_column(String, nullable=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("user.id"), nullable=True)
-    #last_location_id: Mapped[int] = mapped_column(Integer, ForeignKey("locations.id"), nullable=True)
     points = relationship("Point", back_populates="eud")
-    #last_location = relationship("Location", back_populates="eud_last_location", foreign_keys=[last_location_id])
     cots = relationship("CoT", back_populates="eud")
     casevacs = relationship("CasEvac", back_populates="eud")
     geochats = relationship("GeoChat", back_populates="eud")
@@ -47,6 +45,4 @@ class EUD(db.Model):
             'last_status': self.last_status,
             'username': self.user.username if self.user else None,
             'certificate': self.certificate.serialize() if self.certificate else None,
-            #'last_location': self.last_location.serialize() if self.last_location else None,
-            'markers': [marker.serialize() for marker in self.markers]
         }

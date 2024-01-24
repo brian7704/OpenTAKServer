@@ -34,7 +34,9 @@ from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
 
 from opentakserver.SocketServer import SocketServer
 from opentakserver.certificate_authority import CertificateAuthority
-from ..models.Marker import Marker
+from opentakserver.models.Icon import Icon
+from opentakserver.models.Marker import Marker
+from opentakserver.models.RBLine import RBLine
 
 api_blueprint = Blueprint('api_blueprint', __name__)
 
@@ -867,20 +869,39 @@ def get_markers():
 @auth_required()
 def get_map_state():
     try:
+        results = {'euds': [], 'markers': [], 'rb_lines': []}
+
         euds = db.session.execute(db.session.query(EUD)).all()
-
-        results = []
-
         for eud in euds:
             serialized = eud[0].serialize()
             if len(eud[0].points):
                 serialized['last_point'] = eud[0].points[-1].serialize()
             else:
                 serialized['last_point'] = None
-            results.append(serialized)
+            serialized.pop()
+            results['euds'].append(serialized)
+
+        markers = db.session.execute(db.session.query(Marker)).all()
+        for marker in markers:
+            results['markers'].append(marker[0].serialize())
+
+        rb_lines = db.session.execute(db.session.query(RBLine)).all()
+        for rb_line in rb_lines:
+            results['rb_lines'].append(rb_line[0].serialize())
 
     except BaseException as e:
         logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
 
     return jsonify(results)
+
+
+@api_blueprint.route('/api/icon')
+@auth_required()
+def get_icon():
+    query = db.session.query(Icon)
+    query = search(query, Icon, 'filename')
+    query = search(query, Icon, 'groupName')
+    query = search(query, Icon, 'type2525b')
+
+    return paginate(query)

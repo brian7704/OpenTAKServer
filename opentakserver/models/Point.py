@@ -27,7 +27,6 @@ class Point(db.Model):
     casevac = relationship("CasEvac", back_populates="point")
     geochat = relationship("GeoChat", back_populates="point")
     alert = relationship("Alert", back_populates="point")
-    #eud_last_location = relationship("EUD", back_populates="last_location")
     marker: Mapped["Marker"] = relationship(back_populates="point")
     rb_line = relationship("RBLine", back_populates="point")
 

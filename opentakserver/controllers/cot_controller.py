@@ -16,6 +16,7 @@ from opentakserver.models.ChatroomsUids import ChatroomsUids
 from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
 from opentakserver.models.GeoChat import GeoChat
+from opentakserver.models.Icon import Icon
 from opentakserver.models.RBLine import RBLine
 from opentakserver.models.Video import Video
 from opentakserver.models.ZMIST import ZMIST
@@ -367,17 +368,31 @@ class CoTController:
                 self.db.session.commit()
 
     def parse_marker(self, event, uid, point_pk, cot_pk):
-        if ((re.match("^a-[a-z]-[A-Z]$", event.attrs['type']) or
-            re.match("^a-[a-z]-[A-Z]-I", event.attrs['type']) or
-            re.match("^b-m-p", event.attrs['type']) or
-             # The type field should match this when a marker is sent by someone who didn't create it
-             re.match("^a-[a-z]{1}(-[a-zA-Z]){5}", event.attrs['type']))
+        if ((re.match("^a-[f|h|u|p|a|n|s|j|k]-[Z|P|A|G|S|U|F]", event.attrs['type']) or
+             # Spot map
+             re.match("^b-m-p", event.attrs['type']))
                 and event.attrs['how'] == 'h-g-i-g-o'):
             try:
                 marker = Marker()
                 marker.uid = event.attrs['uid']
                 marker.affiliation = self.get_affiliation(event.attrs['type'])
                 marker.battle_dimension = self.get_battle_dimension(event.attrs['type'])
+
+                marker.mil_std_2525c = "s"
+                cot_type_list = event.attrs['type'].split("-")
+                cot_type_list.pop(0)  # this should always be letter a
+                affiliation = cot_type_list.pop(0)
+                battle_dimension = cot_type_list.pop(0)
+                marker.mil_std_2525c += affiliation
+                marker.mil_std_2525c += battle_dimension
+                marker.mil_std_2525c += "-"
+
+                for letter in cot_type_list:
+                    if letter.isupper():
+                        marker.mil_std_2525c += letter
+
+                while len(marker.mil_std_2525c) < 10:
+                    marker.mil_std_2525c += "-"
 
                 detail = event.find('detail')
 
@@ -392,15 +407,35 @@ class CoTController:
                             marker.callsign = tag.attrs['callsign']
                         if 'iconsetpath' in tag.attrs:
                             marker.iconset_path = tag.attrs['iconsetpath']
+                            if marker.iconset_path.lower().endswith('.png'):
+                                with self.context:
+                                    filename = marker.iconset_path.split("/")[-1]
+
+                                    try:
+                                        icon = self.db.session.execute(self.db.session.query(Icon)
+                                                                       .filter(Icon.filename == filename)).first()[0]
+                                        marker.icon_id = icon.id
+                                    except:
+                                        icon = self.db.session.execute(self.db.session.query(Icon)
+                                                                       .filter(
+                                            Icon.filename == 'marker-icon.png')).first()[0]
+                                        marker.icon_id = icon.id
+                            else:
+                                with self.context:
+                                    icon = self.db.session.execute(self.db.session.query(Icon)
+                                                                   .filter(Icon.filename == 'marker-icon.png')).first()[0]
+                                    marker.icon_id = icon.id
+
                         if 'altsrc' in tag.attrs:
                             marker.location_source = tag.attrs['altsrc']
 
                 link = event.find('link')
-                marker.parent_callsign = link.attrs['parent_callsign'] if 'parent_callsign' in link.attrs else None
-                marker.production_time = link.attrs['production_time'] if 'production_time' in link.attrs else None
-                marker.relation = link.attrs['relation'] if 'relation' in link.attrs else None
-                marker.relation_type = link.attrs['relation_type'] if 'relation_type' in link.attrs else None
-                marker.parent_uid = link.attrs['uid'] if 'uid' in link.attrs else None
+                if link:
+                    marker.parent_callsign = link.attrs['parent_callsign'] if 'parent_callsign' in link.attrs else None
+                    marker.production_time = link.attrs['production_time'] if 'production_time' in link.attrs else None
+                    marker.relation = link.attrs['relation'] if 'relation' in link.attrs else None
+                    marker.relation_type = link.attrs['relation_type'] if 'relation_type' in link.attrs else None
+                    marker.parent_uid = link.attrs['uid'] if 'uid' in link.attrs else None
 
                 marker.point_id = point_pk
                 marker.cot_id = cot_pk
@@ -414,15 +449,20 @@ class CoTController:
                         self.db.session.rollback()
                         serialized = marker.serialize()
                         serialized.pop("point")
+                        serialized.pop("icon")
                         self.db.session.execute(
                             update(Marker).where(Marker.uid == marker.uid).values(point_id=marker.point_id,
+                                                                                  icon_id=marker.icon_id,
                                                                                   **serialized))
                         self.db.session.commit()
                         self.logger.debug('updated marker')
 
-                    point = self.db.session.execute(self.db.session.query(Point).filter(Point.id == point_pk)).first()[0]
+                    point = self.db.session.execute(self.db.session.query(Point).filter(Point.id == point_pk)).first()[
+                        0]
+
                     serialized = marker.serialize()
                     serialized['point'] = point.serialize()
+                    serialized['icon'] = icon.serialize()
                     socketio.emit('marker', serialized, namespace='/socket.io')
 
             except BaseException as e:
@@ -471,7 +511,8 @@ class CoTController:
 
                 with self.context:
 
-                    start_point = self.db.session.execute(self.db.session.query(Point).filter(Point.id == point_pk)).first()[0]
+                    start_point = \
+                    self.db.session.execute(self.db.session.query(Point).filter(Point.id == point_pk)).first()[0]
                     end_point = rb_line.calc_end_point(start_point)
                     rb_line.end_latitude = end_point['latitude']
                     rb_line.end_longitude = end_point['longitude']

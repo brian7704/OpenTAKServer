@@ -27,15 +27,18 @@ class Marker(db.Model):
     relation: Mapped[str] = mapped_column(String, nullable=True)
     relation_type: Mapped[str] = mapped_column(String, nullable=True)
     location_source: Mapped[str] = mapped_column(String, nullable=True)
+    icon_id: Mapped[int] = mapped_column(Integer, ForeignKey("icons.id"), nullable=True)
 
     # Will either be the uid attribute in the <Link> tag or
     # if there's no <Link> tag it's assumed that the sender is the parent
     parent_uid: Mapped[str] = mapped_column(String, ForeignKey("eud.uid"), nullable=True)
     remarks: Mapped[str] = mapped_column(String, nullable=True)
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
+    mil_std_2525c: Mapped[str] = mapped_column(String, nullable=True)
     point = relationship("Point", back_populates="marker")
     cot = relationship("CoT", back_populates="marker")
     eud = relationship("EUD", back_populates="markers")
+    icon = relationship("Icon", back_populates="markers")
 
     def color_to_hex(self):
         if self.argb:
@@ -56,5 +59,7 @@ class Marker(db.Model):
             'relation_type': self.relation_type,
             'production_time': self.production_time,
             'location_source': self.location_source,
-            'point': self.point.serialize() if self.point else None
+            'icon': self.icon.serialize() if self.icon else None,
+            'point': self.point.serialize() if self.point else None,
+            'mil_std_2525c': self.mil_std_2525c
         }
