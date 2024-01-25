@@ -19,3 +19,20 @@ class GeoChat(db.Model):
     cot = relationship("CoT", back_populates="geochat")
     chatroom = relationship("Chatroom", back_populates="geochats")
     eud = relationship("EUD", back_populates="geochats")
+
+    def serialize(self):
+        return {
+            'uid': self.uid,
+            'sender_uid': self.sender_uid,
+            'remarks': self.remarks,
+            'timestamp': self.timestamp,
+        }
+
+    def to_json(self):
+        return {
+            'uid': self.uid,
+            'sender_uid': self.sender_uid,
+            'remarks': self.remarks,
+            'timestamp': self.timestamp,
+            'point': self.point.to_json() or None,
+        }

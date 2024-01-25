@@ -79,7 +79,7 @@ class Marker(db.Model):
             'relation_type': self.relation_type,
             'production_time': self.production_time,
             'location_source': self.location_source,
-            'icon': self.icon.serialize() if self.icon else None,
+            'icon': self.icon.to_json() if self.icon else None,
             'point': self.point.to_json() if self.point else None,
             'mil_std_2525c': self.mil_std_2525c,
             'type': self.cot.type if self.cot else None,

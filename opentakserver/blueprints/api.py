@@ -550,7 +550,9 @@ def external_auth():
             v.path = bleach.clean(request.json.get('path'))
             v.alias = v.path.split("/")[-1]
             v.username = bleach.clean(request.json.get('user'))
-            v.mediamtx_settings = json.dumps(MediaMTXPathConfig(None).serialize())
+            path_config = MediaMTXPathConfig(None).serialize()
+            path_config['sourceOnDemand'] = False
+            v.mediamtx_settings = json.dumps(path_config)
 
             if v.protocol == 'rtsp':
                 v.port = 8554
@@ -569,11 +571,11 @@ def external_auth():
                     db.session.add(v)
                     db.session.commit()
                     r = requests.post("http://localhost:9997/v3/config/paths/add/{}".format(v.path),
-                                      json=MediaMTXPathConfig(None).serialize())
+                                      json=path_config)
                     if r.status_code == 200:
                         logger.debug("Added path {} to mediamtx".format(v.path))
                     else:
-                        logger.error("Failed to add path {} to mediamtx. Status code {}".format(v.path, r.status_code))
+                        logger.error("Failed to add path {} to mediamtx. Status code {} {}".format(v.path, r.status_code, r.text))
                     logger.debug("Inserted video stream {}".format(v.uid))
                 except sqlalchemy.exc.IntegrityError as e:
                     try:
@@ -585,7 +587,7 @@ def external_auth():
                             logger.debug("Added path {} to mediamtx".format(v.path))
                         else:
                             logger.error(
-                                "Failed to add path {} to mediamtx. Status code {}".format(v.path, r.status_code))
+                                "Failed to add path {} to mediamtx. Status code {} {}".format(v.path, r.status_code, r.text))
                     except:
                         logger.error(traceback.format_exc())
 
@@ -708,7 +710,7 @@ def mediamtx_webhook():
             db.session.commit()
             r = requests.patch("http://localhost:9997/v3/config/paths/patch/{}".format(path),
                                json=json.loads(video_stream.mediamtx_settings))
-            logger.debug("Read Patched path {}: {}".format(path, r.status_code))
+            logger.debug("Read Patched path {}: {} - {}".format(path, r.status_code, r.text))
         else:
             video_stream = Video()
             if source_type.startswith('rtsps'):
@@ -804,7 +806,7 @@ def add_update_stream():
             value = f.data
             if isinstance(value, str):
                 value = bleach.clean(value)
-            if value is not None:
+            if settings[key] is None and value is not None:
                 settings[key] = value
                 logger.debug("set {} to {}".format(key, value))
 

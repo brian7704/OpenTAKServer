@@ -142,6 +142,8 @@ class ClientController(Thread):
         return False
 
     def parse_device_info(self, event):
+        if not self.rabbit_channel:
+            return
         self.uid = event.attrs['uid']
         contact = event.find('contact')
         if contact:

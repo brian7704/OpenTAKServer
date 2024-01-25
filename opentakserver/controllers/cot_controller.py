@@ -3,6 +3,8 @@ import re
 import traceback
 from threading import Thread
 
+import bleach
+import sqlalchemy.exc
 from sqlalchemy import exc, insert, update
 from bs4 import BeautifulSoup
 import pika
@@ -18,6 +20,7 @@ from opentakserver.models.EUD import EUD
 from opentakserver.models.GeoChat import GeoChat
 from opentakserver.models.Icon import Icon
 from opentakserver.models.RBLine import RBLine
+from opentakserver.models.Team import Team
 from opentakserver.models.Video import Video
 from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.Point import Point
@@ -109,35 +112,64 @@ class CoTController:
                 platform = takv.attrs['platform']
                 version = takv.attrs['version']
 
-                eud = EUD()
-                eud.uid = uid
-                eud.callsign = callsign
-                eud.device = device
-                eud.os = os
-                eud.platform = platform
-                eud.version = version
-                eud.phone_number = phone_number
-                eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
-                eud.last_status = 'Connected'
+                group = event.find('__group')
+                team = Team()
 
                 with self.context:
+                    # Declare an exchange for each group and bind the callsign's queue
+                    if self.rabbit_channel.is_open and group.attrs['name'] not in self.exchanges:
+                        self.logger.debug("Declaring exchange {}".format(group.attrs['name']))
+                        self.rabbit_channel.exchange_declare(exchange=group.attrs['name'])
+                        self.rabbit_channel.queue_bind(queue=uid, exchange='chatrooms', routing_key=group.attrs['name'])
+                        self.exchanges.append(group.attrs['name'])
+
+                    team.name = bleach.clean(group.attrs['name'])
+
+                    try:
+                        chatroom = self.db.session.execute(self.db.session.query(Chatroom)
+                                                           .filter(Chatroom.name == team.name)).first()[0]
+                        team.chatroom_id = chatroom.id
+                    except TypeError:
+                        chatroom = None
+
+                    try:
+                        self.db.session.add(team)
+                        self.db.session.commit()
+                    except sqlalchemy.exc.IntegrityError:
+                        self.db.session.rollback()
+                        team = self.db.session.execute(self.db.session.query(Team)
+                                                       .filter(Team.name == group.attrs['name'])).first()[0]
+                        if not team.chatroom_id and chatroom:
+                            team.chatroom_id = chatroom.id
+                            self.db.session.execute(update(Team).filter(Team.name).values(**team))
+
+                    eud = EUD()
+                    eud.uid = uid
+                    eud.callsign = callsign
+                    eud.device = device
+                    eud.os = os
+                    eud.platform = platform
+                    eud.version = version
+                    eud.phone_number = phone_number
+                    eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
+                    eud.last_status = 'Connected'
+                    eud.team_id = team.id
+                    eud.team_role = bleach.clean(group.attrs['role'])
+
                     try:
                         self.db.session.add(eud)
                         self.db.session.commit()
                     except exc.IntegrityError as e:
                         # This EUD/uid is already in the DB, update it in case anything changed like callsign or app version
                         self.db.session.rollback()
-                        eud = self.db.session.execute(self.db.select(EUD).filter_by(uid=uid)).scalar_one()
-                        eud.callsign = callsign
-                        eud.os = os
-                        eud.device = device
-                        eud.platform = platform
-                        eud.version = version
-                        eud.phone_number = phone_number
-                        eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
-                        eud.last_status = 'Connected'
+                        self.db.session.execute(update(EUD).filter(EUD.uid == eud.uid).values(**eud.serialize()))
                         self.db.session.commit()
                         self.logger.debug("Updated {}".format(uid))
+                        eud = self.db.session.execute(self.db.session.query(EUD).filter(EUD.uid == eud.uid)).first()[0]
+
+                    socketio.emit('eud', eud.to_json(), namespace='/socket.io')
+
+        # Update the CoT stored in memory which contains the new stale time
         elif event.find('takv'):
             self.online_euds[uid]['cot'] = str(soup)
 
@@ -183,8 +215,15 @@ class CoTController:
 
             track = event.find('track')
             if track:
-                p.course = track.attrs['course'] if 'course' in track.attrs else 0
-                p.speed = track.attrs['speed'] if 'speed' in track.attrs else 0
+                if 'course' in track.attrs and track.attrs['course'] != "9999999.0":
+                    p.course = track.attrs['course']
+                else:
+                    p.course = 0
+
+                if 'speed' in track.attrs and track.attrs['speed'] != "9999999.0":
+                    p.speed = track.attrs['speed']
+                else:
+                    p.speed = 0
 
             precision_location = event.find('precisionlocation')
             if precision_location and 'geolocationsrc' in precision_location.attrs:
@@ -321,17 +360,6 @@ class CoTController:
 
                     self.db.session.commit()
 
-    def parse_groups(self, event, uid):
-        groups = event.find_all('__group')
-
-        for group in groups:
-            # Declare an exchange for each group and bind the callsign's queue
-            if self.rabbit_channel.is_open and group.attrs['name'] not in self.exchanges:
-                self.logger.debug("Declaring exchange {}".format(group.attrs['name']))
-                self.rabbit_channel.exchange_declare(exchange=group.attrs['name'])
-                self.rabbit_channel.queue_bind(queue=uid, exchange='chatrooms', routing_key=group.attrs['name'])
-                self.exchanges.append(group.attrs['name'])
-
     def parse_alert(self, event, uid, point_pk, cot_pk):
         emergency = event.find('emergency')
         if emergency:
@@ -394,10 +422,11 @@ class CoTController:
 
     def parse_marker(self, event, uid, point_pk, cot_pk):
         if ((re.match("^a-[f|h|u|p|a|n|s|j|k]-[Z|P|A|G|S|U|F]", event.attrs['type']) or
-                # Spot map
-                re.match("^b-m-p", event.attrs['type'])) and not
+             # Spot map
+             re.match("^b-m-p", event.attrs['type'])) and
                 # Don't worry about EUD location updates
-                event.find('takv')):
+                not event.find('takv')):
+
             try:
                 marker = Marker()
                 marker.uid = event.attrs['uid']
@@ -415,7 +444,7 @@ class CoTController:
 
                 for letter in cot_type_list:
                     if letter.isupper():
-                        marker.mil_std_2525c += letter
+                        marker.mil_std_2525c += letter.lower()
 
                 while len(marker.mil_std_2525c) < 10:
                     marker.mil_std_2525c += "-"
@@ -447,10 +476,11 @@ class CoTController:
                                         .filter(
                                             Icon.filename == 'marker-icon.png')).first()[0]
                                         marker.icon_id = icon.id
-                            else:
+                            elif not marker.mil_std_2525c:
                                 with self.context:
                                     icon = self.db.session.execute(self.db.session.query(Icon)
-                                                                   .filter(Icon.filename == 'marker-icon.png')).first()[0]
+                                                                   .filter(Icon.filename == 'marker-icon.png')).first()[
+                                        0]
                                     marker.icon_id = icon.id
 
                         if 'altsrc' in tag.attrs:
@@ -480,13 +510,10 @@ class CoTController:
                                                                                   **marker.serialize()))
                         self.db.session.commit()
                         self.logger.debug('updated marker')
+                        marker = self.db.session.execute(self.db.session.query(Marker)
+                                                         .filter(Marker.uid == marker.uid)).first()[0]
 
-                    point = self.db.session.execute(self.db.session.query(Point).filter(Point.id == point_pk)).first()[0]
-
-                    serialized = marker.to_json()
-                    serialized['point'] = point.to_json()
-                    serialized['icon'] = icon.serialize() if icon else None
-                    socketio.emit('marker', serialized, namespace='/socket.io')
+                    socketio.emit('marker', marker.to_json(), namespace='/socket.io')
 
             except BaseException as e:
                 self.logger.error("Failed to parse marker: {}".format(e))
@@ -657,7 +684,6 @@ class CoTController:
                 point_pk = self.parse_point(event, body['uid'], cot_pk)
                 self.parse_geochat(event, cot_pk, point_pk)
                 self.parse_video(event, cot_pk)
-                self.parse_groups(event, body['uid'])
                 self.parse_alert(event, body['uid'], point_pk, cot_pk)
                 self.parse_casevac(event, body['uid'], point_pk, cot_pk)
                 self.parse_marker(event, body['uid'], point_pk, cot_pk)
@@ -671,10 +697,11 @@ class CoTController:
                     try:
                         with self.context:
                             eud = self.db.session.execute(self.db.select(EUD).filter_by(uid=body['uid'])).scalar_one()
-                            eud.last_event_time = event.attrs['start']
+                            eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
                             eud.last_status = 'Disconnected'
                             self.db.session.commit()
                             self.logger.debug("Updated {}".format(body['uid']))
+                            socketio.emit('eud', eud.to_json(), namespace='/socket.io')
                     except BaseException as e:
                         self.logger.error("Failed to update EUD: {}".format(e))
 
