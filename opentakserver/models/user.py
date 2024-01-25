@@ -26,3 +26,6 @@ class User(db.Model, fsqla.FsUserMixin):
             'video_streams': [v.serialize() for v in self.video_streams],
             'roles': [role.serialize() for role in self.roles]
         }
+
+    def to_json(self):
+        return self.serialize()

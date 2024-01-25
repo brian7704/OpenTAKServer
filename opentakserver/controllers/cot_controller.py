@@ -1,4 +1,3 @@
-import datetime
 import json
 import re
 import traceback
@@ -9,6 +8,7 @@ from bs4 import BeautifulSoup
 import pika
 
 from opentakserver.extensions import socketio
+from opentakserver.functions import datetime_from_iso8601_string
 from opentakserver.models.Chatrooms import Chatroom
 from opentakserver.models.Alert import Alert
 from opentakserver.models.CasEvac import CasEvac
@@ -50,6 +50,7 @@ class CoTController:
 
     def on_connection_open(self, connection):
         self.rabbit_connection.channel(on_open_callback=self.on_channel_open)
+        self.rabbit_connection.add_on_close_callback(self.on_close)
 
     def on_channel_open(self, channel):
         self.rabbit_channel = channel
@@ -57,11 +58,20 @@ class CoTController:
         self.rabbit_channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
         self.rabbit_channel.queue_bind(exchange='cot_controller', queue='cot_controller')
         self.rabbit_channel.basic_consume(queue='cot_controller', on_message_callback=self.on_message, auto_ack=True)
+        self.rabbit_channel.add_on_close_callback(self.on_close)
+
+    def on_close(self, channel, error):
+        self.logger.error("cot_controller closing RabbitMQ connection: {}".format(error))
 
     def parse_device_info(self, uid, soup, event):
         link = event.find('link')
         fileshare = event.find('fileshare')
-        # uid = event.attrs['uid']
+
+        # Don't parse server generated messages
+        with self.context:
+            if uid == self.context.app.config.get("OTS_NODE_ID"):
+                return
+
         callsign = None
         phone_number = None
 
@@ -82,8 +92,10 @@ class CoTController:
                                                        routing_key='All Chat Rooms')
 
                         for eud in self.online_euds:
-                            self.rabbit_channel.basic_publish(exchange='dms', routing_key=uid,
-                                                              body=str(self.online_euds[eud]['cot']))
+                            self.rabbit_channel.basic_publish(exchange='dms',
+                                                              routing_key=uid,
+                                                              body=json.dumps({'cot': str(self.online_euds[eud]['cot']),
+                                                                               'uid': None}))
 
                         self.online_euds[uid] = {'cot': str(soup), 'callsign': callsign}
 
@@ -105,7 +117,7 @@ class CoTController:
                 eud.platform = platform
                 eud.version = version
                 eud.phone_number = phone_number
-                eud.last_event_time = event.attrs['start']
+                eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
                 eud.last_status = 'Connected'
 
                 with self.context:
@@ -122,16 +134,27 @@ class CoTController:
                         eud.platform = platform
                         eud.version = version
                         eud.phone_number = phone_number
-                        eud.last_event_time = event.attrs['start']
+                        eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
                         eud.last_status = 'Connected'
                         self.db.session.commit()
                         self.logger.debug("Updated {}".format(uid))
+        elif event.find('takv'):
+            self.online_euds[uid]['cot'] = str(soup)
 
     def insert_cot(self, soup, event, uid):
+        try:
+            sender_callsign = self.online_euds[uid]['callsign']
+        except:
+            sender_callsign = 'server'
+
+        start = datetime_from_iso8601_string(event.attrs['start'])
+        stale = datetime_from_iso8601_string(event.attrs['stale'])
+        timestamp = datetime_from_iso8601_string(event.attrs['time'])
+
         with self.context:
             res = self.db.session.execute(insert(CoT).values(
-                how=event.attrs['how'], type=event.attrs['type'], sender_callsign=self.online_euds[uid]['callsign'],
-                sender_uid=uid, timestamp=event.attrs['start'], xml=str(soup)
+                how=event.attrs['how'], type=event.attrs['type'], sender_callsign=sender_callsign,
+                sender_uid=uid, timestamp=timestamp, xml=str(soup), start=start, stale=stale
             ))
 
             self.db.session.commit()
@@ -151,7 +174,7 @@ class CoTController:
             p.le = point.attrs['le']
             p.latitude = float(point.attrs['lat'])
             p.longitude = float(point.attrs['lon'])
-            p.timestamp = datetime.datetime.now().isoformat()
+            p.timestamp = datetime_from_iso8601_string(event.attrs['time'])
             p.cot_id = cot_id
 
             # We only really care about the rest of the data if there's a valid lat/lon
@@ -177,8 +200,7 @@ class CoTController:
             with self.context:
                 res = self.db.session.execute(insert(Point).values(
                     uid=p.uid, device_uid=p.device_uid, ce=p.ce, hae=p.hae, le=p.le, latitude=p.latitude,
-                    longitude=p.longitude,
-                    timestamp=event.attrs['start'] + "Z", cot_id=cot_id, location_source=p.location_source,
+                    longitude=p.longitude, timestamp=p.timestamp, cot_id=cot_id, location_source=p.location_source,
                     course=p.course, speed=p.speed, battery=p.battery)
                 )
 
@@ -186,9 +208,9 @@ class CoTController:
                 p = self.db.session.execute(
                     self.db.session.query(Point).filter(Point.id == res.inserted_primary_key[0])).first()[0]
 
-                # This CoT is a position update for an EUD, send it to socketio clients so it can be seen on the UI map
-                if re.match("^a-", event.attrs['type']) and re.match("^h-e|^m-g", event.attrs['how']):
-                    socketio.emit('point', p.serialize(), namespace='/socket.io')
+                # This CoT is a position update for an EUD, send it to socketio clients, so it can be seen on the UI map
+                if event.find('takv'):
+                    socketio.emit('point', p.to_json(), namespace='/socket.io')
 
                 return res.inserted_primary_key[0]
 
@@ -217,7 +239,7 @@ class CoTController:
             geochat.chatroom_id = chat.attrs['id']
             geochat.sender_uid = chat_group.attrs['uid0']
             geochat.remarks = remarks.text
-            geochat.timestamp = remarks.attrs['time']
+            geochat.timestamp = datetime_from_iso8601_string(remarks.attrs['time'])
             geochat.point_id = point_pk
             geochat.cot_id = cot_id
 
@@ -318,7 +340,7 @@ class CoTController:
                 alert = Alert()
                 alert.sender_uid = uid
                 alert.uid = event.attrs['uid']
-                alert.start_time = event.attrs['start']
+                alert.start_time = datetime_from_iso8601_string(event.attrs['start'])
                 alert.point_id = point_pk
                 alert.alert_type = emergency_type
                 alert.cot_id = cot_pk
@@ -326,16 +348,16 @@ class CoTController:
                 with self.context:
                     self.db.session.add(alert)
                     self.db.session.commit()
-                    socketio.emit('alert', alert.serialize(), namespace='/socket.io')
+                    socketio.emit('alert', alert.to_json(), namespace='/socket.io')
             elif 'cancel' in emergency.attrs:
                 with self.context:
                     try:
                         alert = self.db.session.execute(
                             Alert.query.filter(Alert.cancel_time == None, Alert.sender_uid == uid).order_by(
                                 Alert.start_time.desc())).first()[0]
-                        alert.cancel_time = event.attrs['start']
+                        alert.cancel_time = datetime_from_iso8601_string(event.attrs['start'])
                         self.db.session.commit()
-                        socketio.emit('alert', alert.serialize(), namespace='/socket.io')
+                        socketio.emit('alert', alert.to_json(), namespace='/socket.io')
                     except BaseException as e:
                         self.logger.error("Failed to set alert cancel time: {}".format(e))
 
@@ -351,9 +373,11 @@ class CoTController:
                         medevac.attrs[a] = False
 
                 try:
-                    res = self.db.session.execute(insert(CasEvac).values(timestamp=event.attrs['start'], sender_uid=uid,
-                                                                         uid=event.attrs['uid'], point_id=point_pk,
-                                                                         cot_id=cot_pk, **medevac.attrs))
+                    res = self.db.session.execute(
+                        insert(CasEvac).values(timestamp=datetime_from_iso8601_string(event.attrs['start']),
+                                               sender_uid=uid, uid=event.attrs['uid'],
+                                               point_id=point_pk, cot_id=cot_pk,
+                                               **medevac.attrs))
                     casevac_pk = res.inserted_primary_key[0]
 
                     if zmist:
@@ -363,15 +387,17 @@ class CoTController:
                     self.db.session.execute(update(CasEvac).where(CasEvac.uid == event.attrs['uid'])
                                             .values(**medevac.attrs))
 
-                    self.db.session.execute(
-                        update(ZMIST).where(CasEvac.uid == event.attrs['uid']).values(**zmist.attrs))
+                    if zmist:
+                        self.db.session.execute(
+                            update(ZMIST).where(CasEvac.uid == event.attrs['uid']).values(**zmist.attrs))
                 self.db.session.commit()
 
     def parse_marker(self, event, uid, point_pk, cot_pk):
         if ((re.match("^a-[f|h|u|p|a|n|s|j|k]-[Z|P|A|G|S|U|F]", event.attrs['type']) or
-             # Spot map
-             re.match("^b-m-p", event.attrs['type']))
-                and event.attrs['how'] == 'h-g-i-g-o'):
+                # Spot map
+                re.match("^b-m-p", event.attrs['type'])) and not
+                # Don't worry about EUD location updates
+                event.find('takv')):
             try:
                 marker = Marker()
                 marker.uid = event.attrs['uid']
@@ -395,6 +421,7 @@ class CoTController:
                     marker.mil_std_2525c += "-"
 
                 detail = event.find('detail')
+                icon = None
 
                 if detail:
                     for tag in detail:
@@ -417,7 +444,7 @@ class CoTController:
                                         marker.icon_id = icon.id
                                     except:
                                         icon = self.db.session.execute(self.db.session.query(Icon)
-                                                                       .filter(
+                                        .filter(
                                             Icon.filename == 'marker-icon.png')).first()[0]
                                         marker.icon_id = icon.id
                             else:
@@ -447,22 +474,18 @@ class CoTController:
                         self.logger.debug('added marker')
                     except exc.IntegrityError:
                         self.db.session.rollback()
-                        serialized = marker.serialize()
-                        serialized.pop("point")
-                        serialized.pop("icon")
                         self.db.session.execute(
                             update(Marker).where(Marker.uid == marker.uid).values(point_id=marker.point_id,
                                                                                   icon_id=marker.icon_id,
-                                                                                  **serialized))
+                                                                                  **marker.serialize()))
                         self.db.session.commit()
                         self.logger.debug('updated marker')
 
-                    point = self.db.session.execute(self.db.session.query(Point).filter(Point.id == point_pk)).first()[
-                        0]
+                    point = self.db.session.execute(self.db.session.query(Point).filter(Point.id == point_pk)).first()[0]
 
-                    serialized = marker.serialize()
-                    serialized['point'] = point.serialize()
-                    serialized['icon'] = icon.serialize()
+                    serialized = marker.to_json()
+                    serialized['point'] = point.to_json()
+                    serialized['icon'] = icon.serialize() if icon else None
                     socketio.emit('marker', serialized, namespace='/socket.io')
 
             except BaseException as e:
@@ -478,7 +501,7 @@ class CoTController:
             if detail:
                 rb_line.uid = event.attrs['uid']
                 rb_line.sender_uid = uid
-                rb_line.timestamp = event.attrs['start']
+                rb_line.timestamp = datetime_from_iso8601_string(event.attrs['start'])
                 rb_line.point_id = point_pk
                 rb_line.cot_id = cot_pk
 
@@ -512,7 +535,7 @@ class CoTController:
                 with self.context:
 
                     start_point = \
-                    self.db.session.execute(self.db.session.query(Point).filter(Point.id == point_pk)).first()[0]
+                        self.db.session.execute(self.db.session.query(Point).filter(Point.id == point_pk)).first()[0]
                     end_point = rb_line.calc_end_point(start_point)
                     rb_line.end_latitude = end_point['latitude']
                     rb_line.end_longitude = end_point['longitude']
@@ -523,18 +546,13 @@ class CoTController:
                         self.logger.debug("Inserted new R&B line: {}".format(rb_line.uid))
                     except exc.IntegrityError:
                         self.db.session.rollback()
-                        serialized = rb_line.serialize()
-                        serialized.pop('range_unit_name')
-                        serialized.pop('bearing_unit_name')
-                        serialized.pop('north_ref_name')
-                        serialized.pop('point')
                         self.db.session.execute(update(RBLine).where(RBLine.uid == rb_line.uid)
-                                                .values(**serialized))
+                                                .values(**rb_line.serialize()))
                         self.db.session.commit()
                         self.logger.debug('Updated R&B line: {}'.format(rb_line.uid))
 
                     rb_line.point = start_point
-                    socketio.emit("rb_line", rb_line.serialize(), namespace='/socket.io')
+                    socketio.emit("rb_line", rb_line.to_json(), namespace='/socket.io')
 
     def rabbitmq_routing(self, event, data):
         # RabbitMQ Routing
@@ -542,18 +560,17 @@ class CoTController:
         destinations = event.find_all('dest')
 
         if chat and 'chatroom' in chat.attrs and chat.attrs['chatroom'] == 'All Chat Rooms':
-            self.rabbit_channel.basic_publish(exchange='chatrooms', routing_key='All Chat Rooms', body=data)
+            self.rabbit_channel.basic_publish(exchange='chatrooms', routing_key='All Chat Rooms', body=json.dumps(data))
 
         elif destinations:
             for destination in destinations:
                 self.rabbit_channel.basic_publish(exchange='dms',
-                                                  routing_key=self.online_callsigns[destination.attrs['callsign']][
-                                                      'uid'],
-                                                  body=data)
+                                                  routing_key=self.online_callsigns[destination.attrs['callsign']]['uid'],
+                                                  body=json.dumps(data))
 
         # If no destination or callsign is specified, broadcast to all TAK clients
         elif self.rabbit_channel and self.rabbit_channel.is_open:
-            self.rabbit_channel.basic_publish(exchange='cot', routing_key="", body=data)
+            self.rabbit_channel.basic_publish(exchange='cot', routing_key="", body=json.dumps(data))
 
         # Do nothing because the RabbitMQ channel hasn't opened yet or has closed
         else:
@@ -645,7 +662,7 @@ class CoTController:
                 self.parse_casevac(event, body['uid'], point_pk, cot_pk)
                 self.parse_marker(event, body['uid'], point_pk, cot_pk)
                 self.parse_rbline(event, body['uid'], point_pk, cot_pk)
-                self.rabbitmq_routing(event, body['cot'])
+                self.rabbitmq_routing(event, body)
 
                 # EUD went offline
                 if event.attrs['type'] == 't-x-d-d':

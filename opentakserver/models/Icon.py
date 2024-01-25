@@ -30,3 +30,6 @@ class Icon(db.Model):
             'bitmap': 'data:image/png;base64,{}'.format(base64.b64encode(self.bitmap).decode('utf-8')) if self.bitmap else None,
             'shadow': 'data:image/png;base64,{}'.format(base64.b64encode(self.shadow).decode('utf-8')) if self.shadow else None
         }
+
+    def to_json(self):
+        return self.serialize()

@@ -1,6 +1,10 @@
+from datetime import datetime
+
 from opentakserver.extensions import db
-from sqlalchemy import Integer, String, ForeignKey, Float
+from sqlalchemy import Integer, String, ForeignKey, Float, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from opentakserver.functions import iso8601_string_from_datetime
 
 
 class Point(db.Model):
@@ -8,7 +12,7 @@ class Point(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     uid: Mapped[str] = mapped_column(String)
-    device_uid: Mapped[str] = mapped_column(String, ForeignKey("eud.uid"))
+    device_uid: Mapped[str] = mapped_column(String, ForeignKey("euds.uid"))
     latitude: Mapped[float] = mapped_column(Float, nullable=True)
     longitude: Mapped[float] = mapped_column(Float, nullable=True)
     ce: Mapped[float] = mapped_column(Float, nullable=True)
@@ -18,7 +22,7 @@ class Point(db.Model):
     speed: Mapped[float] = mapped_column(Float, nullable=True)
     location_source: Mapped[str] = mapped_column(String, nullable=True)
     battery: Mapped[float] = mapped_column(Float, nullable=True)
-    timestamp: Mapped[str] = mapped_column(String)
+    timestamp: Mapped[datetime] = mapped_column(DateTime)
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
     cot = relationship("CoT", back_populates="point")
 
@@ -44,6 +48,22 @@ class Point(db.Model):
             'location_source': self.location_source,
             'battery': self.battery,
             'timestamp': self.timestamp,
+        }
+
+    def to_json(self):
+        return {
+            'uid': self.uid,
+            'device_uid': self.device_uid,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'ce': self.ce,
+            'hae': self.hae,
+            'le': self.le,
+            'course': self.course,
+            'speed': self.speed,
+            'location_source': self.location_source,
+            'battery': self.battery,
+            'timestamp': iso8601_string_from_datetime(self.timestamp),
             'how': self.cot.how,
             'type': self.cot.type,
             'callsign': self.eud.callsign if self.eud else None

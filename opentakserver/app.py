@@ -19,7 +19,7 @@ from flask_security import Security, SQLAlchemyUserDatastore, hash_password
 from flask_security.models import fsqla_v3 as fsqla
 from flask_security.signals import user_registered
 
-from opentakserver.extensions import logger, db, socketio, mail
+from opentakserver.extensions import logger, db, socketio, mail, apscheduler
 from opentakserver.config import Config
 
 from opentakserver.controllers.cot_controller import CoTController
@@ -40,6 +40,21 @@ def create_app():
 
     socketio.init_app(app)
     db.init_app(app)
+
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+    channel = rabbit_connection.channel()
+    channel.exchange_declare('cot', durable=True, exchange_type='fanout')
+    channel.exchange_declare('dms', durable=True, exchange_type='direct')
+    channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
+    channel.queue_declare(queue='cot_controller')
+    channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
+
+    cot_thread = CoTController(app.app_context(), logger, db, socketio)
+    app.cot_thread = cot_thread
+
+    apscheduler.init_app(app)
+    apscheduler.start()
+
     try:
         fsqla.FsModels.set_db_info(db)
     except sqlalchemy.exc.InvalidRequestError:
@@ -52,22 +67,16 @@ def create_app():
     app.security = Security(app, user_datastore)
 
     from opentakserver.blueprints.marti import marti_blueprint
-
     app.register_blueprint(marti_blueprint)
 
     from opentakserver.blueprints.api import api_blueprint
-
     app.register_blueprint(api_blueprint)
 
     from opentakserver.blueprints.ots_socketio import ots_socketio_blueprint
-
     app.register_blueprint(ots_socketio_blueprint)
 
-    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-    channel = rabbit_connection.channel()
-    channel.exchange_declare('cot', durable=True, exchange_type='fanout')
-    channel.exchange_declare('dms', durable=True, exchange_type='direct')
-    channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
+    from opentakserver.blueprints.scheduled_jobs import scheduler_blueprint
+    app.register_blueprint(scheduler_blueprint)
 
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
@@ -128,9 +137,6 @@ if __name__ == '__main__':
     ssl_thread = SocketServer(logger, app, app.config.get("OTS_SSL_STREAMING_PORT"), True)
     ssl_thread.start()
     app.ssl_thread = ssl_thread
-
-    cot_thread = CoTController(app.app_context(), logger, db, socketio)
-    app.cot_thread = cot_thread
 
     app.start_time = datetime.now()
 

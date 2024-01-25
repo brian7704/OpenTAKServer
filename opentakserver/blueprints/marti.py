@@ -106,7 +106,8 @@ def sign_csr_v2():
 
     try:
         uid = request.args.get("clientUid")
-        csr = '-----BEGIN CERTIFICATE REQUEST-----\n' + request.data.decode('utf-8') + '-----END CERTIFICATE REQUEST-----'
+        csr = '-----BEGIN CERTIFICATE REQUEST-----\n' + request.data.decode(
+            'utf-8') + '-----END CERTIFICATE REQUEST-----'
 
         x509 = crypto.load_certificate_request(crypto.FILETYPE_PEM, csr.encode())
         common_name = x509.get_subject().CN
@@ -135,7 +136,8 @@ def sign_csr_v2():
         response = tostring(enrollment).decode('utf-8')
         response = '<?xml version="1.0" encoding="UTF-8"?>\n' + response
 
-        username, password = base64.b64decode(request.headers.get("Authorization").split(" ")[-1].encode('utf-8')).decode(
+        username, password = base64.b64decode(
+            request.headers.get("Authorization").split(" ")[-1].encode('utf-8')).decode(
             'utf-8').split(":")
         username = bleach.clean(username)
         user = app.security.datastore.find_user(username=username)
@@ -277,7 +279,7 @@ def put_mission(mission_name):
         creation_datetime = datetime.datetime.now()
 
         payload = {'jti': uid, 'iat': creation_time, 'sub': 'SUBSCRIPTION', 'iss': '',
-                 'SUBSCRIPTION': uid, 'MISSION_NAME': mission_name}
+                   'SUBSCRIPTION': uid, 'MISSION_NAME': mission_name}
 
         server_key = open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", app.config.get("OTS_SERVER_ADDRESS"),
                                        app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"), "rb")
@@ -287,10 +289,12 @@ def put_mission(mission_name):
 
         response = {
             'version': 3, 'type': 'Mission', 'data': [{
-                'name': mission_name, 'description': description, 'chatRoom': '', 'baseLayer': '', 'path': '', 'classification': '',
-                'tool': tool, 'keywords': [], 'creatorUid': creator_uid, 'createTime': creation_datetime, 'externalData': [],
+                'name': mission_name, 'description': description, 'chatRoom': '', 'baseLayer': '', 'path': '',
+                'classification': '',
+                'tool': tool, 'keywords': [], 'creatorUid': creator_uid, 'createTime': creation_datetime,
+                'externalData': [],
                 'feeds': [], 'mapLayers': [], 'defaultRole': {
-                    'permissions': ["MISSION_WRITE","MISSION_READ"],"type":"MISSION_SUBSCRIBER"},
+                    'permissions': ["MISSION_WRITE", "MISSION_READ"], "type": "MISSION_SUBSCRIBER"},
 
                 'ownerRole': {"permissions": ["MISSION_MANAGE_FEEDS", "MISSION_SET_PASSWORD", "MISSION_WRITE",
                                               "MISSION_MANAGE_LAYERS", "MISSION_UPDATE_GROUPS", "MISSION_SET_ROLE",
@@ -364,9 +368,10 @@ def data_package_share():
                 data_package = DataPackage()
                 data_package.filename = file.filename
                 data_package.hash = file_hash
-                data_package.creator_uid = request.args.get('creatorUid') if request.args.get('creatorUid') else str(uuid.uuid4())
+                data_package.creator_uid = request.args.get('creatorUid') if request.args.get('creatorUid') else str(
+                    uuid.uuid4())
                 data_package.submission_user = current_user.username if current_user.is_authenticated else None
-                data_package.submission_time = datetime.datetime.now().isoformat() + "Z"
+                data_package.submission_time = datetime.datetime.now()
                 data_package.mime_type = file.mimetype
                 data_package.size = os.path.getsize(os.path.join(Config.UPLOAD_FOLDER, filename))
                 db.session.add(data_package)
@@ -428,7 +433,7 @@ def data_package_search():
     for dp in data_packages:
         res['results'].append(
             {'UID': dp.hash, 'Name': dp.filename, 'Hash': dp.hash, 'CreatorUid': dp.creator_uid,
-             "SubmissionDateTime": dp.submission_time, "Expiration": -1, "Keywords": "[missionpackage]",
+             "SubmissionDateTime": dp.submission_time.strftime('%Y-%m-%dT%H:%M:%S.000Z'), "Expiration": -1, "Keywords": "[missionpackage]",
              "MIMEType": dp.mime_type, "Size": dp.size, "SubmissionUser": "anonymous", "PrimaryKey": dp.id,
              "Tool": "public"
              })

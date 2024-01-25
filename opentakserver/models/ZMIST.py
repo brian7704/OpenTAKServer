@@ -25,3 +25,6 @@ class ZMIST(db.Model):
             'title': self.title,
             'z': self.z
         }
+
+    def to_json(self):
+        return self.serialize()

@@ -1,13 +1,16 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 from opentakserver.extensions import db
-from sqlalchemy import Integer, String, ForeignKey
+from sqlalchemy import Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from opentakserver.functions import iso8601_string_from_datetime
 
 
 @dataclass
 class EUD(db.Model):
-    __tablename__ = "eud"
+    __tablename__ = "euds"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     uid: Mapped[str] = mapped_column(String, nullable=False, unique=True)
@@ -17,7 +20,7 @@ class EUD(db.Model):
     platform: Mapped[str] = mapped_column(String, nullable=True)
     version: Mapped[str] = mapped_column(String, nullable=True)
     phone_number: Mapped[int] = mapped_column(Integer, nullable=True)
-    last_event_time: Mapped[str] = mapped_column(String, nullable=True)
+    last_event_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     last_status: Mapped[str] = mapped_column(String, nullable=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("user.id"), nullable=True)
     points = relationship("Point", back_populates="eud")
@@ -43,6 +46,20 @@ class EUD(db.Model):
             'phone_number': self.phone_number,
             'last_event_time': self.last_event_time,
             'last_status': self.last_status,
+        }
+
+    def to_json(self):
+        return {
+            'uid': self.uid,
+            'callsign': self.callsign,
+            'device': self.device,
+            'os': self.os,
+            'platform': self.platform,
+            'version': self.version,
+            'phone_number': self.phone_number,
+            'last_event_time': iso8601_string_from_datetime(self.last_event_time),
+            'last_status': self.last_status,
             'username': self.user.username if self.user else None,
             'certificate': self.certificate.serialize() if self.certificate else None,
+            'last_point': self.points[-1].to_json() if self.points else None
         }

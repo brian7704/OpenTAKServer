@@ -37,6 +37,25 @@ class Video(db.Model):
     user = relationship("User", back_populates="video_streams")
 
     def serialize(self):
+        return {
+            'network_timeout': self.network_timeout,
+            'uid': self.uid,
+            'protocol': self.protocol,
+            'path': self.path,
+            'buffer_time': self.buffer_time,
+            'address': self.address,
+            'port': self.port,
+            'rover_port': self.rover_port,
+            'rtsp_reliable': self.rtsp_reliable,
+            'ignore_embedded_klv': self.ignore_embedded_klv,
+            'alias': self.alias,
+            'preferred_mac_address': self.preferred_mac_address,
+            'preferred_interface_address': self.preferred_interface_address,
+            'username': self.username,
+            'ready': self.ready,
+        }
+
+    def to_json(self):
         try:
             mediamtx_settings = json.loads(self.mediamtx_settings)
             source = mediamtx_settings['source']

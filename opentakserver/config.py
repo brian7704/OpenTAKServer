@@ -8,7 +8,6 @@ from flask_security import uia_username_mapper, uia_email_mapper
 
 class Config:
     SECRET_KEY = secret_key
-    #SERVER_NAME = server_name
 
     OTS_DATA_FOLDER = os.path.join(Path.home(), 'ots')
     OTS_LISTENER_PORT = 8081  # OTS will listen for HTTP requests on this port. Nginx will listen on OTS_HTTP_PORT,
@@ -38,6 +37,12 @@ class Config:
     OTS_CA_ORGANIZATIONAL_UNIT = 'OpenTAKServer'
     OTS_CA_SUBJECT = '/C={}/ST={}/L={}/O={}/OU={}'.format(OTS_CA_COUNTRY, OTS_CA_STATE, OTS_CA_CITY,
                                                           OTS_CA_ORGANIZATION, OTS_CA_ORGANIZATIONAL_UNIT)
+    OTS_ENABLE_AIRPLANES_LIVE = False
+    OTS_AIRPLANES_LIVE_LAT = 40.744213
+    OTS_AIRPLANES_LIVE_LON = -73.986939
+    OTS_AIRPLANES_LIVE_RADIUS = 10
+    OTS_AIRPLANES_LIVE_MINUTES = 5
+    OTS_AIRPLANES_LIVE_SECONDS = 0
 
     # Gmail settings
     OTS_ENABLE_EMAIL = True
@@ -94,3 +99,6 @@ class Config:
     SECURITY_LOGIN_WITHOUT_CONFIRMATION = True
     SECURITY_REDIRECT_BEHAVIOR = 'spa'
     SECURITY_RESET_VIEW = '/reset'
+
+    SCHEDULER_API_ENABLED = True
+    SCHEDULER_API_PREFIX = "/api/scheduler"

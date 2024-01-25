@@ -64,7 +64,7 @@ def paginate(query):
     results = {'results': [], 'total_pages': pagination.pages, 'current_page': page, 'per_page': per_page}
 
     for row in rows:
-        results['results'].append(row.serialize())
+        results['results'].append(row.to_json())
 
     return jsonify(results)
 
@@ -707,7 +707,7 @@ def mediamtx_webhook():
             db.session.add(video_stream)
             db.session.commit()
             r = requests.patch("http://localhost:9997/v3/config/paths/patch/{}".format(path),
-                               json=json.loads(video_stream.settings))
+                               json=json.loads(video_stream.mediamtx_settings))
             logger.debug("Read Patched path {}: {}".format(path, r.status_code))
         else:
             video_stream = Video()
@@ -873,21 +873,15 @@ def get_map_state():
 
         euds = db.session.execute(db.session.query(EUD)).all()
         for eud in euds:
-            serialized = eud[0].serialize()
-            if len(eud[0].points):
-                serialized['last_point'] = eud[0].points[-1].serialize()
-            else:
-                serialized['last_point'] = None
-            serialized.pop()
-            results['euds'].append(serialized)
+            results['euds'].append(eud[0].to_json())
 
-        markers = db.session.execute(db.session.query(Marker)).all()
+        markers = db.session.execute(db.session.query(Marker).join(CoT).filter(CoT.stale >= datetime.datetime.now())).all()
         for marker in markers:
-            results['markers'].append(marker[0].serialize())
+            results['markers'].append(marker[0].to_json())
 
-        rb_lines = db.session.execute(db.session.query(RBLine)).all()
+        rb_lines = db.session.execute(db.session.query(RBLine).join(CoT).filter(CoT.stale >= datetime.datetime.now())).all()
         for rb_line in rb_lines:
-            results['rb_lines'].append(rb_line[0].serialize())
+            results['rb_lines'].append(rb_line[0].to_json())
 
     except BaseException as e:
         logger.error(traceback.format_exc())

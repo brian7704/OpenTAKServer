@@ -1,5 +1,6 @@
 import json
 import socket
+import traceback
 import uuid
 from xml.etree.ElementTree import Element, SubElement, tostring, fromstring, ParseError
 import datetime
@@ -66,7 +67,12 @@ class ClientController(Thread):
         self.logger.info("Connection closed for {}: {}".format(self.address, error))
 
     def on_message(self, unused_channel, basic_deliver, properties, body):
-        self.sock.send(body)
+        try:
+            body = json.loads(body)
+            if body['uid'] != self.uid:
+                self.sock.send(body['cot'].encode())
+        except:
+            self.logger.error(traceback.format_exc())
 
     def run(self):
         while not self.shutdown:

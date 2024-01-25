@@ -1,10 +1,13 @@
 import math
 from dataclasses import dataclass
+from datetime import datetime
 
 from opentakserver.extensions import db
-from sqlalchemy import Integer, String, ForeignKey, Float, Boolean
+from sqlalchemy import Integer, String, ForeignKey, Float, Boolean, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pygc import great_circle
+
+from opentakserver.functions import iso8601_string_from_datetime
 
 
 @dataclass
@@ -15,9 +18,9 @@ class RBLine(db.Model):
     # how = h-e
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    sender_uid: Mapped[str] = mapped_column(String, ForeignKey("eud.uid"))
+    sender_uid: Mapped[str] = mapped_column(String, ForeignKey("euds.uid"))
     uid: Mapped[str] = mapped_column(String, unique=True)
-    timestamp: Mapped[str] = mapped_column(String)
+    timestamp: Mapped[datetime] = mapped_column(DateTime)
 
     range: Mapped[float] = mapped_column(Float)
     bearing: Mapped[float] = mapped_column(Float)
@@ -62,6 +65,25 @@ class RBLine(db.Model):
         return {
             'uid': self.uid,
             'timestamp': self.timestamp,
+            'range': self.range,
+            'inclination': self.inclination,
+            'anchor_uid': self.anchor_uid,
+            'range_units': self.range_units,
+            'bearing_units': self.bearing_units,
+            'north_ref': self.north_ref,
+            'color': self.color,
+            'color_hex': self.color_hex,
+            'stroke_weight': self.stroke_weight,
+            'stroke_style': self.stroke_style,
+            'labels_on': self.labels_on,
+            'end_latitude': self.end_latitude,
+            'end_longitude': self.end_longitude
+        }
+
+    def to_json(self):
+        return {
+            'uid': self.uid,
+            'timestamp': iso8601_string_from_datetime(self.timestamp),
             'range': self.range,
             'inclination': self.inclination,
             'anchor_uid': self.anchor_uid,

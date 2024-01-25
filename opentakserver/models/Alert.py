@@ -1,6 +1,10 @@
+from datetime import datetime
+
 from opentakserver.extensions import db
-from sqlalchemy import Integer, String, ForeignKey
+from sqlalchemy import Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from opentakserver.functions import iso8601_string_from_datetime
 
 
 class Alert(db.Model):
@@ -11,9 +15,9 @@ class Alert(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     uid: Mapped[str] = mapped_column(String)
-    sender_uid: Mapped[str] = mapped_column(String, ForeignKey("eud.uid"))
-    start_time: Mapped[str] = mapped_column(String)
-    cancel_time: Mapped[str] = mapped_column(String, nullable=True)
+    sender_uid: Mapped[str] = mapped_column(String, ForeignKey("euds.uid"))
+    start_time: Mapped[datetime] = mapped_column(DateTime)
+    cancel_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     alert_type: Mapped[str] = mapped_column(String)
     point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id"), nullable=True)
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
@@ -28,6 +32,17 @@ class Alert(db.Model):
             'start_time': self.start_time,
             'cancel_time': self.cancel_time,
             'alert_type': self.alert_type,
-            'point': self.point.serialize() if self.point else None,
+            'point_id': self.point_id,
+            'cot_id': self.cot_id
+        }
+
+    def to_json(self):
+        return {
+            'uid': self.uid,
+            'sender_uid': self.sender_uid,
+            'start_time': iso8601_string_from_datetime(self.start_time),
+            'cancel_time': iso8601_string_from_datetime(self.cancel_time) if self.cancel_time else None,
+            'alert_type': self.alert_type,
+            'point': self.point.to_json() if self.point else None,
             'callsign': self.eud.callsign if self.eud else None,
         }

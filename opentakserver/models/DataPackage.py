@@ -1,7 +1,8 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 from opentakserver.extensions import db
-from sqlalchemy import Integer, String, ForeignKey
+from sqlalchemy import Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
@@ -12,8 +13,8 @@ class DataPackage(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     filename: Mapped[str] = mapped_column(String, unique=True)
     hash: Mapped[str] = mapped_column(String, unique=True)
-    creator_uid: Mapped[str] = mapped_column(String, ForeignKey("eud.uid"))
-    submission_time: Mapped[str] = mapped_column(String)
+    creator_uid: Mapped[str] = mapped_column(String, ForeignKey("euds.uid"))
+    submission_time: Mapped[datetime] = mapped_column(DateTime)
     submission_user: Mapped[int] = mapped_column(Integer, ForeignKey("user.id"), nullable=True)
     keywords: Mapped[str] = mapped_column(String, nullable=True)
     mime_type: Mapped[str] = mapped_column(String)
@@ -35,5 +36,19 @@ class DataPackage(db.Model):
             'size': self.size,
             'tool': self.tool,
             'expiration': self.expiration,
-            'eud': self.eud.serialize() if self.eud else None
+        }
+
+    def to_json(self):
+        return {
+            'filename': self.filename,
+            'hash': self.hash,
+            'creator_uid': self.creator_uid,
+            'submission_time': self.submission_time,
+            'submission_user': self.submission_user,
+            'keywords': self.keywords,
+            'mime_type': self.mime_type,
+            'size': self.size,
+            'tool': self.tool,
+            'expiration': self.expiration,
+            'eud': self.eud.to_json() if self.eud else None
         }

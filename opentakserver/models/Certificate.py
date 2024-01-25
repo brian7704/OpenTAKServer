@@ -1,8 +1,11 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 from opentakserver.extensions import db
-from sqlalchemy import Integer, String, ForeignKey
+from sqlalchemy import Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from opentakserver.functions import iso8601_string_from_datetime
 
 
 @dataclass
@@ -11,10 +14,10 @@ class Certificate(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     common_name: Mapped[str] = mapped_column(String)
-    eud_uid: Mapped[str] = mapped_column(Integer, ForeignKey("eud.uid"), nullable=True)
+    eud_uid: Mapped[str] = mapped_column(Integer, ForeignKey("euds.uid"), nullable=True)
     data_package_id: Mapped[int] = mapped_column(Integer, ForeignKey("data_packages.id"), nullable=True)
     callsign: Mapped[str] = mapped_column(String, nullable=True)
-    expiration_date: Mapped[str] = mapped_column(String)
+    expiration_date: Mapped[datetime] = mapped_column(DateTime)
     server_address: Mapped[str] = mapped_column(String)
     server_port: Mapped[int] = mapped_column(Integer)
     truststore_filename: Mapped[str] = mapped_column(String)
@@ -28,6 +31,18 @@ class Certificate(db.Model):
         return {
             'callsign': self.callsign,
             'expiration_date': self.expiration_date,
+            'server_address': self.server_address,
+            'server_port': self.server_port,
+            'truststore_filename': self.truststore_filename,
+            'user_cert_filename': self.user_cert_filename,
+            'cert_password': self.cert_password,
+            'eud_uid': self.eud_uid
+        }
+
+    def to_json(self):
+        return {
+            'callsign': self.callsign,
+            'expiration_date': iso8601_string_from_datetime(self.expiration_date),
             'server_address': self.server_address,
             'server_port': self.server_port,
             'truststore_filename': self.truststore_filename,
