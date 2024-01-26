@@ -78,6 +78,9 @@ def create_app():
     from opentakserver.blueprints.scheduled_jobs import scheduler_blueprint
     app.register_blueprint(scheduler_blueprint)
 
+    from opentakserver.blueprints.scheduler_api import scheduler_api_blueprint
+    app.register_blueprint(scheduler_api_blueprint)
+
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
     mail.init_app(app)

@@ -14,13 +14,10 @@ import requests
 scheduler_blueprint = Blueprint('scheduler_blueprint', __name__)
 
 
-@apscheduler.task('interval', id='get_airplanes_live_data', minutes=Config.OTS_AIRPLANES_LIVE_MINUTES,
+@apscheduler.task('interval', name="Airplanes.live", id='get_airplanes_live_data', minutes=Config.OTS_AIRPLANES_LIVE_MINUTES,
                   seconds=Config.OTS_AIRPLANES_LIVE_SECONDS)
 def get_airplanes_live_data():
     with apscheduler.app.app_context():
-        if not app.config.get("OTS_ENABLE_AIRPLANES_LIVE", False):
-            return
-
         try:
             r = requests.get('https://api.airplanes.live/v2/point/{}/{}/{}'
                              .format(app.config["OTS_AIRPLANES_LIVE_LAT"],

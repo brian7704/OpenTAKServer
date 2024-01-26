@@ -100,5 +100,4 @@ class Config:
     SECURITY_REDIRECT_BEHAVIOR = 'spa'
     SECURITY_RESET_VIEW = '/reset'
 
-    SCHEDULER_API_ENABLED = True
-    SCHEDULER_API_PREFIX = "/api/scheduler"
+    SCHEDULER_API_ENABLED = False

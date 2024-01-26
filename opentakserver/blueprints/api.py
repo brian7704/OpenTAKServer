@@ -647,7 +647,7 @@ def get_euds():
 
 
 @api_blueprint.route('/api/users')
-@auth_required()
+@roles_accepted('administrator')
 def get_users():
     query = db.session.query(User)
     query = search(query, User, 'username')
