@@ -5,6 +5,8 @@ import os
 import traceback
 import uuid
 from shutil import copyfile
+
+from sqlalchemy import update
 from werkzeug.datastructures import ImmutableMultiDict
 
 import bleach
@@ -28,7 +30,7 @@ from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.Point import Point
 from opentakserver.models.user import User
 from opentakserver.models.Certificate import Certificate
-from opentakserver.models.Video import Video
+from opentakserver.models.VideoStream import VideoStream
 
 from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
 
@@ -37,6 +39,7 @@ from opentakserver.certificate_authority import CertificateAuthority
 from opentakserver.models.Icon import Icon
 from opentakserver.models.Marker import Marker
 from opentakserver.models.RBLine import RBLine
+from opentakserver.models.VideoRecording import VideoRecording
 
 api_blueprint = Blueprint('api_blueprint', __name__)
 
@@ -539,7 +542,7 @@ def external_auth():
     if user and verify_password(password, user.password):
         if action == 'publish':
             logger.debug("Publish {}".format(request.json.get('path')))
-            v = Video()
+            v = VideoStream()
             v.uid = bleach.clean(request.json.get('id')) if request.json.get('id') else None
             v.rover_port = -1
             v.ignore_embedded_klv = False
@@ -580,7 +583,7 @@ def external_auth():
                 except sqlalchemy.exc.IntegrityError as e:
                     try:
                         db.session.rollback()
-                        video = db.session.query(Video).filter(Video.path == v.path).first()
+                        video = db.session.query(VideoStream).filter(VideoStream.path == v.path).first()
                         r = requests.post("http://localhost:9997/v3/config/paths/add/{}".format(v.path),
                                           json=json.loads(video.mediamtx_settings))
                         if r.status_code == 200:
@@ -658,12 +661,12 @@ def get_users():
 @api_blueprint.route('/api/video_streams')
 @auth_required()
 def get_video_streams():
-    query = db.session.query(Video)
-    query = search(query, Video, 'username')
-    query = search(query, Video, 'protocol')
-    query = search(query, Video, 'address')
-    query = search(query, Video, 'path')
-    query = search(query, Video, 'uid')
+    query = db.session.query(VideoStream)
+    query = search(query, VideoStream, 'username')
+    query = search(query, VideoStream, 'protocol')
+    query = search(query, VideoStream, 'address')
+    query = search(query, VideoStream, 'path')
+    query = search(query, VideoStream, 'uid')
 
     return paginate(query)
 
@@ -686,7 +689,7 @@ def mediamtx_webhook():
         path = bleach.clean(request.args.get("path"))
 
         if path == 'startup':
-            paths = Video.query.all()
+            paths = VideoStream.query.all()
             for path in paths:
                 r = requests.post("http://localhost:9997/v3/config/paths/add/{}".format(path.path),
                                   json=json.loads(path.mediamtx_settings))
@@ -703,7 +706,7 @@ def mediamtx_webhook():
         source_type = bleach.clean(request.args.get("source_type"))
         source_id = bleach.clean(request.args.get("source_id"))
 
-        video_stream = db.session.query(Video).where(Video.path == path).first()
+        video_stream = db.session.query(VideoStream).where(VideoStream.path == path).first()
         if video_stream:
             video_stream.ready = event == 'ready'
             db.session.add(video_stream)
@@ -712,7 +715,7 @@ def mediamtx_webhook():
                                json=json.loads(video_stream.mediamtx_settings))
             logger.debug("Read Patched path {}: {} - {}".format(path, r.status_code, r.text))
         else:
-            video_stream = Video()
+            video_stream = VideoStream()
             if source_type.startswith('rtsps'):
                 video_stream.protocol = 'rtsps'
             if source_type.startswith('rtsp'):
@@ -758,6 +761,42 @@ def mediamtx_webhook():
         connection_type = bleach.clean(request.args.get("connection_type"))
         connection_id = bleach.clean(request.args.get("connection_id"))
         rtsp_port = bleach.clean(request.args.get("rtsp_port"))
+    elif event == 'segment_record':
+        recording = VideoRecording()
+        recording.segment_path = bleach.clean(request.args.get('segment_path'))
+        recording.path = bleach.clean(request.args.get('path'))
+        recording.in_progress = True
+        recording.start_time = datetime.datetime.now()
+
+        with (app.app_context()):
+            try:
+                db.session.add(recording)
+                db.session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                db.session.rollback()
+                db.session.execute(update(VideoRecording).filter(VideoRecording.segment_path == recording.segment_path)
+                                   .values(**recording.serialize()))
+                db.session.commit()
+    elif event == 'segment_record_complete':
+        segment_path = bleach.clean(request.args.get("segment_path"))
+        with app.app_context():
+            recording = db.session.execute(db.session.query(VideoRecording)
+                                           .filter(VideoRecording.segment_path == segment_path)).first()
+            if recording.count:
+                recording = recording[0]
+                recording.in_progress = False
+                recording.stop_time = datetime.datetime.now()
+                recording.duration = (recording.stop_time - recording.start_time).seconds
+            else:
+                recording = VideoRecording()
+                recording.segment_path = bleach.clean(request.args.get('segment_path'))
+                recording.path = bleach.clean(request.args.get('path'))
+                recording.in_progress = False
+                recording.stop_time = datetime.datetime.now()
+
+            db.session.add(recording)
+            db.session.commit()
+        pass
 
     return '', 200
 
@@ -766,6 +805,7 @@ def mediamtx_webhook():
 @api_blueprint.route('/api/mediamtx/stream/update', methods=['PATCH'])
 @auth_required()
 def add_update_stream():
+    logger.warning(request.json)
     try:
         form = MediaMTXPathConfig(formdata=ImmutableMultiDict(request.json))
         if not form.validate():
@@ -779,9 +819,9 @@ def add_update_stream():
         if path.startswith("/"):
             return jsonify({'success': False, 'error': 'Path cannot begin with a slash'}), 400
 
-        video = db.session.query(Video).where(Video.path == path).first()
+        video = db.session.query(VideoStream).where(VideoStream.path == path).first()
         if not video and request.path.endswith('add'):
-            video = Video()
+            video = VideoStream()
             video.path = path
             video.address = app.config.get("OTS_SERVER_ADDRESS")
             video.username = current_user.username
@@ -799,14 +839,15 @@ def add_update_stream():
 
         settings = json.loads(video.mediamtx_settings)
 
-        for f in form:
-            if f.name == 'csrf_token':
+        for setting in request.json:
+            logger.warning(setting)
+            if setting == 'csrf_token' or setting == 'sourceOnDemand' or setting == 'path':
                 continue
-            key = bleach.clean(f.name)
-            value = f.data
+            key = bleach.clean(setting)
+            value = request.json.get(setting)
             if isinstance(value, str):
                 value = bleach.clean(value)
-            if settings[key] is None and value is not None:
+            if value is not None:
                 settings[key] = value
                 logger.debug("set {} to {}".format(key, value))
 
@@ -843,7 +884,7 @@ def delete_stream():
 
         r = requests.delete('http://localhost:9997/v3/config/paths/delete/{}'.format(path))
         logger.debug("Delete status code: {}".format(r.status_code))
-        video = db.session.query(Video).filter(Video.path == path)
+        video = db.session.query(VideoStream).filter(VideoStream.path == path)
         if not video:
             return jsonify({'success': False, 'error': 'Path {} not found'.format(path)}), 400
 

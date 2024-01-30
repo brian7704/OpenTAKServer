@@ -21,7 +21,7 @@ from opentakserver.models.GeoChat import GeoChat
 from opentakserver.models.Icon import Icon
 from opentakserver.models.RBLine import RBLine
 from opentakserver.models.Team import Team
-from opentakserver.models.Video import Video
+from opentakserver.models.VideoStream import VideoStream
 from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.Point import Point
 from opentakserver.models.Marker import Marker
@@ -323,7 +323,7 @@ class CoTController:
             if path.startswith("/"):
                 path = path[1:]
 
-            v = Video()
+            v = VideoStream()
             v.network_timeout = connection_entry.attrs['networkTimeout']
             v.uid = connection_entry.attrs['uid']
             v.path = path
@@ -345,7 +345,7 @@ class CoTController:
                     self.logger.debug("Added video")
                 except exc.IntegrityError as e:
                     self.db.session.rollback()
-                    self.db.session.execute(update(Video).where(Video.uid == connection_entry.attrs['uid'])
+                    self.db.session.execute(update(VideoStream).where(VideoStream.uid == connection_entry.attrs['uid'])
                                             .values(network_timeout=connection_entry.attrs['networkTimeout'],
                                                     protocol=connection_entry.attrs['protocol'],
                                                     buffer_time=connection_entry.attrs['bufferTime'],

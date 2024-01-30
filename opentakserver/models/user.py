@@ -9,7 +9,7 @@ from sqlalchemy.orm import relationship
 @dataclass
 class User(db.Model, fsqla.FsUserMixin):
     email = db.Column(String, nullable=True)
-    video_streams = relationship("Video", back_populates="user")
+    video_streams = relationship("VideoStream", back_populates="user")
     euds = relationship("EUD", back_populates="user")
 
     def serialize(self):

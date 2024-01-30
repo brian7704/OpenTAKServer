@@ -25,7 +25,7 @@ class CoT(db.Model):
     alert = relationship("Alert", back_populates="cot", uselist=False)
     point = relationship("Point", back_populates="cot", uselist=False)
     casevac = relationship("CasEvac", back_populates="cot", uselist=False)
-    video = relationship("Video", back_populates="cot", uselist=False)
+    video = relationship("VideoStream", back_populates="cot", uselist=False)
     geochat = relationship("GeoChat", back_populates="cot", uselist=False)
     marker = relationship("Marker", back_populates="cot", uselist=False)
     rb_line = relationship("RBLine", back_populates="cot")

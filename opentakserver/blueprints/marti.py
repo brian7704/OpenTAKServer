@@ -16,7 +16,7 @@ import sqlalchemy
 from OpenSSL import crypto
 from bs4 import BeautifulSoup
 from flask import current_app as app, request, Blueprint, send_from_directory, jsonify
-from flask_security import verify_password, current_user
+from flask_security import verify_password, current_user, http_auth_required
 from opentakserver.extensions import logger, db
 
 from opentakserver.config import Config
@@ -24,7 +24,7 @@ from opentakserver.models.EUD import EUD
 from opentakserver.models.DataPackage import DataPackage
 from werkzeug.utils import secure_filename
 
-from opentakserver.models.Video import Video
+from opentakserver.models.VideoStream import VideoStream
 
 from opentakserver.certificate_authority import CertificateAuthority
 
@@ -64,9 +64,10 @@ def client_end_points():
 
 # require basic auth
 @marti_blueprint.route('/Marti/api/tls/config')
+@http_auth_required("auth")
 def tls_config():
-    if not basic_auth(request.headers.get('Authorization')):
-        return '', 401
+    #if not basic_auth(request.headers.get('Authorization')):
+    #    return '', 401
 
     root_element = Element('ns2:certificateConfig')
     root_element.set('xmlns', "http://bbn.com/marti/xml/config")
@@ -81,7 +82,7 @@ def tls_config():
     second_name_entry.set('name', 'OU')
     second_name_entry.set('value', 'Test Organization Unit Name')
 
-    return tostring(root_element), 200, {'Content-Type': 'application/xml', 'Content-Encoding': 'charset=UTF-8'}
+    return tostring(root_element), 200, {'Content-Type': 'application/xml'}
 
 
 @marti_blueprint.route('/Marti/api/tls/profile/enrollment')
@@ -457,7 +458,7 @@ def video():
         video_connections = soup.find('videoConnections')
 
         if video_connections:
-            v = Video()
+            v = VideoStream()
             v.protocol = video_connections.find('protocol').text
             v.alias = video_connections.find('alias').text
             v.uid = video_connections.find('uid').text
@@ -487,7 +488,7 @@ def video():
                     logger.debug("Inserted Video")
                 except sqlalchemy.exc.IntegrityError as e:
                     db.session.rollback()
-                    v = db.session.execute(db.select(Video).filter_by(path=v.path)).scalar_one()
+                    v = db.session.execute(db.select(VideoStream).filter_by(path=v.path)).scalar_one()
                     v.protocol = video_connections.find('protocol').text
                     v.alias = video_connections.find('alias').text
                     v.uid = video_connections.find('uid').text
@@ -517,7 +518,7 @@ def video():
     elif request.method == 'GET':
         try:
             with app.app_context():
-                videos = db.session.execute(db.select(Video)).scalars()
+                videos = db.session.execute(db.select(VideoStream)).scalars()
                 videoconnections = Element('videoConnections')
 
                 for video in videos:

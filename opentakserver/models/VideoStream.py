@@ -11,8 +11,8 @@ from opentakserver.config import Config
 
 
 @dataclass
-class Video(db.Model):
-    __tablename__ = 'video'
+class VideoStream(db.Model):
+    __tablename__ = 'video_streams'
 
     path: Mapped[str] = mapped_column(String, primary_key=True)
 
@@ -35,6 +35,7 @@ class Video(db.Model):
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
     cot = relationship("CoT", back_populates="video")
     user = relationship("User", back_populates="video_streams")
+    recordings = relationship("VideoRecording", back_populates="video_stream")
 
     def serialize(self):
         return {
