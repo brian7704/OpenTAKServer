@@ -34,7 +34,7 @@ class SocketServer(Thread):
                 else:
                     self.logger.info("New TCP connection from {}".format(addr[0]))
 
-                new_thread = ClientController(addr[0], addr[1], sock, self.logger)
+                new_thread = ClientController(addr[0], addr[1], sock, self.logger, self.app, self.ssl)
                 new_thread.daemon = True
                 new_thread.start()
                 self.clients.append(new_thread)

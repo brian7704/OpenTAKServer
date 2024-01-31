@@ -6,12 +6,17 @@ from xml.etree.ElementTree import Element, SubElement, tostring, fromstring, Par
 import datetime
 from threading import Thread
 
+from flask_security import verify_password
+
 from bs4 import BeautifulSoup
 import pika
 
+from opentakserver.extensions import db
+from opentakserver.models.EUD import EUD
+
 
 class ClientController(Thread):
-    def __init__(self, address, port, sock, logger):
+    def __init__(self, address, port, sock, logger, app, is_ssl):
         Thread.__init__(self)
         self.address = address
         self.port = port
@@ -19,6 +24,9 @@ class ClientController(Thread):
         self.logger = logger
         self.shutdown = False
         self.sock.settimeout(1.0)
+        self.app = app
+        self.db = db
+        self.is_ssl = is_ssl
 
         # Device attributes
         self.uid = None
@@ -31,6 +39,7 @@ class ClientController(Thread):
         self.battery = None
         self.groups = {}
         self.device_inserted = False
+        self.is_authenticated = False
 
         # Location Attributes
         self.latitude = 0
@@ -108,23 +117,72 @@ class ClientController(Thread):
                 soup = BeautifulSoup(data, 'xml')
 
                 event = soup.find('event')
+                auth = soup.find('auth')
                 if event:
-                    if self.pong(event):
+                    # If this client is connected via ssl, make sure they're authenticated
+                    # before accepting any data from them
+                    if self.is_ssl and not self.is_authenticated:
+                        self.logger.debug("EUD isn't authenticated, ignoring")
                         continue
 
-                    if not self.uid:
+                    if event and self.pong(event):
+                        continue
+
+                    if event and not self.uid:
                         self.parse_device_info(event)
 
                     message = {'uid': self.uid, 'cot': str(soup)}
                     self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='',
                                                       body=json.dumps(message))
+                elif auth:
+                    with self.app.app_context():
+                        cot = auth.find('cot')
+                        if cot:
+                            username = cot.attrs['username']
+                            password = cot.attrs['password']
+                            uid = cot.attrs['uid']
+                            user = self.app.security.datastore.find_user(username=username)
+                            if not user:
+                                self.logger.warning("User {} does not exist".format(username))
+                                self.close_connection()
+                                break
+                            elif not user.active:
+                                self.logger.warning("User {} is deactivated, disconnecting".format(username))
+                                self.close_connection()
+                                break
+                            elif verify_password(password, user.password):
+                                self.logger.info("Successful login from {}".format(username))
+                                self.is_authenticated = True
+                                try:
+                                    eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
+                                    self.logger.debug("Associating EUD uid {} to user {}".format(eud.uid, user.username))
+                                    eud.user_id = user.id
+                                    self.db.session.commit()
+                                except:
+                                    self.logger.debug("This is a new eud: {} {}".format(uid, user.username))
+                                    eud = EUD()
+                                    eud.uid = uid
+                                    eud.user_id = user.id
+                                    self.db.session.add(eud)
+                                    self.db.session.commit()
+
+                            else:
+                                self.logger.warning("Wrong password for user {}".format(username))
+                                self.close_connection()
+                                break
 
                 else:
                     self.logger.error("{} sent unexpected CoT: {} {}".format(self.callsign, soup, event))
                     self.logger.error(data)
+
             else:
                 self.send_disconnect_cot()
                 break
+
+    def close_connection(self):
+        self.send_disconnect_cot()
+        self.sock.shutdown(socket.SHUT_RDWR)
+        self.sock.close()
 
     def stop(self):
         self.shutdown = True
@@ -172,4 +230,5 @@ class ClientController(Thread):
             message = json.dumps({'uid': self.uid, 'cot': tostring(event).decode('utf-8')})
             self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='', body=message)
         self.logger.info('{} disconnected'.format(self.address))
-        self.rabbit_connection.close()
+        if self.rabbit_connection:
+            self.rabbit_connection.close()

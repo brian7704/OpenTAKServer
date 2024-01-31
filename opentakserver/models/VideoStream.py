@@ -84,7 +84,8 @@ class VideoStream(db.Model):
             'source': source,
             'record': record,
             'rtsp_link': "{}://{}:{}/{}".format(self.protocol, self.address, self.port, self.path),
-            'webrtc_link': "https://{}:8889/{}".format(self.address, self.path),
+            'webrtc_link': "https://{}:{}/webrtc/{}".format(self.address, Config.OTS_HTTPS_PORT, self.path),
+            'hls_link': "https://{}:{}/hls/{}".format(self.address, Config.OTS_HTTPS_PORT, self.path),
         }
 
     def generate_xml(self):

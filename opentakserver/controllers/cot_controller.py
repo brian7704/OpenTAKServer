@@ -143,7 +143,11 @@ class CoTController:
                             team.chatroom_id = chatroom.id
                             self.db.session.execute(update(Team).filter(Team.name).values(**team))
 
-                    eud = EUD()
+                    try:
+                        eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
+                    except:
+                        eud = EUD()
+
                     eud.uid = uid
                     eud.callsign = callsign
                     eud.device = device
@@ -155,17 +159,8 @@ class CoTController:
                     eud.last_status = 'Connected'
                     eud.team_id = team.id
                     eud.team_role = bleach.clean(group.attrs['role'])
-
-                    try:
-                        self.db.session.add(eud)
-                        self.db.session.commit()
-                    except exc.IntegrityError as e:
-                        # This EUD/uid is already in the DB, update it in case anything changed like callsign or app version
-                        self.db.session.rollback()
-                        self.db.session.execute(update(EUD).filter(EUD.uid == eud.uid).values(**eud.serialize()))
-                        self.db.session.commit()
-                        self.logger.debug("Updated {}".format(uid))
-                        eud = self.db.session.execute(self.db.session.query(EUD).filter(EUD.uid == eud.uid)).first()[0]
+                    self.db.session.add(eud)
+                    self.db.session.commit()
 
                     socketio.emit('eud', eud.to_json(), namespace='/socket.io')
 
