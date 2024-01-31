@@ -7,6 +7,8 @@ import uuid
 from shutil import copyfile
 
 import pathlib
+
+import ffmpeg
 from sqlalchemy import update
 from werkzeug.datastructures import ImmutableMultiDict
 
@@ -615,7 +617,7 @@ def video_recordings():
     return paginate(query)
 
 
-@api_blueprint.route('/api/videos/recording')
+@api_blueprint.route('/api/videos/recording', methods=['GET', 'DELETE'])
 @auth_required()
 def download_recording():
     if not request.args.get("id"):
@@ -624,9 +626,16 @@ def download_recording():
 
     try:
         recording = db.session.execute(db.session.query(VideoRecording).filter(VideoRecording.id == recording_id)).first()[0]
-        filename = pathlib.Path(recording.segment_path)
-        return send_from_directory(filename.parent, filename.name)
+
+        if request.method == 'GET':
+            filename = pathlib.Path(recording.segment_path)
+            return send_from_directory(filename.parent, filename.name)
+        elif request.method == 'DELETE':
+            db.session.delete(recording)
+            db.session.commit()
+            return jsonify({'success': True})
     except:
+        logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': 'Recording not found'}), 404
 
 
@@ -822,6 +831,24 @@ def mediamtx_webhook():
                 recording.path = bleach.clean(request.args.get('path'))
                 recording.in_progress = False
                 recording.stop_time = datetime.datetime.now()
+
+            try:
+                probe = ffmpeg.probe(recording.segment_path)
+                for stream in probe['streams']:
+                    if stream['codec_type'].lower() == 'video':
+                        recording.width = stream['width']
+                        recording.height = stream['height']
+                        recording.video_bitrate = stream['bit_rate']
+                        recording.video_codec = stream['codec_name']
+                    elif stream['codec_type'].lower() == 'audio':
+                        recording.audio_codec = stream['codec_name']
+                        recording.audio_samplerate = stream['sample_rate']
+                        recording.audio_channels = stream['channels']
+                        recording.audio_bitrate = stream['bit_rate']
+                if 'format' in probe and 'size' in probe['format']:
+                    recording.file_size = probe['format']['size']
+            except:
+                pass
 
             db.session.add(recording)
             db.session.commit()

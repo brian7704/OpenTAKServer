@@ -16,8 +16,8 @@ class Marker(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     uid: Mapped[str] = mapped_column(String, unique=True)
-    affiliation: Mapped[str] = mapped_column(String)
-    battle_dimension: Mapped[str] = mapped_column(String)
+    affiliation: Mapped[str] = mapped_column(String, nullable=True)
+    battle_dimension: Mapped[str] = mapped_column(String, nullable=True)
     point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id"))
     callsign: Mapped[str] = mapped_column(String, nullable=True)
     readiness: Mapped[bool] = mapped_column(Boolean, nullable=True)

@@ -19,6 +19,15 @@ class VideoRecording(db.Model):
     start_time: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
     stop_time: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
     duration: Mapped[int] = mapped_column(Integer, nullable=True)
+    width: Mapped[int] = mapped_column(Integer, nullable=True)
+    height: Mapped[int] = mapped_column(Integer, nullable=True)
+    video_codec: Mapped[str] = mapped_column(String, nullable=True)
+    video_bitrate: Mapped[int] = mapped_column(Integer, nullable=True)
+    audio_codec: Mapped[str] = mapped_column(String, nullable=True)
+    audio_bitrate: Mapped[int] = mapped_column(Integer, nullable=True)
+    audio_samplerate: Mapped[int] = mapped_column(Integer, nullable=True)
+    audio_channels: Mapped[int] = mapped_column(Integer, nullable=True)
+    file_size: Mapped[int] = mapped_column(Integer, nullable=True)
     video_stream = relationship("VideoStream", back_populates="recordings")
 
     def serialize(self):
@@ -37,5 +46,14 @@ class VideoRecording(db.Model):
             'start_time': iso8601_string_from_datetime(self.start_time) if self.start_time else None,
             'stop_time': iso8601_string_from_datetime(self.stop_time) if self.stop_time else None,
             'duration': self.duration,
-            'filename': pathlib.Path(self.segment_path).name
+            'filename': pathlib.Path(self.segment_path).name,
+            'width': self.width,
+            'height': self.height,
+            'video_codec': self.video_codec,
+            'video_bitrate': self.video_bitrate,
+            'audio_codec': self.audio_codec,
+            'audio_bitrate': self.audio_bitrate,
+            'audio_samplerate': self.audio_samplerate,
+            'audio_channels': self.audio_channels,
+            'file_size': self.file_size
         }
