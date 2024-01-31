@@ -6,6 +6,7 @@ import traceback
 import uuid
 from shutil import copyfile
 
+import pathlib
 from sqlalchemy import update
 from werkzeug.datastructures import ImmutableMultiDict
 
@@ -537,6 +538,7 @@ def external_auth():
     username = bleach.clean(request.json.get('user'))
     password = bleach.clean(request.json.get('password'))
     action = bleach.clean(request.json.get('action'))
+    logger.warning(request.json)
 
     user = app.security.datastore.find_user(username=username)
     if user and verify_password(password, user.password):
@@ -562,7 +564,7 @@ def external_auth():
                 v.rtsp_reliable = 1
             elif v.protocol == 'rtmp':
                 v.port = 1935
-                v.rtsp_reliable = 0
+                v.rtsp_reliable = 1
             else:
                 v.rtsp_reliable = 0
 
@@ -578,7 +580,9 @@ def external_auth():
                     if r.status_code == 200:
                         logger.debug("Added path {} to mediamtx".format(v.path))
                     else:
-                        logger.error("Failed to add path {} to mediamtx. Status code {} {}".format(v.path, r.status_code, r.text))
+                        logger.error(
+                            "Failed to add path {} to mediamtx. Status code {} {}".format(v.path, r.status_code,
+                                                                                          r.text))
                     logger.debug("Inserted video stream {}".format(v.uid))
                 except sqlalchemy.exc.IntegrityError as e:
                     try:
@@ -590,7 +594,8 @@ def external_auth():
                             logger.debug("Added path {} to mediamtx".format(v.path))
                         else:
                             logger.error(
-                                "Failed to add path {} to mediamtx. Status code {} {}".format(v.path, r.status_code, r.text))
+                                "Failed to add path {} to mediamtx. Status code {} {}".format(v.path, r.status_code,
+                                                                                              r.text))
                     except:
                         logger.error(traceback.format_exc())
 
@@ -599,6 +604,30 @@ def external_auth():
     else:
         logger.debug("external_auth returning 401")
         return '', 401
+
+
+@api_blueprint.route('/api/videos/recordings')
+@auth_required()
+def video_recordings():
+    query = db.session.query(VideoRecording)
+    query = search(query, VideoRecording, 'path')
+
+    return paginate(query)
+
+
+@api_blueprint.route('/api/videos/recording')
+@auth_required()
+def download_recording():
+    if not request.args.get("id"):
+        return jsonify({'success': False, 'error': 'Please specify a recording ID'}), 400
+    recording_id = bleach.clean(request.args.get('id'))
+
+    try:
+        recording = db.session.execute(db.session.query(VideoRecording).filter(VideoRecording.id == recording_id)).first()[0]
+        filename = pathlib.Path(recording.segment_path)
+        return send_from_directory(filename.parent, filename.name)
+    except:
+        return jsonify({'success': False, 'error': 'Recording not found'}), 404
 
 
 @api_blueprint.route('/api/user/assign_eud', methods=['POST'])
@@ -918,11 +947,13 @@ def get_map_state():
         for eud in euds:
             results['euds'].append(eud[0].to_json())
 
-        markers = db.session.execute(db.session.query(Marker).join(CoT).filter(CoT.stale >= datetime.datetime.now())).all()
+        markers = db.session.execute(
+            db.session.query(Marker).join(CoT).filter(CoT.stale >= datetime.datetime.now())).all()
         for marker in markers:
             results['markers'].append(marker[0].to_json())
 
-        rb_lines = db.session.execute(db.session.query(RBLine).join(CoT).filter(CoT.stale >= datetime.datetime.now())).all()
+        rb_lines = db.session.execute(
+            db.session.query(RBLine).join(CoT).filter(CoT.stale >= datetime.datetime.now())).all()
         for rb_line in rb_lines:
             results['rb_lines'].append(rb_line[0].to_json())
 

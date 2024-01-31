@@ -1,8 +1,11 @@
+import pathlib
 from dataclasses import dataclass
 
 from opentakserver.extensions import db
 from sqlalchemy import Integer, String, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from opentakserver.functions import iso8601_string_from_datetime
 
 
 @dataclass
@@ -27,8 +30,12 @@ class VideoRecording(db.Model):
 
     def to_json(self):
         return {
+            'id': self.id,
             'segment_path': self.segment_path,
             'path': self.path,
             'in_progress': self.in_progress,
-            'video_stream': self.video_stream.to_json() if self.video_stream else None
+            'start_time': iso8601_string_from_datetime(self.start_time) if self.start_time else None,
+            'stop_time': iso8601_string_from_datetime(self.stop_time) if self.stop_time else None,
+            'duration': self.duration,
+            'filename': pathlib.Path(self.segment_path).name
         }
