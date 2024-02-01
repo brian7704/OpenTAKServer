@@ -25,6 +25,7 @@ from opentakserver.config import Config
 from opentakserver.controllers.cot_controller import CoTController
 from opentakserver.certificate_authority import CertificateAuthority
 from opentakserver.SocketServer import SocketServer
+from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
 
 
 def create_app():
@@ -140,6 +141,10 @@ if __name__ == '__main__':
     ssl_thread = SocketServer(logger, app, app.config.get("OTS_SSL_STREAMING_PORT"), True)
     ssl_thread.start()
     app.ssl_thread = ssl_thread
+
+    mumble_daemon = MumbleIceDaemon(app, logger)
+    mumble_daemon.daemon = True
+    mumble_daemon.start()
 
     app.start_time = datetime.now()
 
