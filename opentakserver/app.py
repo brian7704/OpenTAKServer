@@ -142,9 +142,13 @@ if __name__ == '__main__':
     ssl_thread.start()
     app.ssl_thread = ssl_thread
 
-    mumble_daemon = MumbleIceDaemon(app, logger)
-    mumble_daemon.daemon = True
-    mumble_daemon.start()
+    if app.config.get("OTS_ENABLE_MUMBLE_AUTHENTICATION"):
+        logger.info("Starting mumble authentication handler")
+        mumble_daemon = MumbleIceDaemon(app, logger)
+        mumble_daemon.daemon = True
+        mumble_daemon.start()
+    else:
+        logger.info("Mumble authentication handler disabled")
 
     app.start_time = datetime.now()
 

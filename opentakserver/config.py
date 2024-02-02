@@ -44,6 +44,8 @@ class Config:
     OTS_AIRPLANES_LIVE_MINUTES = 5
     OTS_AIRPLANES_LIVE_SECONDS = 0
 
+    OTS_ENABLE_MUMBLE_AUTHENTICATION = True
+
     # Gmail settings
     OTS_ENABLE_EMAIL = True
     MAIL_SERVER = 'smtp.gmail.com'
