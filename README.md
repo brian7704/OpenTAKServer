@@ -18,10 +18,11 @@ This project is just beginning and not yet suitable for production.
 - Data Packages
 - Alerts
 - CasEvac
+- Optional Mumble server authentication
+  - Use your OpenTAKServer username and password to log into your Mumble server
 
 ## Planned Features
 - iTAK support (This may already work, just needs to be tested)
-- Authentication
 - API to query saved CoT messages
 - WebUI
   - Live Map
