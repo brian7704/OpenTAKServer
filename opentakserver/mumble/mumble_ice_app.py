@@ -1,4 +1,4 @@
-import os.path
+import os
 import threading
 from threading import Timer
 from eventlet.green import threading
@@ -9,7 +9,7 @@ import Ice
 from opentakserver.mumble.mumble_authenticator import MumbleAuthenticator
 
 # Load up Murmur slice file into Ice
-Ice.loadSlice('', ['-I' + Ice.getSliceDir(), os.path.join(Config.OTS_DATA_FOLDER, 'Murmur.ice')])
+Ice.loadSlice('', ['-I' + Ice.getSliceDir(), os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Murmur.ice')])
 import Murmur
 
 
@@ -37,7 +37,11 @@ class MumbleIceDaemon(threading.Thread):
         secret = ''
         if secret != '':
             ice.getImplicitContext().put("secret", secret)
-        meta = Murmur.MetaPrx.checkedCast(proxy)
+        try:
+            meta = Murmur.MetaPrx.checkedCast(proxy)
+        except Ice.ConnectionRefusedException:
+            self.logger.error("Failed to connect to the mumble ice server")
+            return
 
         mumble_ice_app = MumbleIceApp(self.app, self.logger, ice)
         mumble_ice_app.run()

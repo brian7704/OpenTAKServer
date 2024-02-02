@@ -7,7 +7,7 @@ from opentakserver.config import Config
 from flask_security import verify_password
 
 # Load up Murmur slice file into Ice
-Ice.loadSlice('', ['-I' + Ice.getSliceDir(), os.path.join(Config.OTS_DATA_FOLDER, 'Murmur.ice')])
+Ice.loadSlice('', ['-I' + Ice.getSliceDir(), os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Murmur.ice')])
 import Murmur
 
 
