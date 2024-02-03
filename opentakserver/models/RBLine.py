@@ -98,7 +98,7 @@ class RBLine(db.Model):
             'stroke_weight': self.stroke_weight,
             'stroke_style': self.stroke_style,
             'labels_on': self.labels_on,
-            'point': self.point.serialize() if self.point else None,
+            'point': self.point.to_json() if self.point else None,
             'end_latitude': self.end_latitude,
             'end_longitude': self.end_longitude
         }
