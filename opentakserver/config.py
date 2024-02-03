@@ -23,7 +23,7 @@ class Config:
     OTS_MEDIAMTX_CONFIG = os.path.join(OTS_DATA_FOLDER, "mediamtx", "mediamtx.yml")
     OTS_MEDIAMTX_RECORDINGS = os.path.join(OTS_DATA_FOLDER, "mediamtx", "recordings")
     OTS_VERSION = '0.1-OTS-DEV'
-    OTS_SSL_VERIFICATION_MODE = ssl.CERT_OPTIONAL  # https://docs.python.org/3/library/ssl.html#ssl.SSLContext.verify_mode
+    OTS_SSL_VERIFICATION_MODE = ssl.CERT_REQUIRED  # https://docs.python.org/3/library/ssl.html#ssl.SSLContext.verify_mode
     OTS_SERVER_ADDRESS = server_address
     OTS_NODE_ID = node_id
     OTS_CA_NAME = 'OpenTAKServer-CA'
