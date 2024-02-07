@@ -185,10 +185,10 @@ def certificate():
     if request.method == 'POST' and 'callsign' in request.json.keys() and 'uid' in request.json.keys():
         try:
             callsign = bleach.clean(request.json.get('callsign'))
-            truststore_filename = os.path.join(Config.OTS_CA_FOLDER, 'certs',
-                                               Config.OTS_SERVER_ADDRESS,
+            truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs',
+                                               app.config.get("OTS_SERVER_ADDRESS"),
                                                "truststore-root.p12")
-            user_filename = os.path.join(Config.OTS_CA_FOLDER, 'certs', callsign,
+            user_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', callsign,
                                          "{}.p12".format(callsign))
 
             eud = db.session.execute(db.session.query(EUD).where(EUD.callsign == callsign)).first()
@@ -202,7 +202,7 @@ def certificate():
             ca = CertificateAuthority(logger, app)
             filename = ca.issue_certificate(callsign, False)
 
-            file_hash = hashlib.file_digest(open(os.path.join(Config.OTS_CA_FOLDER, 'certs', callsign, filename),
+            file_hash = hashlib.file_digest(open(os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', callsign, filename),
                                                  'rb'), 'sha256').hexdigest()
 
             data_package = DataPackage()
@@ -211,7 +211,7 @@ def certificate():
             data_package.creator_uid = str(uuid.uuid4())
             data_package.submission_time = datetime.datetime.now().isoformat() + "Z"
             data_package.mime_type = "application/x-zip-compressed"
-            data_package.size = os.path.getsize(os.path.join(Config.OTS_CA_FOLDER, 'certs', callsign, filename))
+            data_package.size = os.path.getsize(os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', callsign, filename))
             data_package.hash = file_hash
             data_package.submission_user = current_user.id
 
@@ -224,18 +224,18 @@ def certificate():
                 return ({'success': False, 'error': 'Certificate already exists for {}'.format(callsign)}, 400,
                         {'Content-Type': 'application/json'})
 
-            copyfile(os.path.join(Config.OTS_CA_FOLDER, 'certs', callsign, "{}_DP.zip".format(callsign)),
-                     os.path.join(Config.UPLOAD_FOLDER, "{}.zip".format(file_hash)))
+            copyfile(os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', callsign, "{}_DP.zip".format(callsign)),
+                     os.path.join(app.config.get("UPLOAD_FOLDER"), "{}.zip".format(file_hash)))
 
             cert = Certificate()
             cert.common_name = callsign
             cert.callsign = callsign
-            cert.expiration_date = datetime.datetime.today() + datetime.timedelta(days=Config.OTS_CA_EXPIRATION_TIME)
-            cert.server_address = Config.OTS_SERVER_ADDRESS
-            cert.server_port = Config.OTS_SSL_STREAMING_PORT
+            cert.expiration_date = datetime.datetime.today() + datetime.timedelta(days=app.config.get("OTS_CA_EXPIRATION_TIME"))
+            cert.server_address = app.config.get("OTS_SERVER_ADDRESS")
+            cert.server_port = app.config.get("OTS_SSL_STREAMING_PORT")
             cert.truststore_filename = truststore_filename
             cert.user_cert_filename = user_filename
-            cert.cert_password = Config.OTS_CA_PASSWORD
+            cert.cert_password = app.config.get("OTS_CA_PASSWORD")
             cert.data_package_id = data_package.id
             cert.eud_uid = eud.uid
 
@@ -330,7 +330,7 @@ def data_package_download():
     if not download_name.endswith('.zip'):
         download_name += ".zip"
 
-    return send_from_directory(Config.UPLOAD_FOLDER, "{}.zip".format(file_hash), as_attachment=True,
+    return send_from_directory(app.config.get("UPLOAD_FOLDER"), "{}.zip".format(file_hash), as_attachment=True,
                                download_name=download_name)
 
 

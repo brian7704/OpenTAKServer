@@ -49,7 +49,7 @@ def basic_auth(credentials):
 def client_end_points():
     euds = db.session.execute(db.select(EUD)).scalars()
     return_value = {'version': 3, "type": "com.bbn.marti.remote.ClientEndpoint", 'data': [],
-                    'nodeId': Config.OTS_NODE_ID}
+                    'nodeId': app.config.get("OTS_NODE_ID")}
     for eud in euds:
         return_value['data'].append({
             'callsign': eud.callsign,
@@ -201,8 +201,8 @@ def sign_csr_v2():
 @marti_blueprint.route('/Marti/api/version/config', methods=['GET'])
 def marti_config():
     return {"version": "3", "type": "ServerConfig",
-            "data": {"version": Config.OTS_VERSION, "api": "3", "hostname": Config.OTS_SERVER_ADDRESS},
-            "nodeId": Config.OTS_NODE_ID}, 200, {'Content-Type': 'application/json'}
+            "data": {"version": app.config.get("OTS_VERSION"), "api": "3", "hostname": app.config.get("OTS_SERVER_ADDRESS")},
+            "nodeId": app.config.get("OTS_NODE_ID")}, 200, {'Content-Type': 'application/json'}
 
 
 @marti_blueprint.route('/Marti/api/missions/citrap/subscription', methods=['PUT'])
@@ -363,7 +363,7 @@ def data_package_share():
             logger.debug("Got file: {} - {}".format(file.filename, file_hash))
 
             filename = secure_filename(file_hash + '.zip')
-            file.save(os.path.join(Config.UPLOAD_FOLDER, filename))
+            file.save(os.path.join(app.config.get("UPLOAD_FOLDER"), filename))
 
             try:
                 data_package = DataPackage()
@@ -374,7 +374,7 @@ def data_package_share():
                 data_package.submission_user = current_user.username if current_user.is_authenticated else None
                 data_package.submission_time = datetime.datetime.now()
                 data_package.mime_type = file.mimetype
-                data_package.size = os.path.getsize(os.path.join(Config.UPLOAD_FOLDER, filename))
+                data_package.size = os.path.getsize(os.path.join(app.config.get("UPLOAD_FOLDER"), filename))
                 db.session.add(data_package)
                 db.session.commit()
             except sqlalchemy.exc.IntegrityError as e:
@@ -384,7 +384,7 @@ def data_package_share():
 
             # TODO: Handle HTTP/HTTPS properly
             return 'http://{}:{}/Marti/api/sync/metadata/{}/tool'.format(
-                Config.OTS_SERVER_ADDRESS, Config.OTS_HTTP_PORT, file_hash), 200
+                app.config.get("OTS_SERVER_ADDRESS"), app.config.get("OTS_HTTP_PORT"), file_hash), 200
 
         else:
             return jsonify({'success': False, 'error': 'Something went wrong'}), 400
@@ -408,7 +408,7 @@ def data_package_metadata(file_hash):
             return {'error': str(e)}, 500
     elif request.method == 'GET':
         data_package = db.session.execute(db.select(DataPackage).filter_by(hash=file_hash)).scalar_one()
-        return send_from_directory(Config.UPLOAD_FOLDER, data_package.hash + ".zip",
+        return send_from_directory(app.config.get("UPLOAD_FOLDER"), data_package.hash + ".zip",
                                    download_name=data_package.filename)
 
 
@@ -419,7 +419,7 @@ def data_package_query():
         if data_package:
             # TODO: Handle HTTP/HTTPS properly
             return 'http://{}:{}/Marti/api/sync/metadata/{}/tool'.format(
-                Config.OTS_SERVER_ADDRESS, Config.OTS_HTTP_PORT, request.args.get('hash')), 200
+                app.config.get("OTS_SERVER_ADDRESS"), app.config.get("OTS_HTTP_PORT"), request.args.get('hash')), 200
         else:
             return {'error': '404'}, 404, {'Content-Type': 'application/json'}
     except sqlalchemy.exc.NoResultFound as e:
@@ -448,7 +448,7 @@ def download_data_package():
     file_hash = request.args.get('hash')
     data_package = db.session.execute(db.select(DataPackage).filter_by(hash=file_hash)).scalar_one()
 
-    return send_from_directory(Config.UPLOAD_FOLDER, file_hash + ".zip", download_name=data_package.filename)
+    return send_from_directory(app.config.get("UPLOAD_FOLDER"), file_hash + ".zip", download_name=data_package.filename)
 
 
 @marti_blueprint.route('/Marti/vcm', methods=['GET', 'POST'])

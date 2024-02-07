@@ -1,3 +1,7 @@
+import logging
+import os
+
+import colorlog
 from werkzeug.middleware.proxy_fix import ProxyFix
 from datetime import datetime
 import eventlet
@@ -10,6 +14,7 @@ except:
 
 import traceback
 import flask_wtf
+import pickle
 
 import pika
 from flask import Flask, jsonify
@@ -21,6 +26,7 @@ from flask_security.signals import user_registered
 
 from opentakserver.extensions import logger, db, socketio, mail, apscheduler
 from opentakserver.config import Config
+from opentakserver.models.Config import ConfigSettings
 
 from opentakserver.controllers.cot_controller import CoTController
 from opentakserver.certificate_authority import CertificateAuthority
@@ -28,9 +34,69 @@ from opentakserver.SocketServer import SocketServer
 from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
 
 
+def load_config_from_db(app):
+    logger.warning(type(app.config))
+    with app.app_context():
+        rows = db.session.query(ConfigSettings).count()
+        logger.debug("Rows: {}".format(rows))
+        if not rows:
+            # First run, save defaults from config.py to the DB
+            logger.debug("Saving to config table")
+            for key in app.config.keys():
+                try:
+                    logger.debug(key + ": " + str(app.config.get(key)))
+                    config_setting = ConfigSettings()
+                    config_setting.key = key
+                    config_setting.type = type(app.config.get(key)).__name__
+                    config_setting.value = pickle.dumps(app.config.get(key))
+                    db.session.add(config_setting)
+                except:
+                    logger.error("Failed: " + key + ": " + str(app.config.get(key)))
+            db.session.commit()
+        else:
+            # Already have settings in the DB, load them into the config
+            logger.debug("Getting config from DB")
+            rows = db.session.execute(db.session.query(ConfigSettings)).scalars()
+            settings_in_db = []
+            for row in rows:
+                settings_in_db.append(row.key)
+                app.config.update({row.key: pickle.loads(row.value)})
+
+            # If there's a new setting in config.py that's not in the DB, add it
+            for setting in app.config.keys():
+                if setting not in settings_in_db:
+                    try:
+                        config_setting = ConfigSettings()
+                        config_setting.key = setting
+                        config_setting.type = type(app.config.get(setting)).__name__
+                        config_setting.value = pickle.dumps(app.config.get(setting))
+                        db.session.add(config_setting)
+                    except:
+                        pass
+            db.session.commit()
+
+
+def setup_logging(app):
+    color_log_handler = colorlog.StreamHandler()
+    color_log_formatter = colorlog.ColoredFormatter(
+        '%(log_color)s[%(asctime)s] - %(levelname)s - %(name)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
+    color_log_handler.setFormatter(color_log_formatter)
+    logger.setLevel('DEBUG')
+    logger.addHandler(color_log_handler)
+
+    fh = logging.FileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'opentakserver.log'))
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(color_log_formatter)
+    logger.addHandler(fh)
+
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    setup_logging(app)
+
+    db.init_app(app)
 
     ca = CertificateAuthority(logger, app)
     ca.create_ca()
@@ -40,7 +106,6 @@ def create_app():
     flask_wtf.CSRFProtect(app)
 
     socketio.init_app(app)
-    db.init_app(app)
 
     rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
     channel = rabbit_connection.channel()
@@ -54,7 +119,7 @@ def create_app():
     app.cot_thread = cot_thread
 
     apscheduler.init_app(app)
-    apscheduler.start()
+    apscheduler.start(paused=True)
 
     try:
         fsqla.FsModels.set_db_info(db)
@@ -81,6 +146,9 @@ def create_app():
 
     from opentakserver.blueprints.scheduler_api import scheduler_api_blueprint
     app.register_blueprint(scheduler_api_blueprint)
+
+    from opentakserver.blueprints.config import config_blueprint
+    app.register_blueprint(config_blueprint)
 
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
@@ -113,12 +181,9 @@ def user_registered_sighandler(app, user, confirmation_token, **kwargs):
 
 if __name__ == '__main__':
     with app.app_context():
-        logger.debug("Creating DB")
-        try:
-            db.create_all()
-        except BaseException as e:
-            logger.error("Error creating DB: {}".format(e))
-            logger.error(traceback.format_exc())
+        logger.debug("Loading DB..")
+        db.create_all()
+        load_config_from_db(app)
 
         app.security.datastore.find_or_create_role(
             name="user", permissions={"user-read", "user-write"}

@@ -7,15 +7,13 @@ from flask import Blueprint
 import adsbxcot
 from flask import current_app as app
 
-from opentakserver.config import Config
 from opentakserver.extensions import apscheduler, logger
 import requests
 
 scheduler_blueprint = Blueprint('scheduler_blueprint', __name__)
 
 
-@apscheduler.task('interval', name="Airplanes.live", id='get_airplanes_live_data', minutes=Config.OTS_AIRPLANES_LIVE_MINUTES,
-                  seconds=Config.OTS_AIRPLANES_LIVE_SECONDS)
+@apscheduler.task("interval", name="Airplanes.live", id='get_airplanes_live_data', next_run_time=None)
 def get_airplanes_live_data():
     with apscheduler.app.app_context():
         try:

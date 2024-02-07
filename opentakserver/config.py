@@ -1,5 +1,6 @@
 import ssl
 
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from opentakserver.secret_key import *
 from pathlib import Path
 import os
@@ -37,7 +38,6 @@ class Config:
     OTS_CA_ORGANIZATIONAL_UNIT = 'OpenTAKServer'
     OTS_CA_SUBJECT = '/C={}/ST={}/L={}/O={}/OU={}'.format(OTS_CA_COUNTRY, OTS_CA_STATE, OTS_CA_CITY,
                                                           OTS_CA_ORGANIZATION, OTS_CA_ORGANIZATIONAL_UNIT)
-    OTS_ENABLE_AIRPLANES_LIVE = False
     OTS_AIRPLANES_LIVE_LAT = 40.744213
     OTS_AIRPLANES_LIVE_LON = -73.986939
     OTS_AIRPLANES_LIVE_RADIUS = 10
@@ -49,8 +49,14 @@ class Config:
     # Gmail settings
     OTS_ENABLE_EMAIL = True
     MAIL_SERVER = 'smtp.gmail.com'
-    MAIL_PORT = '465'
+    MAIL_PORT = 465
     MAIL_USE_SSL = True
+    MAIL_USE_TLS = False
+    MAIL_DEBUG = False
+    MAIL_DEFAULT_SENDER = None
+    MAIL_MAX_EMAILS = None
+    MAIL_SUPPRESS_SEND = False
+    MAIL_ASCII_ATTACHMENTS = False
     MAIL_USERNAME = mail_username
     MAIL_PASSWORD = mail_password
 
@@ -103,3 +109,4 @@ class Config:
     SECURITY_RESET_VIEW = '/reset'
 
     SCHEDULER_API_ENABLED = False
+    SCHEDULER_JOBSTORES = {'default': SQLAlchemyJobStore(url=SQLALCHEMY_DATABASE_URI)}

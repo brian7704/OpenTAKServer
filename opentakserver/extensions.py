@@ -8,22 +8,11 @@ from opentakserver.models.Base import Base
 from jinja2 import Template
 from flask_mail import Mail
 from flask_apscheduler import APScheduler
+from flask import current_app as app
 
 from opentakserver.config import Config
 
-color_log_handler = colorlog.StreamHandler()
-color_log_formatter = colorlog.ColoredFormatter(
-    '%(log_color)s[%(asctime)s] - %(levelname)s - %(name)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
-color_log_handler.setFormatter(color_log_formatter)
-
 logger = colorlog.getLogger('OpenTAKServer')
-logger.setLevel('DEBUG')
-logger.addHandler(color_log_handler)
-
-fh = logging.FileHandler(os.path.join(Config.OTS_DATA_FOLDER, 'opentakserver.log'))
-fh.setLevel(logging.DEBUG)
-fh.setFormatter(color_log_formatter)
-logger.addHandler(fh)
 
 mail = Mail()
 
