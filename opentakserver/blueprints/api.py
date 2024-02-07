@@ -782,7 +782,7 @@ def mediamtx_webhook():
             video_stream.ignore_embedded_klv = False
             video_stream.buffer_time = None
             video_stream.network_timeout = 10000
-            video_stream.uid = uuid.uuid4()
+            video_stream.uid = str(uuid.uuid4())
             video_stream.generate_xml()
             video_stream.mediamtx_settings = json.dumps(MediaMTXPathConfig(None).serialize())
 
