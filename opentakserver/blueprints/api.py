@@ -553,7 +553,6 @@ def external_auth():
             v.buffer_time = None
             v.network_timeout = 10000
             v.protocol = bleach.clean(request.json.get('protocol'))
-            v.address = app.config.get("OTS_SERVER_ADDRESS")
             v.path = bleach.clean(request.json.get('path'))
             v.alias = v.path.split("/")[-1]
             v.username = bleach.clean(request.json.get('user'))
@@ -771,7 +770,6 @@ def mediamtx_webhook():
             elif source_type.startswith('webRTC'):
                 video_stream.protocol = 'webrtc'
 
-            video_stream.address = app.config.get("OTS_SERVER_ADDRESS")
             video_stream.query = query
             video_stream.port = rtsp_port
             video_stream.path = path
@@ -784,7 +782,12 @@ def mediamtx_webhook():
             video_stream.network_timeout = 10000
             video_stream.uid = str(uuid.uuid4())
             video_stream.generate_xml()
-            video_stream.mediamtx_settings = json.dumps(MediaMTXPathConfig(None).serialize())
+            mediamtx_settings = MediaMTXPathConfig(None)
+            mediamtx_settings.sourceOnDemand.data = False
+            mediamtx_settings.record.data = False
+            logger.warning(mediamtx_settings.serialize())
+            video_stream.mediamtx_settings = json.dumps(mediamtx_settings.serialize())
+            logger.error(video_stream.mediamtx_settings)
 
             db.session.add(video_stream)
             db.session.commit()
@@ -879,7 +882,6 @@ def add_update_stream():
         if not video and request.path.endswith('add'):
             video = VideoStream()
             video.path = path
-            video.address = app.config.get("OTS_SERVER_ADDRESS")
             video.username = current_user.username
             video.mediamtx_settings = json.dumps(form.serialize())
             video.rover_port = -1

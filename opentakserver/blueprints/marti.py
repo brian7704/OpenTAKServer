@@ -6,6 +6,7 @@ import datetime
 import time
 import traceback
 import uuid
+from urllib.parse import urlparse
 
 import jwt
 
@@ -19,7 +20,6 @@ from flask import current_app as app, request, Blueprint, send_from_directory, j
 from flask_security import verify_password, current_user, http_auth_required
 from opentakserver.extensions import logger, db
 
-from opentakserver.config import Config
 from opentakserver.models.EUD import EUD
 from opentakserver.models.DataPackage import DataPackage
 from werkzeug.utils import secure_filename
@@ -33,6 +33,8 @@ from opentakserver.models.Certificate import Certificate
 marti_blueprint = Blueprint('marti_blueprint', __name__)
 
 
+# flask-security's http_auth_required() decorator will deny access because ATAK doesn't do CSRF,
+# so we handle basic auth ourselves
 def basic_auth(credentials):
     try:
         username, password = base64.b64decode(credentials.split(" ")[-1].encode('utf-8')).decode('utf-8').split(":")
@@ -64,10 +66,9 @@ def client_end_points():
 
 # require basic auth
 @marti_blueprint.route('/Marti/api/tls/config')
-@http_auth_required("auth")
 def tls_config():
-    #if not basic_auth(request.headers.get('Authorization')):
-    #    return '', 401
+    if not basic_auth(request.headers.get('Authorization')):
+        return '', 401
 
     root_element = Element('ns2:certificateConfig')
     root_element.set('xmlns', "http://bbn.com/marti/xml/config")
@@ -200,8 +201,10 @@ def sign_csr_v2():
 
 @marti_blueprint.route('/Marti/api/version/config', methods=['GET'])
 def marti_config():
+    url = urlparse(request.url_root)
+
     return {"version": "3", "type": "ServerConfig",
-            "data": {"version": app.config.get("OTS_VERSION"), "api": "3", "hostname": app.config.get("OTS_SERVER_ADDRESS")},
+            "data": {"version": app.config.get("OTS_VERSION"), "api": "3", "hostname": url.hostname},
             "nodeId": app.config.get("OTS_NODE_ID")}, 200, {'Content-Type': 'application/json'}
 
 
@@ -382,9 +385,12 @@ def data_package_share():
                 logger.error("Failed to save data package: {}".format(e))
                 return jsonify({'success': False, 'error': 'This data package has already been uploaded'}), 400
 
-            # TODO: Handle HTTP/HTTPS properly
-            return 'http://{}:{}/Marti/api/sync/metadata/{}/tool'.format(
-                app.config.get("OTS_SERVER_ADDRESS"), app.config.get("OTS_HTTP_PORT"), file_hash), 200
+            url = urlparse(request.url_root)
+            protocol = url.scheme
+            hostname = url.hostname
+            port = url.port
+
+            return '{}://{}:{}/Marti/api/sync/metadata/{}/tool'.format(protocol, hostname, port, file_hash), 200
 
         else:
             return jsonify({'success': False, 'error': 'Something went wrong'}), 400
@@ -417,9 +423,13 @@ def data_package_query():
     try:
         data_package = db.session.execute(db.select(DataPackage).filter_by(hash=request.args.get('hash'))).scalar_one()
         if data_package:
-            # TODO: Handle HTTP/HTTPS properly
-            return 'http://{}:{}/Marti/api/sync/metadata/{}/tool'.format(
-                app.config.get("OTS_SERVER_ADDRESS"), app.config.get("OTS_HTTP_PORT"), request.args.get('hash')), 200
+
+            url = urlparse(request.url_root)
+            protocol = url.scheme
+            hostname = url.hostname
+            port = url.port
+
+            return '{}://{}:{}/Marti/api/sync/metadata/{}/tool'.format(protocol, hostname, port, request.args.get('hash')), 200
         else:
             return {'error': '404'}, 404, {'Content-Type': 'application/json'}
     except sqlalchemy.exc.NoResultFound as e:

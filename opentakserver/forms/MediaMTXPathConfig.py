@@ -15,7 +15,7 @@ class MediaMTXPathConfig(FlaskForm):
     maxReaders = IntegerField()
     srtReadPassphrase = StringField()
     fallback = StringField()
-    record = BooleanField()
+    record = BooleanField(default=False)
     recordPath = StringField()
     recordFormat = StringField()
     recordPartDuration = StringField()

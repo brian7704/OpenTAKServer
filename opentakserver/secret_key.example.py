@@ -9,8 +9,8 @@ import pyotp
 
 secret_key = secrets.token_hex()
 node_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=64))
-security_password_salt = secrets.SystemRandom().getrandbits(128)
-mediamtx_token = secrets.SystemRandom().getrandbits(128)
+security_password_salt = str(secrets.SystemRandom().getrandbits(128))
+mediamtx_token = str(secrets.SystemRandom().getrandbits(128))
 totp_secrets = {1: pyotp.random_base32()}
 server_address = "example.com"
 mail_username = 'me@example.com'  # Only required if you enable email

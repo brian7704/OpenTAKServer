@@ -1,12 +1,13 @@
 import json
 import uuid
 from dataclasses import dataclass
+from urllib.parse import urlparse
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from opentakserver.extensions import db
 from sqlalchemy import Integer, String, ForeignKey, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from flask import current_app as app
+from flask import current_app as app, request
 
 from opentakserver.config import Config
 
@@ -17,7 +18,6 @@ class VideoStream(db.Model):
 
     path: Mapped[str] = mapped_column(String, primary_key=True)
     protocol: Mapped[str] = mapped_column(String, default='rtsp')
-    address: Mapped[str] = mapped_column(String)
     port: Mapped[int] = mapped_column(Integer, default=8554)
     network_timeout: Mapped[int] = mapped_column(Integer, default=10000)
     uid: Mapped[str] = mapped_column(String, nullable=True)
@@ -44,7 +44,6 @@ class VideoStream(db.Model):
             'protocol': self.protocol,
             'path': self.path,
             'buffer_time': self.buffer_time,
-            'address': self.address,
             'port': self.port,
             'rover_port': self.rover_port,
             'rtsp_reliable': self.rtsp_reliable,
@@ -66,13 +65,17 @@ class VideoStream(db.Model):
             record = False
 
         with app.app_context():
+            url = urlparse(request.url_root)
+            protocol = url.scheme
+            hostname = url.hostname
+            port = url.port
+
             return {
                 'network_timeout': self.network_timeout,
                 'uid': self.uid,
                 'protocol': self.protocol,
                 'path': self.path,
                 'buffer_time': self.buffer_time,
-                'address': self.address,
                 'port': self.port,
                 'rover_port': self.rover_port,
                 'rtsp_reliable': self.rtsp_reliable,
@@ -84,9 +87,9 @@ class VideoStream(db.Model):
                 'ready': self.ready,
                 'source': source,
                 'record': record,
-                'rtsp_link': "{}://{}:{}/{}".format(self.protocol, self.address, self.port, self.path),
-                'webrtc_link': "https://{}:{}/webrtc/{}".format(self.address, app.config.get("OTS_HTTPS_PORT"), self.path),
-                'hls_link': "https://{}:{}/hls/{}".format(self.address, app.config.get("OTS_HTTPS_PORT"), self.path),
+                'rtsp_link': "{}://{}:{}/{}".format(self.protocol, hostname, self.port, self.path),
+                'webrtc_link': "{}://{}:{}/webrtc/{}".format(protocol, hostname, port, self.path),
+                'hls_link': "{}://{}:{}/hls/{}".format(protocol, hostname, port, self.path),
             }
 
     def generate_xml(self):
@@ -95,7 +98,7 @@ class VideoStream(db.Model):
         SubElement(feed, 'protocol').text = self.protocol if self.protocol else 'rtsp'
         SubElement(feed, 'alias').text = self.alias if self.alias else self.path
         SubElement(feed, 'uid').text = str(self.uid) if self.uid else str(uuid.uuid4())
-        SubElement(feed, 'address').text = self.address
+        SubElement(feed, 'address').text = app.config.get("OTS_SERVER_ADDRESS")
         SubElement(feed, 'port').text = str(self.port) if self.port else "8554"
         SubElement(feed, 'roverPort').text = str(self.rover_port)
         SubElement(feed, 'ignoreEmbeddedKLV').text = self.ignore_embedded_klv
