@@ -35,23 +35,20 @@ from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
 
 
 def load_config_from_db(app):
-    logger.warning(type(app.config))
     with app.app_context():
         rows = db.session.query(ConfigSettings).count()
-        logger.debug("Rows: {}".format(rows))
         if not rows:
             # First run, save defaults from config.py to the DB
             logger.debug("Saving to config table")
             for key in app.config.keys():
                 try:
-                    logger.debug(key + ": " + str(app.config.get(key)))
                     config_setting = ConfigSettings()
                     config_setting.key = key
                     config_setting.type = type(app.config.get(key)).__name__
                     config_setting.value = pickle.dumps(app.config.get(key))
                     db.session.add(config_setting)
                 except:
-                    logger.error("Failed: " + key + ": " + str(app.config.get(key)))
+                    pass
             db.session.commit()
         else:
             # Already have settings in the DB, load them into the config
@@ -64,15 +61,15 @@ def load_config_from_db(app):
 
             # If there's a new setting in config.py that's not in the DB, add it
             for setting in app.config.keys():
-                if setting not in settings_in_db:
-                    try:
+                try:
+                    if setting not in settings_in_db:
                         config_setting = ConfigSettings()
                         config_setting.key = setting
                         config_setting.type = type(app.config.get(setting)).__name__
                         config_setting.value = pickle.dumps(app.config.get(setting))
                         db.session.add(config_setting)
-                    except:
-                        pass
+                except:
+                    pass
             db.session.commit()
 
 

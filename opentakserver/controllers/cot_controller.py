@@ -674,7 +674,6 @@ class CoTController:
             soup = BeautifulSoup(body['cot'], 'xml')
             event = soup.find('event')
             if event:
-                self.logger.warning(event)
                 self.parse_device_info(body['uid'], soup, event)
                 cot_pk = self.insert_cot(soup, event, body['uid'])
                 point_pk = self.parse_point(event, body['uid'], cot_pk)

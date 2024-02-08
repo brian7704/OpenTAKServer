@@ -20,9 +20,6 @@ class Config:
     OTS_TCP_STREAMING_PORT = 8088
     OTS_SSL_STREAMING_PORT = 8089
     OTS_MEDIAMTX_TOKEN = mediamtx_token
-    OTS_MEDIAMTX_BINARY = os.path.join(OTS_DATA_FOLDER, "mediamtx", "mediamtx")
-    OTS_MEDIAMTX_CONFIG = os.path.join(OTS_DATA_FOLDER, "mediamtx", "mediamtx.yml")
-    OTS_MEDIAMTX_RECORDINGS = os.path.join(OTS_DATA_FOLDER, "mediamtx", "recordings")
     OTS_VERSION = '0.1-OTS-DEV'
     OTS_SSL_VERIFICATION_MODE = ssl.CERT_REQUIRED  # https://docs.python.org/3/library/ssl.html#ssl.SSLContext.verify_mode
     OTS_SERVER_ADDRESS = server_address
@@ -41,8 +38,6 @@ class Config:
     OTS_AIRPLANES_LIVE_LAT = 40.744213
     OTS_AIRPLANES_LIVE_LON = -73.986939
     OTS_AIRPLANES_LIVE_RADIUS = 10
-    OTS_AIRPLANES_LIVE_MINUTES = 5
-    OTS_AIRPLANES_LIVE_SECONDS = 0
 
     OTS_ENABLE_MUMBLE_AUTHENTICATION = True
 
@@ -65,7 +60,7 @@ class Config:
     SQLALCHEMY_ECHO = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_RECORD_QUERIES = True
+    SQLALCHEMY_RECORD_QUERIES = False
 
     ALLOWED_EXTENSIONS = {'zip', 'xml'}
 

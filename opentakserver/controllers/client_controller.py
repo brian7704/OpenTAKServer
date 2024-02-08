@@ -171,10 +171,6 @@ class ClientController(Thread):
                                 self.close_connection()
                                 break
 
-                else:
-                    self.logger.error("{} sent unexpected CoT: {} {}".format(self.callsign, soup, event))
-                    self.logger.error(data)
-
             else:
                 self.send_disconnect_cot()
                 break

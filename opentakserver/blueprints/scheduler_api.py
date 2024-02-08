@@ -39,8 +39,11 @@ def resume_job():
     if 'job_id' not in request.json:
         return {'success': False, 'errors': 'Please provide a job_id'}, 400, {'Content-Type': 'application/json'}
     try:
+        #  0 == STATE_STOPPED
+        if apscheduler.state == 0:
+            apscheduler.start()
         #  2 == STATE_PAUSED
-        if apscheduler.state == 2:
+        elif apscheduler.state == 2:
             apscheduler.resume()
 
         return api.resume_job(request.json['job_id'])
