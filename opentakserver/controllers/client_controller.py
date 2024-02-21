@@ -187,10 +187,13 @@ class ClientController(Thread):
         if 'uid' in event.attrs and event.attrs['uid'].endswith('ping'):
             now = datetime.datetime.now()
             stale = now + datetime.timedelta(seconds=10)
-            pong = '<event how="h-g-i-g-o" stale="{}" start="{}" time="{}" type="t-x-c-t-r" uid="{}-pong" version="2.0"><point ce="9999999" hae="0.00000000" lat="0.00000000" le="9999999" lon="0.00000000"></point></event>'.format(
-                stale.isoformat(), now.isoformat(), now.isoformat(), self.uid
-            )
-            self.sock.send(pong.encode())
+
+            cot = Element('event', {'how': 'h-g-i-g-o', 'type': 't-x-c-t-r', 'version': '2.0',
+                                      'uid': "{}-pong".format(self.uid), 'start': now, 'time': now, 'stale': stale})
+            SubElement(cot, 'point', {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0',
+                                                'lon': '0'})
+
+            self.sock.send(event.encode())
             return True
 
         return False

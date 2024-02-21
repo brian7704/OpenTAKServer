@@ -1,6 +1,3 @@
-import logging
-import os
-
 import colorlog
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
@@ -8,9 +5,6 @@ from opentakserver.models.Base import Base
 from jinja2 import Template
 from flask_mail import Mail
 from flask_apscheduler import APScheduler
-from flask import current_app as app
-
-from opentakserver.config import Config
 
 logger = colorlog.getLogger('OpenTAKServer')
 
