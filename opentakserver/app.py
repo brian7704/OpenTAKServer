@@ -105,7 +105,7 @@ def create_app():
                 supports_credentials=True)
     flask_wtf.CSRFProtect(app)
 
-    socketio.init_app(app)
+    socketio.init_app(app, logger=False)
 
     rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
     channel = rabbit_connection.channel()
@@ -222,4 +222,4 @@ if __name__ == '__main__':
 
     app.start_time = datetime.now()
 
-    socketio.run(app, host="127.0.0.1", port=app.config.get("OTS_LISTENER_PORT"), debug=False, log_output=True)
+    socketio.run(app, host="127.0.0.1", port=app.config.get("OTS_LISTENER_PORT"), debug=False, log_output=False)
