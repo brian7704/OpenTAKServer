@@ -136,7 +136,7 @@ def control_tcp_socket(action):
         if app.tcp_thread.is_alive():
             return jsonify({'success': False, 'error': 'TCP thread is already active'}), 400
 
-        tcp_thread = SocketServer(logger, app.config.get("OTS_TCP_STREAMING_PORT"))
+        tcp_thread = SocketServer(logger, app, app.app_context(), app.config.get("OTS_TCP_STREAMING_PORT"))
         tcp_thread.start()
         app.tcp_thread = tcp_thread
 
@@ -162,11 +162,12 @@ def control_ssl_socket(action):
         if app.ssl_thread.is_alive():
             return jsonify({'success': False, 'error': 'ssl thread is already active'}), 400
 
-        ssl_thread = SocketServer(logger, app.config.get("OTS_SSL_STREAMING_PORT"), True)
-        ssl_thread.start()
-        app.ssl_thread = ssl_thread
+        with app.app_context():
+            ssl_thread = SocketServer(logger, app.app_context(), app.config.get("OTS_SSL_STREAMING_PORT"), True)
+            ssl_thread.start()
+            app.ssl_thread = ssl_thread
 
-        return jsonify({'success': True})
+            return jsonify({'success': True})
 
     elif action == 'stop':
         if not app.ssl_thread.is_alive():

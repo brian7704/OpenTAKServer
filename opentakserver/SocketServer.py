@@ -7,7 +7,7 @@ from opentakserver.controllers.client_controller import ClientController
 
 
 class SocketServer(Thread):
-    def __init__(self, logger, app, port=8088, ssl_server=False):
+    def __init__(self, logger, app_context=None, port=8088, ssl_server=False):
         super().__init__()
 
         self.logger = logger
@@ -17,7 +17,7 @@ class SocketServer(Thread):
         self.daemon = True
         self.socket = None
         self.clients = []
-        self.app = app
+        self.app_context = app_context
 
     def run(self):
         if self.ssl:
@@ -34,7 +34,7 @@ class SocketServer(Thread):
                 else:
                     self.logger.info("New TCP connection from {}".format(addr[0]))
 
-                new_thread = ClientController(addr[0], addr[1], sock, self.logger, self.app, self.ssl)
+                new_thread = ClientController(addr[0], addr[1], sock, self.logger, self.app_context.app, self.ssl)
                 new_thread.daemon = True
                 new_thread.start()
                 self.clients.append(new_thread)
@@ -84,13 +84,14 @@ class SocketServer(Thread):
     def get_ssl_context(self):
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
-        context.load_cert_chain(
-            os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", self.app.config.get("OTS_SERVER_ADDRESS"),
-                         self.app.config.get("OTS_SERVER_ADDRESS") + ".pem"),
-            os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", self.app.config.get("OTS_SERVER_ADDRESS"),
-                         self.app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
+        with self.app_context:
+            context.load_cert_chain(
+                os.path.join(self.app_context.app.config.get("OTS_CA_FOLDER"), "certs", self.app_context.app.config.get("OTS_SERVER_ADDRESS"),
+                             self.app_context.app.config.get("OTS_SERVER_ADDRESS") + ".pem"),
+                os.path.join(self.app_context.app.config.get("OTS_CA_FOLDER"), "certs", self.app_context.app.config.get("OTS_SERVER_ADDRESS"),
+                             self.app_context.app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"))
 
-        context.verify_mode = self.app.config.get("OTS_SSL_VERIFICATION_MODE")
-        context.load_verify_locations(cafile=os.path.join(self.app.config.get("OTS_CA_FOLDER"), 'ca.pem'))
+            context.verify_mode = self.app_context.app.config.get("OTS_SSL_VERIFICATION_MODE")
+            context.load_verify_locations(cafile=os.path.join(self.app_context.app.config.get("OTS_CA_FOLDER"), 'ca.pem'))
 
-        return context
+            return context

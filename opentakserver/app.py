@@ -12,7 +12,6 @@ try:
 except:
     print('failed to monkey_patch()')
 
-import traceback
 import flask_wtf
 import pickle
 
@@ -205,11 +204,11 @@ if __name__ == '__main__':
                                                password=hash_password("password"), roles=["administrator"])
         db.session.commit()
 
-    tcp_thread = SocketServer(logger, app, app.config.get("OTS_TCP_STREAMING_PORT"))
+    tcp_thread = SocketServer(logger, app.app_context(), app.config.get("OTS_TCP_STREAMING_PORT"))
     tcp_thread.start()
     app.tcp_thread = tcp_thread
 
-    ssl_thread = SocketServer(logger, app, app.config.get("OTS_SSL_STREAMING_PORT"), True)
+    ssl_thread = SocketServer(logger, app.app_context(), app.config.get("OTS_SSL_STREAMING_PORT"), True)
     ssl_thread.start()
     app.ssl_thread = ssl_thread
 
