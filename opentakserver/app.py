@@ -74,16 +74,20 @@ def load_config_from_db(app):
 
 
 def setup_logging(app):
+    level = logging.INFO
+    if app.config.get("DEBUG"):
+        level = logging.DEBUG
+
     color_log_handler = colorlog.StreamHandler()
     color_log_formatter = colorlog.ColoredFormatter(
-        '%(log_color)s[%(asctime)s] - %(levelname)s - %(name)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
+        '%(log_color)s[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(levelname)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
     color_log_handler.setFormatter(color_log_formatter)
-    logger.setLevel('DEBUG')
+    logger.setLevel(level)
     logger.addHandler(color_log_handler)
 
     fh = logging.FileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'opentakserver.log'))
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(color_log_formatter)
+    fh.setLevel(level)
+    fh.setFormatter(logging.Formatter("[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(levelname)s - %(message)s"))
     logger.addHandler(fh)
 
 
@@ -181,6 +185,11 @@ if __name__ == '__main__':
         logger.debug("Loading DB..")
         db.create_all()
         load_config_from_db(app)
+
+        if app.config.get("DEBUG"):
+            logger.debug("Starting in debug mode")
+        else:
+            logger.info("Starting in production mode")
 
         app.security.datastore.find_or_create_role(
             name="user", permissions={"user-read", "user-write"}
