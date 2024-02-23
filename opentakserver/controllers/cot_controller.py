@@ -116,32 +116,33 @@ class CoTController:
                 team = Team()
 
                 with self.context:
-                    # Declare an exchange for each group and bind the callsign's queue
-                    if self.rabbit_channel.is_open and group.attrs['name'] not in self.exchanges:
-                        self.logger.debug("Declaring exchange {}".format(group.attrs['name']))
-                        self.rabbit_channel.exchange_declare(exchange=group.attrs['name'])
-                        self.rabbit_channel.queue_bind(queue=uid, exchange='chatrooms', routing_key=group.attrs['name'])
-                        self.exchanges.append(group.attrs['name'])
+                    if group:
+                        # Declare an exchange for each group and bind the callsign's queue
+                        if self.rabbit_channel.is_open and group.attrs['name'] not in self.exchanges:
+                            self.logger.debug("Declaring exchange {}".format(group.attrs['name']))
+                            self.rabbit_channel.exchange_declare(exchange=group.attrs['name'])
+                            self.rabbit_channel.queue_bind(queue=uid, exchange='chatrooms', routing_key=group.attrs['name'])
+                            self.exchanges.append(group.attrs['name'])
 
-                    team.name = bleach.clean(group.attrs['name'])
+                        team.name = bleach.clean(group.attrs['name'])
 
-                    try:
-                        chatroom = self.db.session.execute(self.db.session.query(Chatroom)
-                                                           .filter(Chatroom.name == team.name)).first()[0]
-                        team.chatroom_id = chatroom.id
-                    except TypeError:
-                        chatroom = None
-
-                    try:
-                        self.db.session.add(team)
-                        self.db.session.commit()
-                    except sqlalchemy.exc.IntegrityError:
-                        self.db.session.rollback()
-                        team = self.db.session.execute(self.db.session.query(Team)
-                                                       .filter(Team.name == group.attrs['name'])).first()[0]
-                        if not team.chatroom_id and chatroom:
+                        try:
+                            chatroom = self.db.session.execute(self.db.session.query(Chatroom)
+                                                               .filter(Chatroom.name == team.name)).first()[0]
                             team.chatroom_id = chatroom.id
-                            self.db.session.execute(update(Team).filter(Team.name).values(**team))
+                        except TypeError:
+                            chatroom = None
+
+                        try:
+                            self.db.session.add(team)
+                            self.db.session.commit()
+                        except sqlalchemy.exc.IntegrityError:
+                            self.db.session.rollback()
+                            team = self.db.session.execute(self.db.session.query(Team)
+                                                           .filter(Team.name == group.attrs['name'])).first()[0]
+                            if not team.chatroom_id and chatroom:
+                                team.chatroom_id = chatroom.id
+                                self.db.session.execute(update(Team).filter(Team.name).values(**team))
 
                     try:
                         eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
@@ -157,8 +158,11 @@ class CoTController:
                     eud.phone_number = phone_number
                     eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
                     eud.last_status = 'Connected'
-                    eud.team_id = team.id
-                    eud.team_role = bleach.clean(group.attrs['role'])
+
+                    if group:
+                        eud.team_id = team.id
+                        eud.team_role = bleach.clean(group.attrs['role'])
+
                     self.db.session.add(eud)
                     self.db.session.commit()
 
@@ -313,6 +317,8 @@ class CoTController:
         if video:
             self.logger.debug("Got video stream")
             connection_entry = video.find('ConnectionEntry')
+            if not connection_entry:
+                return
 
             path = connection_entry.attrs['path']
             if path.startswith("/"):
@@ -324,7 +330,6 @@ class CoTController:
             v.path = path
             v.protocol = connection_entry.attrs['protocol']
             v.buffer_time = connection_entry.attrs['bufferTime']
-            v.address = connection_entry.attrs['address']
             v.port = connection_entry.attrs['port']
             v.rover_port = connection_entry.attrs['roverPort']
             v.rtsp_reliable = connection_entry.attrs['rtspReliable']

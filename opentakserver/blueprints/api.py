@@ -702,7 +702,6 @@ def get_video_streams():
     query = db.session.query(VideoStream)
     query = search(query, VideoStream, 'username')
     query = search(query, VideoStream, 'protocol')
-    query = search(query, VideoStream, 'address')
     query = search(query, VideoStream, 'path')
     query = search(query, VideoStream, 'uid')
 

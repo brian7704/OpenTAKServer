@@ -132,8 +132,9 @@ class ClientController(Thread):
                         self.parse_device_info(event)
 
                     message = {'uid': self.uid, 'cot': str(soup)}
-                    self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='',
-                                                      body=json.dumps(message))
+                    if self.rabbit_channel:
+                        self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='',
+                                                          body=json.dumps(message))
                 elif auth:
                     with self.app.app_context():
                         cot = auth.find('cot')

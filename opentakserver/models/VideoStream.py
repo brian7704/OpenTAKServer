@@ -98,7 +98,7 @@ class VideoStream(db.Model):
         SubElement(feed, 'protocol').text = self.protocol if self.protocol else 'rtsp'
         SubElement(feed, 'alias').text = self.alias if self.alias else self.path
         SubElement(feed, 'uid').text = str(self.uid) if self.uid else str(uuid.uuid4())
-        SubElement(feed, 'address').text = app.config.get("OTS_SERVER_ADDRESS")
+        SubElement(feed, 'address').text = urlparse(request.url_root).hostname
         SubElement(feed, 'port').text = str(self.port) if self.port else "8554"
         SubElement(feed, 'roverPort').text = str(self.rover_port)
         SubElement(feed, 'ignoreEmbeddedKLV').text = self.ignore_embedded_klv
