@@ -1,4 +1,6 @@
 import json
+import os
+import shutil
 import traceback
 
 import pika
@@ -7,8 +9,10 @@ from flask import Blueprint
 import adsbxcot
 from flask import current_app as app
 
-from opentakserver.extensions import apscheduler, logger
+from opentakserver.extensions import apscheduler, logger, db
 import requests
+
+from opentakserver.models.VideoRecording import VideoRecording
 
 scheduler_blueprint = Blueprint('scheduler_blueprint', __name__)
 
@@ -45,3 +49,22 @@ def get_airplanes_live_data():
         except BaseException as e:
             logger.error("Failed to get airplanes.live: {}".format(e))
             logger.error(traceback.format_exc())
+
+
+@apscheduler.task("interval", name="Delete Video Recordings", id="delete_video_recordings", next_run_time=None)
+def delete_video_recordings():
+    with apscheduler.app.app_context():
+        VideoRecording.query.delete()
+        db.session.commit()
+
+        try:
+            r = requests.get('http://localhost:9997/v3/recordings/list')
+            if r.status_code == 200:
+                recordings = r.json()
+                for path in recordings['items']:
+                    for recording in path['segments']:
+                        r = requests.delete('http://localhost:9997/v3/recordings/deletesegment', params={'start': recording['start'], 'path': path['name']})
+                        if r.status_code != 200:
+                            logger.error("Failed to delete {} from {}: {}".format(recording['start'], path['name'], r.text))
+        except BaseException as e:
+            logger.error("Failed to delete recordings: {}".format(e))
