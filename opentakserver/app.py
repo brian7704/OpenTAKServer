@@ -122,15 +122,30 @@ def setup_logging(app):
 def create_app():
     app = Flask(__name__)
     app.config.from_object(DefaultConfig)
+    setup_logging(app)
+
+    # Load config.yml if it exists
     if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
         app.config.from_file(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), load=yaml.safe_load)
     else:
+        # First run, created config.yml based on default settings
+        logger.info("Creating config.yml")
         with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), "w") as config:
             conf = {}
             for option in DefaultConfig.__dict__:
                 if option.isupper():
                     conf[option] = DefaultConfig.__dict__[option]
             config.write(yaml.safe_dump(conf))
+
+        # Try to set the MediaMTX token
+        try:
+            with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "mediamtx.yml"), "r") as mediamtx_config:
+                conf = mediamtx_config.read()
+                conf = conf.replace("MTX_TOKEN", app.config.get("OTS_MEDIAMTX_TOKEN"))
+            with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "mediamtx.yml"), "w") as mediamtx_config:
+                mediamtx_config.write(conf)
+        except BaseException as e:
+            logger.error("Failed to set MediaMTX token: {}".format(e))
 
     init_extensions(app)
 
