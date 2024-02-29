@@ -1,14 +1,14 @@
-import ssl
+import secrets
+import string
+import random
 
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from opentakserver.secret_key import *
+import pyotp
 from pathlib import Path
 import os
-from flask_security import uia_username_mapper, uia_email_mapper
 
 
-class Config:
-    SECRET_KEY = secret_key
+class DefaultConfig:
+    SECRET_KEY = secrets.token_hex()
 
     OTS_DATA_FOLDER = os.path.join(Path.home(), 'ots')
     OTS_LISTENER_PORT = 8081  # OTS will listen for HTTP requests on this port. Nginx will listen on OTS_HTTP_PORT,
@@ -19,11 +19,11 @@ class Config:
     OTS_COT_PORT = 8087
     OTS_TCP_STREAMING_PORT = 8088
     OTS_SSL_STREAMING_PORT = 8089
-    OTS_MEDIAMTX_TOKEN = mediamtx_token
+    OTS_MEDIAMTX_TOKEN = str(secrets.SystemRandom().getrandbits(128))
     OTS_VERSION = '0.1-OTS-DEV'
-    OTS_SSL_VERIFICATION_MODE = ssl.CERT_REQUIRED  # https://docs.python.org/3/library/ssl.html#ssl.SSLContext.verify_mode
-    OTS_SERVER_ADDRESS = server_address
-    OTS_NODE_ID = node_id
+    OTS_SSL_VERIFICATION_MODE = 2  # Equivalent to ssl.CERT_REQUIRED. https://docs.python.org/3/library/ssl.html#ssl.SSLContext.verify_mode
+    OTS_SERVER_ADDRESS = "192.168.1.10"
+    OTS_NODE_ID = ''.join(random.choices(string.ascii_lowercase + string.digits, k=64))
     OTS_CA_NAME = 'OpenTAKServer-CA'
     OTS_CA_FOLDER = os.path.join(OTS_DATA_FOLDER, 'ca')
     OTS_CA_PASSWORD = 'atakatak'
@@ -39,21 +39,21 @@ class Config:
     OTS_AIRPLANES_LIVE_LON = -73.986939
     OTS_AIRPLANES_LIVE_RADIUS = 10
 
-    OTS_ENABLE_MUMBLE_AUTHENTICATION = True
+    OTS_ENABLE_MUMBLE_AUTHENTICATION = False
 
     # Gmail settings
-    OTS_ENABLE_EMAIL = True
+    OTS_ENABLE_EMAIL = False
     MAIL_SERVER = 'smtp.gmail.com'
     MAIL_PORT = 465
-    MAIL_USE_SSL = True
-    MAIL_USE_TLS = False
+    MAIL_USE_SSL = False
+    MAIL_USE_TLS = True
     MAIL_DEBUG = False
     MAIL_DEFAULT_SENDER = None
     MAIL_MAX_EMAILS = None
     MAIL_SUPPRESS_SEND = False
     MAIL_ASCII_ATTACHMENTS = False
-    MAIL_USERNAME = mail_username
-    MAIL_PASSWORD = mail_password
+    MAIL_USERNAME = None
+    MAIL_PASSWORD = None
 
     # flask-sqlalchemy
     SQLALCHEMY_DATABASE_URI = "sqlite:////{}".format(os.path.join(OTS_DATA_FOLDER, 'ots.db'))
@@ -69,12 +69,9 @@ class Config:
         os.makedirs(UPLOAD_FOLDER)
 
     # Flask-Security-Too
-    SECURITY_PASSWORD_SALT = security_password_salt
+    SECURITY_PASSWORD_SALT = str(secrets.SystemRandom().getrandbits(128))
     REMEMBER_COOKIE_SAMESITE = "strict"
     SESSION_COOKIE_SAMESITE = "strict"
-    SECURITY_USER_IDENTITY_ATTRIBUTES = [{"username": {"mapper": uia_username_mapper, "case_insensitive": False}}]
-    if OTS_ENABLE_EMAIL:
-        SECURITY_USER_IDENTITY_ATTRIBUTES.append({"email": {"mapper": uia_email_mapper, "case_insensitive": True}})
     SECURITY_USERNAME_ENABLE = True
     SECURITY_USERNAME_REQUIRED = True
     SECURITY_TRACKABLE = True
@@ -92,7 +89,7 @@ class Config:
     SECURITY_CONFIRMABLE = OTS_ENABLE_EMAIL
     SECURITY_RECOVERABLE = OTS_ENABLE_EMAIL
     SECURITY_TWO_FACTOR = True
-    SECURITY_TOTP_SECRETS = totp_secrets
+    SECURITY_TOTP_SECRETS = {1: pyotp.random_base32()}
     SECURITY_TOTP_ISSUER = "OpenTAKServer"
     SECURITY_TWO_FACTOR_ENABLED_METHODS = ["authenticator"]
     if OTS_ENABLE_EMAIL:
@@ -104,4 +101,4 @@ class Config:
     SECURITY_RESET_VIEW = '/reset'
 
     SCHEDULER_API_ENABLED = False
-    SCHEDULER_JOBSTORES = {'default': SQLAlchemyJobStore(url=SQLALCHEMY_DATABASE_URI)}
+    #SCHEDULER_JOBSTORES = {'default': SQLAlchemyJobStore(url=SQLALCHEMY_DATABASE_URI)}

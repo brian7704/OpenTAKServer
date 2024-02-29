@@ -6,6 +6,9 @@ import uuid
 import zipfile
 from pathlib import Path
 from shutil import copyfile, rmtree
+from urllib.parse import urlparse
+
+from flask import request
 from jinja2 import Template
 from .ca_config import ca_config, server_config
 
@@ -104,7 +107,7 @@ class CertificateAuthority:
                 raise Exception("Failed to create crl. Exit code {}".format(exit_code))
 
             self.logger.debug("Creating server cert...")
-            self.issue_certificate(self.app.config.get("OTS_SERVER_ADDRESS"), True)
+            self.issue_certificate("opentakserver", True)
 
         else:
             self.logger.debug("CA already exists")
@@ -291,15 +294,15 @@ class CertificateAuthority:
                     </MissionPackageManifest>
                     """)
 
-        pref = pref_file_template.render(server=self.app.config.get("OTS_SERVER_ADDRESS"),
+        pref = pref_file_template.render(server=urlparse(request.url_root).hostname,
                                          server_filename=truststore,
                                          user_filename=user_p12,
                                          cert_password=self.app.config.get("OTS_CA_PASSWORD"),
                                          ssl_port=self.app.config.get("OTS_SSL_STREAMING_PORT"))
-        man = manifest_file_template.render(uid=random_id, server=self.app.config.get("OTS_SERVER_ADDRESS"),
+        man = manifest_file_template.render(uid=random_id, server=urlparse(request.url_root).hostname,
                                             server_filename=truststore,
                                             user_filename=user_p12, folder=folder)
-        man_parent = manifest_file_parent_template.render(uid=new_uid, server=self.app.config.get("OTS_SERVER_ADDRESS"),
+        man_parent = manifest_file_parent_template.render(uid=new_uid, server=urlparse(request.url_root).hostname,
                                                           folder=parent_folder,
                                                           internal_dp_name=common_name)
 

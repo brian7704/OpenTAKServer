@@ -167,7 +167,7 @@ def sign_csr_v2():
             certificate.callsign = eud.callsign
             certificate.expiration_date = datetime.datetime.today() + datetime.timedelta(
                 days=app.config.get("OTS_CA_EXPIRATION_TIME"))
-            certificate.server_address = app.config.get("OTS_SERVER_ADDRESS")
+            certificate.server_address = urlparse(request.url_root).hostname
             certificate.server_port = app.config.get("OTS_HTTPS_PORT")
             certificate.truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "truststore-root.p12")
             certificate.user_cert_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name,
@@ -184,7 +184,7 @@ def sign_csr_v2():
             certificate.callsign = eud.callsign
             certificate.expiration_date = datetime.datetime.today() + datetime.timedelta(
                 days=app.config.get("OTS_CA_EXPIRATION_TIME"))
-            certificate.server_address = app.config.get("OTS_SERVER_ADDRESS")
+            certificate.server_address = urlparse(request.url_root).hostname
             certificate.server_port = app.config.get("OTS_HTTPS_PORT")
             certificate.truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "truststore-root.p12")
             certificate.user_cert_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name,
@@ -286,8 +286,8 @@ def put_mission(mission_name):
         payload = {'jti': uid, 'iat': creation_time, 'sub': 'SUBSCRIPTION', 'iss': '',
                    'SUBSCRIPTION': uid, 'MISSION_NAME': mission_name}
 
-        server_key = open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", app.config.get("OTS_SERVER_ADDRESS"),
-                                       app.config.get("OTS_SERVER_ADDRESS") + ".nopass.key"), "rb")
+        server_key = open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver",
+                                       "opentakserver.nopass.key"), "rb")
 
         token = jwt.encode(payload, server_key.read(), algorithm="HS256")
         server_key.close()

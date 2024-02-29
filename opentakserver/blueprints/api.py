@@ -7,6 +7,7 @@ import uuid
 from shutil import copyfile
 
 import pathlib
+from urllib.parse import urlparse
 
 import ffmpeg
 from sqlalchemy import update
@@ -23,7 +24,6 @@ from flask_security import auth_required, roles_accepted, hash_password, current
 from opentakserver.extensions import logger, db
 from .marti import data_package_share
 
-from opentakserver.config import Config
 from opentakserver.models.Alert import Alert
 from opentakserver.models.CasEvac import CasEvac
 from opentakserver.models.CoT import CoT
@@ -186,9 +186,7 @@ def certificate():
     if request.method == 'POST' and 'callsign' in request.json.keys() and 'uid' in request.json.keys():
         try:
             callsign = bleach.clean(request.json.get('callsign'))
-            truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs',
-                                               app.config.get("OTS_SERVER_ADDRESS"),
-                                               "truststore-root.p12")
+            truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', "opentakserver", "truststore-root.p12")
             user_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', callsign,
                                          "{}.p12".format(callsign))
 
@@ -232,7 +230,7 @@ def certificate():
             cert.common_name = callsign
             cert.callsign = callsign
             cert.expiration_date = datetime.datetime.today() + datetime.timedelta(days=app.config.get("OTS_CA_EXPIRATION_TIME"))
-            cert.server_address = app.config.get("OTS_SERVER_ADDRESS")
+            cert.server_address = urlparse(request.url_root).hostname
             cert.server_port = app.config.get("OTS_SSL_STREAMING_PORT")
             cert.truststore_filename = truststore_filename
             cert.user_cert_filename = user_filename
@@ -541,7 +539,6 @@ def external_auth():
     username = bleach.clean(request.json.get('user'))
     password = bleach.clean(request.json.get('password'))
     action = bleach.clean(request.json.get('action'))
-    logger.warning(request.json)
 
     user = app.security.datastore.find_user(username=username)
     if user and verify_password(password, user.password):

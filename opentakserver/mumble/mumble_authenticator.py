@@ -2,8 +2,6 @@ import os
 
 import Ice
 
-from opentakserver.config import Config
-
 from flask_security import verify_password
 
 # Load up Murmur slice file into Ice

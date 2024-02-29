@@ -9,8 +9,6 @@ from sqlalchemy import Integer, String, ForeignKey, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from flask import current_app as app, request
 
-from opentakserver.config import Config
-
 
 @dataclass
 class VideoStream(db.Model):
@@ -69,6 +67,10 @@ class VideoStream(db.Model):
             protocol = url.scheme
             hostname = url.hostname
             port = url.port
+            if not port and protocol == 'https':
+                port = 443
+            elif not port and protocol == 'http':
+                port = 80
 
             return {
                 'network_timeout': self.network_timeout,

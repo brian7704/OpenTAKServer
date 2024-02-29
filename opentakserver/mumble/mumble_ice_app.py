@@ -2,7 +2,6 @@ import os
 import threading
 from threading import Timer
 from eventlet.green import threading
-from opentakserver.config import Config
 
 import Ice
 
