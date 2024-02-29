@@ -41,8 +41,25 @@ def init_extensions(app):
 
     # Handle config options that can't be serialized to yaml
     app.config.update({"SCHEDULER_JOBSTORES": {'default': SQLAlchemyJobStore(url=app.config.get("SQLALCHEMY_DATABASE_URI"))}})
-    app.config.update({"SECURITY_USER_IDENTITY_ATTRIBUTES": [{"username": {"mapper": uia_username_mapper, "case_insensitive": False}},
-                                                             {"email": {"mapper": uia_email_mapper, "case_insensitive": True}}]})
+    identity_attributes = [{"username": {"mapper": uia_username_mapper, "case_insensitive": False}}]
+
+    # Don't allow registration unless email is enabled
+    if app.config.get("OTS_ENABLE_EMAIL"):
+        identity_attributes.append({"email": {"mapper": uia_email_mapper, "case_insensitive": True}})
+        app.config.update({
+            "SECURITY_REGISTERABLE": True,
+            "SECURITY_CONFIRMABLE": True,
+            "SECURITY_RECOVERABLE": True,
+            "SECURITY_TWO_FACTOR_ENABLED_METHODS": ["authenticator", "email"]
+        })
+    else:
+        app.config.update({
+            "SECURITY_REGISTERABLE": False,
+            "SECURITY_CONFIRMABLE": False,
+            "SECURITY_RECOVERABLE": False,
+            "SECURITY_TWO_FACTOR_ENABLED_METHODS": ["authenticator"]
+        })
+    app.config.update({"SECURITY_USER_IDENTITY_ATTRIBUTES": identity_attributes})
 
     ca = CertificateAuthority(logger, app)
     ca.create_ca()
