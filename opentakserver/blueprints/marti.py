@@ -533,7 +533,11 @@ def video():
                 videoconnections = Element('videoConnections')
 
                 for video in videos:
-                    videoconnections.append(fromstring(video.xml))
+                    # Make sure videos have the correct address based off of the Flask request and not 127.0.0.1
+                    feed = BeautifulSoup(video.xml, 'xml')
+                    feed.find('address').string.replace_with(urlparse(request.url_root).hostname)
+                    logger.info(feed)
+                    videoconnections.append(fromstring(str(feed)))
 
             return tostring(videoconnections), 200
         except BaseException as e:
