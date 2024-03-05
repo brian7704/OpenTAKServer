@@ -38,6 +38,7 @@ PyJWT = "^2.8.0"
 qrcode = "^7.4.2"
 pyotp = "^2.9.0"
 PyYAML = "^6.0.1"
+tldextract = "^5.1.1"
 
 
 [build-system]

@@ -42,6 +42,10 @@ class DefaultConfig:
 
     # Gmail settings
     OTS_ENABLE_EMAIL = False
+    OTS_EMAIL_DOMAIN_WHITELIST = []
+    OTS_EMAIL_DOMAIN_BLACKLIST = []
+    OTS_EMAIL_TLD_WHITELIST = []
+    OTS_EMAIL_TLD_BLACKLIST = []
     MAIL_SERVER = 'smtp.gmail.com'
     MAIL_PORT = 465
     MAIL_USE_SSL = False

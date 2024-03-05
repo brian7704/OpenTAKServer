@@ -1,12 +1,13 @@
-import yaml
-
 import eventlet
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-
 try:
     eventlet.monkey_patch()
 except BaseException as e:
     print("Failed to monkey_patch(): {}".format(e))
+
+import yaml
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+
+from opentakserver.EmailValidator import EmailValidator
 
 import logging
 import os
@@ -94,7 +95,7 @@ def init_extensions(app):
     from opentakserver.models.role import Role
 
     user_datastore = SQLAlchemyUserDatastore(db, User, Role)
-    app.security = Security(app, user_datastore)
+    app.security = Security(app, user_datastore, mail_util_cls=EmailValidator)
 
     mail.init_app(app)
     with app.app_context():
