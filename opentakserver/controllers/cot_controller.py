@@ -336,7 +336,7 @@ class CoTController:
             v.ignore_embedded_klv = (connection_entry.attrs['ignoreEmbeddedKLV'].lower() == 'true')
             v.alias = connection_entry.attrs['alias']
             v.cot_id = cot_pk
-            v.generate_xml()
+            v.generate_xml(connection_entry.attrs['address'])
 
             with self.context:
                 try:

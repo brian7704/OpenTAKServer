@@ -1,3 +1,5 @@
+import sys
+
 import eventlet
 try:
     eventlet.monkey_patch()
@@ -107,12 +109,14 @@ def setup_logging(app):
     if app.config.get("DEBUG"):
         level = logging.DEBUG
 
-    color_log_handler = colorlog.StreamHandler()
-    color_log_formatter = colorlog.ColoredFormatter(
-        '%(log_color)s[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(levelname)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
-    color_log_handler.setFormatter(color_log_formatter)
-    logger.setLevel(level)
-    logger.addHandler(color_log_handler)
+    if sys.stdout.isatty():
+        color_log_handler = colorlog.StreamHandler()
+        color_log_formatter = colorlog.ColoredFormatter(
+            '%(log_color)s[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(levelname)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
+        color_log_handler.setFormatter(color_log_formatter)
+        logger.setLevel(level)
+        logger.addHandler(color_log_handler)
+        logger.info("Added color logger")
 
     fh = logging.FileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'opentakserver.log'))
     fh.setLevel(level)

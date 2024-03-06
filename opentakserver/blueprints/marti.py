@@ -468,6 +468,10 @@ def video():
         soup = BeautifulSoup(request.data, 'xml')
         video_connections = soup.find('videoConnections')
 
+        path = video_connections.find('path').text
+        if path.startswith("/"):
+            path = path[1:]
+
         if video_connections:
             v = VideoStream()
             v.protocol = video_connections.find('protocol').text
@@ -478,7 +482,7 @@ def video():
             v.ignore_embedded_klv = (video_connections.find('ignoreEmbeddedKLV').text.lower() == 'true')
             v.preferred_mac_address = video_connections.find('preferredMacAddress').text
             v.preferred_interface_address = video_connections.find('preferredInterfaceAddress').text
-            v.path = video_connections.find('path').text
+            v.path = path
             v.buffer_time = video_connections.find('buffer').text
             v.network_timeout = video_connections.find('timeout').text
             v.rtsp_reliable = video_connections.find('rtspReliable').text
@@ -486,10 +490,10 @@ def video():
             path_config['sourceOnDemand'] = False
             v.mediamtx_settings = json.dumps(path_config)
 
+            # Discard username and password for security
             feed = soup.find('feed')
-            address = feed.find('address')
-            new_address = soup.new_tag("address")
-            new_address.string = address.text.split("@")[-1]
+            address = feed.find('address').text
+            feed.find('address').string.replace_with(address.split("@")[-1])
 
             v.xml = str(feed)
 
@@ -514,10 +518,8 @@ def video():
                     v.network_timeout = video_connections.find('timeout').text
                     v.rtsp_reliable = video_connections.find('rtspReliable').text
                     feed = soup.find('feed')
-                    address = feed.find('address')
-                    new_address = soup.new_tag("address")
-                    new_address.string = address.text.split("@")[-1]
-                    address.replace_with(new_address)
+                    address = feed.find('address').text
+                    feed.find('address').replace_with(address.split("@")[-1])
 
                     v.xml = str(feed)
 
@@ -534,9 +536,9 @@ def video():
 
                 for video in videos:
                     # Make sure videos have the correct address based off of the Flask request and not 127.0.0.1
+                    # This also forces all streams to bounce through MediaMTX
                     feed = BeautifulSoup(video.xml, 'xml')
                     feed.find('address').string.replace_with(urlparse(request.url_root).hostname)
-                    logger.info(feed)
                     videoconnections.append(fromstring(str(feed)))
 
             return tostring(videoconnections), 200

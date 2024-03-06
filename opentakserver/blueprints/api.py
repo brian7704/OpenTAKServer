@@ -567,7 +567,7 @@ def external_auth():
             else:
                 v.rtsp_reliable = 0
 
-            v.generate_xml()
+            v.generate_xml(request.json.get("ip"))
 
             with app.app_context():
                 try:
@@ -747,7 +747,7 @@ def mediamtx_webhook():
             db.session.commit()
             r = requests.patch("http://localhost:9997/v3/config/paths/patch/{}".format(path),
                                json=json.loads(video_stream.mediamtx_settings))
-            logger.debug("Read Patched path {}: {} - {}".format(path, r.status_code, r.text))
+            logger.debug("Ready Patched path {}: {} - {}".format(path, r.status_code, r.text))
         else:
             video_stream = VideoStream()
             if source_type.startswith('rtsps'):
@@ -778,13 +778,11 @@ def mediamtx_webhook():
             video_stream.buffer_time = None
             video_stream.network_timeout = 10000
             video_stream.uid = str(uuid.uuid4())
-            video_stream.generate_xml()
+            video_stream.generate_xml(urlparse(request.url_root).hostname)
             mediamtx_settings = MediaMTXPathConfig(None)
             mediamtx_settings.sourceOnDemand.data = False
             mediamtx_settings.record.data = False
-            logger.warning(mediamtx_settings.serialize())
             video_stream.mediamtx_settings = json.dumps(mediamtx_settings.serialize())
-            logger.error(video_stream.mediamtx_settings)
 
             db.session.add(video_stream)
             db.session.commit()
@@ -861,7 +859,6 @@ def mediamtx_webhook():
 @api_blueprint.route('/api/mediamtx/stream/update', methods=['PATCH'])
 @auth_required()
 def add_update_stream():
-    logger.warning(request.json)
     try:
         form = MediaMTXPathConfig(formdata=ImmutableMultiDict(request.json))
         if not form.validate():
@@ -886,7 +883,7 @@ def add_update_stream():
             video.buffer_time = None
             video.rtsp_reliable = 1
             video.network_timeout = 10000
-            video.generate_xml()
+            video.generate_xml(urlparse(request.url_root).hostname)
             db.session.add(video)
             db.session.commit()
         elif not video and request.path.endswith('update'):
@@ -895,7 +892,6 @@ def add_update_stream():
         settings = json.loads(video.mediamtx_settings)
 
         for setting in request.json:
-            logger.warning(setting)
             if setting == 'csrf_token' or setting == 'sourceOnDemand' or setting == 'path':
                 continue
             key = bleach.clean(setting)
@@ -949,7 +945,10 @@ def delete_stream():
         logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': 'MediaMTX is not running'}), 500
 
-    return r.text, r.status_code
+    if r.status_code != 404:
+        return r.text, r.status_code
+    else:
+        return "", 200
 
 
 @api_blueprint.route('/api/markers')
