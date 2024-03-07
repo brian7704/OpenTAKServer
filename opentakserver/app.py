@@ -40,7 +40,6 @@ from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
 
 def init_extensions(app):
     db.init_app(app)
-    setup_logging(app)
 
     # Handle config options that can't be serialized to yaml
     app.config.update({"SCHEDULER_JOBSTORES": {'default': SQLAlchemyJobStore(url=app.config.get("SQLALCHEMY_DATABASE_URI"))}})
