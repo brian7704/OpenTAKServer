@@ -23,6 +23,9 @@ class Point(db.Model):
     location_source: Mapped[str] = mapped_column(String, nullable=True)
     battery: Mapped[float] = mapped_column(Float, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime)
+    azimuth: Mapped[float] = mapped_column(Float, nullable=True)
+    # Camera field of view from TAK ICU and OpenTAK ICU
+    fov: Mapped[float] = mapped_column(Float, nullable=True)
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
     cot = relationship("CoT", back_populates="point")
 
@@ -45,6 +48,8 @@ class Point(db.Model):
             'le': self.le,
             'course': self.course,
             'speed': self.speed,
+            'azimuth': self.azimuth,
+            'fov': self.fov,
             'location_source': self.location_source,
             'battery': self.battery,
             'timestamp': self.timestamp,
@@ -61,6 +66,8 @@ class Point(db.Model):
             'le': self.le,
             'course': self.course,
             'speed': self.speed,
+            'azimuth': self.azimuth,
+            'fov': self.fov,
             'location_source': self.location_source,
             'battery': self.battery,
             'timestamp': iso8601_string_from_datetime(self.timestamp),

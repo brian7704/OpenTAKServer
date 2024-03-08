@@ -79,32 +79,6 @@ class CoTController:
         phone_number = None
 
         if uid not in self.online_euds and not uid.endswith('ping'):
-
-            contact = event.find('contact')
-            if contact:
-                if 'callsign' in contact.attrs:
-                    callsign = contact.attrs['callsign']
-
-                    if callsign not in self.online_callsigns:
-                        self.online_callsigns[callsign] = {'uid': uid, 'cot': soup}
-
-                    # Declare a RabbitMQ Queue for this uid and join the 'dms' and 'cot' exchanges
-                    if self.rabbit_channel and self.rabbit_channel.is_open:
-                        self.rabbit_channel.queue_bind(exchange='dms', queue=uid, routing_key=uid)
-                        self.rabbit_channel.queue_bind(exchange='chatrooms', queue=uid,
-                                                       routing_key='All Chat Rooms')
-
-                        for eud in self.online_euds:
-                            self.rabbit_channel.basic_publish(exchange='dms',
-                                                              routing_key=uid,
-                                                              body=json.dumps({'cot': str(self.online_euds[eud]['cot']),
-                                                                               'uid': None}))
-
-                        self.online_euds[uid] = {'cot': str(soup), 'callsign': callsign}
-
-                if 'phone' in contact.attrs:
-                    phone_number = contact.attrs['phone']
-
             takv = event.find('takv')
             if takv:
                 device = takv.attrs['device']
@@ -112,10 +86,36 @@ class CoTController:
                 platform = takv.attrs['platform']
                 version = takv.attrs['version']
 
-                group = event.find('__group')
-                team = Team()
+                contact = event.find('contact')
+                if contact:
+                    if 'callsign' in contact.attrs:
+                        callsign = contact.attrs['callsign']
+
+                        if uid not in self.online_euds:
+                            self.online_euds[uid] = {'cot': str(soup), 'callsign': callsign}
+
+                        if callsign not in self.online_callsigns:
+                            self.online_callsigns[callsign] = {'uid': uid, 'cot': soup}
+
+                        # Declare a RabbitMQ Queue for this uid and join the 'dms' and 'cot' exchanges
+                        if self.rabbit_channel and self.rabbit_channel.is_open and platform != "OpenTAK ICU":
+                            self.rabbit_channel.queue_bind(exchange='dms', queue=uid, routing_key=uid)
+                            self.rabbit_channel.queue_bind(exchange='chatrooms', queue=uid,
+                                                           routing_key='All Chat Rooms')
+
+                            for eud in self.online_euds:
+                                self.rabbit_channel.basic_publish(exchange='dms',
+                                                                  routing_key=uid,
+                                                                  body=json.dumps({'cot': str(self.online_euds[eud]['cot']),
+                                                                                   'uid': None}))
+
+                    if 'phone' in contact.attrs:
+                        phone_number = contact.attrs['phone']
 
                 with self.context:
+                    group = event.find('__group')
+                    team = Team()
+
                     if group:
                         # Declare an exchange for each group and bind the callsign's queue
                         if self.rabbit_channel.is_open and group.attrs['name'] not in self.exchanges:
@@ -196,7 +196,7 @@ class CoTController:
         # ce = Circular 1-sigma or a circular area about the location in meters
         # le = Linear 1-sigma error or an altitude range about the location in meters
         point = event.find('point')
-        if point:
+        if point and not point.attrs['lat'].startswith('999'):
             p = Point()
             p.uid = event.attrs['uid']
             p.device_uid = uid
@@ -224,11 +224,24 @@ class CoTController:
                 else:
                     p.speed = 0
 
+            # For TAK ICU and OpenTAK ICU CoT's with bearing from the compass
+            sensor = event.find('sensor')
+            if sensor:
+                if 'azimuth' in sensor.attrs:
+                    p.azimuth = sensor.attrs['azimuth']
+                # Camera's field of view
+                if 'fov' in sensor.attrs:
+                    p.fov = sensor.attrs['fov']
+            else:
+                self.logger.error("NO SENSOR IN COT")
+
             precision_location = event.find('precisionlocation')
             if precision_location and 'geolocationsrc' in precision_location.attrs:
                 p.location_source = precision_location.attrs['geolocationsrc']
             elif precision_location and 'altsrc' in precision_location.attrs:
                 p.location_source = precision_location.attrs['altsrc']
+            elif event.attrs['how'] == 'm-g':
+                p.location_source = 'GPS'
 
             status = event.find('status')
             if status:
@@ -239,15 +252,19 @@ class CoTController:
                 res = self.db.session.execute(insert(Point).values(
                     uid=p.uid, device_uid=p.device_uid, ce=p.ce, hae=p.hae, le=p.le, latitude=p.latitude,
                     longitude=p.longitude, timestamp=p.timestamp, cot_id=cot_id, location_source=p.location_source,
-                    course=p.course, speed=p.speed, battery=p.battery)
+                    course=p.course, speed=p.speed, battery=p.battery, fov=p.fov, azimuth=p.azimuth)
                 )
 
                 self.db.session.commit()
+                # Get the point from the DB with its related CoT
                 p = self.db.session.execute(
                     self.db.session.query(Point).filter(Point.id == res.inserted_primary_key[0])).first()[0]
 
                 # This CoT is a position update for an EUD, send it to socketio clients, so it can be seen on the UI map
-                if event.find('takv'):
+                # OpenTAK ICU position updates don't include the <takv> tag, but we still want to send the updated position
+                # to the UI's map
+                if event.find('takv') or event.find("__video"):
+                    self.logger.error("POINT: {}".format(p.to_json()))
                     socketio.emit('point', p.to_json(), namespace='/socket.io')
 
                 return res.inserted_primary_key[0]
@@ -425,7 +442,10 @@ class CoTController:
              # Spot map
              re.match("^b-m-p", event.attrs['type'])) and
                 # Don't worry about EUD location updates
-                not event.find('takv')):
+                not event.find('takv') and
+                # Ignore video streams from sources like OpenTAK ICU
+                event.attrs['type'] != 'b-m-p-s-p-loc'):
+            self.logger.error("Got a marker {}".format(event.attrs['type']))
 
             try:
                 marker = Marker()
@@ -513,6 +533,7 @@ class CoTController:
                         marker = self.db.session.execute(self.db.session.query(Marker)
                                                          .filter(Marker.uid == marker.uid)).first()[0]
 
+                    self.logger.error("Emitting marker: {}".format(marker.to_json()))
                     socketio.emit('marker', marker.to_json(), namespace='/socket.io')
 
             except BaseException as e:
@@ -701,6 +722,11 @@ class CoTController:
                             eud.last_status = 'Disconnected'
                             self.db.session.commit()
                             self.logger.debug("Updated {}".format(body['uid']))
+                            eud_json = eud.to_json()
+                            # The first time an EUD connects but doesn't have a location.
+                            # Tells the UI what kind of EUD this is, ie ATAK/WinTAK/iTAK or OpenTAK ICU
+                            if not eud_json['last_point']:
+                                eud_json['type'] = event.attrs['type']
                             socketio.emit('eud', eud.to_json(), namespace='/socket.io')
                     except BaseException as e:
                         self.logger.error("Failed to update EUD: {}".format(e))
