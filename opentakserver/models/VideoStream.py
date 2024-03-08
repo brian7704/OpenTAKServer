@@ -89,7 +89,7 @@ class VideoStream(db.Model):
                 'ready': self.ready,
                 'source': source,
                 'record': record,
-                'rtsp_link': "rtsp://{}:{}/{}".format(self.protocol, hostname, self.port, self.path),
+                'rtsp_link': "rtsp://{}:{}/{}".format(hostname, self.port, self.path),
                 'webrtc_link': "{}://{}:{}/webrtc/{}".format(protocol, hostname, port, self.path),
                 'hls_link': "{}://{}:{}/hls/{}/index.m3u8".format(protocol, hostname, port, self.path),
             }
