@@ -232,8 +232,6 @@ class CoTController:
                 # Camera's field of view
                 if 'fov' in sensor.attrs:
                     p.fov = sensor.attrs['fov']
-            else:
-                self.logger.error("NO SENSOR IN COT")
 
             precision_location = event.find('precisionlocation')
             if precision_location and 'geolocationsrc' in precision_location.attrs:
@@ -264,7 +262,6 @@ class CoTController:
                 # OpenTAK ICU position updates don't include the <takv> tag, but we still want to send the updated position
                 # to the UI's map
                 if event.find('takv') or event.find("__video"):
-                    self.logger.error("POINT: {}".format(p.to_json()))
                     socketio.emit('point', p.to_json(), namespace='/socket.io')
 
                 return res.inserted_primary_key[0]
@@ -445,7 +442,6 @@ class CoTController:
                 not event.find('takv') and
                 # Ignore video streams from sources like OpenTAK ICU
                 event.attrs['type'] != 'b-m-p-s-p-loc'):
-            self.logger.error("Got a marker {}".format(event.attrs['type']))
 
             try:
                 marker = Marker()
@@ -533,7 +529,6 @@ class CoTController:
                         marker = self.db.session.execute(self.db.session.query(Marker)
                                                          .filter(Marker.uid == marker.uid)).first()[0]
 
-                    self.logger.error("Emitting marker: {}".format(marker.to_json()))
                     socketio.emit('marker', marker.to_json(), namespace='/socket.io')
 
             except BaseException as e:

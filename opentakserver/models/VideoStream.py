@@ -89,7 +89,7 @@ class VideoStream(db.Model):
                 'ready': self.ready,
                 'source': source,
                 'record': record,
-                'rtsp_link': "{}://{}:{}/{}".format(self.protocol, hostname, self.port, self.path),
+                'rtsp_link': "rtsp://{}:{}/{}".format(self.protocol, hostname, self.port, self.path),
                 'webrtc_link': "{}://{}:{}/webrtc/{}".format(protocol, hostname, port, self.path),
                 'hls_link': "{}://{}:{}/hls/{}/index.m3u8".format(protocol, hostname, port, self.path),
             }
@@ -97,7 +97,8 @@ class VideoStream(db.Model):
     def generate_xml(self, hostname):
 
         feed = Element('feed')
-        SubElement(feed, 'protocol').text = self.protocol if self.protocol else 'rtsp'
+        # Force rtsp to ensure compatibility with ATAK
+        SubElement(feed, 'protocol').text = 'rtsp'
         SubElement(feed, 'alias').text = self.alias if self.alias else self.path
         SubElement(feed, 'uid').text = str(self.uid) if self.uid else str(uuid.uuid4())
         SubElement(feed, 'address').text = hostname
@@ -106,7 +107,7 @@ class VideoStream(db.Model):
         SubElement(feed, 'ignoreEmbeddedKLV').text = self.ignore_embedded_klv
         SubElement(feed, 'preferredMacAddress').text = self.preferred_mac_address
         SubElement(feed, 'preferredInterfaceAddress').text = self.preferred_interface_address
-        SubElement(feed, 'path').text = self.path
+        SubElement(feed, 'path').text = self.path if self.path else self.alias
         SubElement(feed, 'buffer').text = str(self.buffer_time) if self.buffer_time else ""
         SubElement(feed, 'timeout').text = str(self.network_timeout) if self.network_timeout else "10000"
         SubElement(feed, 'rtspReliable').text = str(self.rtsp_reliable) if self.rtsp_reliable else "1"
