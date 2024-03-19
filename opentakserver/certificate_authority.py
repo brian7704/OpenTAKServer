@@ -173,7 +173,7 @@ class CertificateAuthority:
         if exit_code:
             raise Exception("Failed to import key. Exit code {}".format(exit_code))
 
-        os.chmod(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".key"), 620)
+        os.chmod(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".key"), 0o620)
 
         command = 'openssl rsa -in {} -passin pass:{} -out {}'.format(
             os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".key"),

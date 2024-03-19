@@ -208,7 +208,7 @@ def certificate():
             data_package.filename = filename
             data_package.keywords = "public"
             data_package.creator_uid = str(uuid.uuid4())
-            data_package.submission_time = datetime.datetime.now().isoformat() + "Z"
+            data_package.submission_time = datetime.datetime.now()
             data_package.mime_type = "application/x-zip-compressed"
             data_package.size = os.path.getsize(os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', callsign, filename))
             data_package.hash = file_hash
