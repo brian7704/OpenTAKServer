@@ -5,6 +5,8 @@ from opentakserver.extensions import db
 from sqlalchemy import Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from opentakserver.functions import iso8601_string_from_datetime
+
 
 @dataclass
 class DataPackage(db.Model):
@@ -44,7 +46,7 @@ class DataPackage(db.Model):
             'filename': self.filename,
             'hash': self.hash,
             'creator_uid': self.creator_uid,
-            'submission_time': self.submission_time,
+            'submission_time': iso8601_string_from_datetime(self.submission_time),
             'submission_user': self.user.username if self.user else None,
             'keywords': self.keywords,
             'mime_type': self.mime_type,
