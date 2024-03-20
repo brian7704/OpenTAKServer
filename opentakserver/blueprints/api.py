@@ -207,7 +207,7 @@ def certificate():
             data_package = DataPackage()
             data_package.filename = filename
             data_package.keywords = "public"
-            data_package.creator_uid = str(uuid.uuid4())
+            data_package.creator_uid = request.json['uid']
             data_package.submission_time = datetime.datetime.now()
             data_package.mime_type = "application/x-zip-compressed"
             data_package.size = os.path.getsize(os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', callsign, filename))
@@ -223,7 +223,7 @@ def certificate():
                 return ({'success': False, 'error': 'Certificate already exists for {}'.format(callsign)}, 400,
                         {'Content-Type': 'application/json'})
 
-            copyfile(os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', callsign, "{}_DP.zip".format(callsign)),
+            copyfile(os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', callsign, "{}_CONFIG.zip".format(callsign)),
                      os.path.join(app.config.get("UPLOAD_FOLDER"), "{}.zip".format(file_hash)))
 
             cert = Certificate()
@@ -262,13 +262,13 @@ def me():
     return jsonify(me.serialize())
 
 
-@api_blueprint.route('/api/data_packages/upload', methods=['POST'])
+@api_blueprint.route('/api/data_packages', methods=['POST'])
 @auth_required()
 def upload_data_package():
     return data_package_share()
 
 
-@api_blueprint.route('/api/data_packages/delete', methods=['DELETE'])
+@api_blueprint.route('/api/data_packages', methods=['DELETE'])
 @auth_required()
 def delete_data_package():
     file_hash = request.args.get('hash')

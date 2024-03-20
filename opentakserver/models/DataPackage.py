@@ -38,7 +38,7 @@ class DataPackage(db.Model):
             'expiration': self.expiration,
         }
 
-    def to_json(self):
+    def to_json(self, include_eud=True):
         return {
             'filename': self.filename,
             'hash': self.hash,
@@ -50,5 +50,5 @@ class DataPackage(db.Model):
             'size': self.size,
             'tool': self.tool,
             'expiration': self.expiration,
-            'eud': self.eud.to_json() if self.eud else None
+            'eud': self.eud.to_json() if include_eud and self.eud else None
         }

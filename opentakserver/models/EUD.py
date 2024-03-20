@@ -32,7 +32,7 @@ class EUD(db.Model):
     chatroom_uid = relationship("ChatroomsUids", back_populates="eud")
     user: Mapped["User"] = relationship(back_populates="euds")
     alert = relationship("Alert", back_populates="eud")
-    data_packages = relationship("DataPackage", back_populates="eud")
+    data_packages = relationship("DataPackage", back_populates="eud", uselist=False)
     certificate = relationship("Certificate", back_populates="eud", uselist=False)
     markers = relationship("Marker", back_populates="eud")
     rb_lines = relationship("RBLine", back_populates="eud")
@@ -55,6 +55,9 @@ class EUD(db.Model):
         }
 
     def to_json(self):
+        config_datapackage_hash = None
+        if self.certificate and self.certificate.data_package:
+            config_datapackage_hash = self.certificate.data_package.hash
         return {
             'uid': self.uid,
             'callsign': self.callsign,
@@ -69,5 +72,7 @@ class EUD(db.Model):
             'last_point': self.points[-1].to_json() if self.points else None,
             'team': self.team.name if self.team else None,
             'team_color': self.team.get_team_color() if self.team else None,
-            'team_role': self.team_role
+            'team_role': self.team_role,
+            'data_packages': self.data_packages.to_json(False) if self.data_packages else None,
+            'config_hash': config_datapackage_hash
         }

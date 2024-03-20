@@ -286,7 +286,7 @@ class CertificateAuthority:
         manifest_file_parent_template = Template("""<MissionPackageManifest version="2">
                        <Configuration>
                           <Parameter name="uid" value="{{ uid }}"/>
-                          <Parameter name="name" value="OpenTAKServer_{{ server }}_DP"/>
+                          <Parameter name="name" value="OpenTAKServer_{{ server }}_CONFIG"/>
                        </Configuration>
                        <Contents>
                           <Content ignore="false" zipEntry="{{ folder }}/{{ internal_dp_name }}.zip"/>
@@ -348,10 +348,10 @@ class CertificateAuthority:
         with open(os.path.join(user_file_path, "MANIFEST", 'manifest.xml'), 'w') as manifest_parent:
             manifest_parent.write(man_parent)
 
-        self.logger.info("Generating Main Data Package: {}_DP.zip".format(common_name))
+        self.logger.info("Generating Main Data Package: {}_CONFIG.zip".format(common_name))
         copyfile(os.path.join(user_file_path, "{}.zip".format(common_name)), os.path.join(user_file_path, parent_folder,
                                                                                           "{}.zip".format(common_name)))
-        zipp = zipfile.ZipFile(os.path.join(user_file_path, "{}_DP.zip".format(common_name)), 'w', zipfile.ZIP_DEFLATED)
+        zipp = zipfile.ZipFile(os.path.join(user_file_path, "{}_CONFIG.zip".format(common_name)), 'w', zipfile.ZIP_DEFLATED)
 
         for root, dirs, files in os.walk(parent_folder):
             for file in files:
@@ -365,4 +365,4 @@ class CertificateAuthority:
         rmtree(os.path.join(user_file_path, parent_folder))
         os.remove(os.path.join(user_file_path, "{}.zip".format(common_name)))
 
-        return "{}_DP.zip".format(common_name)
+        return "{}_CONFIG.zip".format(common_name)
