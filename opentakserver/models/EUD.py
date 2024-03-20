@@ -54,7 +54,7 @@ class EUD(db.Model):
             'team_role': self.team_role
         }
 
-    def to_json(self):
+    def to_json(self, include_data_packages=True):
         config_datapackage_hash = None
         if self.certificate and self.certificate.data_package:
             config_datapackage_hash = self.certificate.data_package.hash
@@ -73,6 +73,6 @@ class EUD(db.Model):
             'team': self.team.name if self.team else None,
             'team_color': self.team.get_team_color() if self.team else None,
             'team_role': self.team_role,
-            'data_packages': self.data_packages.to_json(False) if self.data_packages else None,
+            'data_packages': self.data_packages.to_json(False) if include_data_packages and self.data_packages else None,
             'config_hash': config_datapackage_hash
         }

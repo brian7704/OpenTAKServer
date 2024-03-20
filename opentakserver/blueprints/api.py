@@ -2,6 +2,7 @@ import datetime
 import hashlib
 import json
 import os
+import shutil
 import traceback
 import uuid
 from shutil import copyfile
@@ -181,7 +182,7 @@ def control_ssl_socket(action):
 
 
 @api_blueprint.route("/api/certificate", methods=['GET', 'POST'])
-@roles_accepted('administrator')
+@auth_required()
 def certificate():
     if request.method == 'POST' and 'callsign' in request.json.keys() and 'uid' in request.json.keys():
         try:
@@ -286,7 +287,14 @@ def delete_data_package():
         db.session.delete(data_package[0])
         db.session.commit()
         os.remove(os.path.join(app.config.get("UPLOAD_FOLDER"), "{}.zip".format(data_package[0].hash)))
+
+        if data_package[0].certificate:
+            Certificate.query.filter_by(id=data_package[0].certificate.id).delete()
+            db.session.commit()
+            shutil.rmtree(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", data_package[0].eud.callsign), ignore_errors=True)
     except BaseException as e:
+        logger.error("Failed to delete data package")
+        logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
 
     return jsonify({'success': True})

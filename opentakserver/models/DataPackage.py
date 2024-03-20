@@ -22,7 +22,8 @@ class DataPackage(db.Model):
     tool: Mapped[str] = mapped_column(String, nullable=True)
     expiration: Mapped[str] = mapped_column(String, nullable=True)
     eud: Mapped["EUD"] = relationship(back_populates="data_packages")
-    certificate = relationship("Certificate", back_populates="data_package")
+    certificate = relationship("Certificate", back_populates="data_package", uselist=False)
+    user = relationship("User", back_populates="data_packages")
 
     def serialize(self):
         return {
@@ -44,11 +45,11 @@ class DataPackage(db.Model):
             'hash': self.hash,
             'creator_uid': self.creator_uid,
             'submission_time': self.submission_time,
-            'submission_user': self.submission_user,
+            'submission_user': self.user.username if self.user else None,
             'keywords': self.keywords,
             'mime_type': self.mime_type,
             'size': self.size,
             'tool': self.tool,
             'expiration': self.expiration,
-            'eud': self.eud.to_json() if include_eud and self.eud else None
+            'eud': self.eud.to_json(False) if include_eud and self.eud else None
         }
