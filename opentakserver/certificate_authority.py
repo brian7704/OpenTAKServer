@@ -108,6 +108,7 @@ class CertificateAuthority:
 
             self.logger.debug("Creating server cert...")
             self.issue_certificate("opentakserver", True)
+            self.logger.info("Certificate authority created successfully. You may need to restart nginx if it's proxying SSL requests.")
 
         else:
             self.logger.debug("CA already exists")
@@ -186,7 +187,8 @@ class CertificateAuthority:
         if exit_code:
             raise Exception("Failed to remove server key password. Exit code {}".format(exit_code))
 
-        return self.generate_zip(common_name)
+        if not server:
+            return self.generate_zip(common_name)
 
     def sign_csr(self, csr_bytes, common_name, server=False):
         os.makedirs(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name), exist_ok=True)
