@@ -540,7 +540,14 @@ def video():
                     # Make sure videos have the correct address based off of the Flask request and not 127.0.0.1
                     # This also forces all streams to bounce through MediaMTX
                     feed = BeautifulSoup(video.xml, 'xml')
-                    feed.find('address').string.replace_with(urlparse(request.url_root).hostname)
+
+                    if feed.find('address'):
+                        feed.find('address').string.replace_with(urlparse(request.url_root).hostname)
+                    else:
+                        address = feed.new_tag('address')
+                        address.string = urlparse(request.url_root).hostname
+                        feed.feed.append(address)
+                        logger.warning(feed)
                     videoconnections.append(fromstring(str(feed)))
 
             return tostring(videoconnections), 200
