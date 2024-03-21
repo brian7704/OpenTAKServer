@@ -6,6 +6,11 @@ try:
 except BaseException as e:
     print("Failed to monkey_patch(): {}".format(e))
 
+import requests
+from sqlalchemy import insert
+import sqlite3
+from opentakserver.models.Icon import Icon
+
 import yaml
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
@@ -202,6 +207,31 @@ if __name__ == '__main__':
     with app.app_context():
         logger.debug("Loading DB..")
         db.create_all()
+
+        # Download the icon sets if they aren't already in the DB
+        icons = db.session.query(Icon).count()
+        if icons == 0:
+            logger.info("Downloading icons...")
+            try:
+                r = requests.get("https://github.com/brian7704/OpenTAKServer-Installer/raw/master/iconsets.sqlite", stream=True)
+                with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "icons.sqlite"), "wb") as f:
+                    f.write(r.content)
+
+                def dict_factory(cursor, row):
+                    d = {}
+                    for idx, col in enumerate(cursor.description):
+                        d[col[0]] = row[idx]
+                    return d
+
+                con = sqlite3.connect(os.path.join(app.config.get("OTS_DATA_FOLDER"), "icons.sqlite"))
+                con.row_factory = dict_factory
+                cur = con.cursor()
+                rows = cur.execute("SELECT * FROM icons")
+                for row in rows:
+                    db.session.execute(insert(Icon).values(**row))
+                db.session.commit()
+            except BaseException as e:
+                logger.error("Failed to download icons: {}".format(e))
 
         if app.config.get("DEBUG"):
             logger.debug("Starting in debug mode")
