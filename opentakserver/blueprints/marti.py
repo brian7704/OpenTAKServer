@@ -91,7 +91,7 @@ def tls_config():
 def enrollment():
     if not basic_auth(request.headers.get('Authorization')):
         return '', 401
-    logger.error("enrollment {}".format(request.args.get('clientUid')))
+    logger.info("Enrollment request from {}".format(request.args.get('clientUid')))
     return '', 204
 
 
@@ -375,7 +375,7 @@ def data_package_share():
                 data_package.hash = file_hash
                 data_package.creator_uid = request.args.get('creatorUid') if request.args.get('creatorUid') else str(
                     uuid.uuid4())
-                data_package.submission_user = current_user.username if current_user.is_authenticated else None
+                data_package.submission_user = current_user.id if current_user.is_authenticated else None
                 data_package.submission_time = datetime.datetime.now()
                 data_package.mime_type = file.mimetype
                 data_package.size = os.path.getsize(os.path.join(app.config.get("UPLOAD_FOLDER"), filename))
@@ -434,7 +434,6 @@ def data_package_query():
         else:
             return {'error': '404'}, 404, {'Content-Type': 'application/json'}
     except sqlalchemy.exc.NoResultFound as e:
-        logger.error("Failed to get dps: {}".format(e))
         return {'error': '404'}, 404, {'Content-Type': 'application/json'}
 
 
@@ -443,11 +442,14 @@ def data_package_search():
     data_packages = db.session.execute(db.select(DataPackage)).scalars()
     res = {'resultCount': 0, 'results': []}
     for dp in data_packages:
+        submission_user = "anonymous"
+        if dp.user:
+            submission_user = dp.user.username
         res['results'].append(
             {'UID': dp.hash, 'Name': dp.filename, 'Hash': dp.hash, 'CreatorUid': dp.creator_uid,
              "SubmissionDateTime": dp.submission_time.strftime('%Y-%m-%dT%H:%M:%S.000Z'), "Expiration": -1, "Keywords": "[missionpackage]",
-             "MIMEType": dp.mime_type, "Size": dp.size, "SubmissionUser": "anonymous", "PrimaryKey": dp.id,
-             "Tool": "public"
+             "MIMEType": dp.mime_type, "Size": dp.size, "SubmissionUser": submission_user, "PrimaryKey": dp.id,
+             "Tool": dp.tool
              })
         res['resultCount'] += 1
 
