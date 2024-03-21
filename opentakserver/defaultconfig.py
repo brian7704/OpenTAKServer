@@ -11,12 +11,10 @@ class DefaultConfig:
     SECRET_KEY = secrets.token_hex()
 
     OTS_DATA_FOLDER = os.path.join(Path.home(), 'ots')
-    OTS_LISTENER_PORT = 8081  # OTS will listen for HTTP requests on this port. Nginx will listen on OTS_HTTP_PORT,
-                              # OTS_HTTPS_PORT, and OTS_CERTIFICATE_ENROLLMENT_PORT and proxy requests to OTS_LISTENER_PORT
-    OTS_HTTP_PORT = 8080
+    OTS_LISTENER_PORT = 8081  # OTS will listen for HTTP requests on this port. Nginx will listen on ports 80, 443,
+                              # 8080, 8443, and 8446 and proxy requests to OTS_LISTENER_PORT
     OTS_HTTPS_PORT = 8443
-    OTS_CERTIFICATE_ENROLLMENT_PORT = 8446
-    OTS_COT_PORT = 8087
+    OTS_ENABLE_TCP_STREAMING_PORT = True
     OTS_TCP_STREAMING_PORT = 8088
     OTS_SSL_STREAMING_PORT = 8089
     OTS_MEDIAMTX_TOKEN = str(secrets.SystemRandom().getrandbits(128))
@@ -95,9 +93,7 @@ class DefaultConfig:
     SECURITY_TWO_FACTOR = True
     SECURITY_TOTP_SECRETS = {1: pyotp.random_base32()}
     SECURITY_TOTP_ISSUER = "OpenTAKServer"
-    SECURITY_TWO_FACTOR_ENABLED_METHODS = ["authenticator"]
-    if OTS_ENABLE_EMAIL:
-        SECURITY_TWO_FACTOR_ENABLED_METHODS.append("email")
+    SECURITY_TWO_FACTOR_ENABLED_METHODS = ["authenticator", "email"]
     SECURITY_TWO_FACTOR_RESCUE_MAIL = MAIL_USERNAME
     SECURITY_TWO_FACTOR_ALWAYS_VALIDATE = False
     SECURITY_LOGIN_WITHOUT_CONFIRMATION = True

@@ -11,6 +11,7 @@ import pathlib
 from urllib.parse import urlparse
 
 import ffmpeg
+import yaml
 from sqlalchemy import update
 from werkzeug.datastructures import ImmutableMultiDict
 
@@ -76,6 +77,19 @@ def paginate(query):
     return jsonify(results)
 
 
+def change_config_setting(setting, value):
+    try:
+        with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), "r") as config_file:
+            config = yaml.safe_load(config_file.read())
+
+        config[setting] = value
+        with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), "w") as config_file:
+            yaml.safe_dump(config, config_file)
+
+    except BaseException as e:
+        logger.error("Failed to change setting {} to {} in config.yml: {}".format(setting, value, e))
+
+
 @api_blueprint.route('/api/status')
 @auth_required()
 def status():
@@ -137,7 +151,10 @@ def control_tcp_socket(action):
         if app.tcp_thread.is_alive():
             return jsonify({'success': False, 'error': 'TCP thread is already active'}), 400
 
-        tcp_thread = SocketServer(logger, app, app.app_context(), app.config.get("OTS_TCP_STREAMING_PORT"))
+        change_config_setting("OTS_ENABLE_TCP_STREAMING_PORT", True)
+        app.config.update(OTS_ENABLE_TCP_STREAMING_PORT=True)
+
+        tcp_thread = SocketServer(logger, app.app_context(), app.config.get("OTS_TCP_STREAMING_PORT"))
         tcp_thread.start()
         app.tcp_thread = tcp_thread
 
@@ -146,6 +163,9 @@ def control_tcp_socket(action):
     elif action == 'stop':
         if not app.tcp_thread.is_alive():
             return jsonify({'success': False, 'error': 'TCP thread is not active'}), 400
+
+        change_config_setting("OTS_ENABLE_TCP_STREAMING_PORT", False)
+        app.config.update(OTS_ENABLE_TCP_STREAMING_PORT=False)
 
         app.tcp_thread.stop()
         return jsonify({'success': True})

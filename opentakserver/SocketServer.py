@@ -22,8 +22,12 @@ class SocketServer(Thread):
     def run(self):
         if self.ssl:
             self.socket = self.launch_ssl_server()
-        else:
+        elif self.app_context.app.config.get("OTS_ENABLE_TCP_STREAMING_PORT"):
             self.socket = self.launch_tcp_server()
+        else:
+            self.logger.info("TCP connections are disabled")
+            return
+
         self.socket.settimeout(1.0)
 
         while not self.shutdown:

@@ -547,7 +547,6 @@ def video():
                         address = feed.new_tag('address')
                         address.string = urlparse(request.url_root).hostname
                         feed.feed.append(address)
-                        logger.warning(feed)
                     videoconnections.append(fromstring(str(feed)))
 
             return tostring(videoconnections), 200
