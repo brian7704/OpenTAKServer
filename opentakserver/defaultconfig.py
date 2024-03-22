@@ -6,6 +6,8 @@ import pyotp
 from pathlib import Path
 import os
 
+import opentakserver
+
 
 class DefaultConfig:
     SECRET_KEY = secrets.token_hex()
@@ -18,7 +20,7 @@ class DefaultConfig:
     OTS_TCP_STREAMING_PORT = 8088
     OTS_SSL_STREAMING_PORT = 8089
     OTS_MEDIAMTX_TOKEN = str(secrets.SystemRandom().getrandbits(128))
-    OTS_VERSION = '0.1-OTS-DEV'
+    OTS_VERSION = opentakserver.__version__
     OTS_SSL_VERIFICATION_MODE = 2  # Equivalent to ssl.CERT_REQUIRED. https://docs.python.org/3/library/ssl.html#ssl.SSLContext.verify_mode
     OTS_NODE_ID = ''.join(random.choices(string.ascii_lowercase + string.digits, k=64))
     OTS_CA_NAME = 'OpenTAKServer-CA'
