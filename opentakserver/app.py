@@ -36,6 +36,7 @@ from flask_security.signals import user_registered
 
 from opentakserver.extensions import logger, db, socketio, mail, apscheduler
 from opentakserver.defaultconfig import DefaultConfig
+from opentakserver.models.WebAuthn import WebAuthn
 
 from opentakserver.controllers.cot_controller import CoTController
 from opentakserver.certificate_authority import CertificateAuthority
@@ -100,7 +101,7 @@ def init_extensions(app):
     from opentakserver.models.user import User
     from opentakserver.models.role import Role
 
-    user_datastore = SQLAlchemyUserDatastore(db, User, Role)
+    user_datastore = SQLAlchemyUserDatastore(db, User, Role, WebAuthn)
     app.security = Security(app, user_datastore, mail_util_cls=EmailValidator)
 
     mail.init_app(app)
