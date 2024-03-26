@@ -1,9 +1,6 @@
-import traceback
-
 import tldextract
 from flask_security import MailUtil
 from extensions import logger
-from flask_security.utils import get_message
 
 
 class EmailValidator(MailUtil):
@@ -13,11 +10,6 @@ class EmailValidator(MailUtil):
         self.app = app
 
     def validate(self, email: str) -> str:
-        logger.error(traceback.print_stack())
-        logger.info("EmailValidator {}".format(email))
-
-        logger.error(get_message("INVALID_EMAIL_ADDRESS"))
-
         domain_whitelist = self.app.config.get("OTS_EMAIL_DOMAIN_WHITELIST")
         domain_blacklist = self.app.config.get("OTS_EMAIL_DOMAIN_BLACKLIST")
         tld_whitelist = self.app.config.get("OTS_EMAIL_TLD_WHITELIST")
@@ -25,7 +17,7 @@ class EmailValidator(MailUtil):
 
         domain = email.split("@")[-1]
         parsed_domain = tldextract.extract(domain)
-        logger.info("Got domain: {}".format(domain))
+        logger.debug("Got domain: {}".format(domain))
 
         if domain_whitelist and domain not in domain_whitelist:
             logger.error("Domain {} is not whitelisted".format(domain))
