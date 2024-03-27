@@ -2,6 +2,7 @@ import datetime
 import hashlib
 import json
 import os
+import platform
 import shutil
 import traceback
 import uuid
@@ -45,6 +46,7 @@ from opentakserver.models.Icon import Icon
 from opentakserver.models.Marker import Marker
 from opentakserver.models.RBLine import RBLine
 from opentakserver.models.VideoRecording import VideoRecording
+from opentakserver import __version__ as version
 
 api_blueprint = Blueprint('api_blueprint', __name__)
 
@@ -129,6 +131,14 @@ def status():
         battery = psutil.sensors_battery()
         battery_dict = {'percent': battery.percent, 'charging': battery.power_plugged, 'time_left': battery.secsleft}
 
+    try:
+        os_release = platform.freedesktop_os_release()
+    except:
+        os_release = None
+
+    uname = {'system': platform.system(), 'node': platform.node(), 'release': platform.release(),
+             'version': platform.version(), 'machine': platform.machine()}
+
     response = {
         'tcp': app.tcp_thread.is_alive(), 'ssl': app.ssl_thread.is_alive(),
         'cot_router': app.cot_thread.iothread.is_alive(),
@@ -136,7 +146,8 @@ def status():
         'system_uptime': system_uptime.total_seconds(), 'ots_start_time': app.start_time.strftime("%Y-%m-%d %H:%M:%SZ"),
         'ots_uptime': ots_uptime.total_seconds(), 'cpu_time': cpu_time_dict, 'cpu_percent': p.cpu_percent(),
         'load_avg': psutil.getloadavg(), 'memory': vmem_dict, 'disk_usage': disk_usage_dict, 'temps': temps_dict,
-        'fans': fans_dict, 'battery': battery_dict, 'ots_version': app.config.get("OTS_VERSION")
+        'fans': fans_dict, 'battery': battery_dict, 'ots_version': version, 'uname': uname,
+        'os_release': os_release, 'python_version': platform.python_version()
     }
 
     return jsonify(response)

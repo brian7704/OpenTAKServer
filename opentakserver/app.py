@@ -41,7 +41,10 @@ from opentakserver.models.WebAuthn import WebAuthn
 from opentakserver.controllers.cot_controller import CoTController
 from opentakserver.certificate_authority import CertificateAuthority
 from opentakserver.SocketServer import SocketServer
-from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
+try:
+    from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
+except ModuleNotFoundError:
+    print("Mumble auth not supported on this platform")
 
 
 def init_extensions(app):
