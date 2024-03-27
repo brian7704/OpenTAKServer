@@ -5,6 +5,7 @@ from sqlalchemy import Integer, String, ForeignKey, Boolean, Float, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.functions import iso8601_string_from_datetime
+from opentakserver.models.Icon import Icon
 
 
 class CasEvac(db.Model):
@@ -108,6 +109,7 @@ class CasEvac(db.Model):
         }
 
     def to_json(self):
+        icon = db.session.execute(db.session.query(Icon).filter(Icon.filename == 'red_crs.png')).first()[0]
         return {
             'sender_uid': self.sender_uid,
             'uid': self.uid,
@@ -152,5 +154,6 @@ class CasEvac(db.Model):
             'zone_prot_selection': self.zone_prot_selection,
             'zmist': self.zmist.serialize() if self.zmist else None,
             'eud': self.eud,
-            'point': self.point.to_json() if self.point else None
+            'point': self.point.to_json() if self.point else None,
+            'icon': icon.to_json()
         }

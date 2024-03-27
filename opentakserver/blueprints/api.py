@@ -994,7 +994,7 @@ def get_markers():
 @auth_required()
 def get_map_state():
     try:
-        results = {'euds': [], 'markers': [], 'rb_lines': []}
+        results = {'euds': [], 'markers': [], 'rb_lines': [], 'casevacs': []}
 
         euds = db.session.execute(db.session.query(EUD)).all()
         for eud in euds:
@@ -1009,6 +1009,11 @@ def get_map_state():
             db.session.query(RBLine).join(CoT).filter(CoT.stale >= datetime.datetime.now())).all()
         for rb_line in rb_lines:
             results['rb_lines'].append(rb_line[0].to_json())
+
+        casevacs = db.session.execute(
+            db.session.query(CasEvac).join(CoT).filter(CoT.stale >= datetime.datetime.now())).all()
+        for casevac in casevacs:
+            results['casevacs'].append(casevac[0].to_json())
 
     except BaseException as e:
         logger.error(traceback.format_exc())
