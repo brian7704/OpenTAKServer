@@ -155,5 +155,7 @@ class CasEvac(db.Model):
             'zmist': self.zmist.serialize() if self.zmist else None,
             'eud': self.eud,
             'point': self.point.to_json() if self.point else None,
-            'icon': icon.to_json()
+            'icon': icon.to_json(),
+            'start': iso8601_string_from_datetime(self.cot.start) if self.cot else None,
+            'stale': iso8601_string_from_datetime(self.cot.stale) if self.cot else None,
         }
