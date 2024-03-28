@@ -6,6 +6,7 @@ try:
 except BaseException as e:
     print("Failed to monkey_patch(): {}".format(e))
 
+import platform
 import requests
 from sqlalchemy import insert
 import sqlite3
@@ -146,7 +147,10 @@ def create_app():
         with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), "w") as config:
             conf = {}
             for option in DefaultConfig.__dict__:
-                if option.isupper():
+                # Fix the sqlite DB path on Windows
+                if option == "SQLALCHEMY_DATABASE_URI" and platform.system() == "Windows" and DefaultConfig.__dict__[option].startswith("sqlite"):
+                    conf[option] = DefaultConfig.__dict__[option].replace("////", "///").replace("\\", "/")
+                elif option.isupper():
                     conf[option] = DefaultConfig.__dict__[option]
             config.write(yaml.safe_dump(conf))
 
