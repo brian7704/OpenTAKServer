@@ -60,11 +60,20 @@ class CertificateAuthority:
             if exit_code:
                 raise Exception("Failed to add trust to CA. Exit code {}".format(exit_code))
 
-            command = ('openssl pkcs12 -legacy -export -in {} -out {} -passout pass:{} -nokeys -caname {}'
-                       .format(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca-trusted.pem"),
-                               os.path.join(self.app.config.get("OTS_CA_FOLDER"), "truststore-root.p12"),
-                               self.app.config.get("OTS_CA_PASSWORD"),
-                               self.app.config.get("OTS_CA_NAME")))
+            use_legacy = not subprocess.call("openssl list -providers", shell=True)
+
+            if use_legacy:
+                command = ('openssl pkcs12 -legacy -export -in {} -out {} -passout pass:{} -nokeys -caname {}'
+                           .format(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca-trusted.pem"),
+                                   os.path.join(self.app.config.get("OTS_CA_FOLDER"), "truststore-root.p12"),
+                                   self.app.config.get("OTS_CA_PASSWORD"),
+                                   self.app.config.get("OTS_CA_NAME")))
+            else:
+                command = ('openssl pkcs12 -export -in {} -out {} -passout pass:{} -nokeys -caname {}'
+                           .format(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca-trusted.pem"),
+                                   os.path.join(self.app.config.get("OTS_CA_FOLDER"), "truststore-root.p12"),
+                                   self.app.config.get("OTS_CA_PASSWORD"),
+                                   self.app.config.get("OTS_CA_NAME")))
 
             self.logger.debug(command)
 
@@ -108,7 +117,8 @@ class CertificateAuthority:
 
             self.logger.debug("Creating server cert...")
             self.issue_certificate("opentakserver", True)
-            self.logger.info("Certificate authority created successfully. You may need to restart nginx if it's proxying SSL requests.")
+            self.logger.info(
+                "Certificate authority created successfully. You may need to restart nginx if it's proxying SSL requests.")
 
         else:
             self.logger.debug("CA already exists")
@@ -125,11 +135,12 @@ class CertificateAuthority:
         subject = self.app.config.get("OTS_CA_SUBJECT") + "/CN={}".format(common_name)
 
         command = (
-            'openssl req -new -newkey rsa:2048 -sha256 -keyout {} -passout pass:{} -out {} -subj {}'
+            'openssl req -new -newkey rsa:2048 -sha256 -keyout {} -passout pass:{} -out {} -subj {} -config {}'
             .format(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".key"),
                     self.app.config.get("OTS_CA_PASSWORD"),
                     os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".csr"),
-                    subject))
+                    subject,
+                    os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca_config.cfg")))
 
         self.logger.debug(command)
 
@@ -143,15 +154,28 @@ class CertificateAuthority:
 
         self.sign_csr(csr_bytes, common_name, server)
 
-        command = (
-            'openssl pkcs12 -legacy -export -in {}.pem -inkey {}.key -out {}.p12 -name {} -CAfile {} -passin pass:{} -passout pass:{}'
-            .format(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name),
-                    os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name),
-                    os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name),
-                    common_name,
-                    os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca.pem"),
-                    self.app.config.get("OTS_CA_PASSWORD"),
-                    self.app.config.get("OTS_CA_PASSWORD")))
+        use_legacy = not subprocess.call("openssl list -providers", shell=True)
+
+        if use_legacy:
+            command = (
+                'openssl pkcs12 -legacy -export -in {}.pem -inkey {}.key -out {}.p12 -name {} -CAfile {} -passin pass:{} -passout pass:{}'
+                .format(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name),
+                        os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name),
+                        os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name),
+                        common_name,
+                        os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca.pem"),
+                        self.app.config.get("OTS_CA_PASSWORD"),
+                        self.app.config.get("OTS_CA_PASSWORD")))
+        else:
+            command = (
+                'openssl pkcs12 -export -in {}.pem -inkey {}.key -out {}.p12 -name {} -CAfile {} -passin pass:{} -passout pass:{}'
+                .format(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name),
+                        os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name),
+                        os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name),
+                        common_name,
+                        os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca.pem"),
+                        self.app.config.get("OTS_CA_PASSWORD"),
+                        self.app.config.get("OTS_CA_PASSWORD")))
 
         self.logger.debug(command)
 
@@ -353,7 +377,8 @@ class CertificateAuthority:
         self.logger.info("Generating Main Data Package: {}_CONFIG.zip".format(common_name))
         copyfile(os.path.join(user_file_path, "{}.zip".format(common_name)), os.path.join(user_file_path, parent_folder,
                                                                                           "{}.zip".format(common_name)))
-        zipp = zipfile.ZipFile(os.path.join(user_file_path, "{}_CONFIG.zip".format(common_name)), 'w', zipfile.ZIP_DEFLATED)
+        zipp = zipfile.ZipFile(os.path.join(user_file_path, "{}_CONFIG.zip".format(common_name)), 'w',
+                               zipfile.ZIP_DEFLATED)
 
         for root, dirs, files in os.walk(parent_folder):
             for file in files:

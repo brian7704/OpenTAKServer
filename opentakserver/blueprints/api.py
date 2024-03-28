@@ -134,7 +134,7 @@ def status():
     try:
         os_release = platform.freedesktop_os_release()
     except:
-        os_release = None
+        os_release = {'NAME': None, 'PRETTY_NAME': None, 'VERSION': None, 'VERSION_CODENAME': None}
 
     uname = {'system': platform.system(), 'node': platform.node(), 'release': platform.release(),
              'version': platform.version(), 'machine': platform.machine()}
