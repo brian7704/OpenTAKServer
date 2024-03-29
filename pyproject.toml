@@ -44,6 +44,7 @@ vcs = "git"
 style = "semver"
 metadata = true
 dirty = true
+pattern = "((?P<epoch>\\d+)!)?(?P<base>\\d+(\\.\\d+)*)"
 
 [tool.poetry-dynamic-versioning.files."opentakserver/__init__.py"]
 persistent-substitution = true
