@@ -1,9 +1,12 @@
 [tool.poetry]
 name = "opentakserver"
-version = "0.0.0-post.127+ffc5dd8.dirty"
+version = "0.0.0"
 description = "A server for ATAK, WinTAK, and iTAK"
 authors = ["OpenTAKServer <opentakserver@gmail.com>"]
 readme = "README.md"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/brian7704/OpenTAKServer"
+documentation = "https://docs.opentakserver.io"
 
 [tool.poetry.dependencies]
 adsbxcot = "6.0.4"
