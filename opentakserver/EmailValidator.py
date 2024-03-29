@@ -1,6 +1,6 @@
 import tldextract
 from flask_security import MailUtil
-from extensions import logger
+from opentakserver.extensions import logger
 
 
 class EmailValidator(MailUtil):
