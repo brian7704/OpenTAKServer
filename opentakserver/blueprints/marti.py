@@ -109,8 +109,12 @@ def sign_csr_v2():
 
     try:
         uid = request.args.get("clientUid")
-        csr = '-----BEGIN CERTIFICATE REQUEST-----\n' + request.data.decode(
-            'utf-8') + '-----END CERTIFICATE REQUEST-----'
+
+        if "iTAK" not in request.user_agent.string:
+            csr = '-----BEGIN CERTIFICATE REQUEST-----\n' + request.data.decode(
+                'utf-8') + '-----END CERTIFICATE REQUEST-----'
+        else:
+            csr = request.data.decode('utf-8')
 
         x509 = crypto.load_certificate_request(crypto.FILETYPE_PEM, csr.encode())
         common_name = x509.get_subject().CN
@@ -122,11 +126,6 @@ def sign_csr_v2():
         signed_csr = signed_csr.replace("-----BEGIN CERTIFICATE-----\n", "")
         signed_csr = signed_csr.replace("\n-----END CERTIFICATE-----\n", "")
 
-        enrollment = Element('enrollment')
-        signed_cert = SubElement(enrollment, 'signedCert')
-        signed_cert.text = signed_csr
-        ca = SubElement(enrollment, 'ca')
-
         f = open(os.path.join(app.config.get("OTS_CA_FOLDER"), "ca.pem"), 'r')
         cert = f.read()
         f.close()
@@ -134,10 +133,17 @@ def sign_csr_v2():
         cert = cert.replace("-----BEGIN CERTIFICATE-----\n", "")
         cert = cert.replace("\n-----END CERTIFICATE-----\n", "")
 
-        ca.text = cert
+        if "iTAK" in request.user_agent.string:
+            response = {'signedCert': signed_csr, 'ca0': cert, 'ca1': cert}
+        else:
+            enrollment = Element('enrollment')
+            signed_cert = SubElement(enrollment, 'signedCert')
+            signed_cert.text = signed_csr
+            ca = SubElement(enrollment, 'ca')
+            ca.text = cert
 
-        response = tostring(enrollment).decode('utf-8')
-        response = '<?xml version="1.0" encoding="UTF-8"?>\n' + response
+            response = tostring(enrollment).decode('utf-8')
+            response = '<?xml version="1.0" encoding="UTF-8"?>\n' + response
 
         username, password = base64.b64decode(
             request.headers.get("Authorization").split(" ")[-1].encode('utf-8')).decode(
@@ -194,7 +200,10 @@ def sign_csr_v2():
 
             db.session.commit()
 
-        return response, 200, {'Content-Type': 'application/xml', 'Content-Encoding': 'charset=UTF-8'}
+        if "iTAK" in request.user_agent.string:
+            return response, 200, {'Content-Type': 'text/plain', 'Content-Encoding': 'charset=UTF-8'}
+        else:
+            return response, 200, {'Content-Type': 'application/xml', 'Content-Encoding': 'charset=UTF-8'}
     except BaseException as e:
         logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
@@ -447,9 +456,9 @@ def data_package_search():
             submission_user = dp.user.username
         res['results'].append(
             {'UID': dp.hash, 'Name': dp.filename, 'Hash': dp.hash, 'CreatorUid': dp.creator_uid,
-             "SubmissionDateTime": dp.submission_time.strftime('%Y-%m-%dT%H:%M:%S.000Z'), "Expiration": -1, "Keywords": "[missionpackage]",
+             "SubmissionDateTime": dp.submission_time.strftime('%Y-%m-%dT%H:%M:%S.000Z'), "EXPIRATION": -1, "Keywords": ["missionpackage"],
              "MIMEType": dp.mime_type, "Size": dp.size, "SubmissionUser": submission_user, "PrimaryKey": dp.id,
-             "Tool": dp.tool
+             "Tool": dp.tool if dp.tool else "public"
              })
         res['resultCount'] += 1
 
@@ -541,11 +550,19 @@ def video():
                     # This also forces all streams to bounce through MediaMTX
                     feed = BeautifulSoup(video.xml, 'xml')
 
+                    url = urlparse(request.url_root).hostname
+                    path = feed.find('path').text
+                    if not path.startswith("/"):
+                        path = "/" + path
+
+                    if 'iTAK' in request.user_agent.string:
+                        url = feed.find('protocol').text + "://" + url + ":" + feed.find("port").text + path
+
                     if feed.find('address'):
-                        feed.find('address').string.replace_with(urlparse(request.url_root).hostname)
+                        feed.find('address').string.replace_with(url)
                     else:
                         address = feed.new_tag('address')
-                        address.string = urlparse(request.url_root).hostname
+                        address.string = url
                         feed.feed.append(address)
                     videoconnections.append(fromstring(str(feed)))
 

@@ -607,8 +607,16 @@ class CoTController:
 
         elif destinations:
             for destination in destinations:
+                # ATAK and WinTAK use callsign, iTAK uses uid
+                if 'callsign' in destination.attrs:
+                    uid = self.online_callsigns[destination.attrs['callsign']]['uid']
+                elif 'uid' in destination.attrs:
+                    uid = destination.attrs['uid']
+                else:
+                    continue
+
                 self.rabbit_channel.basic_publish(exchange='dms',
-                                                  routing_key=self.online_callsigns[destination.attrs['callsign']]['uid'],
+                                                  routing_key=uid,
                                                   body=json.dumps(data))
 
         # If no destination or callsign is specified, broadcast to all TAK clients

@@ -50,6 +50,14 @@ class ClientController(Thread):
         self.course = 0
         self.speed = 0
         self.location_source = None
+        self.common_name = None
+
+        if self.is_ssl:
+            self.sock.do_handshake()
+            for c in self.sock.getpeercert()['subject']:
+                if c[0][0] == 'commonName':
+                    self.common_name = c[0][1]
+                    self.logger.debug("Got common name {}".format(self.common_name))
 
         # RabbitMQ
         try:
@@ -118,11 +126,56 @@ class ClientController(Thread):
 
                 event = soup.find('event')
                 auth = soup.find('auth')
+
+                if not self.is_authenticated and (auth or self.common_name):
+                    with self.app.app_context():
+                        if auth:
+                            cot = auth.find('cot')
+                            if cot:
+                                username = cot.attrs['username']
+                                password = cot.attrs['password']
+                                uid = cot.attrs['uid']
+                                user = self.app.security.datastore.find_user(username=username)
+                        elif self.common_name:
+                            user = self.app.security.datastore.find_user(username=self.common_name)
+
+                        if not user:
+                            self.logger.warning("User {} does not exist".format(username))
+                            self.close_connection()
+                            break
+                        elif not user.active:
+                            self.logger.warning("User {} is deactivated, disconnecting".format(username))
+                            self.close_connection()
+                            break
+                        elif self.common_name:
+                            self.logger.info("{} is ID'ed by cert".format(user.username))
+                            self.is_authenticated = True
+                        elif verify_password(password, user.password):
+                            self.logger.info("Successful login from {}".format(username))
+                            self.is_authenticated = True
+                            try:
+                                eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
+                                self.logger.debug("Associating EUD uid {} to user {}".format(eud.uid, user.username))
+                                eud.user_id = user.id
+                                self.db.session.commit()
+                            except:
+                                self.logger.debug("This is a new eud: {} {}".format(uid, user.username))
+                                eud = EUD()
+                                eud.uid = uid
+                                eud.user_id = user.id
+                                self.db.session.add(eud)
+                                self.db.session.commit()
+
+                            else:
+                                self.logger.warning("Wrong password for user {}".format(username))
+                                self.close_connection()
+                                break
+
                 if event:
                     # If this client is connected via ssl, make sure they're authenticated
                     # before accepting any data from them
                     if self.is_ssl and not self.is_authenticated:
-                        self.logger.debug("EUD isn't authenticated, ignoring")
+                        self.logger.warning("EUD isn't authenticated, ignoring")
                         continue
 
                     if event and self.pong(event):
@@ -135,42 +188,6 @@ class ClientController(Thread):
                     if self.rabbit_channel:
                         self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='',
                                                           body=json.dumps(message))
-                elif auth:
-                    with self.app.app_context():
-                        cot = auth.find('cot')
-                        if cot:
-                            username = cot.attrs['username']
-                            password = cot.attrs['password']
-                            uid = cot.attrs['uid']
-                            user = self.app.security.datastore.find_user(username=username)
-                            if not user:
-                                self.logger.warning("User {} does not exist".format(username))
-                                self.close_connection()
-                                break
-                            elif not user.active:
-                                self.logger.warning("User {} is deactivated, disconnecting".format(username))
-                                self.close_connection()
-                                break
-                            elif verify_password(password, user.password):
-                                self.logger.info("Successful login from {}".format(username))
-                                self.is_authenticated = True
-                                try:
-                                    eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
-                                    self.logger.debug("Associating EUD uid {} to user {}".format(eud.uid, user.username))
-                                    eud.user_id = user.id
-                                    self.db.session.commit()
-                                except:
-                                    self.logger.debug("This is a new eud: {} {}".format(uid, user.username))
-                                    eud = EUD()
-                                    eud.uid = uid
-                                    eud.user_id = user.id
-                                    self.db.session.add(eud)
-                                    self.db.session.commit()
-
-                            else:
-                                self.logger.warning("Wrong password for user {}".format(username))
-                                self.close_connection()
-                                break
 
             else:
                 self.send_disconnect_cot()

@@ -12,6 +12,7 @@ class User(db.Model, fsqla.FsUserMixin):
     video_streams = relationship("VideoStream", back_populates="user")
     euds = relationship("EUD", back_populates="user")
     data_packages = relationship("DataPackage", back_populates="user")
+    certificate = relationship("Certificate", back_populates="user")
 
     def serialize(self):
         return {

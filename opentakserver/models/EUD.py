@@ -66,7 +66,7 @@ class EUD(db.Model):
             'platform': self.platform,
             'version': self.version,
             'phone_number': self.phone_number,
-            'last_event_time': iso8601_string_from_datetime(self.last_event_time),
+            'last_event_time': iso8601_string_from_datetime(self.last_event_time) if self.last_event_time else None,
             'last_status': self.last_status,
             'username': self.user.username if self.user else None,
             'last_point': self.points[-1].to_json() if self.points else None,

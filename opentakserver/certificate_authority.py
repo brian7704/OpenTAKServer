@@ -388,8 +388,39 @@ class CertificateAuthority:
                 zipp.write(os.path.join(root, file))
         zipp.close()
 
+        # Generate iTAK zip
+        itak_preferences = Template("""<?xml version='1.0' standalone='yes'?>
+<preferences>
+  <preference version="1" name="cot_streams">
+    <entry key="count" class="class java.lang.Integer">1</entry>
+    <entry key="description0" class="class java.lang.String">OpenTAKServer_{{ server }}</entry>
+    <entry key="enabled0" class="class java.lang.Boolean">true</entry>
+    <entry key="connectString0" class="class java.lang.String">{{ server }}:{{ ssl_port }}:ssl</entry>
+  </preference>
+  <preference version="1" name="com.atakmap.app_preferences">
+    <entry key="displayServerConnectionWidget" class="class java.lang.Boolean">true</entry>
+    <entry key="caLocation" class="class java.lang.String">cert/truststore-root.p12</entry>
+    <entry key="caPassword" class="class java.lang.String">{{ cert_password }}</entry>
+    <entry key="clientPassword" class="class java.lang.String">{{ cert_password }}</entry>
+    <entry key="certificateLocation" class="class java.lang.String">cert/{{ common_name }}.p12</entry>
+  </preference>
+</preferences>
+
+""")
+
+        itak_zip = zipfile.ZipFile(os.path.join(user_file_path, "{}_CONFIG_iTAK.zip".format(common_name)), 'w',
+                                   zipfile.ZIP_DEFLATED)
+        itak_zip.writestr("config.pref",
+                          itak_preferences.render(server=urlparse(request.url_root).hostname,
+                                                  ssl_port=self.app.config.get("OTS_SSL_STREAMING_PORT"),
+                                                  cert_password=self.app.config.get("OTS_CA_PASSWORD"),
+                                                  common_name=common_name))
+        itak_zip.write(os.path.join(user_file_path, common_name + ".p12"), common_name + ".p12")
+        itak_zip.write(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "truststore-root.p12"), "truststore-root.p12")
+        itak_zip.close()
+
         rmtree(os.path.join(user_file_path, "MANIFEST"))
         rmtree(os.path.join(user_file_path, parent_folder))
         os.remove(os.path.join(user_file_path, "{}.zip".format(common_name)))
 
-        return "{}_CONFIG.zip".format(common_name)
+        return ["{}_CONFIG.zip".format(common_name), "{}_CONFIG_iTAK.zip".format(common_name)]

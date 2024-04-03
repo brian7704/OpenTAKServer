@@ -17,6 +17,7 @@ class Certificate(db.Model):
     eud_uid: Mapped[str] = mapped_column(Integer, ForeignKey("euds.uid"), nullable=True)
     data_package_id: Mapped[int] = mapped_column(Integer, ForeignKey("data_packages.id"), nullable=True)
     callsign: Mapped[str] = mapped_column(String, nullable=True)
+    username: Mapped[str] = mapped_column(String, ForeignKey("user.username"), nullable=True)
     expiration_date: Mapped[datetime] = mapped_column(DateTime)
     server_address: Mapped[str] = mapped_column(String)
     server_port: Mapped[int] = mapped_column(Integer)
@@ -24,6 +25,7 @@ class Certificate(db.Model):
     user_cert_filename: Mapped[str] = mapped_column(String)
     csr: Mapped[str] = mapped_column(String, nullable=True)
     cert_password: Mapped[str] = mapped_column(String)
+    user = relationship("User", back_populates="certificate", uselist=False)
     eud = relationship("EUD", back_populates="certificate", uselist=False)
     data_package = relationship("DataPackage", back_populates="certificate", uselist=False)
 
