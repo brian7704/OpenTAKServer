@@ -408,13 +408,17 @@ class CertificateAuthority:
 
 """)
 
+        f = open(os.path.join(user_file_path, "config.pref"), 'w')
+        f.write(itak_preferences.render(server=urlparse(request.url_root).hostname,
+                                        ssl_port=self.app.config.get("OTS_SSL_STREAMING_PORT"),
+                                        cert_password=self.app.config.get("OTS_CA_PASSWORD"),
+                                        common_name=common_name))
+        f.close()
+
+        self.logger.info("Generating {}_CONFIG_iTAK.zip...".format(common_name))
         itak_zip = zipfile.ZipFile(os.path.join(user_file_path, "{}_CONFIG_iTAK.zip".format(common_name)), 'w',
                                    zipfile.ZIP_DEFLATED)
-        itak_zip.writestr("config.pref",
-                          itak_preferences.render(server=urlparse(request.url_root).hostname,
-                                                  ssl_port=self.app.config.get("OTS_SSL_STREAMING_PORT"),
-                                                  cert_password=self.app.config.get("OTS_CA_PASSWORD"),
-                                                  common_name=common_name))
+        itak_zip.write(os.path.join(user_file_path, "config.pref"), "config.pref")
         itak_zip.write(os.path.join(user_file_path, common_name + ".p12"), common_name + ".p12")
         itak_zip.write(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "truststore-root.p12"), "truststore-root.p12")
         itak_zip.close()
@@ -422,5 +426,6 @@ class CertificateAuthority:
         rmtree(os.path.join(user_file_path, "MANIFEST"))
         rmtree(os.path.join(user_file_path, parent_folder))
         os.remove(os.path.join(user_file_path, "{}.zip".format(common_name)))
+        os.remove(os.path.join(user_file_path, "config.pref".format(common_name)))
 
         return ["{}_CONFIG.zip".format(common_name), "{}_CONFIG_iTAK.zip".format(common_name)]
