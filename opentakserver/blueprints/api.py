@@ -1042,3 +1042,10 @@ def get_icon():
     query = search(query, Icon, 'type2525b')
 
     return paginate(query)
+
+
+@api_blueprint.route('/api/itak_qr_string')
+@auth_required()
+def get_settings():
+    url = urlparse(request.url_root).hostname
+    return "OpenTAKServer_{},{},{},SSL".format(url, url, app.config.get("OTS_SSL_STREAMING_PORT"))
