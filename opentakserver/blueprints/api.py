@@ -232,9 +232,8 @@ def certificate():
             filenames = ca.issue_certificate(username, False)
 
             for filename in filenames:
-                file_hash = hashlib.file_digest(
-                    open(os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', username, filename),
-                         'rb'), 'sha256').hexdigest()
+                file_hash = hashlib.sha256(
+                    open(os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', username, filename),'rb').read()).hexdigest()
 
                 data_package = DataPackage()
                 data_package.filename = filename
