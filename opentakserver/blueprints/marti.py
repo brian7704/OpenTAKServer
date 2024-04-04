@@ -353,6 +353,48 @@ def group_cache_enabled():
     return jsonify(response)
 
 
+@marti_blueprint.route('/Marti/sync/upload', methods=['POST'])
+def itak_data_package_upload():
+    if not request.content_length:
+        return {'error': 'no file'}, 400, {'Content-Type': 'application/json'}
+    elif request.content_type != 'application/x-zip-compressed':
+        logger.error("Not a zip")
+        return {'error': 'Please only upload zip files'}, 415, {'Content-Type': 'application/json'}
+
+    file = request.data
+    sha256 = hashlib.sha256()
+    sha256.update(file)
+    file_hash = sha256.hexdigest()
+    logger.debug("got sha256 {}".format(file_hash))
+    hash_filename = secure_filename(file_hash + '.zip')
+
+    with open(os.path.join(app.config.get("UPLOAD_FOLDER"), hash_filename), "wb") as f:
+        f.write(file)
+
+    try:
+        data_package = DataPackage()
+        data_package.filename = request.args.get('name')
+        data_package.hash = file_hash
+        data_package.creator_uid = request.args.get('CreatorUid') if request.args.get('CreatorUid') else str(
+            uuid.uuid4())
+        data_package.submission_user = current_user.id if current_user.is_authenticated else None
+        data_package.submission_time = datetime.datetime.now()
+        data_package.mime_type = request.content_type
+        data_package.size = os.path.getsize(os.path.join(app.config.get("UPLOAD_FOLDER"), hash_filename))
+        db.session.add(data_package)
+        db.session.commit()
+    except sqlalchemy.exc.IntegrityError as e:
+        db.session.rollback()
+        logger.error("Failed to save data package: {}".format(e))
+        return jsonify({'success': False, 'error': 'This data package has already been uploaded'}), 400
+
+    return_value = {"UID": data_package.hash, "SubmissionDateTime": data_package.submission_time, "Keywords": ["missionpackage"],
+                    "MIMEType": data_package.mime_type, "SubmissionUser": "anonymous", "PrimaryKey": "1",
+                    "Hash": data_package.hash, "CreatorUid": data_package.creator_uid, "Name": data_package.filename}
+
+    return jsonify(return_value)
+
+
 @marti_blueprint.route('/Marti/sync/missionupload', methods=['POST'])
 def data_package_share():
     if not len(request.files):
@@ -439,7 +481,8 @@ def data_package_query():
             hostname = url.hostname
             port = url.port
 
-            return '{}://{}:{}/Marti/api/sync/metadata/{}/tool'.format(protocol, hostname, port, request.args.get('hash')), 200
+            return '{}://{}:{}/Marti/api/sync/metadata/{}/tool'.format(protocol, hostname, port,
+                                                                       request.args.get('hash')), 200
         else:
             return {'error': '404'}, 404, {'Content-Type': 'application/json'}
     except sqlalchemy.exc.NoResultFound as e:
@@ -456,8 +499,10 @@ def data_package_search():
             submission_user = dp.user.username
         res['results'].append(
             {'UID': dp.hash, 'Name': dp.filename, 'Hash': dp.hash, 'CreatorUid': dp.creator_uid,
-             "SubmissionDateTime": dp.submission_time.strftime('%Y-%m-%dT%H:%M:%S.000Z'), "EXPIRATION": -1, "Keywords": ["missionpackage"],
-             "MIMEType": dp.mime_type, "Size": dp.size, "SubmissionUser": submission_user, "PrimaryKey": dp.id,
+             "SubmissionDateTime": dp.submission_time.strftime('%Y-%m-%dT%H:%M:%S.000Z'), "EXPIRATION": "-1",
+             "Keywords": ["missionpackage"],
+             "MIMEType": dp.mime_type, "Size": "{}".format(dp.size), "SubmissionUser": submission_user,
+             "PrimaryKey": "{}".format(dp.id),
              "Tool": dp.tool if dp.tool else "public"
              })
         res['resultCount'] += 1
