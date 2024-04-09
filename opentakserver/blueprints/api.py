@@ -218,7 +218,8 @@ def certificate():
     if request.method == 'POST' and 'username' in request.json.keys():
         try:
             username = bleach.clean(request.json.get('username'))
-            truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', "opentakserver", "truststore-root.p12")
+            truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', "opentakserver",
+                                               "truststore-root.p12")
             user_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', username,
                                          "{}.p12".format(username))
 
@@ -233,7 +234,8 @@ def certificate():
 
             for filename in filenames:
                 file_hash = hashlib.sha256(
-                    open(os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', username, filename),'rb').read()).hexdigest()
+                    open(os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', username, filename),
+                         'rb').read()).hexdigest()
 
                 data_package = DataPackage()
                 data_package.filename = filename
@@ -241,7 +243,8 @@ def certificate():
                 data_package.creator_uid = request.json['uid'] if 'uid' in request.json.keys() else str(uuid.uuid4())
                 data_package.submission_time = datetime.datetime.now()
                 data_package.mime_type = "application/x-zip-compressed"
-                data_package.size = os.path.getsize(os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', username, filename))
+                data_package.size = os.path.getsize(
+                    os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', username, filename))
                 data_package.hash = file_hash
                 data_package.submission_user = current_user.id
 
@@ -260,7 +263,8 @@ def certificate():
                 cert = Certificate()
                 cert.common_name = username
                 cert.username = username
-                cert.expiration_date = datetime.datetime.today() + datetime.timedelta(days=app.config.get("OTS_CA_EXPIRATION_TIME"))
+                cert.expiration_date = datetime.datetime.today() + datetime.timedelta(
+                    days=app.config.get("OTS_CA_EXPIRATION_TIME"))
                 cert.server_address = urlparse(request.url_root).hostname
                 cert.server_port = app.config.get("OTS_SSL_STREAMING_PORT")
                 cert.truststore_filename = truststore_filename
@@ -321,7 +325,9 @@ def delete_data_package():
         if data_package[0].certificate:
             Certificate.query.filter_by(id=data_package[0].certificate.id).delete()
             db.session.commit()
-            shutil.rmtree(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", data_package[0].certificate.common_name), ignore_errors=True)
+            shutil.rmtree(
+                os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", data_package[0].certificate.common_name),
+                ignore_errors=True)
     except BaseException as e:
         logger.error("Failed to delete data package")
         logger.error(traceback.format_exc())
@@ -577,6 +583,7 @@ def external_auth():
     username = bleach.clean(request.json.get('user'))
     password = bleach.clean(request.json.get('password'))
     action = bleach.clean(request.json.get('action'))
+    query = bleach.clean(request.json.get('query'))
 
     user = app.security.datastore.find_user(username=username)
     if user and verify_password(password, user.password):
@@ -638,9 +645,32 @@ def external_auth():
 
         logger.debug("external_auth returning 200")
         return '', 200
+    elif query:
+        for arg in query.split("&"):
+            key, value = arg.split("=")
+            if key == 'token' and value == app.config.get("OTS_MEDIAMTX_TOKEN"):
+                return '', 200
     else:
         logger.debug("external_auth returning 401")
         return '', 401
+
+
+@api_blueprint.route('/api/videos/thumbnail', methods=['GET'])
+@auth_required()
+def thumbnail():
+    path = request.args.get("path")
+    recording = request.args.get("recording")
+    if not path:
+        return jsonify({"success": False, "error": "Please specify a path"}), 400
+
+    if recording and os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "recordings", path, recording + ".png")):
+        logger.warning(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "recordings", path, recording + ".png"))
+        return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "recordings", path), recording + ".png")
+
+    elif os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "recordings", path)):
+        return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "recordings", path), "thumbnail.png")
+
+    return jsonify({"success": False, "error": "Please specify a valid path"}), 400
 
 
 @api_blueprint.route('/api/videos/recordings')
@@ -652,7 +682,7 @@ def video_recordings():
     return paginate(query)
 
 
-@api_blueprint.route('/api/videos/recording', methods=['GET', 'DELETE'])
+@api_blueprint.route('/api/videos/recording', methods=['GET', 'DELETE', 'HEAD'])
 @auth_required()
 def download_recording():
     if not request.args.get("id"):
@@ -660,15 +690,19 @@ def download_recording():
     recording_id = bleach.clean(request.args.get('id'))
 
     try:
-        recording = db.session.execute(db.session.query(VideoRecording).filter(VideoRecording.id == recording_id)).first()[0]
+        recording = \
+            db.session.execute(db.session.query(VideoRecording).filter(VideoRecording.id == recording_id)).first()[0]
 
         if request.method == 'GET':
             filename = pathlib.Path(recording.segment_path)
             return send_from_directory(filename.parent, filename.name)
         elif request.method == 'DELETE':
+            os.remove(recording.segment_path)
             db.session.delete(recording)
             db.session.commit()
             return jsonify({'success': True})
+        elif request.method == 'HEAD':
+            return '', 200
     except:
         logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': 'Recording not found'}), 404
@@ -748,6 +782,28 @@ def get_truststore():
     return send_from_directory(app.config.get("OTS_CA_FOLDER"), 'truststore-root.p12', as_attachment=True)
 
 
+def get_stream_protocol(source_type):
+    protocol = "rtsp"
+    if source_type.startswith('rtsps'):
+        protocol = 'rtsps'
+    if source_type.startswith('rtsp'):
+        protocol = "rtsp"
+    elif source_type == 'hlsSource':
+        protocol = "hls"
+    elif source_type == 'rpiCameraSource':
+        protocol = "rpi_camera"
+    elif source_type.startswith('rtmp'):
+        protocol = 'rtmp'
+    elif source_type.startswith('srt'):
+        protocol = 'srt'
+    elif source_type.startswith('udp'):
+        protocol = 'udp'
+    elif source_type.startswith('webRTC'):
+        protocol = 'webrtc'
+
+    return protocol
+
+
 @api_blueprint.route('/api/mediamtx/webhook')
 def mediamtx_webhook():
     token = request.args.get('token')
@@ -766,6 +822,37 @@ def mediamtx_webhook():
                 r = requests.post("http://localhost:9997/v3/config/paths/add/{}".format(path.path),
                                   json=json.loads(path.mediamtx_settings))
                 logger.debug("Init added {} {}".format(path, r.status_code))
+
+            # Get all paths from MediaMTX and make sure they're in OTS's database
+            r = requests.get("http://localhost:9997/v3/paths/list")
+            paths = r.json()
+            for path in paths['items']:
+                video_stream = db.session.query(VideoStream).where(VideoStream.path == path['name']).first()
+                if not video_stream:
+                    if not path['source']:
+                        continue
+                    video_stream = VideoStream()
+                    video_stream.protocol = get_stream_protocol(path['source']['type'])
+
+                    r = requests.get("http://localhost:9997/v3/config/global/get")
+                    video_stream.port = r.json()['rtspAddress'].replace(":", "")
+
+                    r = requests.get("http://localhost:9997/v3/config/paths/get/{}".format(path['name']))
+                    video_stream.mediamtx_settings = json.dumps(r.json())
+
+                    video_stream.path = path['name']
+                    video_stream.alias = path['name']
+                    video_stream.rtsp_reliable = 1
+                    video_stream.ready = event == 'ready'
+                    video_stream.rover_port = -1
+                    video_stream.ignore_embedded_klv = False
+                    video_stream.buffer_time = None
+                    video_stream.network_timeout = 10000
+                    video_stream.uid = str(uuid.uuid4())
+                    video_stream.generate_xml(urlparse(request.url_root).hostname)
+
+                    db.session.add(video_stream)
+                    db.session.commit()
 
     elif event == 'connect':
         connection_type = bleach.clean(request.args.get("connection_type"))
@@ -805,7 +892,7 @@ def mediamtx_webhook():
             elif source_type.startswith('webRTC'):
                 video_stream.protocol = 'webrtc'
 
-            video_stream.query = query
+            # video_stream.query = query
             video_stream.port = rtsp_port
             video_stream.path = path
             video_stream.alias = path
@@ -818,12 +905,20 @@ def mediamtx_webhook():
             video_stream.uid = str(uuid.uuid4())
             video_stream.generate_xml(urlparse(request.url_root).hostname)
             mediamtx_settings = MediaMTXPathConfig(None)
-            mediamtx_settings.sourceOnDemand.data = False
+            mediamtx_settings.sourceOnDemand.data = source_id is not None
             mediamtx_settings.record.data = False
             video_stream.mediamtx_settings = json.dumps(mediamtx_settings.serialize())
 
             db.session.add(video_stream)
             db.session.commit()
+
+        if event == 'ready':
+            os.makedirs(os.path.join(app.config.get('OTS_DATA_FOLDER'), "mediamtx", "recordings", video_stream.path), exist_ok=True)
+
+            (ffmpeg.input(video_stream.to_json()['rtsp_link'] + "?token={}".format(app.config.get("OTS_MEDIAMTX_TOKEN")))
+             .output(os.path.join(app.config.get('OTS_DATA_FOLDER'), "mediamtx", "recordings", video_stream.path,
+                                  "thumbnail.png"), vframes=1)
+             .overwrite_output().run(capture_stdout=True, capture_stderr=True, quiet=True))
 
     elif event == 'read':
         rtsp_port = bleach.clean(request.args.get("rtsp_port"))
@@ -856,7 +951,7 @@ def mediamtx_webhook():
         with app.app_context():
             recording = db.session.execute(db.session.query(VideoRecording)
                                            .filter(VideoRecording.segment_path == segment_path)).first()
-            if recording.count:
+            if recording and recording.count:
                 recording = recording[0]
                 recording.in_progress = False
                 recording.stop_time = datetime.datetime.now()
@@ -876,6 +971,10 @@ def mediamtx_webhook():
                         recording.height = stream['height']
                         recording.video_bitrate = stream['bit_rate']
                         recording.video_codec = stream['codec_name']
+                        ffmpeg.input(recording.segment_path, ss="00:00:01").filter('scale', stream['width'], -1).output(
+                            recording.segment_path + ".png", vframes=1).overwrite_output().run(capture_stdout=True,
+                                                                                               capture_stderr=True,
+                                                                                               quiet=True)
                     elif stream['codec_type'].lower() == 'audio':
                         recording.audio_codec = stream['codec_name']
                         recording.audio_samplerate = stream['sample_rate']
