@@ -82,7 +82,7 @@ def init_extensions(app):
 
     socketio.init_app(app, logger=logger)
 
-    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters('127.0.0.1'))
     channel = rabbit_connection.channel()
     channel.exchange_declare('cot', durable=True, exchange_type='fanout')
     channel.exchange_declare('dms', durable=True, exchange_type='direct')

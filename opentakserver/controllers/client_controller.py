@@ -64,7 +64,7 @@ class ClientController(Thread):
 
         # RabbitMQ
         try:
-            self.rabbit_connection = pika.SelectConnection(pika.ConnectionParameters('localhost'),
+            self.rabbit_connection = pika.SelectConnection(pika.ConnectionParameters('127.0.0.1'),
                                                            self.on_connection_open)
             self.rabbit_channel = None
             self.iothread = Thread(target=self.rabbit_connection.ioloop.start)

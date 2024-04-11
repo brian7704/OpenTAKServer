@@ -39,7 +39,7 @@ def get_airplanes_live_data():
                                      app.config["OTS_AIRPLANES_LIVE_LON"],
                                      app.config["OTS_AIRPLANES_LIVE_RADIUS"]))
             if r.status_code == 200:
-                rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+                rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters('127.0.0.1'))
                 channel = rabbit_connection.channel()
 
                 for craft in r.json()['ac']:
