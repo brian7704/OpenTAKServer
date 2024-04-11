@@ -8,6 +8,8 @@
 
 OpenTAKServer (OTS) is yet another open source TAK Server for ATAK, iTAK, and WinTAK. OTS's goal is to be easy to install and use, and to run on both servers and SBCs (ie Raspberry Pi).
 
+Join us on our [Discord server](https://discord.gg/6uaVHjtfXN)
+
 ## Current Features
 - Connect via TCP from ATAK, WinTAK, and iTAK
 - SSL
