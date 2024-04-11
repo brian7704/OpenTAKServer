@@ -53,11 +53,14 @@ class ClientController(Thread):
         self.common_name = None
 
         if self.is_ssl:
-            self.sock.do_handshake()
-            for c in self.sock.getpeercert()['subject']:
-                if c[0][0] == 'commonName':
-                    self.common_name = c[0][1]
-                    self.logger.debug("Got common name {}".format(self.common_name))
+            try:
+                self.sock.do_handshake()
+                for c in self.sock.getpeercert()['subject']:
+                    if c[0][0] == 'commonName':
+                        self.common_name = c[0][1]
+                        self.logger.debug("Got common name {}".format(self.common_name))
+            except BaseException as e:
+                logger.warning("Failed to do handshake: {}".format(e))
 
         # RabbitMQ
         try:
