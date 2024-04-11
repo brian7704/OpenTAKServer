@@ -1,13 +1,18 @@
 # OpenTAKServer
 
+![PyPI - Downloads](https://img.shields.io/pypi/dm/opentakserver)
+![PyPI - Version](https://img.shields.io/pypi/v/opentakserver)
+![Discord](https://img.shields.io/discord/1183578214459777164?logo=discord&label=Discord&link=https%3A%2F%2Fdiscord.gg%2F6uaVHjtfXN)
+![GitHub Release Date](https://img.shields.io/github/release-date/brian7704/OpenTAKServer)
+
+
 OpenTAKServer (OTS) is yet another open source TAK Server for ATAK, iTAK, and WinTAK. OTS's goal is to be easy to install and use, and to run on both servers and SBCs (ie Raspberry Pi).
 
-This project is just beginning and not yet suitable for production.
-
 ## Current Features
-- Connect via TCP from ATAK and WinTAK
+- Connect via TCP from ATAK, WinTAK, and iTAK
 - SSL
 - Authentication
+- [WebUI with a live map](https://github.com/brian7704/OpenTAKServer-UI)
 - Client certificate enrollment
 - Send and receive messages
 - Send and receive points
@@ -20,46 +25,39 @@ This project is just beginning and not yet suitable for production.
 - CasEvac
 - Optional Mumble server authentication
   - Use your OpenTAKServer username and password to log into your Mumble server
+- Video Streaming
 
 ## Planned Features
-- iTAK support (This may already work, just needs to be tested)
-- API to query saved CoT messages
-- WebUI
-  - Live Map
-  - View saved CoT messages
-  - Chat with EUDs
-- Mission support
-- Video Streaming
 - Federation
+- DataSync plugin
 
 ## Requirements
-- python = "^3.10"
-- flask = "^3.0.0"
-- bleach = "*"
-- colorlog = "^6.7.0"
-- flask-socketio = "^5.3.6"
-- bs4 = "^0.0.1"
-- datetime = "^5.3"
-- gevent = "^23.9.1"
-- ownca = "^0.4.0"
-- pika = "^1.3.2"
-- sqlalchemy = "^2.0.23"
-- sqlalchemy-utils = "^0.41.1"
-- flask-sqlalchemy = "^3.1.1"
-- Flask-Security-Too = "^5.3.2"
 - RabbitMQ
 - MediaMTX (Only required for video streaming)
 - openssl
 - nginx
 
 ## Installation
-```
-apt install python3-pip rabbitmq-server git openssl # Or substitude your distro's package manager
-pip3 install poetry
-git clone https://github.com/brian7704/OpenTAKServer.git
-cd OpenTAKServer
-poetry install
-```
 
-## Usage
-```poetry run python opentakserver/app.py```
+### Ubuntu
+
+`curl https://raw.githubusercontent.com/brian7704/OpenTAKServer-Installer/online_installer/ubuntu_installer.sh | bash -`
+
+### Raspberry Pi
+
+`curl https://raw.githubusercontent.com/brian7704/OpenTAKServer-Installer/master/raspberry_pi_installer.sh | bash -`
+
+### Windows
+
+Open PowerShell as an administrator and run the following command
+
+`Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/brian7704/OpenTAKServer-Installer/master/windows_installer.ps1'))`
+
+### MacOS
+
+Coming soon
+
+## Documentation
+
+https://docs.opentakserver.io
+
