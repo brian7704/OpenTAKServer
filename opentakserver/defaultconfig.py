@@ -47,7 +47,7 @@ class DefaultConfig:
     OTS_EMAIL_TLD_WHITELIST = []
     OTS_EMAIL_TLD_BLACKLIST = []
     MAIL_SERVER = 'smtp.gmail.com'
-    MAIL_PORT = 465
+    MAIL_PORT = 587
     MAIL_USE_SSL = False
     MAIL_USE_TLS = True
     MAIL_DEBUG = False
