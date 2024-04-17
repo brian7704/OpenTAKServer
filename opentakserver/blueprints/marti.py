@@ -174,7 +174,7 @@ def sign_csr_v2():
             certificate.expiration_date = datetime.datetime.today() + datetime.timedelta(
                 days=app.config.get("OTS_CA_EXPIRATION_TIME"))
             certificate.server_address = urlparse(request.url_root).hostname
-            certificate.server_port = app.config.get("OTS_HTTPS_PORT")
+            certificate.server_port = app.config.get("OTS_MARTI_HTTPS_PORT")
             certificate.truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "truststore-root.p12")
             certificate.user_cert_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name,
                                                           common_name + ".pem")
@@ -191,7 +191,7 @@ def sign_csr_v2():
             certificate.expiration_date = datetime.datetime.today() + datetime.timedelta(
                 days=app.config.get("OTS_CA_EXPIRATION_TIME"))
             certificate.server_address = urlparse(request.url_root).hostname
-            certificate.server_port = app.config.get("OTS_HTTPS_PORT")
+            certificate.server_port = app.config.get("OTS_MARTI_HTTPS_PORT")
             certificate.truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "truststore-root.p12")
             certificate.user_cert_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name,
                                                           common_name + ".pem")
@@ -388,7 +388,8 @@ def itak_data_package_upload():
         logger.error("Failed to save data package: {}".format(e))
         return jsonify({'success': False, 'error': 'This data package has already been uploaded'}), 400
 
-    return_value = {"UID": data_package.hash, "SubmissionDateTime": data_package.submission_time, "Keywords": ["missionpackage"],
+    return_value = {"UID": data_package.hash, "SubmissionDateTime": data_package.submission_time,
+                    "Keywords": ["missionpackage"],
                     "MIMEType": data_package.mime_type, "SubmissionUser": "anonymous", "PrimaryKey": "1",
                     "Hash": data_package.hash, "CreatorUid": data_package.creator_uid, "Name": data_package.filename}
 
@@ -404,9 +405,10 @@ def data_package_share():
 
         if file.content_type != 'application/x-zip-compressed' and file.content_type != "application/zip-compressed" \
                 and file.content_type != "application/zip" and not file.content_type.startswith("application/x-zip"):
-
-            logger.error("Uploaded data package does not seem to be a zip file. The content type is {}".format(file.content_type))
-            return {'error': "Uploaded data package does not seem to be a zip file. The content type is {}".format(file.content_type)}, 415, {'Content-Type': 'application/json'}
+            logger.error("Uploaded data package does not seem to be a zip file. The content type is {}".format(
+                file.content_type))
+            return {'error': "Uploaded data package does not seem to be a zip file. The content type is {}".format(
+                file.content_type)}, 415, {'Content-Type': 'application/json'}
 
         if file:
             file_hash = request.args.get('hash')
@@ -440,11 +442,9 @@ def data_package_share():
                 return jsonify({'success': False, 'error': 'This data package has already been uploaded'}), 400
 
             url = urlparse(request.url_root)
-            protocol = url.scheme
-            hostname = url.hostname
-            port = url.port
-
-            return '{}://{}:{}/Marti/api/sync/metadata/{}/tool'.format(protocol, hostname, port, file_hash), 200
+            return 'https://{}:{}/Marti/api/sync/metadata/{}/tool'.format(url.hostname,
+                                                                          app.config.get("OTS_MARTI_HTTPS_PORT"),
+                                                                          file_hash), 200
 
         else:
             return jsonify({'success': False, 'error': 'Something went wrong'}), 400
@@ -479,12 +479,9 @@ def data_package_query():
         if data_package:
 
             url = urlparse(request.url_root)
-            protocol = url.scheme
-            hostname = url.hostname
-            port = url.port
-
-            return '{}://{}:{}/Marti/api/sync/metadata/{}/tool'.format(protocol, hostname, port,
-                                                                       request.args.get('hash')), 200
+            return 'https://{}:{}/Marti/api/sync/metadata/{}/tool'.format(url.hostname,
+                                                                          app.config.get("OTS_MARTI_HTTPS_PORT"),
+                                                                          request.args.get('hash')), 200
         else:
             return {'error': '404'}, 404, {'Content-Type': 'application/json'}
     except sqlalchemy.exc.NoResultFound as e:
