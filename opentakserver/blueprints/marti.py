@@ -402,9 +402,11 @@ def data_package_share():
     for file in request.files:
         file = request.files[file]
 
-        if file.content_type != 'application/x-zip-compressed':
-            logger.error("Not a zip")
-            return {'error': 'Please only upload zip files'}, 415, {'Content-Type': 'application/json'}
+        if file.content_type != 'application/x-zip-compressed' and file.content_type != "application/zip-compressed" \
+                and file.content_type != "application/zip" and not file.content_type.startswith("application/x-zip"):
+
+            logger.error("Uploaded data package does not seem to be a zip file. The content type is {}".format(file.content_type))
+            return {'error': "Uploaded data package does not seem to be a zip file. The content type is {}".format(file.content_type)}, 415, {'Content-Type': 'application/json'}
 
         if file:
             file_hash = request.args.get('hash')
