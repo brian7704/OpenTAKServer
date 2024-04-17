@@ -19,6 +19,7 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from opentakserver.EmailValidator import EmailValidator
 
 import logging
+from logging.handlers import TimedRotatingFileHandler
 import os
 
 import colorlog
@@ -132,7 +133,7 @@ def setup_logging(app):
         logger.info("Added color logger")
 
     os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs"), exist_ok=True)
-    fh = logging.FileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'opentakserver.log'))
+    fh = TimedRotatingFileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'opentakserver.log'), when='midnight', backupCount=app.config.get("OTS_BACKUP_COUNT"))
     fh.setLevel(level)
     fh.setFormatter(logging.Formatter("[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(levelname)s - %(message)s"))
     logger.addHandler(fh)
