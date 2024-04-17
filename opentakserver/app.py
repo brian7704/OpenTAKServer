@@ -128,7 +128,8 @@ def setup_logging(app):
         logger.addHandler(color_log_handler)
         logger.info("Added color logger")
 
-    fh = logging.FileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'opentakserver.log'))
+    os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs"), exist_ok=True)
+    fh = logging.FileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'opentakserver.log'))
     fh.setLevel(level)
     fh.setFormatter(logging.Formatter("[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(levelname)s - %(message)s"))
     logger.addHandler(fh)
