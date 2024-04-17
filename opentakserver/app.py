@@ -81,7 +81,10 @@ def init_extensions(app):
                 supports_credentials=True)
     flask_wtf.CSRFProtect(app)
 
-    socketio.init_app(app, logger=logger)
+    socketio_logger = False
+    if app.config.get("DEBUG"):
+        socketio_logger = logger
+    socketio.init_app(app, logger=socketio_logger)
 
     rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters('127.0.0.1'))
     channel = rabbit_connection.channel()
@@ -284,4 +287,4 @@ if __name__ == '__main__':
 
     app.start_time = datetime.now()
 
-    socketio.run(app, host="127.0.0.1", port=app.config.get("OTS_LISTENER_PORT"), debug=False, log_output=False)
+    socketio.run(app, host="127.0.0.1", port=app.config.get("OTS_LISTENER_PORT"), debug=app.config.get("DEBUG"), log_output=app.config.get("DEBUG"))

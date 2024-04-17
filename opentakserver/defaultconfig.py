@@ -11,6 +11,7 @@ import opentakserver
 
 class DefaultConfig:
     SECRET_KEY = secrets.token_hex()
+    DEBUG = False
 
     OTS_DATA_FOLDER = os.path.join(Path.home(), 'ots')
     OTS_LISTENER_PORT = 8081  # OTS will listen for HTTP requests on this port. Nginx will listen on ports 80, 443,
