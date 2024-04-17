@@ -183,8 +183,9 @@ class CertificateAuthority:
         if exit_code:
             raise Exception("Failed to export p12 key. Exit code {}".format(exit_code))
 
+        # Need to use "cd ~" to fix https://github.com/brian7704/OpenTAKServer/issues/5
         command = (
-            'keytool -importkeystore -deststorepass {} -destkeypass {} -destkeystore {}.jks -srckeystore {}.p12 -srcstoretype PKCS12 -srcstorepass {} -alias {}'
+            'cd ~ && keytool -importkeystore -deststorepass {} -destkeypass {} -destkeystore {}.jks -srckeystore {}.p12 -srcstoretype PKCS12 -srcstorepass {} -alias {}'
             .format(self.app.config.get("OTS_CA_PASSWORD"),
                     self.app.config.get("OTS_CA_PASSWORD"),
                     os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name),
