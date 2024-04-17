@@ -1,4 +1,5 @@
 import sys
+import traceback
 
 import eventlet
 try:
@@ -269,10 +270,14 @@ if __name__ == '__main__':
     app.ssl_thread = ssl_thread
 
     if app.config.get("OTS_ENABLE_MUMBLE_AUTHENTICATION"):
-        logger.info("Starting mumble authentication handler")
-        mumble_daemon = MumbleIceDaemon(app, logger)
-        mumble_daemon.daemon = True
-        mumble_daemon.start()
+        try:
+            logger.info("Starting Mumble authentication handler")
+            mumble_daemon = MumbleIceDaemon(app, logger)
+            mumble_daemon.daemon = True
+            mumble_daemon.start()
+        except BaseException as e:
+            logger.error("Failed to enable Mumble authentication: {}".format(e))
+            logger.error(traceback.format_exc())
     else:
         logger.info("Mumble authentication handler disabled")
 
