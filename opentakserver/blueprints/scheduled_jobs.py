@@ -39,7 +39,7 @@ def get_airplanes_live_data():
                                      app.config["OTS_AIRPLANES_LIVE_LON"],
                                      app.config["OTS_AIRPLANES_LIVE_RADIUS"]))
             if r.status_code == 200:
-                rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters('127.0.0.1'))
+                rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
                 channel = rabbit_connection.channel()
 
                 for craft in r.json()['ac']:
@@ -71,12 +71,12 @@ def delete_video_recordings():
         db.session.commit()
 
         try:
-            r = requests.get('http://localhost:9997/v3/recordings/list')
+            r = requests.get('{}/v3/recordings/list'.format(app.config.get("OTS_MEDIAMTX_API_ADDRESS")))
             if r.status_code == 200:
                 recordings = r.json()
                 for path in recordings['items']:
                     for recording in path['segments']:
-                        r = requests.delete('http://localhost:9997/v3/recordings/deletesegment',
+                        r = requests.delete('{}/v3/recordings/deletesegment'.format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"),),
                                             params={'start': recording['start'], 'path': path['name']})
                         if r.status_code != 200:
                             logger.error(

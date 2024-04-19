@@ -619,7 +619,7 @@ def external_auth():
 
                     db.session.add(v)
                     db.session.commit()
-                    r = requests.post("http://localhost:9997/v3/config/paths/add/{}".format(v.path),
+                    r = requests.post("{}/v3/config/paths/add/{}".format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"), v.path),
                                       json=path_config)
                     if r.status_code == 200:
                         logger.debug("Added path {} to mediamtx".format(v.path))
@@ -632,7 +632,7 @@ def external_auth():
                     try:
                         db.session.rollback()
                         video = db.session.query(VideoStream).filter(VideoStream.path == v.path).first()
-                        r = requests.post("http://localhost:9997/v3/config/paths/add/{}".format(v.path),
+                        r = requests.post("{}/v3/config/paths/add/{}".format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"), v.path),
                                           json=json.loads(video.mediamtx_settings))
                         if r.status_code == 200:
                             logger.debug("Added path {} to mediamtx".format(v.path))
@@ -819,12 +819,12 @@ def mediamtx_webhook():
         if path == 'startup':
             paths = VideoStream.query.all()
             for path in paths:
-                r = requests.post("http://localhost:9997/v3/config/paths/add/{}".format(path.path),
+                r = requests.post("{}/v3/config/paths/add/{}".format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"), path.path),
                                   json=json.loads(path.mediamtx_settings))
                 logger.debug("Init added {} {}".format(path, r.status_code))
 
             # Get all paths from MediaMTX and make sure they're in OTS's database
-            r = requests.get("http://localhost:9997/v3/paths/list")
+            r = requests.get("{}/v3/paths/list".format(app.config.get("OTS_MEDIAMTX_API_ADDRESS")))
             paths = r.json()
             for path in paths['items']:
                 video_stream = db.session.query(VideoStream).where(VideoStream.path == path['name']).first()
@@ -834,10 +834,10 @@ def mediamtx_webhook():
                     video_stream = VideoStream()
                     video_stream.protocol = get_stream_protocol(path['source']['type'])
 
-                    r = requests.get("http://localhost:9997/v3/config/global/get")
+                    r = requests.get("{}/v3/config/global/get".format(app.config.get("OTS_MEDIAMTX_API_ADDRESS")))
                     video_stream.port = r.json()['rtspAddress'].replace(":", "")
 
-                    r = requests.get("http://localhost:9997/v3/config/paths/get/{}".format(path['name']))
+                    r = requests.get("{}/v3/config/paths/get/{}".format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"), path['name']))
                     video_stream.mediamtx_settings = json.dumps(r.json())
 
                     video_stream.path = path['name']
@@ -870,7 +870,7 @@ def mediamtx_webhook():
             video_stream.ready = event == 'ready'
             db.session.add(video_stream)
             db.session.commit()
-            r = requests.patch("http://localhost:9997/v3/config/paths/patch/{}".format(path),
+            r = requests.patch("{}/v3/config/paths/patch/{}".format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"), path),
                                json=json.loads(video_stream.mediamtx_settings))
             logger.debug("Ready Patched path {}: {} - {}".format(path, r.status_code, r.text))
         else:
@@ -1040,9 +1040,9 @@ def add_update_stream():
                 logger.debug("set {} to {}".format(key, value))
 
         if request.path.endswith('update'):
-            r = requests.patch("http://localhost:9997/v3/config/paths/patch/{}".format(path), json=settings)
+            r = requests.patch("{}/v3/config/paths/patch/{}".format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"), path), json=settings)
         else:
-            r = requests.post("http://localhost:9997/v3/config/paths/add/{}".format(path), json=settings)
+            r = requests.post("{}/v3/config/paths/add/{}".format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"), path), json=settings)
 
         if r.status_code == 200:
             logger.debug("Patched path {}: {}".format(path, r.status_code))
@@ -1070,7 +1070,7 @@ def delete_stream():
         if not path:
             return jsonify({'success': False, 'error': 'Please specify a path name'}), 400
 
-        r = requests.delete('http://localhost:9997/v3/config/paths/delete/{}'.format(path))
+        r = requests.delete('{}/v3/config/paths/delete/{}'.format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"), path))
         logger.debug("Delete status code: {}".format(r.status_code))
         video = db.session.query(VideoStream).filter(VideoStream.path == path)
         if not video:
