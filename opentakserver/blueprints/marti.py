@@ -17,9 +17,10 @@ import sqlalchemy
 from OpenSSL import crypto
 from bs4 import BeautifulSoup
 from flask import current_app as app, request, Blueprint, send_from_directory, jsonify
-from flask_security import verify_password, current_user, http_auth_required
+from flask_security import verify_password, current_user
 from opentakserver.extensions import logger, db
 from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
+from opentakserver import __version__ as version
 
 from opentakserver.models.EUD import EUD
 from opentakserver.models.DataPackage import DataPackage
@@ -214,7 +215,7 @@ def marti_config():
     url = urlparse(request.url_root)
 
     return {"version": "3", "type": "ServerConfig",
-            "data": {"version": app.config.get("OTS_VERSION"), "api": "3", "hostname": url.hostname},
+            "data": {"version": version, "api": "3", "hostname": url.hostname},
             "nodeId": app.config.get("OTS_NODE_ID")}, 200, {'Content-Type': 'application/json'}
 
 
