@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "opentakserver"
+name = "OpenTAKServer"
 version = "0.0.0"
 description = "A server for ATAK, WinTAK, and iTAK"
 authors = ["OpenTAKServer <opentakserver@gmail.com>"]

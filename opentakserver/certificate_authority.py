@@ -82,19 +82,6 @@ class CertificateAuthority:
             if exit_code:
                 raise Exception("Failed to export truststore. Exit code {}".format(exit_code))
 
-            command = (
-                'keytool -import -trustcacerts -file {} -keystore truststore-root.jks -alias {} -storepass {} -noprompt'
-                .format(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca.pem"),
-                        self.app.config.get("OTS_CA_NAME"),
-                        self.app.config.get("OTS_CA_PASSWORD")))
-
-            self.logger.debug(command)
-
-            exit_code = subprocess.call(command, shell=True)
-
-            if exit_code != 0 and exit_code != 1:
-                raise Exception("Failed to import trustcacerts. Exit code {}".format(exit_code))
-
             Path(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "crl_index.txt")).touch()
             f = open(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "crl_index.txt.attr"), 'w')
             f.write("unique_subject = no")
@@ -182,22 +169,6 @@ class CertificateAuthority:
         exit_code = subprocess.call(command, shell=True)
         if exit_code:
             raise Exception("Failed to export p12 key. Exit code {}".format(exit_code))
-
-        # Need to use "cd ~" to fix https://github.com/brian7704/OpenTAKServer/issues/5
-        command = (
-            'cd ~ && keytool -importkeystore -deststorepass {} -destkeypass {} -destkeystore {}.jks -srckeystore {}.p12 -srcstoretype PKCS12 -srcstorepass {} -alias {}'
-            .format(self.app.config.get("OTS_CA_PASSWORD"),
-                    self.app.config.get("OTS_CA_PASSWORD"),
-                    os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name),
-                    os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name),
-                    self.app.config.get("OTS_CA_PASSWORD"),
-                    common_name))
-
-        self.logger.debug(command)
-
-        exit_code = subprocess.call(command, shell=True)
-        if exit_code:
-            raise Exception("Failed to import key. Exit code {}".format(exit_code))
 
         os.chmod(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".key"), 0o620)
 
