@@ -7,6 +7,8 @@ try:
 except BaseException as e:
     print("Failed to monkey_patch(): {}".format(e))
 
+from opentakserver.PasswordValidator import PasswordValidator
+
 import platform
 import requests
 from sqlalchemy import insert
@@ -111,7 +113,7 @@ def init_extensions(app):
     from opentakserver.models.role import Role
 
     user_datastore = SQLAlchemyUserDatastore(db, User, Role, WebAuthn)
-    app.security = Security(app, user_datastore, mail_util_cls=EmailValidator)
+    app.security = Security(app, user_datastore, mail_util_cls=EmailValidator, password_util_cls=PasswordValidator)
 
     mail.init_app(app)
     with app.app_context():
