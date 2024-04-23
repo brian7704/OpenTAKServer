@@ -288,4 +288,5 @@ if __name__ == '__main__':
 
     app.start_time = datetime.now()
 
-    socketio.run(app, host="127.0.0.1", port=app.config.get("OTS_LISTENER_PORT"), debug=app.config.get("DEBUG"), log_output=app.config.get("DEBUG"))
+    socketio.run(app, host=app.config.get("OTS_LISTENER_ADDRESS"), port=app.config.get("OTS_LISTENER_PORT"),
+                 debug=app.config.get("DEBUG"), log_output=app.config.get("DEBUG"))

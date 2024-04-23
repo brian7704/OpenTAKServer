@@ -46,8 +46,6 @@ class CertificateAuthority:
             if exit_code:
                 raise Exception("Failed to create ca.pem. Exit code {}".format(exit_code))
 
-            # os.chmod(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca-do-not-share.key"), 1411)
-
             command = ('openssl x509 -in {} -addtrust clientAuth -addtrust serverAuth -setalias {} -out {}'
                        .format(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca.pem"),
                                self.app.config.get("OTS_CA_NAME"),
