@@ -37,12 +37,13 @@ from opentakserver.models.Point import Point
 from opentakserver.models.user import User
 from opentakserver.models.Certificate import Certificate
 from opentakserver.models.VideoStream import VideoStream
+from opentakserver.models.APSchedulerJobs import APSchedulerJobs
 
 from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
 
 from opentakserver.SocketServer import SocketServer
 from opentakserver.certificate_authority import CertificateAuthority
-from opentakserver.models.Icon import Icon
+from opentakserver.models.Icon import Icon, IconSets
 from opentakserver.models.Marker import Marker
 from opentakserver.models.RBLine import RBLine
 from opentakserver.models.VideoRecording import VideoRecording
@@ -575,6 +576,34 @@ def set_user_role():
 
     db.session.commit()
     return jsonify({'success': True})
+
+
+@api_blueprint.route('/api/rabbitmq/<path>', methods=['POST'])
+def rabbitmq_auth(path):
+    # https://github.com/rabbitmq/rabbitmq-server/tree/v3.13.x/deps/rabbitmq_auth_backend_http
+
+    # Only allow requests to this route from the RabbitMQ server
+    if request.remote_addr != app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"):
+        return 'deny', 200
+
+    user = None
+    if 'username' in request.form.keys():
+        user = app.security.datastore.find_user(username=bleach.clean(request.form.get('username')))
+
+    if user and 'password' in request.form.keys():
+        if user.active and verify_password(bleach.clean(request.form.get('password')), user.password):
+            if user.has_role("administrator"):
+                return 'allow administrator', 200
+            return 'allow', 200
+        else:
+            return 'deny', 200
+    # Always allow when path is topic, resource, or vhost if the user exists.
+    # This only occurs after the user has been successfully authenticated
+    elif user:
+        return 'allow', 200
+    else:
+        return 'deny', 200
+
 
 
 # This is mainly for mediamtx authentication

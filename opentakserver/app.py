@@ -37,10 +37,11 @@ from flask_security import Security, SQLAlchemyUserDatastore, hash_password, uia
 from flask_security.models import fsqla_v3 as fsqla
 from flask_security.signals import user_registered
 
-from opentakserver.extensions import logger, db, socketio, mail, apscheduler
+from opentakserver.extensions import logger, db, socketio, mail, apscheduler, migrate
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.models.WebAuthn import WebAuthn
 
+from opentakserver.controllers.meshtastic_controller import MeshtasticController
 from opentakserver.controllers.cot_controller import CoTController
 from opentakserver.certificate_authority import CertificateAuthority
 from opentakserver.SocketServer import SocketServer
@@ -98,6 +99,12 @@ def init_extensions(app):
     cot_thread = CoTController(app.app_context(), logger, db, socketio)
     app.cot_thread = cot_thread
 
+    if app.config.get("OTS_ENABLE_MESHTASTIC"):
+        mestastic_thread = MeshtasticController(app.app_context(), logger, db, socketio)
+        app.mestastic_thread = mestastic_thread
+    else:
+        app.meshtastic_thread = None
+
     if not apscheduler.running:
         apscheduler.init_app(app)
         apscheduler.start(paused=True)
@@ -112,6 +119,8 @@ def init_extensions(app):
 
     user_datastore = SQLAlchemyUserDatastore(db, User, Role, WebAuthn)
     app.security = Security(app, user_datastore, mail_util_cls=EmailValidator)
+
+    migrate.init_app(app, db)
 
     mail.init_app(app)
     with app.app_context():
@@ -288,4 +297,4 @@ if __name__ == '__main__':
 
     app.start_time = datetime.now()
 
-    socketio.run(app, host="127.0.0.1", port=app.config.get("OTS_LISTENER_PORT"), debug=app.config.get("DEBUG"), log_output=app.config.get("DEBUG"))
+    socketio.run(app, host="127.0.0.1", port=app.config.get("OTS_LISTENER_PORT"), debug=app.config.get("DEBUG"), log_output=app.config.get("DEBUG"), use_reloader=False)
