@@ -24,6 +24,7 @@ class DefaultConfig:
     OTS_SSL_STREAMING_PORT = 8089
     OTS_BACKUP_COUNT = 7
     OTS_RABBITMQ_SERVER_ADDRESS = "127.0.0.1"
+    OTS_MEDIAMTX_ENABLE = True
     OTS_MEDIAMTX_API_ADDRESS = "http://localhost:9997"
     OTS_MEDIAMTX_TOKEN = str(secrets.SystemRandom().getrandbits(128))
     OTS_SSL_VERIFICATION_MODE = 2  # Equivalent to ssl.CERT_REQUIRED. https://docs.python.org/3/library/ssl.html#ssl.SSLContext.verify_mode

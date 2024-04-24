@@ -163,14 +163,17 @@ def create_app():
             config.write(yaml.safe_dump(conf))
 
         # Try to set the MediaMTX token
-        try:
-            with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "mediamtx.yml"), "r") as mediamtx_config:
-                conf = mediamtx_config.read()
-                conf = conf.replace("MTX_TOKEN", app.config.get("OTS_MEDIAMTX_TOKEN"))
-            with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "mediamtx.yml"), "w") as mediamtx_config:
-                mediamtx_config.write(conf)
-        except BaseException as e:
-            logger.error("Failed to set MediaMTX token: {}".format(e))
+        if app.config.get("OTS_MEDIAMTX_ENABLE"):
+            try:
+                with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "mediamtx.yml"), "r") as mediamtx_config:
+                    conf = mediamtx_config.read()
+                    conf = conf.replace("MTX_TOKEN", app.config.get("OTS_MEDIAMTX_TOKEN"))
+                with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "mediamtx.yml"), "w") as mediamtx_config:
+                    mediamtx_config.write(conf)
+            except BaseException as e:
+                logger.error("Failed to set MediaMTX token: {}".format(e))
+        else:
+            logger.info("MediaMTX disabled")
 
     init_extensions(app)
 
