@@ -16,7 +16,6 @@ class MeshtasticController(RabbitMQClient):
         self.logger.info("Starting Meshtastic controller...")
 
     def on_channel_open(self, channel):
-        self.logger.warning("on_channel_open")
         self.rabbit_channel = channel
         self.rabbit_channel.queue_declare(queue='meshtastic')
         self.rabbit_channel.queue_bind(exchange='amq.topic', queue='meshtastic', routing_key="#")
@@ -24,7 +23,6 @@ class MeshtasticController(RabbitMQClient):
         self.rabbit_channel.add_on_close_callback(self.on_close)
 
     def try_decode(self, mp):
-        self.logger.warning("decode")
         # Get the channel key from the DB
         key_bytes = base64.b64decode("AQ==".encode('ascii'))
 
@@ -38,7 +36,6 @@ class MeshtasticController(RabbitMQClient):
         mp.decoded.CopyFrom(data)
 
     def on_message(self, unused_channel, basic_deliver, properties, body):
-        self.logger.warning("on_message")
         se = mqtt_pb2.ServiceEnvelope()
         try:
             se.ParseFromString(body)

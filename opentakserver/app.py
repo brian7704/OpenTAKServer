@@ -199,6 +199,9 @@ def create_app():
     from opentakserver.blueprints.config import config_blueprint
     app.register_blueprint(config_blueprint)
 
+    from opentakserver.blueprints.meshtastic_api import meshtastic_api_blueprint
+    app.register_blueprint(meshtastic_api_blueprint)
+
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
     return app
