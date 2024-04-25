@@ -1,4 +1,5 @@
 import base64
+import os
 import traceback
 
 from meshtastic import channel_pb2, apponly_pb2, config_pb2
@@ -22,9 +23,16 @@ def create_channel():
 
     # Parse the settings from a Meshtastic URL
     if 'url' in request.json.keys() and request.json.get('url'):
-        settings = base64.b64decode(bleach.clean(request.json.get('url')) + "==")
-        channel_set.ParseFromString(settings)
-        url = request.json.get('url')
+        try:
+            settings = base64.b64decode(bleach.clean(request.json.get('url').split("#")[-1]))
+            channel_set.ParseFromString(settings)
+            url = request.json.get('url')
+            channel_settings = channel_set.settings[0]
+
+        except BaseException as e:
+            logger.error("Failed to parse Meshtastic  URL: {}".format(e))
+            logger.error(traceback.format_exc())
+            return jsonify({'success': False, 'error': str(e)}), 400
 
     # Make the protobuf from settings in order to make the URL
     else:
@@ -32,16 +40,16 @@ def create_channel():
             channel_set.lora_config.use_preset = True
             channel_set.lora_config.modem_preset = bleach.clean(request.json.get('modem_preset')) if request.json.get('modem_preset') else None
             channel_set.lora_config.region = bleach.clean(request.json.get('lora_region')) if request.json.get('lora_region') else None
-            channel_set.lora_config.hop_limit = bleach.clean(request.json.get('lora_hop_limit')) if request.json.get('lora_hop_limit') else None
-            channel_set.lora_config.tx_enabled = bleach.clean(request.json.get('lora_tx_enabled')) if request.json.get('lora_tx_enabled') else None
-            channel_set.lora_config.tx_power = bleach.clean(request.json.get('lora_tx_power')) if request.json.get('lora_tx_power') else None
-            channel_set.lora_config.sx126x_rx_boosted_gain = bleach.clean(request.json.get('lora_sx126x_rx_boosted_gain')) if request.json.get('lora_sx126x_rx_boosted_gain') else None
+            channel_set.lora_config.hop_limit = request.json.get('lora_hop_limit') if request.json.get('lora_hop_limit') else None
+            channel_set.lora_config.tx_enabled = request.json.get('lora_tx_enabled')
+            channel_set.lora_config.tx_power = request.json.get('lora_tx_power') if request.json.get('lora_tx_power') else None
+            channel_set.lora_config.sx126x_rx_boosted_gain = request.json.get('lora_sx126x_rx_boosted_gain')
 
-            channel_settings.psk = bleach.clean(request.json.get('psk')) if request.json.get('psk') else None
+            channel_settings.psk = bleach.clean(request.json.get('psk')).encode() if request.json.get('psk') else "".encode()
             channel_settings.name = bleach.clean(request.json.get('name')) if request.json.get('name') else None
-            channel_settings.uplink_enabled = bleach.clean(request.json.get('uplink_enabled')) if request.json.get('uplink_enabled') else None
-            channel_settings.downlink_enabled = bleach.clean(request.json.get('downlink_enabled')) if request.json.get('downlink_enabled') else None
-            channel_settings.module_settings.position_precision = bleach.clean(request.json.get('position_precision')) if request.json.get('position_precision') else None
+            channel_settings.uplink_enabled = request.json.get('uplink_enabled')
+            channel_settings.downlink_enabled = request.json.get('downlink_enabled')
+            channel_settings.module_settings.position_precision = request.json.get('position_precision') if request.json.get('position_precision') else None
 
             channel_set.settings.append(channel_settings)
 
@@ -52,22 +60,22 @@ def create_channel():
             logger.error(traceback.format_exc())
             return jsonify({'success': False, 'error': str(e)}), 400
 
-        meshtastic_channel_settings = MeshtasticChannelSettings()
-        meshtastic_channel_settings.psk = channel_settings.psk
-        meshtastic_channel_settings.name = channel_settings.name
-        meshtastic_channel_settings.uplink_enabled = channel_settings.uplink_enabled
-        meshtastic_channel_settings.downlink_enabled = channel_settings.downlink_enabled
-        meshtastic_channel_settings.position_precision = channel_settings.module_settings.position_precision
-        meshtastic_channel_settings.lora_region = channel_set.lora_config.region
-        meshtastic_channel_settings.lora_hop_limit = channel_set.lora_config.hop_limit
-        meshtastic_channel_settings.lora_tx_enabled = channel_set.lora_config.tx_enabled
-        meshtastic_channel_settings.lora_tx_power = channel_set.lora_config.tx_power
-        meshtastic_channel_settings.lora_sx126x_rx_boosted_gain = channel_set.lora_config.sx126x_rx_boosted_gain
-        meshtastic_channel_settings.modem_preset = channel_set.lora_config.modem_preset
-        meshtastic_channel_settings.url = url
+    meshtastic_channel_settings = MeshtasticChannelSettings()
+    meshtastic_channel_settings.psk = channel_settings.psk
+    meshtastic_channel_settings.name = channel_settings.name
+    meshtastic_channel_settings.uplink_enabled = channel_settings.uplink_enabled
+    meshtastic_channel_settings.downlink_enabled = channel_settings.downlink_enabled
+    meshtastic_channel_settings.position_precision = channel_settings.module_settings.position_precision
+    meshtastic_channel_settings.lora_region = channel_set.lora_config.region
+    meshtastic_channel_settings.lora_hop_limit = channel_set.lora_config.hop_limit
+    meshtastic_channel_settings.lora_tx_enabled = channel_set.lora_config.tx_enabled
+    meshtastic_channel_settings.lora_tx_power = channel_set.lora_config.tx_power
+    meshtastic_channel_settings.lora_sx126x_rx_boosted_gain = channel_set.lora_config.sx126x_rx_boosted_gain
+    meshtastic_channel_settings.modem_preset = channel_set.lora_config.modem_preset
+    meshtastic_channel_settings.url = url
 
-        db.session.add(meshtastic_channel_settings)
-        db.session.commit()
+    db.session.add(meshtastic_channel_settings)
+    db.session.commit()
 
     return jsonify({'success': True, 'url': url})
 
@@ -81,3 +89,9 @@ def get_channel():
     query = search(query, MeshtasticChannelSettings, 'url')
 
     return paginate(query)
+
+
+@meshtastic_api_blueprint.route("/api/meshtastic/generate_psk")
+@auth_required()
+def generate_psk():
+    return jsonify({"success": True, "psk": base64.b64encode(os.urandom(32)).decode('ascii')}), 200
