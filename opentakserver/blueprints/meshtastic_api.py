@@ -25,7 +25,7 @@ def create_channel():
     # Parse the settings from a Meshtastic URL
     if 'url' in request.json.keys() and request.json.get('url'):
         try:
-            settings = base64.b64decode(bleach.clean(request.json.get('url').split("#")[-1]) + "==")
+            settings = base64.urlsafe_b64decode(bleach.clean(request.json.get('url').split("#")[-1]) + "==")
             channel_set.ParseFromString(settings)
             url = request.json.get('url')
             channel_settings = channel_set.settings[0]
@@ -38,7 +38,7 @@ def create_channel():
     # Make the protobuf from settings in order to make the URL
     else:
         try:
-            channel_set.lora_config.use_preset = True
+            # channel_set.lora_config.use_preset = 'modem_preset' in request.json.keys()
             channel_set.lora_config.modem_preset = bleach.clean(request.json.get('modem_preset')) if request.json.get('modem_preset') else None
             channel_set.lora_config.region = bleach.clean(request.json.get('lora_region')) if request.json.get('lora_region') else None
             channel_set.lora_config.hop_limit = request.json.get('lora_hop_limit') if request.json.get('lora_hop_limit') else None
@@ -47,7 +47,7 @@ def create_channel():
             channel_set.lora_config.sx126x_rx_boosted_gain = request.json.get('lora_sx126x_rx_boosted_gain')
 
             if 'psk' in request.json.keys() and request.json.get('psk'):
-                channel_settings.psk = base64.b64decode(bleach.clean(request.json.get('psk')))
+                channel_settings.psk = base64.urlsafe_b64decode(bleach.clean(request.json.get('psk')))
             else:
                 # Zero bytes indicates no encryption
                 channel_settings.psk = bytes(0)
@@ -58,7 +58,7 @@ def create_channel():
 
             channel_set.settings.append(channel_settings)
 
-            url = "https://meshtastic.org/e/#" + base64.b64encode(channel_set.SerializeToString()).decode('utf-8')
+            url = "https://meshtastic.org/e/#" + base64.urlsafe_b64encode(channel_set.SerializeToString()).decode('utf-8')
 
         except BaseException as e:
             logger.error("Failed to save Meshtastic channel: {}".format(e))
@@ -66,7 +66,7 @@ def create_channel():
             return jsonify({'success': False, 'error': str(e)}), 400
 
     meshtastic_channel_settings = MeshtasticChannelSettings()
-    meshtastic_channel_settings.psk = base64.b64encode(channel_settings.psk).decode('ascii')
+    meshtastic_channel_settings.psk = base64.urlsafe_b64encode(channel_settings.psk).decode('ascii')
     meshtastic_channel_settings.name = channel_settings.name
     meshtastic_channel_settings.uplink_enabled = channel_settings.uplink_enabled
     meshtastic_channel_settings.downlink_enabled = channel_settings.downlink_enabled
@@ -127,4 +127,4 @@ def delete_channel():
 @meshtastic_api_blueprint.route("/api/meshtastic/generate_psk")
 @auth_required()
 def generate_psk():
-    return jsonify({"success": True, "psk": base64.b64encode(os.urandom(32)).decode('ascii')}), 200
+    return jsonify({"success": True, "psk": base64.urlsafe_b64encode(os.urandom(32)).decode('ascii')}), 200
