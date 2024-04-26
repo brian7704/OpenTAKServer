@@ -2,6 +2,7 @@ import base64
 import os
 import traceback
 
+import sqlalchemy
 from meshtastic import channel_pb2, apponly_pb2, config_pb2
 
 import bleach
@@ -78,8 +79,16 @@ def create_channel():
     meshtastic_channel_settings.modem_preset = channel_set.lora_config.modem_preset
     meshtastic_channel_settings.url = url
 
-    db.session.add(meshtastic_channel_settings)
-    db.session.commit()
+    try:
+        db.session.add(meshtastic_channel_settings)
+        db.session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        logger.error("Channel with URL {} already exists".format(url))
+        return jsonify({'success': False, 'error': "Channel already exists"}), 400
+    except BaseException as e:
+        logger.error("Failed to save Meshtastic channel: {}".format(e))
+        logger.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 400
 
     return jsonify({'success': True, 'url': url})
 
@@ -98,7 +107,21 @@ def get_channel():
 @meshtastic_api_blueprint.route("/api/meshtastic/channel", methods=['DELETE'])
 @auth_required()
 def delete_channel():
-    pass
+    if 'url' not in request.args.keys():
+        return jsonify({'success': False, 'error': "Please provide the URL of the channel to delete"}), 400
+
+    url = bleach.clean(request.args.get('url'))
+
+    try:
+        channel = db.session.query(MeshtasticChannelSettings).filter(MeshtasticChannelSettings.url == url).first()
+        db.session.delete(channel)
+        db.session.commit()
+    except BaseException as e:
+        logger.error("Failed to delete Meshtastic channel: {}".format(e))
+        logger.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+    return jsonify({'success': True})
 
 
 @meshtastic_api_blueprint.route("/api/meshtastic/generate_psk")

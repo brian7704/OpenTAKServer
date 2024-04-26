@@ -21,7 +21,7 @@ class MeshtasticChannelSettings(db.Model):
     lora_tx_power: Mapped[int] = mapped_column(Integer, default=30)
     lora_sx126x_rx_boosted_gain: Mapped[bool] = mapped_column(Boolean, default=True)
     modem_preset: Mapped[int] = mapped_column(Integer, default=0)
-    url: Mapped[str] = mapped_column(String, nullable=False)
+    url: Mapped[str] = mapped_column(String, nullable=False, unique=True)
 
     def serialize(self):
         return {
