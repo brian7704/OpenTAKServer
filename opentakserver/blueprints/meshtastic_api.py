@@ -24,7 +24,7 @@ def create_channel():
     # Parse the settings from a Meshtastic URL
     if 'url' in request.json.keys() and request.json.get('url'):
         try:
-            settings = base64.b64decode(bleach.clean(request.json.get('url').split("#")[-1]))
+            settings = base64.b64decode(bleach.clean(request.json.get('url').split("#")[-1]) + "==")
             channel_set.ParseFromString(settings)
             url = request.json.get('url')
             channel_settings = channel_set.settings[0]
@@ -45,7 +45,11 @@ def create_channel():
             channel_set.lora_config.tx_power = request.json.get('lora_tx_power') if request.json.get('lora_tx_power') else None
             channel_set.lora_config.sx126x_rx_boosted_gain = request.json.get('lora_sx126x_rx_boosted_gain')
 
-            channel_settings.psk = bleach.clean(request.json.get('psk')).encode() if request.json.get('psk') else "".encode()
+            if 'psk' in request.json.keys() and request.json.get('psk'):
+                channel_settings.psk = base64.b64decode(bleach.clean(request.json.get('psk')))
+            else:
+                # Zero bytes indicates no encryption
+                channel_settings.psk = bytes(0)
             channel_settings.name = bleach.clean(request.json.get('name')) if request.json.get('name') else None
             channel_settings.uplink_enabled = request.json.get('uplink_enabled')
             channel_settings.downlink_enabled = request.json.get('downlink_enabled')
@@ -61,7 +65,7 @@ def create_channel():
             return jsonify({'success': False, 'error': str(e)}), 400
 
     meshtastic_channel_settings = MeshtasticChannelSettings()
-    meshtastic_channel_settings.psk = channel_settings.psk
+    meshtastic_channel_settings.psk = base64.b64encode(channel_settings.psk).decode('ascii')
     meshtastic_channel_settings.name = channel_settings.name
     meshtastic_channel_settings.uplink_enabled = channel_settings.uplink_enabled
     meshtastic_channel_settings.downlink_enabled = channel_settings.downlink_enabled
@@ -89,6 +93,12 @@ def get_channel():
     query = search(query, MeshtasticChannelSettings, 'url')
 
     return paginate(query)
+
+
+@meshtastic_api_blueprint.route("/api/meshtastic/channel", methods=['DELETE'])
+@auth_required()
+def delete_channel():
+    pass
 
 
 @meshtastic_api_blueprint.route("/api/meshtastic/generate_psk")

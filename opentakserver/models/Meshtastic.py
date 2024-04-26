@@ -25,7 +25,7 @@ class MeshtasticChannelSettings(db.Model):
 
     def serialize(self):
         return {
-            'psk': self.psk.decode('ascii') if self.psk else None,
+            'psk': self.psk if self.psk else None,
             'name': self.name,
             'uplink_enabled': self.uplink_enabled,
             'downlink_enabled': self.downlink_enabled,
@@ -96,7 +96,7 @@ class MeshtasticChannelSettings(db.Model):
 
 
         return {
-            'psk': self.psk.decode('ascii') if self.psk else None,
+            'psk': self.psk if self.psk else None,
             'name': self.name,
             'uplink_enabled': self.uplink_enabled,
             'downlink_enabled': self.downlink_enabled,
