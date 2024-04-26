@@ -91,6 +91,13 @@ def change_config_setting(setting, value):
     except BaseException as e:
         logger.error("Failed to change setting {} to {} in config.yml: {}".format(setting, value, e))
 
+@api_blueprint.route('/api/health')
+def health():
+    if app.cot_thread.iothread.is_alive():
+        return jsonify({'status': 'down', 'error': 'cot thread is dead'}), 503
+
+    return jsonify({'status': 'healthy'})
+
 
 @api_blueprint.route('/api/status')
 @auth_required()
