@@ -1,13 +1,17 @@
+import base64
 import json
+import os
 import re
 import traceback
-from threading import Thread
 
+import random
 import bleach
 import sqlalchemy.exc
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from sqlalchemy import exc, insert, update
 from bs4 import BeautifulSoup
-import pika
+from meshtastic import atak_pb2, mqtt_pb2, mesh_pb2, portnums_pb2
 
 from opentakserver.controllers.rabbitmq_client import RabbitMQClient
 from opentakserver.extensions import socketio
@@ -51,10 +55,11 @@ class CoTController(RabbitMQClient):
         phone_number = None
 
         if uid not in self.online_euds and not uid.endswith('ping'):
+            self.logger.info("{} came online".format(uid))
             takv = event.find('takv')
             if takv:
                 device = takv.attrs['device']
-                os = takv.attrs['os']
+                operating_system = takv.attrs['os']
                 platform = takv.attrs['platform']
                 version = takv.attrs['version']
 
@@ -78,8 +83,9 @@ class CoTController(RabbitMQClient):
                             for eud in self.online_euds:
                                 self.rabbit_channel.basic_publish(exchange='dms',
                                                                   routing_key=uid,
-                                                                  body=json.dumps({'cot': str(self.online_euds[eud]['cot']),
-                                                                                   'uid': None}))
+                                                                  body=json.dumps(
+                                                                      {'cot': str(self.online_euds[eud]['cot']),
+                                                                       'uid': None}))
 
                     if 'phone' in contact.attrs:
                         phone_number = contact.attrs['phone']
@@ -93,7 +99,8 @@ class CoTController(RabbitMQClient):
                         if self.rabbit_channel.is_open and group.attrs['name'] not in self.exchanges:
                             self.logger.debug("Declaring exchange {}".format(group.attrs['name']))
                             self.rabbit_channel.exchange_declare(exchange=group.attrs['name'])
-                            self.rabbit_channel.queue_bind(queue=uid, exchange='chatrooms', routing_key=group.attrs['name'])
+                            self.rabbit_channel.queue_bind(queue=uid, exchange='chatrooms',
+                                                           routing_key=group.attrs['name'])
                             self.exchanges.append(group.attrs['name'])
 
                         team.name = bleach.clean(group.attrs['name'])
@@ -124,12 +131,25 @@ class CoTController(RabbitMQClient):
                     eud.uid = uid
                     eud.callsign = callsign
                     eud.device = device
-                    eud.os = os
+                    eud.os = operating_system
                     eud.platform = platform
                     eud.version = version
                     eud.phone_number = phone_number
                     eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
                     eud.last_status = 'Connected'
+
+                    # Set a Meshtastic ID for TAK EUDs to be identified by in the Meshtastic network
+                    if not eud.meshtastic_id:
+                        meshtastic_id = '{:x}'.format(int.from_bytes(os.urandom(4), 'big'))
+                        while len(meshtastic_id) < 8:
+                            meshtastic_id = "0" + meshtastic_id
+                        eud.meshtastic_id = meshtastic_id
+
+                    # Get the Meshtastic device's mac address or generate a random one for TAK EUDs
+                    if 'macaddr' in takv.attrs:
+                        eud.meshtastic_macaddr = takv.attrs['macaddr']
+                    else:
+                        eud.meshtastic_macaddr = os.urandom(6)
 
                     if group:
                         eud.team_id = team.id
@@ -138,6 +158,23 @@ class CoTController(RabbitMQClient):
                     self.db.session.add(eud)
                     self.db.session.commit()
 
+                    if self.context.app.config.get("OTS_ENABLE_MESHTASTIC") and eud.platform != "Meshtastic":
+                        user_info = mesh_pb2.User()
+                        setattr(user_info, "id", eud.meshtastic_id)
+                        user_info.long_name = eud.callsign
+                        # Use the last 4 characters of the UID as the short name
+                        user_info.short_name = eud.uid[-4:]
+                        user_info.hw_model = mesh_pb2.HardwareModel.PRIVATE_HW
+                        user_info.macaddr = eud.meshtastic_macaddr
+
+                        encoded_message = mesh_pb2.Data()
+                        encoded_message.portnum = portnums_pb2.NODEINFO_APP
+                        user_info_bytes = user_info.SerializeToString()
+                        encoded_message.payload = user_info_bytes
+
+                        self.rabbit_channel.basic_publish(exchange='amq.topic',
+                                                          routing_key='opentakserver.2.e.LongFast.outgoing',
+                                                          body=self.get_protobuf(encoded_message, from_id=int(eud.meshtastic_id, 16)).SerializeToString())
                     socketio.emit('eud', eud.to_json(), namespace='/socket.io')
 
         # Update the CoT stored in memory which contains the new stale time
@@ -230,13 +267,54 @@ class CoTController(RabbitMQClient):
                 p = self.db.session.execute(
                     self.db.session.query(Point).filter(Point.id == res.inserted_primary_key[0])).first()[0]
 
-                # This CoT is a position update for an EUD, send it to socketio clients, so it can be seen on the UI map
+                # This CoT is a position update for an EUD. Send it to socketio clients so it can be seen on the UI map
                 # OpenTAK ICU position updates don't include the <takv> tag, but we still want to send the updated position
                 # to the UI's map
                 if event.find('takv') or event.find("__video"):
                     socketio.emit('point', p.to_json(), namespace='/socket.io')
 
                 return res.inserted_primary_key[0]
+
+    def encrypt(self, mp, payload):
+        # Get the channel key from the DB
+        key_bytes = base64.b64decode("1PG7OiApB1nwvP+rz05pAQ==".encode('ascii'))
+
+        encoded_message = mesh_pb2.Data()
+        encoded_message.portnum = portnums_pb2.TEXT_MESSAGE_APP
+        encoded_message.payload = payload
+
+        nonce = getattr(mp, "id").to_bytes(8, "little") + getattr(mp, "from").to_bytes(8, "little")
+        cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
+        encryptor = cipher.encryptor()
+        encrypted_bytes = encryptor.update(encoded_message.SerializeToString()) + encryptor.finalize()
+        mp.encrypted = encrypted_bytes
+        return mp
+
+    def get_protobuf(self, payload, uid=None, from_id=None, to_id=4294967295, channel_id="LongFast"):
+        if uid and not from_id:
+            try:
+                eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
+                from_id = eud.meshtastic_id
+            except:
+                self.logger.error("Failed to find EUD {}, using random Meshtastic ID".format(uid))
+                from_id = random.getrandbits(32)
+
+        message_id = random.getrandbits(32)
+        mesh_packet = mesh_pb2.MeshPacket()
+        mesh_packet.id = message_id
+
+        setattr(mesh_packet, "from", int(from_id, 16))
+        mesh_packet.to = to_id
+        mesh_packet.want_ack = False
+        mesh_packet.hop_limit = 3
+        mesh_packet.decoded.CopyFrom(payload)
+
+        service_envelope = mqtt_pb2.ServiceEnvelope()
+        service_envelope.packet.CopyFrom(mesh_packet)
+        service_envelope.channel_id = channel_id
+        service_envelope.gateway_id = "OpenTAKServer"
+
+        return service_envelope
 
     def parse_geochat(self, event, cot_id, point_pk):
         chat = event.find('__chat')
@@ -266,6 +344,20 @@ class CoTController(RabbitMQClient):
             geochat.timestamp = datetime_from_iso8601_string(remarks.attrs['time'])
             geochat.point_id = point_pk
             geochat.cot_id = cot_id
+
+            if self.context.app.config.get("OTS_ENABLE_MESHTASTIC"):
+                try:
+                    encoded_message = mesh_pb2.Data()
+                    encoded_message.portnum = portnums_pb2.TEXT_MESSAGE_APP
+                    encoded_message.payload = remarks.text.encode("utf-8")
+
+                    with self.context:
+                        eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=geochat.sender_uid)).first()[0]
+                        self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key='opentakserver.2.e.LongFast.outgoing',
+                                                          body=self.get_protobuf(encoded_message, from_id=eud.meshtastic_id).SerializeToString())
+                except BaseException as e:
+                    self.logger.error("Failed to publish MQTT message: {}".format(e))
+                    self.logger.error(traceback.format_exc())
 
             with self.context:
                 try:
@@ -672,7 +764,9 @@ class CoTController(RabbitMQClient):
     def on_message(self, unused_channel, basic_deliver, properties, body):
         try:
             body = json.loads(body)
+            self.logger.error(body['cot'])
             soup = BeautifulSoup(body['cot'], 'xml')
+            self.logger.warning(soup)
             event = soup.find('event')
             if event:
                 self.parse_device_info(body['uid'], soup, event)

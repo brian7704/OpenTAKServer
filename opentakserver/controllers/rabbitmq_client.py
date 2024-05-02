@@ -23,7 +23,7 @@ class RabbitMQClient:
             self.iothread.start()
             self.is_consuming = False
         except BaseException as e:
-            self.logger.error("cot_controller - Failed to connect to rabbitmq: {}".format(e))
+            self.logger.error("Failed to connect to rabbitmq: {}".format(e))
             return
 
     def on_connection_open(self, connection):

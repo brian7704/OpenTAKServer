@@ -25,6 +25,8 @@ class EUD(db.Model):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("user.id"), nullable=True)
     team_id: Mapped[int] = mapped_column(Integer, ForeignKey("teams.id"), nullable=True)
     team_role: Mapped[str] = mapped_column(String, nullable=True)
+    meshtastic_id: Mapped[int] = mapped_column(Integer, nullable=True)
+    meshtastic_macaddr: Mapped[String] = mapped_column(String, nullable=True)
     points = relationship("Point", back_populates="eud")
     cots = relationship("CoT", back_populates="eud")
     casevacs = relationship("CasEvac", back_populates="eud")
