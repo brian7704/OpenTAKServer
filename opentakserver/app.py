@@ -99,12 +99,6 @@ def init_extensions(app):
     cot_thread = CoTController(app.app_context(), logger, db, socketio)
     app.cot_thread = cot_thread
 
-    if app.config.get("OTS_ENABLE_MESHTASTIC"):
-        mestastic_thread = MeshtasticController(app.app_context(), logger, db, socketio)
-        app.mestastic_thread = mestastic_thread
-    else:
-        app.meshtastic_thread = None
-
     if not apscheduler.running:
         apscheduler.init_app(app)
         apscheduler.start(paused=True)
@@ -203,6 +197,12 @@ def create_app():
     app.register_blueprint(meshtastic_api_blueprint)
 
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
+
+    if app.config.get("OTS_ENABLE_MESHTASTIC"):
+        mestastic_thread = MeshtasticController(app.app_context(), logger, db, socketio)
+        app.mestastic_thread = mestastic_thread
+    else:
+        app.meshtastic_thread = None
 
     return app
 

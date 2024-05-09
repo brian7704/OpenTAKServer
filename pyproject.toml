@@ -43,6 +43,7 @@ PyYAML = "6.0.1"
 sqlalchemy = "2.0.28"
 sqlalchemy-utils = "0.41.1"
 tldextract = "5.1.2"
+unishox2-py3 = "1.0.0"
 
 [tool.poetry-dynamic-versioning]
 enable = true

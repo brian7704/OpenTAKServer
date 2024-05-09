@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import re
+import time
 import traceback
 
 import random
@@ -11,8 +12,10 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from sqlalchemy import exc, insert, update
 from bs4 import BeautifulSoup
-from meshtastic import atak_pb2, mqtt_pb2, mesh_pb2, portnums_pb2
+from meshtastic import mqtt_pb2, mesh_pb2, portnums_pb2
+import unishox2
 
+from opentakserver.proto import atak_pb2
 from opentakserver.controllers.rabbitmq_client import RabbitMQClient
 from opentakserver.extensions import socketio
 from opentakserver.functions import datetime_from_iso8601_string
@@ -53,132 +56,147 @@ class CoTController(RabbitMQClient):
 
         callsign = None
         phone_number = None
+        takv = event.find('takv')
 
-        if uid not in self.online_euds and not uid.endswith('ping'):
+        if uid not in self.online_euds and not uid.endswith('ping') and takv:
             self.logger.info("{} came online".format(uid))
-            takv = event.find('takv')
-            if takv:
-                device = takv.attrs['device']
-                operating_system = takv.attrs['os']
-                platform = takv.attrs['platform']
-                version = takv.attrs['version']
+            device = takv.attrs['device']
+            operating_system = takv.attrs['os']
+            platform = takv.attrs['platform']
+            version = takv.attrs['version']
 
-                contact = event.find('contact')
-                if contact:
-                    if 'callsign' in contact.attrs:
-                        callsign = contact.attrs['callsign']
+            contact = event.find('contact')
+            if contact:
+                if 'callsign' in contact.attrs:
+                    callsign = contact.attrs['callsign']
 
-                        if uid not in self.online_euds:
-                            self.online_euds[uid] = {'cot': str(soup), 'callsign': callsign}
+                    if uid not in self.online_euds:
+                        self.online_euds[uid] = {'cot': str(soup), 'callsign': callsign}
 
-                        if callsign not in self.online_callsigns:
-                            self.online_callsigns[callsign] = {'uid': uid, 'cot': soup}
+                    if callsign not in self.online_callsigns:
+                        self.online_callsigns[callsign] = {'uid': uid, 'cot': soup}
 
-                        # Declare a RabbitMQ Queue for this uid and join the 'dms' and 'cot' exchanges
-                        if self.rabbit_channel and self.rabbit_channel.is_open and platform != "OpenTAK ICU":
-                            self.rabbit_channel.queue_bind(exchange='dms', queue=uid, routing_key=uid)
-                            self.rabbit_channel.queue_bind(exchange='chatrooms', queue=uid,
-                                                           routing_key='All Chat Rooms')
+                    # Declare a RabbitMQ Queue for this uid and join the 'dms' and 'cot' exchanges
+                    if self.rabbit_channel and self.rabbit_channel.is_open and platform != "OpenTAK ICU" and platform != "Meshtastic":
+                        self.rabbit_channel.queue_bind(exchange='dms', queue=uid, routing_key=uid)
+                        self.rabbit_channel.queue_bind(exchange='chatrooms', queue=uid,
+                                                       routing_key='All Chat Rooms')
 
-                            for eud in self.online_euds:
-                                self.rabbit_channel.basic_publish(exchange='dms',
-                                                                  routing_key=uid,
-                                                                  body=json.dumps(
-                                                                      {'cot': str(self.online_euds[eud]['cot']),
-                                                                       'uid': None}))
+                        for eud in self.online_euds:
+                            self.rabbit_channel.basic_publish(exchange='dms',
+                                                              routing_key=uid,
+                                                              body=json.dumps(
+                                                                  {'cot': str(self.online_euds[eud]['cot']),
+                                                                   'uid': None}))
 
-                    if 'phone' in contact.attrs:
-                        phone_number = contact.attrs['phone']
+                if 'phone' in contact.attrs:
+                    phone_number = contact.attrs['phone']
 
-                with self.context:
-                    group = event.find('__group')
-                    team = Team()
+            with self.context:
+                group = event.find('__group')
+                team = Team()
 
-                    if group:
-                        # Declare an exchange for each group and bind the callsign's queue
-                        if self.rabbit_channel.is_open and group.attrs['name'] not in self.exchanges:
-                            self.logger.debug("Declaring exchange {}".format(group.attrs['name']))
-                            self.rabbit_channel.exchange_declare(exchange=group.attrs['name'])
-                            self.rabbit_channel.queue_bind(queue=uid, exchange='chatrooms',
-                                                           routing_key=group.attrs['name'])
-                            self.exchanges.append(group.attrs['name'])
+                if group:
+                    # Declare an exchange for each group and bind the callsign's queue
+                    if self.rabbit_channel.is_open and group.attrs['name'] not in self.exchanges and platform != "Meshtastic":
+                        self.logger.debug("Declaring exchange {}".format(group.attrs['name']))
+                        self.rabbit_channel.exchange_declare(exchange=group.attrs['name'])
+                        self.rabbit_channel.queue_bind(queue=uid, exchange='chatrooms',
+                                                       routing_key=group.attrs['name'])
+                        self.exchanges.append(group.attrs['name'])
 
-                        team.name = bleach.clean(group.attrs['name'])
-
-                        try:
-                            chatroom = self.db.session.execute(self.db.session.query(Chatroom)
-                                                               .filter(Chatroom.name == team.name)).first()[0]
-                            team.chatroom_id = chatroom.id
-                        except TypeError:
-                            chatroom = None
-
-                        try:
-                            self.db.session.add(team)
-                            self.db.session.commit()
-                        except sqlalchemy.exc.IntegrityError:
-                            self.db.session.rollback()
-                            team = self.db.session.execute(self.db.session.query(Team)
-                                                           .filter(Team.name == group.attrs['name'])).first()[0]
-                            if not team.chatroom_id and chatroom:
-                                team.chatroom_id = chatroom.id
-                                self.db.session.execute(update(Team).filter(Team.name).values(**team))
+                    team.name = bleach.clean(group.attrs['name'])
 
                     try:
-                        eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
-                    except:
-                        eud = EUD()
+                        chatroom = self.db.session.execute(self.db.session.query(Chatroom)
+                                                           .filter(Chatroom.name == team.name)).first()[0]
+                        team.chatroom_id = chatroom.id
+                    except TypeError:
+                        chatroom = None
 
-                    eud.uid = uid
+                    try:
+                        self.db.session.add(team)
+                        self.db.session.commit()
+                    except sqlalchemy.exc.IntegrityError:
+                        self.db.session.rollback()
+                        team = self.db.session.execute(self.db.session.query(Team)
+                                                       .filter(Team.name == group.attrs['name'])).first()[0]
+                        if not team.chatroom_id and chatroom:
+                            team.chatroom_id = chatroom.id
+                            self.db.session.execute(update(Team).filter(Team.name).values(chatroom_id=chatroom.id))
+
+                try:
+                    eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
+                except:
+                    eud = EUD()
+
+                eud.uid = uid
+                if callsign:
                     eud.callsign = callsign
+                if device:
                     eud.device = device
-                    eud.os = operating_system
-                    eud.platform = platform
-                    eud.version = version
-                    eud.phone_number = phone_number
-                    eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
-                    eud.last_status = 'Connected'
 
-                    # Set a Meshtastic ID for TAK EUDs to be identified by in the Meshtastic network
-                    if not eud.meshtastic_id:
+                eud.os = operating_system
+                eud.platform = platform
+                eud.version = version
+                eud.phone_number = phone_number
+                eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
+                eud.last_status = 'Connected'
+
+                # Set a Meshtastic ID for TAK EUDs to be identified by in the Meshtastic network
+                if not eud.meshtastic_id and eud.platform != "Meshtastic":
+                    meshtastic_id = '{:x}'.format(int.from_bytes(os.urandom(4), 'big'))
+                    while len(meshtastic_id) < 8:
+                        meshtastic_id = "0" + meshtastic_id
+                    eud.meshtastic_id = int(meshtastic_id, 16)
+                elif not eud.meshtastic_id and eud.platform == "Meshtastic":
+                    try:
+                        eud.meshtastic_id = int(takv.attrs['meshtastic_id'], 16)
+                    except:
                         meshtastic_id = '{:x}'.format(int.from_bytes(os.urandom(4), 'big'))
                         while len(meshtastic_id) < 8:
                             meshtastic_id = "0" + meshtastic_id
-                        eud.meshtastic_id = meshtastic_id
+                        eud.meshtastic_id = int(meshtastic_id, 16)
 
-                    # Get the Meshtastic device's mac address or generate a random one for TAK EUDs
-                    if 'macaddr' in takv.attrs:
-                        eud.meshtastic_macaddr = takv.attrs['macaddr']
-                    else:
-                        eud.meshtastic_macaddr = os.urandom(6)
+                # Get the Meshtastic device's mac address or generate a random one for TAK EUDs
+                if 'macaddr' in takv.attrs:
+                    eud.meshtastic_macaddr = takv.attrs['macaddr']
+                else:
+                    eud.meshtastic_macaddr = base64.b64encode(os.urandom(6)).decode('ascii')
 
-                    if group:
-                        eud.team_id = team.id
-                        eud.team_role = bleach.clean(group.attrs['role'])
+                if group:
+                    eud.team_id = team.id
+                    eud.team_role = bleach.clean(group.attrs['role'])
 
-                    self.db.session.add(eud)
-                    self.db.session.commit()
+                self.db.session.add(eud)
+                self.db.session.commit()
 
-                    if self.context.app.config.get("OTS_ENABLE_MESHTASTIC") and eud.platform != "Meshtastic":
-                        user_info = mesh_pb2.User()
-                        setattr(user_info, "id", eud.meshtastic_id)
-                        user_info.long_name = eud.callsign
-                        # Use the last 4 characters of the UID as the short name
-                        user_info.short_name = eud.uid[-4:]
-                        user_info.hw_model = mesh_pb2.HardwareModel.PRIVATE_HW
-                        user_info.macaddr = eud.meshtastic_macaddr
+                if self.context.app.config.get("OTS_ENABLE_MESHTASTIC") and eud.platform != "Meshtastic":
+                    user_info = mesh_pb2.User()
+                    #setattr(user_info, "id", "!{:x}".format(eud.meshtastic_id))
+                    setattr(user_info, "id", eud.uid)
+                    user_info.long_name = eud.callsign
+                    # Use the last 4 characters of the UID as the short name
+                    user_info.short_name = eud.uid[-4:]
+                    user_info.hw_model = mesh_pb2.HardwareModel.PRIVATE_HW
+                    #user_info.macaddr = eud.meshtastic_macaddr
 
-                        encoded_message = mesh_pb2.Data()
-                        encoded_message.portnum = portnums_pb2.NODEINFO_APP
-                        user_info_bytes = user_info.SerializeToString()
-                        encoded_message.payload = user_info_bytes
+                    node_info = mesh_pb2.NodeInfo()
+                    node_info.user.CopyFrom(user_info)
 
-                        self.rabbit_channel.basic_publish(exchange='amq.topic',
-                                                          routing_key='opentakserver.2.e.LongFast.outgoing',
-                                                          body=self.get_protobuf(encoded_message, from_id=int(eud.meshtastic_id, 16)).SerializeToString())
-                    socketio.emit('eud', eud.to_json(), namespace='/socket.io')
+                    encoded_message = mesh_pb2.Data()
+                    encoded_message.portnum = portnums_pb2.NODEINFO_APP
+                    user_info_bytes = user_info.SerializeToString()
+                    encoded_message.payload = user_info_bytes
+
+                    self.rabbit_channel.basic_publish(exchange='amq.topic',
+                                                      routing_key='opentakserver.2.e.LongFast.outgoing',
+                                                      body=self.get_protobuf(encoded_message, from_id=eud.meshtastic_id).SerializeToString())
+
+                socketio.emit('eud', eud.to_json(), namespace='/socket.io')
 
         # Update the CoT stored in memory which contains the new stale time
-        elif event.find('takv'):
+        elif takv:
             self.online_euds[uid]['cot'] = str(soup)
 
     def insert_cot(self, soup, event, uid):
@@ -273,6 +291,67 @@ class CoTController(RabbitMQClient):
                 if event.find('takv') or event.find("__video"):
                     socketio.emit('point', p.to_json(), namespace='/socket.io')
 
+                if self.context.app.config.get("OTS_ENABLE_MESHTASTIC"):
+                    try:
+                        eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
+
+                        if eud.platform != "Meshtastic":
+                            mesh_user = mesh_pb2.User()
+                            #setattr(mesh_user, "id", "!{:x}".format(eud.meshtastic_id))
+                            setattr(mesh_user, "id", eud.uid)
+                            mesh_user.hw_model = mesh_pb2.HardwareModel.PRIVATE_HW
+                            mesh_user.short_name = p.device_uid[-4:]
+
+                            contact = event.find('contact')
+                            if contact:
+                                mesh_user.long_name = contact.attrs['callsign']
+
+                            position = mesh_pb2.Position()
+                            position.latitude_i = int(p.latitude / .0000001)
+                            position.longitude_i = int(p.longitude / .0000001)
+                            position.altitude = int(p.hae)
+                            position.time = int(time.mktime(p.timestamp.timetuple()))
+                            position.ground_track = int(p.course) if p.course else 0
+                            position.ground_speed = int(p.speed) if p.speed else 0
+                            position.seq_number = 1
+                            position.precision_bits = 32
+
+                            node_info = mesh_pb2.NodeInfo()
+                            node_info.user.CopyFrom(mesh_user)
+                            node_info.position.CopyFrom(position)
+
+                            encoded_message = mesh_pb2.Data()
+                            encoded_message.portnum = portnums_pb2.POSITION_APP
+                            encoded_message.payload = position.SerializeToString()
+
+                            self.rabbit_channel.basic_publish(exchange='amq.topic',
+                                                              routing_key='opentakserver.2.e.LongFast.outgoing',
+                                                              body=self.get_protobuf(encoded_message,
+                                                                                     uid=p.device_uid).SerializeToString())
+
+                            tak_packet = atak_pb2.TAKPacket()
+                            tak_packet.is_compressed = True
+                            tak_packet.contact.device_callsign, size = unishox2.compress(eud.uid)
+                            tak_packet.contact.callsign, size = unishox2.compress(eud.callsign)
+                            tak_packet.group.team = eud.team.name.replace(" ", "_")
+                            tak_packet.group.role = eud.team_role.replace(" ", "")
+                            tak_packet.status.battery = int(p.battery) if p.battery else 0
+                            tak_packet.pli.latitude_i = int(p.latitude / .0000001)
+                            tak_packet.pli.longitude_i = int(p.longitude / .0000001)
+                            tak_packet.pli.altitude = int(p.hae) if p.hae else 0
+                            tak_packet.pli.speed = int(p.speed) if p.speed else 0
+                            tak_packet.pli.course = int(p.course) if p.course else 0
+
+                            encoded_message = mesh_pb2.Data()
+                            encoded_message.portnum = portnums_pb2.ATAK_PLUGIN
+                            encoded_message.payload = tak_packet.SerializeToString()
+
+                            self.rabbit_channel.basic_publish(exchange='amq.topic',
+                                                              routing_key='opentakserver.2.e.LongFast.outgoing',
+                                                              body=self.get_protobuf(encoded_message, uid=eud.uid).SerializeToString())
+                    except:
+                        self.logger.error(traceback.format_exc())
+
                 return res.inserted_primary_key[0]
 
     def encrypt(self, mp, payload):
@@ -296,6 +375,7 @@ class CoTController(RabbitMQClient):
                 eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
                 from_id = eud.meshtastic_id
             except:
+                self.logger.error(traceback.format_exc())
                 self.logger.error("Failed to find EUD {}, using random Meshtastic ID".format(uid))
                 from_id = random.getrandbits(32)
 
@@ -303,7 +383,10 @@ class CoTController(RabbitMQClient):
         mesh_packet = mesh_pb2.MeshPacket()
         mesh_packet.id = message_id
 
-        setattr(mesh_packet, "from", int(from_id, 16))
+        try:
+            setattr(mesh_packet, "from", int(from_id, 16))
+        except BaseException as e:
+            setattr(mesh_packet, "from", from_id)
         mesh_packet.to = to_id
         mesh_packet.want_ack = False
         mesh_packet.hop_limit = 3
@@ -347,12 +430,28 @@ class CoTController(RabbitMQClient):
 
             if self.context.app.config.get("OTS_ENABLE_MESHTASTIC"):
                 try:
-                    encoded_message = mesh_pb2.Data()
-                    encoded_message.portnum = portnums_pb2.TEXT_MESSAGE_APP
-                    encoded_message.payload = remarks.text.encode("utf-8")
-
                     with self.context:
                         eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=geochat.sender_uid)).first()[0]
+
+                        tak_packet = atak_pb2.TAKPacket()
+                        tak_packet.contact.device_callsign, size = unishox2.compress(geochat.sender_uid)
+                        tak_packet.contact.callsign, size = unishox2.compress(self.online_euds[geochat.sender_uid]['callsign'])
+                        tak_packet.chat.message, size = unishox2.compress(remarks.text)
+                        tak_packet.group.team = eud.team.name.replace(" ", "_")
+                        tak_packet.group.role = eud.team_role.replace(" ", "")
+                        try:
+                            tak_packet.chat.to, size = unishox2.compress(self.online_callsigns[chat.attrs['chatroom']]['uid'])
+                        except:
+                            tak_packet.chat.to, size = unishox2.compress(chat.attrs['chatroom'])
+                        tak_packet.is_compressed = True
+
+                        encoded_message = mesh_pb2.Data()
+                        #encoded_message.portnum = portnums_pb2.TEXT_MESSAGE_APP
+                        #encoded_message.payload = remarks.text.encode("utf-8")
+                        encoded_message.portnum = portnums_pb2.ATAK_PLUGIN
+                        encoded_message.payload = tak_packet.SerializeToString()
+                        self.logger.debug(tak_packet)
+
                         self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key='opentakserver.2.e.LongFast.outgoing',
                                                           body=self.get_protobuf(encoded_message, from_id=eud.meshtastic_id).SerializeToString())
                 except BaseException as e:
@@ -764,9 +863,7 @@ class CoTController(RabbitMQClient):
     def on_message(self, unused_channel, basic_deliver, properties, body):
         try:
             body = json.loads(body)
-            self.logger.error(body['cot'])
             soup = BeautifulSoup(body['cot'], 'xml')
-            self.logger.warning(soup)
             event = soup.find('event')
             if event:
                 self.parse_device_info(body['uid'], soup, event)
