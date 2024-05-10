@@ -71,10 +71,10 @@ class CoTController(RabbitMQClient):
                     callsign = contact.attrs['callsign']
 
                     if uid not in self.online_euds:
-                        self.online_euds[uid] = {'cot': str(soup), 'callsign': callsign}
+                        self.online_euds[uid] = {'cot': str(soup), 'callsign': callsign, 'last_meshtastic_publish': 0}
 
                     if callsign not in self.online_callsigns:
-                        self.online_callsigns[callsign] = {'uid': uid, 'cot': soup}
+                        self.online_callsigns[callsign] = {'uid': uid, 'cot': soup, 'last_meshtastic_publish': 0}
 
                     # Declare a RabbitMQ Queue for this uid and join the 'dms' and 'cot' exchanges
                     if self.rabbit_channel and self.rabbit_channel.is_open and platform != "OpenTAK ICU" and platform != "Meshtastic":
@@ -174,7 +174,6 @@ class CoTController(RabbitMQClient):
                 if self.context.app.config.get("OTS_ENABLE_MESHTASTIC") and eud.platform != "Meshtastic":
                     user_info = mesh_pb2.User()
                     setattr(user_info, "id", "!{:x}".format(eud.meshtastic_id))
-                    #setattr(user_info, "id", eud.uid)
                     user_info.long_name = eud.callsign
                     # Use the last 4 characters of the UID as the short name
                     user_info.short_name = eud.uid[-4:]
@@ -188,7 +187,7 @@ class CoTController(RabbitMQClient):
                     user_info_bytes = user_info.SerializeToString()
                     encoded_message.payload = user_info_bytes
 
-                    self.publish_to_meshtastic(self.get_protobuf(encoded_message, from_id=eud.meshtastic_id).SerializeToString())
+                    self.publish_to_meshtastic(eud, self.get_protobuf(encoded_message, from_id=eud.meshtastic_id).SerializeToString())
 
                 socketio.emit('eud', eud.to_json(), namespace='/socket.io')
 
@@ -288,13 +287,16 @@ class CoTController(RabbitMQClient):
                 if event.find('takv') or event.find("__video"):
                     socketio.emit('point', p.to_json(), namespace='/socket.io')
 
-                if self.context.app.config.get("OTS_ENABLE_MESHTASTIC"):
+                now = time.time()
+                can_transmit = (now - self.online_euds[uid]['last_meshtastic_publish'] >= self.context.app.config.get("OTS_MESHTASTIC_PUBLISH_INTERVAL"))
+
+                if self.context.app.config.get("OTS_ENABLE_MESHTASTIC") and can_transmit:
                     try:
+                        self.online_euds[uid]['last_meshtastic_publish'] = now
                         eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
 
                         if eud.platform != "Meshtastic":
                             mesh_user = mesh_pb2.User()
-                            #setattr(mesh_user, "id", "!{:x}".format(eud.meshtastic_id))
                             setattr(mesh_user, "id", eud.uid)
                             mesh_user.hw_model = mesh_pb2.HardwareModel.PRIVATE_HW
                             mesh_user.short_name = p.device_uid[-4:]
@@ -321,7 +323,7 @@ class CoTController(RabbitMQClient):
                             encoded_message.portnum = portnums_pb2.POSITION_APP
                             encoded_message.payload = position.SerializeToString()
 
-                            self.publish_to_meshtastic(body=self.get_protobuf(encoded_message, uid=p.device_uid).SerializeToString())
+                            self.publish_to_meshtastic(eud, self.get_protobuf(encoded_message, uid=p.device_uid).SerializeToString())
 
                             tak_packet = atak_pb2.TAKPacket()
                             tak_packet.is_compressed = True
@@ -340,26 +342,11 @@ class CoTController(RabbitMQClient):
                             encoded_message.portnum = portnums_pb2.ATAK_PLUGIN
                             encoded_message.payload = tak_packet.SerializeToString()
 
-                            self.publish_to_meshtastic(body=self.get_protobuf(encoded_message, uid=eud.uid).SerializeToString())
+                            self.publish_to_meshtastic(eud, self.get_protobuf(encoded_message, uid=eud.uid).SerializeToString())
                     except:
                         self.logger.error(traceback.format_exc())
 
                 return res.inserted_primary_key[0]
-
-    def encrypt(self, mp, payload):
-        # Get the channel key from the DB
-        key_bytes = base64.b64decode("1PG7OiApB1nwvP+rz05pAQ==".encode('ascii'))
-
-        encoded_message = mesh_pb2.Data()
-        encoded_message.portnum = portnums_pb2.TEXT_MESSAGE_APP
-        encoded_message.payload = payload
-
-        nonce = getattr(mp, "id").to_bytes(8, "little") + getattr(mp, "from").to_bytes(8, "little")
-        cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
-        encryptor = cipher.encryptor()
-        encrypted_bytes = encryptor.update(encoded_message.SerializeToString()) + encryptor.finalize()
-        mp.encrypted = encrypted_bytes
-        return mp
 
     def get_protobuf(self, payload, uid=None, from_id=None, to_id=4294967295, channel_id="LongFast"):
         if uid and not from_id:

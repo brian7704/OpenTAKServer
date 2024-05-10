@@ -77,7 +77,7 @@ def save_channel(channel_set):
 
         if channel_settings.downlink_enabled and channel_settings.name not in app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"):
             app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS").append(channel_settings.name)
-            logger.warning("Added {} to channels".format(channel_settings.name))
+            logger.debug("Added {} to channels".format(channel_settings.name))
 
         meshtastic_channel_settings = MeshtasticChannel()
         meshtastic_channel_settings.psk = base64.urlsafe_b64encode(channel_settings.psk).decode('ascii')

@@ -46,6 +46,7 @@ class DefaultConfig:
 
     OTS_ENABLE_MESHTASTIC = False
     OTS_MESHTASTIC_TOPIC = "opentakserver"
+    OTS_MESHTASTIC_PUBLISH_INTERVAL = 30
 
     # Gmail settings
     OTS_ENABLE_EMAIL = False
