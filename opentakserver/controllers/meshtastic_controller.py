@@ -121,7 +121,7 @@ class MeshtasticController(RabbitMQClient):
                 self.logger.error(traceback.format_exc())
 
     def cot(self, pb, from_id, to_id, portnum, how='m-g', cot_type='a-f-G-U-C', uid=None):
-        if not uid and from_id in self.meshtastic_devices:
+        if not uid and from_id in self.meshtastic_devices and self.meshtastic_devices[from_id]['uid']:
             uid = self.meshtastic_devices[from_id]['uid']
         elif not uid:
             uid = from_id
@@ -199,7 +199,7 @@ class MeshtasticController(RabbitMQClient):
                 chatroom = meshtastic_device['uid']
                 break
 
-        if from_id in self.meshtastic_devices:
+        if from_id in self.meshtastic_devices and self.meshtastic_devices[from_id]['uid']:
             from_uid = self.meshtastic_devices[from_id]['uid']
         else:
             from_uid = from_id
@@ -218,8 +218,7 @@ class MeshtasticController(RabbitMQClient):
                                                  'time': datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
                                                  'to': chatroom})
 
-        # Remove the first two bytes because they're not UTF-8 and ATAK will fail to parse the XML if they're present
-        remarks.text = pb[2:].decode('utf-8', 'replace')
+        remarks.text = pb.decode('utf-8', 'replace')
 
         return event
 
@@ -329,7 +328,7 @@ class MeshtasticController(RabbitMQClient):
                 message = json.dumps({'uid': uid, 'cot': tostring(event).decode('utf-8')})
                 if portnum == "TEXT_MESSAGE_APP":
                     try:
-                        if to_id == BROADCAST_NUM:
+                        if to_id == "all":
                             self.rabbit_channel.basic_publish(exchange='chatrooms', routing_key='All Chat Rooms',
                                                               body=message)
                         else:
@@ -344,7 +343,6 @@ class MeshtasticController(RabbitMQClient):
                     try:
                         to = unishox2.decompress(pb.chat.to, len(pb.chat.to))
                         if to in self.meshtastic_devices:
-                            self.logger.warning(tostring(event))
                             self.rabbit_channel.basic_publish(exchange='dms', routing_key=to, body=message)
                         else:
                             self.rabbit_channel.basic_publish(exchange='chatrooms',

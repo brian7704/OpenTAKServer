@@ -12,7 +12,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from sqlalchemy import exc, insert, update
 from bs4 import BeautifulSoup
-from meshtastic import mqtt_pb2, mesh_pb2, portnums_pb2
+from meshtastic import mqtt_pb2, mesh_pb2, portnums_pb2, BROADCAST_NUM
 import unishox2
 
 from opentakserver.proto import atak_pb2
@@ -173,13 +173,12 @@ class CoTController(RabbitMQClient):
 
                 if self.context.app.config.get("OTS_ENABLE_MESHTASTIC") and eud.platform != "Meshtastic":
                     user_info = mesh_pb2.User()
-                    #setattr(user_info, "id", "!{:x}".format(eud.meshtastic_id))
-                    setattr(user_info, "id", eud.uid)
+                    setattr(user_info, "id", "!{:x}".format(eud.meshtastic_id))
+                    #setattr(user_info, "id", eud.uid)
                     user_info.long_name = eud.callsign
                     # Use the last 4 characters of the UID as the short name
                     user_info.short_name = eud.uid[-4:]
                     user_info.hw_model = mesh_pb2.HardwareModel.PRIVATE_HW
-                    #user_info.macaddr = eud.meshtastic_macaddr
 
                     node_info = mesh_pb2.NodeInfo()
                     node_info.user.CopyFrom(user_info)
@@ -439,21 +438,48 @@ class CoTController(RabbitMQClient):
                         tak_packet.chat.message, size = unishox2.compress(remarks.text)
                         tak_packet.group.team = eud.team.name.replace(" ", "_")
                         tak_packet.group.role = eud.team_role.replace(" ", "")
-                        try:
-                            tak_packet.chat.to, size = unishox2.compress(self.online_callsigns[chat.attrs['chatroom']]['uid'])
-                        except:
-                            tak_packet.chat.to, size = unishox2.compress(chat.attrs['chatroom'])
                         tak_packet.is_compressed = True
 
+                        send_meshtastic_text = False
+                        if chat.attrs['chatroom'] in self.online_callsigns:
+                            # This is a DM
+                            to = self.online_callsigns[chat.attrs['chatroom']]['uid']
+                            try:
+                                # DM to a Meshtastic device
+                                to_id = int(to, 16)
+                                send_meshtastic_text = True
+                            except:
+                                # DM to an EUD running the Meshtastic ATAK Plugin
+                                to_id = to
+
+                            tak_packet.chat.to, size = unishox2.compress(to)
+                        else:
+                            # This goes to a chat room
+                            to = chat.attrs['chatroom']
+                            to_id = BROADCAST_NUM
+                            tak_packet.chat.to, size = unishox2.compress(to)
+                            send_meshtastic_text = True
+
+                        # Publish once for EUDs using the Meshtastic ATAK Plugin
                         encoded_message = mesh_pb2.Data()
-                        #encoded_message.portnum = portnums_pb2.TEXT_MESSAGE_APP
-                        #encoded_message.payload = remarks.text.encode("utf-8")
                         encoded_message.portnum = portnums_pb2.ATAK_PLUGIN
                         encoded_message.payload = tak_packet.SerializeToString()
                         self.logger.debug(tak_packet)
 
                         self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key='opentakserver.2.e.LongFast.outgoing',
                                                           body=self.get_protobuf(encoded_message, from_id=eud.meshtastic_id).SerializeToString())
+
+                        if send_meshtastic_text:
+                            self.logger.debug("Publishing text to Meshtastic devices")
+                            # Publish again for Meshtastic devices without the ATAK Plugin
+                            encoded_message = mesh_pb2.Data()
+                            encoded_message.portnum = portnums_pb2.TEXT_MESSAGE_APP
+                            encoded_message.payload = remarks.text.encode("utf-8")
+                            self.rabbit_channel.basic_publish(exchange='amq.topic',
+                                                              routing_key='opentakserver.2.e.LongFast.outgoing',
+                                                              body=self.get_protobuf(encoded_message, to_id=to_id,
+                                                                                     from_id=eud.meshtastic_id).SerializeToString())
+
                 except BaseException as e:
                     self.logger.error("Failed to publish MQTT message: {}".format(e))
                     self.logger.error(traceback.format_exc())
