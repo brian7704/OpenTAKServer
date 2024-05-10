@@ -81,10 +81,10 @@ class CoTController:
         if uid not in self.online_euds and not uid.endswith('ping'):
             takv = event.find('takv')
             if takv:
-                device = takv.attrs['device']
-                os = takv.attrs['os']
-                platform = takv.attrs['platform']
-                version = takv.attrs['version']
+                device = takv.attrs['device'] if 'device' in takv.attrs else ""
+                os = takv.attrs['os'] if 'os' in takv.attrs else ""
+                platform = takv.attrs['platform'] if 'platform' in takv.attrs else ""
+                version = takv.attrs['version'] if 'version' in takv.attrs else ""
 
                 contact = event.find('contact')
                 if contact:
@@ -702,6 +702,7 @@ class CoTController:
             body = json.loads(body)
             soup = BeautifulSoup(body['cot'], 'xml')
             event = soup.find('event')
+            self.logger.info(event)
             if event:
                 self.parse_device_info(body['uid'], soup, event)
                 cot_pk = self.insert_cot(soup, event, body['uid'])
