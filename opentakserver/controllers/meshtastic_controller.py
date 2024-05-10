@@ -6,6 +6,8 @@ import uuid
 import unishox2
 
 from meshtastic import mqtt_pb2, portnums_pb2, mesh_pb2, protocols, BROADCAST_NUM
+
+from opentakserver.models.Meshtastic import MeshtasticChannel
 from opentakserver.proto import atak_pb2
 from google.protobuf.json_format import MessageToJson
 from xml.etree.ElementTree import Element, SubElement, tostring
@@ -24,6 +26,7 @@ class MeshtasticController(RabbitMQClient):
         self.logger.info("Starting Meshtastic controller...")
         self.meshtastic_devices = {}
         self.get_euds()
+        self.get_channels()
 
     def get_euds(self):
         with self.context:
@@ -35,6 +38,15 @@ class MeshtasticController(RabbitMQClient):
                                                     'uptime': 0, 'last_alt': "9999999.0", 'course': '0.0',
                                                     'speed': '0.0', 'team': 'Cyan', 'role': 'Team Member', 'uid': eud.uid,
                                                     'macaddr': eud.meshtastic_macaddr}
+
+    def get_channels(self):
+        with self.context:
+            channels = self.db.session.execute(self.db.session.query(MeshtasticChannel)).scalars()
+            downlink_channels = []
+            for channel in channels:
+                if channel.downlink_enabled:
+                    downlink_channels.append(channel.name)
+            self.context.app.config.update({"OTS_MESHTASTIC_DOWNLINK_CHANNELS": downlink_channels})
 
     def on_channel_open(self, channel):
         self.rabbit_channel = channel
@@ -61,6 +73,12 @@ class MeshtasticController(RabbitMQClient):
         # network to TAK EUDs
         if basic_deliver.routing_key.endswith('outgoing'):
             return
+
+        # Forward this Meshtastic message to other Meshtastic channels which have downlink enabled
+        for channel in self.context.app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"):
+            routing_key = "{}.2.e.{}.".format(self.context.app.config.get("OTS_MESHTASTIC_TOPIC"), channel)
+            if not basic_deliver.routing_key.startswith(routing_key):
+                self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key + "outgoing", body=body)
 
         se = mqtt_pb2.ServiceEnvelope()
         try:

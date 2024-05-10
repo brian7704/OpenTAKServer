@@ -188,9 +188,7 @@ class CoTController(RabbitMQClient):
                     user_info_bytes = user_info.SerializeToString()
                     encoded_message.payload = user_info_bytes
 
-                    self.rabbit_channel.basic_publish(exchange='amq.topic',
-                                                      routing_key='opentakserver.2.e.LongFast.outgoing',
-                                                      body=self.get_protobuf(encoded_message, from_id=eud.meshtastic_id).SerializeToString())
+                    self.publish_to_meshtastic(self.get_protobuf(encoded_message, from_id=eud.meshtastic_id).SerializeToString())
 
                 socketio.emit('eud', eud.to_json(), namespace='/socket.io')
 
@@ -323,10 +321,7 @@ class CoTController(RabbitMQClient):
                             encoded_message.portnum = portnums_pb2.POSITION_APP
                             encoded_message.payload = position.SerializeToString()
 
-                            self.rabbit_channel.basic_publish(exchange='amq.topic',
-                                                              routing_key='opentakserver.2.e.LongFast.outgoing',
-                                                              body=self.get_protobuf(encoded_message,
-                                                                                     uid=p.device_uid).SerializeToString())
+                            self.publish_to_meshtastic(body=self.get_protobuf(encoded_message, uid=p.device_uid).SerializeToString())
 
                             tak_packet = atak_pb2.TAKPacket()
                             tak_packet.is_compressed = True
@@ -345,9 +340,7 @@ class CoTController(RabbitMQClient):
                             encoded_message.portnum = portnums_pb2.ATAK_PLUGIN
                             encoded_message.payload = tak_packet.SerializeToString()
 
-                            self.rabbit_channel.basic_publish(exchange='amq.topic',
-                                                              routing_key='opentakserver.2.e.LongFast.outgoing',
-                                                              body=self.get_protobuf(encoded_message, uid=eud.uid).SerializeToString())
+                            self.publish_to_meshtastic(body=self.get_protobuf(encoded_message, uid=eud.uid).SerializeToString())
                     except:
                         self.logger.error(traceback.format_exc())
 
@@ -466,8 +459,7 @@ class CoTController(RabbitMQClient):
                         encoded_message.payload = tak_packet.SerializeToString()
                         self.logger.debug(tak_packet)
 
-                        self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key='opentakserver.2.e.LongFast.outgoing',
-                                                          body=self.get_protobuf(encoded_message, from_id=eud.meshtastic_id).SerializeToString())
+                        self.publish_to_meshtastic(self.get_protobuf(encoded_message, from_id=eud.meshtastic_id).SerializeToString())
 
                         if send_meshtastic_text:
                             self.logger.debug("Publishing text to Meshtastic devices")
@@ -475,10 +467,7 @@ class CoTController(RabbitMQClient):
                             encoded_message = mesh_pb2.Data()
                             encoded_message.portnum = portnums_pb2.TEXT_MESSAGE_APP
                             encoded_message.payload = remarks.text.encode("utf-8")
-                            self.rabbit_channel.basic_publish(exchange='amq.topic',
-                                                              routing_key='opentakserver.2.e.LongFast.outgoing',
-                                                              body=self.get_protobuf(encoded_message, to_id=to_id,
-                                                                                     from_id=eud.meshtastic_id).SerializeToString())
+                            self.publish_to_meshtastic(self.get_protobuf(encoded_message, to_id=to_id, from_id=eud.meshtastic_id).SerializeToString())
 
                 except BaseException as e:
                     self.logger.error("Failed to publish MQTT message: {}".format(e))
@@ -885,6 +874,12 @@ class CoTController(RabbitMQClient):
             return "sam"
         if re.match("^a-.-A-M-F-Q-r", type):
             return "uav"
+
+    def publish_to_meshtastic(self, body):
+        for channel in self.context.app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"):
+            routing_key = "{}.2.e.{}.outgoing".format(self.context.app.config.get("OTS_MESHTASTIC_TOPIC"), channel)
+            self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key, body=body)
+            self.logger.debug("Published message to " + routing_key)
 
     def on_message(self, unused_channel, basic_deliver, properties, body):
         try:

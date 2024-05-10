@@ -45,6 +45,7 @@ class DefaultConfig:
     OTS_ENABLE_MUMBLE_AUTHENTICATION = False
 
     OTS_ENABLE_MESHTASTIC = False
+    OTS_MESHTASTIC_TOPIC = "opentakserver"
 
     # Gmail settings
     OTS_ENABLE_EMAIL = False

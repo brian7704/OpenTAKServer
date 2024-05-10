@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 
 @dataclass
-class MeshtasticChannelSettings(db.Model):
+class MeshtasticChannel(db.Model):
     __tablename__ = "meshtastic_channels"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
