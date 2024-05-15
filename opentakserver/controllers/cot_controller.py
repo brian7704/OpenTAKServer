@@ -276,7 +276,7 @@ class CoTController:
 
             chatroom.name = chat.attrs['chatroom']
             chatroom.id = chat.attrs['id']
-            chatroom.parent = chat.attrs['parent']
+            chatroom.parent = chat.attrs['parent'] if 'parent' in chat.attrs else None
 
             with self.context:
                 try:
@@ -702,7 +702,6 @@ class CoTController:
             body = json.loads(body)
             soup = BeautifulSoup(body['cot'], 'xml')
             event = soup.find('event')
-            self.logger.info(event)
             if event:
                 self.parse_device_info(body['uid'], soup, event)
                 cot_pk = self.insert_cot(soup, event, body['uid'])
