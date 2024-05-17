@@ -192,6 +192,9 @@ def create_app():
     from opentakserver.blueprints.config import config_blueprint
     app.register_blueprint(config_blueprint)
 
+    from opentakserver.blueprints.datasync_blueprint import datasync_blueprint
+    app.register_blueprint(datasync_blueprint)
+
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
     return app
