@@ -11,7 +11,7 @@ class Team(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String, unique=True)
-    chatroom_id: Mapped[int] = mapped_column(Integer, ForeignKey("chatrooms.id"), nullable=True)
+    chatroom_id: Mapped[str] = mapped_column(String, ForeignKey("chatrooms.id"), nullable=True)
     euds = relationship("EUD", back_populates="team")
     chatroom = relationship("Chatroom", back_populates="team")
 
