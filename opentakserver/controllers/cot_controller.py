@@ -58,12 +58,12 @@ class CoTController(RabbitMQClient):
         phone_number = None
         takv = event.find('takv')
 
-        if uid not in self.online_euds and not uid.endswith('ping') and takv:
-            self.logger.info("{} came online".format(uid))
-            device = takv.attrs['device']
-            operating_system = takv.attrs['os']
-            platform = takv.attrs['platform']
-            version = takv.attrs['version']
+        if uid not in self.online_euds and not uid.endswith('ping'):
+            if takv:
+                device = takv.attrs['device'] if 'device' in takv.attrs else ""
+                operating_system = takv.attrs['os'] if 'os' in takv.attrs else ""
+                platform = takv.attrs['platform'] if 'platform' in takv.attrs else ""
+                version = takv.attrs['version'] if 'version' in takv.attrs else ""
 
             contact = event.find('contact')
             if contact:
@@ -388,7 +388,7 @@ class CoTController(RabbitMQClient):
 
             chatroom.name = chat.attrs['chatroom']
             chatroom.id = chat.attrs['id']
-            chatroom.parent = chat.attrs['parent']
+            chatroom.parent = chat.attrs['parent'] if 'parent' in chat.attrs else None
 
             with self.context:
                 try:

@@ -14,6 +14,7 @@ class DefaultConfig:
     DEBUG = False
 
     OTS_DATA_FOLDER = os.path.join(Path.home(), 'ots')
+    OTS_LISTENER_ADDRESS = "127.0.0.1"
     OTS_LISTENER_PORT = 8081  # OTS will listen for HTTP requests on this port. Nginx will listen on ports 80, 443,
                               # 8080, 8443, and 8446 and proxy requests to OTS_LISTENER_PORT
     OTS_MARTI_HTTP_PORT = 8080

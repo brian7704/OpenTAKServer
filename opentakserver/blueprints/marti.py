@@ -109,7 +109,10 @@ def sign_csr_v2():
         return '', 401
 
     try:
-        uid = request.args.get("clientUid")
+        if 'clientUID' in request.args.keys():
+            uid = request.args.get('clientUID')
+        else:
+            uid = request.args.get("clientUid")
 
         if "iTAK" not in request.user_agent.string:
             csr = '-----BEGIN CERTIFICATE REQUEST-----\n' + request.data.decode(

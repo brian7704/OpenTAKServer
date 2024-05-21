@@ -49,7 +49,7 @@ unishox2-py3 = "1.0.0"
 enable = true
 vcs = "git"
 style = "semver"
-dirty = true
+dirty = false
 pattern = "((?P<epoch>\\d+)!)?(?P<base>\\d+(\\.\\d+)*)"
 
 [tool.poetry-dynamic-versioning.files."opentakserver/__init__.py"]
