@@ -125,8 +125,6 @@ def init_extensions(app):
     migrate = Migrate(app, db)
 
     mail.init_app(app)
-    with app.app_context():
-        db.create_all()
 
 
 def setup_logging(app):
@@ -230,9 +228,6 @@ def user_registered_sighandler(app, user, confirmation_token, **kwargs):
 
 if __name__ == '__main__':
     with app.app_context():
-        logger.debug("Loading DB..")
-        db.create_all()
-
         # Download the icon sets if they aren't already in the DB
         icons = db.session.query(Icon).count()
         if icons == 0:
