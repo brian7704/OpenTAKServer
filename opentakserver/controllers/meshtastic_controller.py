@@ -4,6 +4,7 @@ import json
 import traceback
 import uuid
 import unishox2
+import os
 
 from meshtastic import mqtt_pb2, portnums_pb2, mesh_pb2, protocols, BROADCAST_NUM
 
@@ -32,6 +33,11 @@ class MeshtasticController(RabbitMQClient):
         with self.context:
             euds = self.db.session.execute(self.db.session.query(EUD)).scalars()
             for eud in euds:
+                meshtastic_id = eud.meshtastic_id
+                if not eud.meshtastic_id:
+                    eud.meshtastic_id = int.from_bytes(os.urandom(4), 'big')
+                    self.db.session.add(eud)
+                    self.db.session.commit()
                 self.meshtastic_devices[eud.uid] = {'hw_model': eud.device, 'long_name': eud.callsign, 'short_name': '',
                                                     'firmware_version': eud.version, 'last_lat': "0.0", 'last_lon': "0.0",
                                                     'battery': 0, 'meshtastic_id': '{:x}'.format(eud.meshtastic_id), 'voltage': 0,

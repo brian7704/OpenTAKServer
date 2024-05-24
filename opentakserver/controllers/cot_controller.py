@@ -187,7 +187,7 @@ class CoTController(RabbitMQClient):
                     user_info_bytes = user_info.SerializeToString()
                     encoded_message.payload = user_info_bytes
 
-                    self.publish_to_meshtastic(eud, self.get_protobuf(encoded_message, from_id=eud.meshtastic_id).SerializeToString())
+                    self.publish_to_meshtastic(self.get_protobuf(encoded_message, from_id=eud.meshtastic_id).SerializeToString())
 
                 socketio.emit('eud', eud.to_json(), namespace='/socket.io')
 
@@ -323,7 +323,7 @@ class CoTController(RabbitMQClient):
                             encoded_message.portnum = portnums_pb2.POSITION_APP
                             encoded_message.payload = position.SerializeToString()
 
-                            self.publish_to_meshtastic(eud, self.get_protobuf(encoded_message, uid=p.device_uid).SerializeToString())
+                            self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=p.device_uid).SerializeToString())
 
                             tak_packet = atak_pb2.TAKPacket()
                             tak_packet.is_compressed = True
@@ -342,7 +342,7 @@ class CoTController(RabbitMQClient):
                             encoded_message.portnum = portnums_pb2.ATAK_PLUGIN
                             encoded_message.payload = tak_packet.SerializeToString()
 
-                            self.publish_to_meshtastic(eud, self.get_protobuf(encoded_message, uid=eud.uid).SerializeToString())
+                            self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=eud.uid).SerializeToString())
                     except:
                         self.logger.error(traceback.format_exc())
 

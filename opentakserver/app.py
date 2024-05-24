@@ -1,12 +1,18 @@
 import sys
 import traceback
+import logging
 
 import eventlet
 try:
+    # Disable logs to prevent an error to be printed if monkey_patch() fails. This happens when running flask cli commands
+    # such as flask db
+    logging.disable(logging.CRITICAL)
     eventlet.monkey_patch()
 except BaseException as e:
     print("Failed to monkey_patch(): {}".format(e))
+logging.disable(logging.NOTSET)
 
+from flask_migrate import Migrate
 from opentakserver.PasswordValidator import PasswordValidator
 
 import platform
@@ -14,13 +20,13 @@ import requests
 from sqlalchemy import insert
 import sqlite3
 from opentakserver.models.Icon import Icon
+from opentakserver.models.Meshtastic import MeshtasticChannel
 
 import yaml
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 from opentakserver.EmailValidator import EmailValidator
 
-import logging
 from logging.handlers import TimedRotatingFileHandler
 import os
 
@@ -116,7 +122,7 @@ def init_extensions(app):
     user_datastore = SQLAlchemyUserDatastore(db, User, Role, WebAuthn)
     app.security = Security(app, user_datastore, mail_util_cls=EmailValidator, password_util_cls=PasswordValidator)
 
-    migrate.init_app(app, db)
+    migrate = Migrate(app, db)
 
     mail.init_app(app)
     with app.app_context():
@@ -192,19 +198,10 @@ def create_app():
     from opentakserver.blueprints.scheduler_api import scheduler_api_blueprint
     app.register_blueprint(scheduler_api_blueprint)
 
-    from opentakserver.blueprints.config import config_blueprint
-    app.register_blueprint(config_blueprint)
-
     from opentakserver.blueprints.meshtastic_api import meshtastic_api_blueprint
     app.register_blueprint(meshtastic_api_blueprint)
 
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
-
-    if app.config.get("OTS_ENABLE_MESHTASTIC"):
-        mestastic_thread = MeshtasticController(app.app_context(), logger, db, socketio)
-        app.mestastic_thread = mestastic_thread
-    else:
-        app.meshtastic_thread = None
 
     return app
 
@@ -279,6 +276,12 @@ if __name__ == '__main__':
             app.security.datastore.create_user(username="administrator",
                                                password=hash_password("password"), roles=["administrator"])
         db.session.commit()
+
+    if app.config.get("OTS_ENABLE_MESHTASTIC"):
+        mestastic_thread = MeshtasticController(app.app_context(), logger, db, socketio)
+        app.mestastic_thread = mestastic_thread
+    else:
+        app.meshtastic_thread = None
 
     tcp_thread = SocketServer(logger, app.app_context(), app.config.get("OTS_TCP_STREAMING_PORT"))
     tcp_thread.start()
