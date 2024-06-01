@@ -2,16 +2,6 @@ import sys
 import traceback
 import logging
 
-import eventlet
-try:
-    # Disable logs to prevent an error to be printed if monkey_patch() fails. This happens when running flask cli commands
-    # such as flask db
-    logging.disable(logging.CRITICAL)
-    eventlet.monkey_patch()
-except BaseException as e:
-    print("Failed to monkey_patch(): {}".format(e))
-logging.disable(logging.NOTSET)
-
 from flask_migrate import Migrate
 from opentakserver.PasswordValidator import PasswordValidator
 

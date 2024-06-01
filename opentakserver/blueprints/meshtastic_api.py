@@ -44,6 +44,7 @@ def create_channel():
             channel_set.lora_config.tx_enabled = request.json.get('lora_tx_enabled')
             channel_set.lora_config.tx_power = request.json.get('lora_tx_power') if request.json.get('lora_tx_power') else None
             channel_set.lora_config.sx126x_rx_boosted_gain = request.json.get('lora_sx126x_rx_boosted_gain')
+            channel_set.lora_config.use_preset = True
 
             if 'psk' in request.json.keys() and request.json.get('psk'):
                 channel_settings.psk = base64.urlsafe_b64decode(bleach.clean(request.json.get('psk')))

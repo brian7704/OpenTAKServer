@@ -64,6 +64,8 @@ class CoTController(RabbitMQClient):
                 operating_system = takv.attrs['os'] if 'os' in takv.attrs else ""
                 platform = takv.attrs['platform'] if 'platform' in takv.attrs else ""
                 version = takv.attrs['version'] if 'version' in takv.attrs else ""
+            else:
+                device = operating_system = platform = version = ""
 
             contact = event.find('contact')
             if contact:
@@ -159,7 +161,7 @@ class CoTController(RabbitMQClient):
                         eud.meshtastic_id = int(meshtastic_id, 16)
 
                 # Get the Meshtastic device's mac address or generate a random one for TAK EUDs
-                if 'macaddr' in takv.attrs:
+                if takv and 'macaddr' in takv.attrs:
                     eud.meshtastic_macaddr = takv.attrs['macaddr']
                 else:
                     eud.meshtastic_macaddr = base64.b64encode(os.urandom(6)).decode('ascii')
@@ -187,7 +189,7 @@ class CoTController(RabbitMQClient):
                     user_info_bytes = user_info.SerializeToString()
                     encoded_message.payload = user_info_bytes
 
-                    self.publish_to_meshtastic(self.get_protobuf(encoded_message, from_id=eud.meshtastic_id).SerializeToString())
+                    self.publish_to_meshtastic(self.get_protobuf(encoded_message, from_id=eud.meshtastic_id))
 
                 socketio.emit('eud', eud.to_json(), namespace='/socket.io')
 
@@ -291,6 +293,7 @@ class CoTController(RabbitMQClient):
                 can_transmit = (now - self.online_euds[uid]['last_meshtastic_publish'] >= self.context.app.config.get("OTS_MESHTASTIC_PUBLISH_INTERVAL"))
 
                 if self.context.app.config.get("OTS_ENABLE_MESHTASTIC") and can_transmit:
+                    self.logger.debug("publishing position to mesh")
                     try:
                         self.online_euds[uid]['last_meshtastic_publish'] = now
                         eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
@@ -311,7 +314,7 @@ class CoTController(RabbitMQClient):
                             position.altitude = int(p.hae)
                             position.time = int(time.mktime(p.timestamp.timetuple()))
                             position.ground_track = int(p.course) if p.course else 0
-                            position.ground_speed = int(p.speed) if p.speed else 0
+                            position.ground_speed = int(p.speed) if p.speed and p.speed >= 0 else 0
                             position.seq_number = 1
                             position.precision_bits = 32
 
@@ -323,7 +326,7 @@ class CoTController(RabbitMQClient):
                             encoded_message.portnum = portnums_pb2.POSITION_APP
                             encoded_message.payload = position.SerializeToString()
 
-                            self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=p.device_uid).SerializeToString())
+                            self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=p.device_uid))
 
                             tak_packet = atak_pb2.TAKPacket()
                             tak_packet.is_compressed = True
@@ -342,13 +345,13 @@ class CoTController(RabbitMQClient):
                             encoded_message.portnum = portnums_pb2.ATAK_PLUGIN
                             encoded_message.payload = tak_packet.SerializeToString()
 
-                            self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=eud.uid).SerializeToString())
+                            self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=eud.uid))
                     except:
                         self.logger.error(traceback.format_exc())
 
                 return res.inserted_primary_key[0]
 
-    def get_protobuf(self, payload, uid=None, from_id=None, to_id=4294967295, channel_id="LongFast"):
+    def get_protobuf(self, payload, uid=None, from_id=None, to_id=BROADCAST_NUM, channel_id="LongFast"):
         if uid and not from_id:
             try:
                 eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
@@ -384,6 +387,16 @@ class CoTController(RabbitMQClient):
             chat_group = event.find('chatgrp')
             remarks = event.find('remarks')
 
+            # Sometimes WinTAK seems to send GeoChat CoTs without remarks
+            if not remarks:
+                return
+
+            sender_callsign = chat.attrs['senderCallsign']
+            if sender_callsign not in self.online_callsigns:
+                self.online_callsigns[sender_callsign] = {'uid': chat_group.attrs['uid0'], 'cot': "", 'last_meshtastic_publish': 0}
+            if chat_group.attrs['uid0'] not in self.online_euds:
+                self.online_euds[chat_group.attrs['uid0']] = {'cot': "", 'callsign': sender_callsign, 'last_meshtastic_publish': 0}
+
             chatroom = Chatroom()
 
             chatroom.name = chat.attrs['chatroom']
@@ -410,14 +423,15 @@ class CoTController(RabbitMQClient):
             if self.context.app.config.get("OTS_ENABLE_MESHTASTIC"):
                 try:
                     with self.context:
-                        eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=geochat.sender_uid)).first()[0]
+                        from_eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=geochat.sender_uid)).first()[0]
 
                         tak_packet = atak_pb2.TAKPacket()
                         tak_packet.contact.device_callsign, size = unishox2.compress(geochat.sender_uid)
-                        tak_packet.contact.callsign, size = unishox2.compress(self.online_euds[geochat.sender_uid]['callsign'])
+                        if geochat.sender_uid in self.online_euds:
+                            tak_packet.contact.callsign, size = unishox2.compress(self.online_euds[geochat.sender_uid]['callsign'])
                         tak_packet.chat.message, size = unishox2.compress(remarks.text)
-                        tak_packet.group.team = eud.team.name.replace(" ", "_")
-                        tak_packet.group.role = eud.team_role.replace(" ", "")
+                        tak_packet.group.team = from_eud.team.name.replace(" ", "_")
+                        tak_packet.group.role = from_eud.team_role.replace(" ", "")
                         tak_packet.is_compressed = True
 
                         send_meshtastic_text = False
@@ -430,7 +444,7 @@ class CoTController(RabbitMQClient):
                                 send_meshtastic_text = True
                             except:
                                 # DM to an EUD running the Meshtastic ATAK Plugin
-                                to_id = to
+                                to_id = BROADCAST_NUM
 
                             tak_packet.chat.to, size = unishox2.compress(to)
                         else:
@@ -438,15 +452,10 @@ class CoTController(RabbitMQClient):
                             to = chat.attrs['chatroom']
                             to_id = BROADCAST_NUM
                             tak_packet.chat.to, size = unishox2.compress(to)
-                            send_meshtastic_text = True
 
-                        # Publish once for EUDs using the Meshtastic ATAK Plugin
-                        encoded_message = mesh_pb2.Data()
-                        encoded_message.portnum = portnums_pb2.ATAK_PLUGIN
-                        encoded_message.payload = tak_packet.SerializeToString()
-                        self.logger.debug(tak_packet)
-
-                        self.publish_to_meshtastic(self.get_protobuf(encoded_message, from_id=eud.meshtastic_id).SerializeToString())
+                            # By only sending a Meshtastic Data packet and not a TAK Packet, both the Meshtastic app
+                            # and the Meshtastic ATAK plugin will receive the message
+                            send_meshtastic_text = (to == "All Chat Rooms")
 
                         if send_meshtastic_text:
                             self.logger.debug("Publishing text to Meshtastic devices")
@@ -454,7 +463,15 @@ class CoTController(RabbitMQClient):
                             encoded_message = mesh_pb2.Data()
                             encoded_message.portnum = portnums_pb2.TEXT_MESSAGE_APP
                             encoded_message.payload = remarks.text.encode("utf-8")
-                            self.publish_to_meshtastic(self.get_protobuf(encoded_message, to_id=to_id, from_id=eud.meshtastic_id).SerializeToString())
+                            self.publish_to_meshtastic(self.get_protobuf(encoded_message, to_id=to_id, from_id=from_eud.meshtastic_id))
+                        else:
+                            # Publish once for EUDs using the Meshtastic ATAK Plugin
+                            encoded_message = mesh_pb2.Data()
+                            encoded_message.portnum = portnums_pb2.ATAK_PLUGIN
+                            encoded_message.payload = tak_packet.SerializeToString()
+
+                            self.publish_to_meshtastic(
+                                self.get_protobuf(encoded_message, from_id=from_eud.meshtastic_id, to_id=to_id))
 
                 except BaseException as e:
                     self.logger.error("Failed to publish MQTT message: {}".format(e))
@@ -864,8 +881,9 @@ class CoTController(RabbitMQClient):
 
     def publish_to_meshtastic(self, body):
         for channel in self.context.app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"):
+            body.channel_id = channel
             routing_key = "{}.2.e.{}.outgoing".format(self.context.app.config.get("OTS_MESHTASTIC_TOPIC"), channel)
-            self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key, body=body)
+            self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key, body=body.SerializeToString())
             self.logger.debug("Published message to " + routing_key)
 
     def on_message(self, unused_channel, basic_deliver, properties, body):

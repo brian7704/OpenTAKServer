@@ -39,10 +39,13 @@ class MeshtasticController(RabbitMQClient):
                     self.db.session.add(eud)
                     self.db.session.commit()
                 self.meshtastic_devices[eud.uid] = {'hw_model': eud.device, 'long_name': eud.callsign, 'short_name': '',
-                                                    'firmware_version': eud.version, 'last_lat': "0.0", 'last_lon': "0.0",
-                                                    'battery': 0, 'meshtastic_id': '{:x}'.format(eud.meshtastic_id), 'voltage': 0,
+                                                    'firmware_version': eud.version, 'last_lat': "0.0",
+                                                    'last_lon': "0.0",
+                                                    'battery': 0, 'meshtastic_id': '{:x}'.format(eud.meshtastic_id),
+                                                    'voltage': 0,
                                                     'uptime': 0, 'last_alt': "9999999.0", 'course': '0.0',
-                                                    'speed': '0.0', 'team': 'Cyan', 'role': 'Team Member', 'uid': eud.uid,
+                                                    'speed': '0.0', 'team': 'Cyan', 'role': 'Team Member',
+                                                    'uid': eud.uid,
                                                     'macaddr': eud.meshtastic_macaddr}
 
     def get_channels(self):
@@ -122,6 +125,7 @@ class MeshtasticController(RabbitMQClient):
                     tak_packet = atak_pb2.TAKPacket()
                     tak_packet.ParseFromString(mp.decoded.payload)
                     self.protobuf_to_cot(tak_packet, meshtastic_id, to_id, pn, meshtastic_id)
+                    self.logger.info(tak_packet)
             except:
                 self.logger.error(traceback.format_exc())
 
@@ -130,6 +134,7 @@ class MeshtasticController(RabbitMQClient):
         if handler.protobufFactory is None:
             self.logger.debug(f"{prefix} {mp}")
             self.protobuf_to_cot(mp.decoded.payload, meshtastic_id, to_id, pn, meshtastic_id)
+            self.logger.info(mp.decoded.payload)
         else:
             try:
                 pb = handler.protobufFactory()
@@ -141,6 +146,7 @@ class MeshtasticController(RabbitMQClient):
                     self.rabbit_channel.queue_declare(queue=meshtastic_id)
                 self.logger.debug(f"{prefix} {p}")
                 self.protobuf_to_cot(pb, meshtastic_id, to_id, pn, meshtastic_id)
+                self.logger.info(pb)
             except:
                 self.logger.error(traceback.format_exc())
 
@@ -191,6 +197,17 @@ class MeshtasticController(RabbitMQClient):
                         eud.callsign = pb.long_name
                         self.db.session.add(eud)
                         self.db.session.commit()
+                        if from_id not in self.meshtastic_devices:
+                            self.meshtastic_devices[from_id] = {'hw_model': '', 'long_name': '', 'short_name': '',
+                                                                'macaddr': '',
+                                                                'firmware_version': '', 'last_lat': "0.0",
+                                                                'last_lon': "0.0",
+                                                                'battery': 0, 'meshtastic_id': '',
+                                                                'voltage': 0, 'uptime': 0, 'last_alt': "9999999.0",
+                                                                'course': '0.0',
+                                                                'speed': '0.0', 'team': 'Cyan', 'role': 'Team Member',
+                                                                'uid': None}
+
                         self.meshtastic_devices[from_id]['firmware_version'] = pb.firmware_version
                         self.meshtastic_devices[from_id]['hw_model'] = mesh_pb2.HardwareModel.Name(pb.hw_model)
                         self.meshtastic_devices[from_id]['long_name'] = pb.long_name
@@ -250,7 +267,8 @@ class MeshtasticController(RabbitMQClient):
         if portnum == "ATAK_PLUGIN":
             uid = unishox2.decompress(pb.contact.device_callsign, len(pb.contact.device_callsign))
             self.meshtastic_devices[from_id]['uid'] = uid
-            self.meshtastic_devices[from_id]['long_name'] = unishox2.decompress(pb.contact.callsign, len(pb.contact.callsign))
+            self.meshtastic_devices[from_id]['long_name'] = unishox2.decompress(pb.contact.callsign,
+                                                                                len(pb.contact.callsign))
             self.meshtastic_devices[from_id]['short_name'] = uid[-4:]
             self.meshtastic_devices[from_id]['battery'] = pb.status.battery
             if pb.group.team != 0:
@@ -262,7 +280,8 @@ class MeshtasticController(RabbitMQClient):
             self.meshtastic_devices[from_id]['hw_model'] = hw_model if hw_model else ""
             self.meshtastic_devices[from_id]['long_name'] = str(pb.long_name) if pb.long_name else ""
             self.meshtastic_devices[from_id]['short_name'] = str(pb.short_name) if pb.short_name else ""
-            self.meshtastic_devices[from_id]['macaddr'] = base64.b64encode(pb.macaddr).decode('ascii') if pb.macaddr else ""
+            self.meshtastic_devices[from_id]['macaddr'] = base64.b64encode(pb.macaddr).decode(
+                'ascii') if pb.macaddr else ""
 
         return self.cot(pb, from_id, to_id, portnum)
 
@@ -312,7 +331,8 @@ class MeshtasticController(RabbitMQClient):
 
             chat = SubElement(detail, '__chat',
                               {'chatroom': 'All Chat Rooms', 'groupOwner': "false", 'id': chatroom,
-                               'messageId': message_uid, 'parent': 'RootContactGroup', 'senderCallsign': sender_callsign})
+                               'messageId': message_uid, 'parent': 'RootContactGroup',
+                               'senderCallsign': sender_callsign})
             SubElement(chat, 'chatgrp', {'id': chatroom, 'uid0': from_uid, 'uid1': chatroom})
             SubElement(detail, 'link', {'relation': 'p-p', 'type': 'a-f-G-U-C', 'uid': from_uid})
             remarks = SubElement(detail, 'remarks', {'source': 'BAO.F.ATAK.{}'.format(from_uid),
@@ -359,7 +379,8 @@ class MeshtasticController(RabbitMQClient):
                             for meshtastic_device in self.meshtastic_devices:
                                 meshtastic_device = self.meshtastic_devices[meshtastic_device]
                                 if meshtastic_device['meshtastic_id'] == to_id:
-                                    self.rabbit_channel.basic_publish(exchange='dms', routing_key=meshtastic_device['uid'],
+                                    self.rabbit_channel.basic_publish(exchange='dms',
+                                                                      routing_key=meshtastic_device['uid'],
                                                                       body=message)
                     except BaseException as e:
                         self.logger.error("Failed to publish chat message: {}".format(e))
