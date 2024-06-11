@@ -132,7 +132,9 @@ def setup_logging(app):
         logger.info("Added color logger")
 
     os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs"), exist_ok=True)
-    fh = TimedRotatingFileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'opentakserver.log'), when='midnight', backupCount=app.config.get("OTS_BACKUP_COUNT"))
+    fh = TimedRotatingFileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'opentakserver.log'),
+                                  when=app.config.get("OTS_LOG_ROTATE_WHEN"), interval=app.config.get("OTS_LOG_ROTATE_INTERVAL"),
+                                  backupCount=app.config.get("OTS_BACKUP_COUNT"))
     fh.setLevel(level)
     fh.setFormatter(logging.Formatter("[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(levelname)s - %(message)s"))
     logger.addHandler(fh)

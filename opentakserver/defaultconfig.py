@@ -39,6 +39,11 @@ class DefaultConfig:
     OTS_CA_ORGANIZATIONAL_UNIT = 'OpenTAKServer'
     OTS_CA_SUBJECT = '/C={}/ST={}/L={}/O={}/OU={}'.format(OTS_CA_COUNTRY, OTS_CA_STATE, OTS_CA_CITY,
                                                           OTS_CA_ORGANIZATION, OTS_CA_ORGANIZATIONAL_UNIT)
+
+    # See https://docs.python.org/3/library/logging.handlers.html#logging.handlers.TimedRotatingFileHandler
+    OTS_LOG_ROTATE_WHEN = 'midnight'
+    OTS_LOG_ROTATE_INTERVAL = 0
+
     OTS_AIRPLANES_LIVE_LAT = 40.744213
     OTS_AIRPLANES_LIVE_LON = -73.986939
     OTS_AIRPLANES_LIVE_RADIUS = 10
