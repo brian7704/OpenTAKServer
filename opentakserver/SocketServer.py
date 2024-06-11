@@ -48,9 +48,11 @@ class SocketServer(Thread):
                 if self.shutdown:
                     self.socket.shutdown(socket.SHUT_RDWR)
                     self.socket.close()
+            except (OSError, IOError) as e:
+                self.logger.error(str(e))
+                break
             except BaseException as e:
                 self.logger.warning(str(e))
-                break
 
         if self.ssl:
             self.logger.info("SSL server has shut down")
