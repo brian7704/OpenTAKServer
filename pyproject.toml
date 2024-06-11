@@ -63,3 +63,6 @@ initial-content = """
 [build-system]
 requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
 build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.poetry.scripts]
+opentakserver = "opentakserver.app:main"

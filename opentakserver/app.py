@@ -215,8 +215,7 @@ def user_registered_sighandler(app, user, confirmation_token, **kwargs):
     )
     app.security.datastore.add_role_to_user(user, default_role)
 
-
-if __name__ == '__main__':
+def main():
     with app.app_context():
         # Download the icon sets if they aren't already in the DB
         icons = db.session.query(Icon).count()
@@ -292,3 +291,7 @@ if __name__ == '__main__':
 
     socketio.run(app, host=app.config.get("OTS_LISTENER_ADDRESS"), port=app.config.get("OTS_LISTENER_PORT"),
                  debug=app.config.get("DEBUG"), log_output=app.config.get("DEBUG"), use_reloader=False)
+
+
+if __name__ == '__main__':
+    main()
