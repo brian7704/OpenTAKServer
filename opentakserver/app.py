@@ -1,6 +1,7 @@
 import sys
 import traceback
 import logging
+import argparse
 
 from flask_migrate import Migrate
 from opentakserver.PasswordValidator import PasswordValidator
@@ -47,6 +48,12 @@ try:
     from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
 except ModuleNotFoundError:
     print("Mumble auth not supported on this platform")
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--create-ca", help="Create the certificate authority and exit", action='store_true')
+    return parser.parse_args()
 
 
 def init_extensions(app):
@@ -145,6 +152,16 @@ def create_app():
     app.config.from_object(DefaultConfig)
     setup_logging(app)
 
+    args = parse_args()
+    if args.create_ca:
+        ca = CertificateAuthority(logger, app)
+        if not ca.check_if_ca_exists():
+            logger.info("Creating certificate authority...")
+            ca.create_ca()
+        else:
+            logger.warning("Certificate authority already exists")
+        sys.exit()
+
     # Load config.yml if it exists
     if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
         app.config.from_file(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), load=yaml.safe_load)
@@ -216,6 +233,7 @@ def user_registered_sighandler(app, user, confirmation_token, **kwargs):
         name="user", permissions={"user-read", "user-write"}
     )
     app.security.datastore.add_role_to_user(user, default_role)
+
 
 def main():
     with app.app_context():
