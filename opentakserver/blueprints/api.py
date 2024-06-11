@@ -468,6 +468,9 @@ def create_user():
 def delete_user():
     username = bleach.clean(request.json.get('username'))
 
+    if username == current_user.username:
+        return jsonify({'success': False, 'error': "You can't delete your own account"}), 400
+
     logger.info("Deleting user {}".format(username))
 
     try:
