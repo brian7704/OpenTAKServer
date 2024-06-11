@@ -290,7 +290,10 @@ class CoTController(RabbitMQClient):
                     socketio.emit('point', p.to_json(), namespace='/socket.io')
 
                 now = time.time()
-                can_transmit = (now - self.online_euds[uid]['last_meshtastic_publish'] >= self.context.app.config.get("OTS_MESHTASTIC_PUBLISH_INTERVAL"))
+                if uid in self.online_euds:
+                    can_transmit = (now - self.online_euds[uid]['last_meshtastic_publish'] >= self.context.app.config.get("OTS_MESHTASTIC_PUBLISH_INTERVAL"))
+                else:
+                    can_transmit = False
 
                 if self.context.app.config.get("OTS_ENABLE_MESHTASTIC") and can_transmit:
                     self.logger.debug("publishing position to mesh")
@@ -790,7 +793,7 @@ class CoTController(RabbitMQClient):
         elif destinations:
             for destination in destinations:
                 # ATAK and WinTAK use callsign, iTAK uses uid
-                if 'callsign' in destination.attrs:
+                if 'callsign' in destination.attrs and destination.attrs['callsign'] in self.online_callsigns:
                     uid = self.online_callsigns[destination.attrs['callsign']]['uid']
                 elif 'uid' in destination.attrs:
                     uid = destination.attrs['uid']

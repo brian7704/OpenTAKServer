@@ -14,6 +14,6 @@ apscheduler = APScheduler()
 
 db = SQLAlchemy(model_class=Base)
 
-socketio = SocketIO(async_mode='threading')
+socketio = SocketIO(async_mode='eventlet')
 
 migrate = Migrate()
