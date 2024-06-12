@@ -135,13 +135,13 @@ def setup_logging(app):
     level = logging.INFO
     if app.config.get("DEBUG"):
         level = logging.DEBUG
+    logger.setLevel(level)
 
     if sys.stdout.isatty():
         color_log_handler = colorlog.StreamHandler()
         color_log_formatter = colorlog.ColoredFormatter(
-            '%(log_color)s[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(levelname)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
+            '%(log_color)s[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
         color_log_handler.setFormatter(color_log_formatter)
-        logger.setLevel(level)
         logger.addHandler(color_log_handler)
         logger.info("Added color logger")
 
@@ -149,8 +149,7 @@ def setup_logging(app):
     fh = TimedRotatingFileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'opentakserver.log'),
                                   when=app.config.get("OTS_LOG_ROTATE_WHEN"), interval=app.config.get("OTS_LOG_ROTATE_INTERVAL"),
                                   backupCount=app.config.get("OTS_BACKUP_COUNT"))
-    fh.setLevel(level)
-    fh.setFormatter(logging.Formatter("[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(levelname)s - %(message)s"))
+    fh.setFormatter(logging.Formatter("[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))
     logger.addHandler(fh)
 
 
