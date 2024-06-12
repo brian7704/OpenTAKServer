@@ -43,16 +43,22 @@ class SocketServer(Thread):
                 new_thread.start()
                 self.clients.append(new_thread)
             except KeyboardInterrupt:
+                self.socket.close()
                 break
             except TimeoutError:
                 if self.shutdown:
                     self.socket.shutdown(socket.SHUT_RDWR)
                     self.socket.close()
             except (OSError, IOError) as e:
-                self.logger.error(str(e))
-                break
+                if "too many open files" in str(e).lower():
+                    self.logger.error(str(e))
+                    self.socket.close()
+                    break
+                else:
+                    self.logger.warning(str(e))
             except BaseException as e:
                 self.logger.warning(str(e))
+                continue
 
         if self.ssl:
             self.logger.info("SSL server has shut down")
