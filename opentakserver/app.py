@@ -3,7 +3,7 @@ import traceback
 import logging
 import argparse
 
-from flask_migrate import Migrate
+from flask_migrate import Migrate, upgrade
 from opentakserver.PasswordValidator import PasswordValidator
 
 import platform
@@ -36,7 +36,8 @@ from flask_security import Security, SQLAlchemyUserDatastore, hash_password, uia
 from flask_security.models import fsqla_v3 as fsqla
 from flask_security.signals import user_registered
 
-from opentakserver.extensions import logger, db, socketio, mail, apscheduler, migrate
+import opentakserver
+from opentakserver.extensions import logger, db, socketio, mail, apscheduler
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.models.WebAuthn import WebAuthn
 
@@ -58,6 +59,14 @@ def parse_args():
 
 def init_extensions(app):
     db.init_app(app)
+    Migrate(app, db)
+
+    logger.info("Loading the database...")
+    with app.app_context():
+        upgrade(directory=os.path.join(os.path.dirname(os.path.realpath(opentakserver.__file__)), 'migrations'))
+        # Flask-Migrate does weird things to the logger
+        logger.disabled = False
+        logger.parent.handlers.pop()
 
     # Handle config options that can't be serialized to yaml
     app.config.update({"SCHEDULER_JOBSTORES": {'default': SQLAlchemyJobStore(url=app.config.get("SQLALCHEMY_DATABASE_URI"))}})
@@ -118,8 +127,6 @@ def init_extensions(app):
 
     user_datastore = SQLAlchemyUserDatastore(db, User, Role, WebAuthn)
     app.security = Security(app, user_datastore, mail_util_cls=EmailValidator, password_util_cls=PasswordValidator)
-
-    migrate = Migrate(app, db)
 
     mail.init_app(app)
 
