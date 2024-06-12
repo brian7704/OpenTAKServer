@@ -107,6 +107,7 @@ class ClientController(Thread):
                 data = self.sock.recv(4096)
             except (ConnectionError, ConnectionResetError) as e:
                 self.send_disconnect_cot()
+                self.sock.close()
                 break
             except TimeoutError:
                 if self.shutdown:
