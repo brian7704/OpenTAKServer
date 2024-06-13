@@ -72,7 +72,7 @@ def init_extensions(app):
 
     # Handle config options that can't be serialized to yaml
     app.config.update({"SCHEDULER_JOBSTORES": {'default': SQLAlchemyJobStore(url=app.config.get("SQLALCHEMY_DATABASE_URI"))}})
-    identity_attributes = [{"username": {"mapper": uia_username_mapper, "case_insensitive": False}}]
+    identity_attributes = [{"username": {"mapper": uia_username_mapper, "case_insensitive": True}}]
 
     # Don't allow registration unless email is enabled
     if app.config.get("OTS_ENABLE_EMAIL"):
