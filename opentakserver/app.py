@@ -54,6 +54,7 @@ except ModuleNotFoundError:
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--create-ca", help="Create the certificate authority and exit", action='store_true')
+    parser.add_argument("-d", "--upgrade-db", help="Create or update the DB schema", action='store_true')
     return parser.parse_args()
 
 
@@ -166,6 +167,22 @@ def create_app():
             ca.create_ca()
         else:
             logger.warning("Certificate authority already exists")
+        sys.exit()
+    if args.upgrade_db:
+        logger.info("Upgrading database...")
+        try:
+            with app.app_context():
+                db.init_app(app)
+                Migrate(app, db)
+                upgrade(directory=os.path.join(os.path.dirname(os.path.realpath(opentakserver.__file__)), 'migrations'))
+                # Flask-Migrate does weird things to the logger
+                logger.disabled = False
+                logger.parent.handlers.pop()
+                logger.info("Successfully upgraded the database")
+        except BaseException as e:
+            logger.error(f"Failed to upgrade database: {e}")
+            logger.error(traceback.format_exc())
+
         sys.exit()
 
     # Load config.yml if it exists
