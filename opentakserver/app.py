@@ -3,7 +3,7 @@ import traceback
 import logging
 import argparse
 
-from flask_migrate import Migrate, upgrade
+from flask_migrate import Migrate, upgrade, stamp
 from opentakserver.PasswordValidator import PasswordValidator
 
 import platform
@@ -54,7 +54,8 @@ except ModuleNotFoundError:
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--create-ca", help="Create the certificate authority and exit", action='store_true')
-    parser.add_argument("-d", "--upgrade-db", help="Create or update the DB schema", action='store_true')
+    parser.add_argument("-d", "--upgrade-db", help="Create or update the database schema", action='store_true')
+    parser.add_argument("-s", "--stamp-db", help="Stamp the database schema version", action='store', type=str)
     return parser.parse_args()
 
 
@@ -182,7 +183,20 @@ def create_app():
         except BaseException as e:
             logger.error(f"Failed to upgrade database: {e}")
             logger.error(traceback.format_exc())
-
+        sys.exit()
+    if args.stamp_db:
+        try:
+            with app.app_context():
+                db.init_app(app)
+                Migrate(app, db)
+                stamp(directory=os.path.join(os.path.dirname(os.path.realpath(opentakserver.__file__)), 'migrations'), revision=args.stamp_db)
+                # Flask-Migrate does weird things to the logger
+                logger.disabled = False
+                logger.parent.handlers.pop()
+                logger.info("Successfully stamped the database")
+        except BaseException as e:
+            logger.error(f"Failed to upgrade database: {e}")
+            logger.error(traceback.format_exc())
         sys.exit()
 
     # Load config.yml if it exists
