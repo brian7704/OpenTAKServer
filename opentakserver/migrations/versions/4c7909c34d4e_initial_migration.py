@@ -482,7 +482,7 @@ def upgrade():
         sa.PrimaryKeyConstraint('id')
         )
     except sa.exc.OperationalError:
-        logger.warning('zmis table already exists, skipping')
+        logger.warning('zmist table already exists, skipping')
     # ### end Alembic commands ###
 
 

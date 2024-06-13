@@ -55,30 +55,33 @@ def upgrade():
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('url')
         )
+
+        with op.batch_alter_table('euds', schema=None) as batch_op:
+            batch_op.add_column(sa.Column('meshtastic_id', sa.Integer(), nullable=True))
+            batch_op.add_column(sa.Column('meshtastic_macaddr', sa.String(), nullable=True))
     except sa.exc.OperationalError:
         logger.warning('Meshtastic table already exists, skipping')
 
-    with op.batch_alter_table('euds', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('meshtastic_id', sa.Integer(), nullable=True))
-        batch_op.add_column(sa.Column('meshtastic_macaddr', sa.String(), nullable=True))
-
-    with op.batch_alter_table('icons', schema=None) as batch_op:
-        batch_op.alter_column('iconset_uid',
-               existing_type=sa.VARCHAR(),
-               type_=sa.TEXT(),
-               existing_nullable=True)
-        batch_op.alter_column('filename',
-               existing_type=sa.VARCHAR(),
-               type_=sa.TEXT(),
-               existing_nullable=True)
-        batch_op.alter_column('groupName',
-               existing_type=sa.VARCHAR(),
-               type_=sa.TEXT(),
-               existing_nullable=True)
-        batch_op.alter_column('type2525b',
-               existing_type=sa.VARCHAR(),
-               type_=sa.TEXT(),
-               existing_nullable=True)
+    try:
+        with op.batch_alter_table('icons', schema=None) as batch_op:
+            batch_op.alter_column('iconset_uid',
+                   existing_type=sa.VARCHAR(),
+                   type_=sa.TEXT(),
+                   existing_nullable=True)
+            batch_op.alter_column('filename',
+                   existing_type=sa.VARCHAR(),
+                   type_=sa.TEXT(),
+                   existing_nullable=True)
+            batch_op.alter_column('groupName',
+                   existing_type=sa.VARCHAR(),
+                   type_=sa.TEXT(),
+                   existing_nullable=True)
+            batch_op.alter_column('type2525b',
+                   existing_type=sa.VARCHAR(),
+                   type_=sa.TEXT(),
+                   existing_nullable=True)
+    except sa.exc.OperationalError:
+        logger.warning('icons columns already altered, skipping')
 
     # ### end Alembic commands ###
 
