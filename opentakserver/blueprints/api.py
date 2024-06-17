@@ -94,7 +94,7 @@ def change_config_setting(setting, value):
 
 @api_blueprint.route('/api/health')
 def health():
-    if app.cot_thread.iothread.is_alive():
+    if not app.cot_thread.iothread.is_alive():
         return jsonify({'status': 'down', 'error': 'cot thread is dead'}), 503
 
     return jsonify({'status': 'healthy'})
