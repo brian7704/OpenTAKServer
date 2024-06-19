@@ -43,17 +43,17 @@ Join us on our [Discord server](https://discord.gg/6uaVHjtfXN)
 
 ### Ubuntu
 
-`curl https://raw.githubusercontent.com/brian7704/OpenTAKServer-Installer/online_installer/ubuntu_installer.sh | bash -`
+`curl https://i.opentakserver.io/ubuntu_installer -L | bash -`
 
 ### Raspberry Pi
 
-`curl https://raw.githubusercontent.com/brian7704/OpenTAKServer-Installer/master/raspberry_pi_installer.sh | bash -`
+`curl https://i.opentakserver.io/raspberry_pi_installer -L | bash -`
 
 ### Windows
 
 Open PowerShell as an administrator and run the following command
 
-`Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/brian7704/OpenTAKServer-Installer/master/windows_installer.ps1'))`
+`Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://i.opentakserver.io/windows_installer'))`
 
 ### MacOS
 
