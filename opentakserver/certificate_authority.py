@@ -291,13 +291,13 @@ class CertificateAuthority:
                     """)
 
         pref = pref_file_template.render(server=urlparse(request.url_root).hostname,
-                                         server_filename=truststore,
-                                         user_filename=user_p12,
+                                         server_filename="truststore-root.p12",
+                                         user_filename=f"{common_name}.p12",
                                          cert_password=self.app.config.get("OTS_CA_PASSWORD"),
                                          ssl_port=self.app.config.get("OTS_SSL_STREAMING_PORT"))
         man = manifest_file_template.render(uid=random_id, server=urlparse(request.url_root).hostname,
-                                            server_filename=truststore,
-                                            user_filename=user_p12, folder=folder)
+                                            server_filename="truststore-root.p12",
+                                            user_filename=f"{common_name}.p12", folder=folder)
         man_parent = manifest_file_parent_template.render(uid=new_uid, server=urlparse(request.url_root).hostname,
                                                           folder=parent_folder,
                                                           internal_dp_name=common_name)
