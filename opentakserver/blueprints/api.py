@@ -1068,7 +1068,7 @@ def add_update_stream():
         settings = json.loads(video.mediamtx_settings)
 
         for setting in request.json:
-            if setting == 'csrf_token' or setting == 'sourceOnDemand' or setting == 'path':
+            if setting == 'csrf_token' or setting == 'sourceOnDemand' or setting == 'path' or setting == 'source':
                 continue
             key = bleach.clean(setting)
             value = request.json.get(setting)
