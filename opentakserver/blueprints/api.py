@@ -22,7 +22,8 @@ import requests
 import sqlalchemy.exc
 from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
 from flask_security import auth_required, roles_accepted, hash_password, current_user, \
-    admin_change_password, verify_password
+    admin_change_password, verify_password, auth_token_required
+from flask_security.utils import parse_auth_token
 
 from opentakserver.extensions import logger, db
 from .marti import data_package_share
@@ -615,7 +616,6 @@ def rabbitmq_auth(path):
         return 'deny', 200
 
 
-
 # This is mainly for mediamtx authentication
 @api_blueprint.route('/api/external_auth', methods=['POST'])
 def external_auth():
@@ -625,6 +625,24 @@ def external_auth():
     query = bleach.clean(request.json.get('query'))
 
     user = app.security.datastore.find_user(username=username)
+
+    # Token auth to prevent high CPU usage when reading HLS streams
+    if action != 'publish' and 'jwt' in query:
+        query = query.split(";")
+        for q in query:
+            if "=" not in q:
+                continue
+            key, value = q.split("=")
+            if key == 'jwt':
+                logger.warning("Validating token...")
+                try:
+                    parse_auth_token(value)
+                    logger.debug("Token is valid")
+                    return '', 200
+                except:
+                    logger.error("Invalid token")
+                    return '', 401
+
     if user and verify_password(password, user.password):
         if action == 'publish':
             logger.debug("Publish {}".format(request.json.get('path')))
