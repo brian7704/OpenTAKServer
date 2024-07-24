@@ -1,12 +1,12 @@
+import eventlet
+eventlet.monkey_patch()
+
 import sys
 import traceback
+import logging
+import argparse
 
-import eventlet
-try:
-    eventlet.monkey_patch()
-except BaseException as e:
-    print("Failed to monkey_patch(): {}".format(e))
-
+from flask_migrate import Migrate, upgrade, stamp
 from opentakserver.PasswordValidator import PasswordValidator
 
 import platform
@@ -14,13 +14,13 @@ import requests
 from sqlalchemy import insert
 import sqlite3
 from opentakserver.models.Icon import Icon
+from opentakserver.models.Meshtastic import MeshtasticChannel
 
 import yaml
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 from opentakserver.EmailValidator import EmailValidator
 
-import logging
 from logging.handlers import TimedRotatingFileHandler
 import os
 
@@ -39,10 +39,12 @@ from flask_security import Security, SQLAlchemyUserDatastore, hash_password, uia
 from flask_security.models import fsqla_v3 as fsqla
 from flask_security.signals import user_registered
 
+import opentakserver
 from opentakserver.extensions import logger, db, socketio, mail, apscheduler
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.models.WebAuthn import WebAuthn
 
+from opentakserver.controllers.meshtastic_controller import MeshtasticController
 from opentakserver.controllers.cot_controller import CoTController
 from opentakserver.certificate_authority import CertificateAuthority
 from opentakserver.SocketServer import SocketServer
@@ -52,12 +54,28 @@ except ModuleNotFoundError:
     print("Mumble auth not supported on this platform")
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--create-ca", help="Create the certificate authority and exit", action='store_true')
+    parser.add_argument("-d", "--upgrade-db", help="Create or update the database schema", action='store_true')
+    parser.add_argument("-s", "--stamp-db", help="Stamp the database schema version", action='store', type=str)
+    return parser.parse_args()
+
+
 def init_extensions(app):
     db.init_app(app)
+    Migrate(app, db)
+
+    logger.info("Loading the database...")
+    with app.app_context():
+        upgrade(directory=os.path.join(os.path.dirname(os.path.realpath(opentakserver.__file__)), 'migrations'))
+        # Flask-Migrate does weird things to the logger
+        logger.disabled = False
+        logger.parent.handlers.pop()
 
     # Handle config options that can't be serialized to yaml
     app.config.update({"SCHEDULER_JOBSTORES": {'default': SQLAlchemyJobStore(url=app.config.get("SQLALCHEMY_DATABASE_URI"))}})
-    identity_attributes = [{"username": {"mapper": uia_username_mapper, "case_insensitive": False}}]
+    identity_attributes = [{"username": {"mapper": uia_username_mapper, "case_insensitive": True}}]
 
     # Don't allow registration unless email is enabled
     if app.config.get("OTS_ENABLE_EMAIL"):
@@ -116,28 +134,27 @@ def init_extensions(app):
     app.security = Security(app, user_datastore, mail_util_cls=EmailValidator, password_util_cls=PasswordValidator)
 
     mail.init_app(app)
-    with app.app_context():
-        db.create_all()
 
 
 def setup_logging(app):
     level = logging.INFO
     if app.config.get("DEBUG"):
         level = logging.DEBUG
+    logger.setLevel(level)
 
     if sys.stdout.isatty():
         color_log_handler = colorlog.StreamHandler()
         color_log_formatter = colorlog.ColoredFormatter(
-            '%(log_color)s[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(levelname)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
+            '%(log_color)s[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
         color_log_handler.setFormatter(color_log_formatter)
-        logger.setLevel(level)
         logger.addHandler(color_log_handler)
         logger.info("Added color logger")
 
     os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs"), exist_ok=True)
-    fh = TimedRotatingFileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'opentakserver.log'), when='midnight', backupCount=app.config.get("OTS_BACKUP_COUNT"))
-    fh.setLevel(level)
-    fh.setFormatter(logging.Formatter("[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(levelname)s - %(message)s"))
+    fh = TimedRotatingFileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'opentakserver.log'),
+                                  when=app.config.get("OTS_LOG_ROTATE_WHEN"), interval=app.config.get("OTS_LOG_ROTATE_INTERVAL"),
+                                  backupCount=app.config.get("OTS_BACKUP_COUNT"))
+    fh.setFormatter(logging.Formatter("[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))
     logger.addHandler(fh)
 
 
@@ -145,6 +162,45 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(DefaultConfig)
     setup_logging(app)
+
+    args = parse_args()
+    if args.create_ca:
+        ca = CertificateAuthority(logger, app)
+        if not ca.check_if_ca_exists():
+            logger.info("Creating certificate authority...")
+            ca.create_ca()
+        else:
+            logger.warning("Certificate authority already exists")
+        sys.exit()
+    if args.upgrade_db:
+        logger.info("Upgrading database...")
+        try:
+            with app.app_context():
+                db.init_app(app)
+                Migrate(app, db)
+                upgrade(directory=os.path.join(os.path.dirname(os.path.realpath(opentakserver.__file__)), 'migrations'))
+                # Flask-Migrate does weird things to the logger
+                logger.disabled = False
+                logger.parent.handlers.pop()
+                logger.info("Successfully upgraded the database")
+        except BaseException as e:
+            logger.error(f"Failed to upgrade database: {e}")
+            logger.error(traceback.format_exc())
+        sys.exit()
+    if args.stamp_db:
+        try:
+            with app.app_context():
+                db.init_app(app)
+                Migrate(app, db)
+                stamp(directory=os.path.join(os.path.dirname(os.path.realpath(opentakserver.__file__)), 'migrations'), revision=args.stamp_db)
+                # Flask-Migrate does weird things to the logger
+                logger.disabled = False
+                logger.parent.handlers.pop()
+                logger.info("Successfully stamped the database")
+        except BaseException as e:
+            logger.error(f"Failed to upgrade database: {e}")
+            logger.error(traceback.format_exc())
+        sys.exit()
 
     # Load config.yml if it exists
     if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
@@ -163,14 +219,17 @@ def create_app():
             config.write(yaml.safe_dump(conf))
 
         # Try to set the MediaMTX token
-        try:
-            with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "mediamtx.yml"), "r") as mediamtx_config:
-                conf = mediamtx_config.read()
-                conf = conf.replace("MTX_TOKEN", app.config.get("OTS_MEDIAMTX_TOKEN"))
-            with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "mediamtx.yml"), "w") as mediamtx_config:
-                mediamtx_config.write(conf)
-        except BaseException as e:
-            logger.error("Failed to set MediaMTX token: {}".format(e))
+        if app.config.get("OTS_MEDIAMTX_ENABLE"):
+            try:
+                with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "mediamtx.yml"), "r") as mediamtx_config:
+                    conf = mediamtx_config.read()
+                    conf = conf.replace("MTX_TOKEN", app.config.get("OTS_MEDIAMTX_TOKEN"))
+                with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "mediamtx.yml"), "w") as mediamtx_config:
+                    mediamtx_config.write(conf)
+            except BaseException as e:
+                logger.error("Failed to set MediaMTX token: {}".format(e))
+        else:
+            logger.info("MediaMTX disabled")
 
     init_extensions(app)
 
@@ -189,8 +248,8 @@ def create_app():
     from opentakserver.blueprints.scheduler_api import scheduler_api_blueprint
     app.register_blueprint(scheduler_api_blueprint)
 
-    from opentakserver.blueprints.config import config_blueprint
-    app.register_blueprint(config_blueprint)
+    from opentakserver.blueprints.meshtastic_api import meshtastic_api_blueprint
+    app.register_blueprint(meshtastic_api_blueprint)
 
     from opentakserver.blueprints.datasync_blueprint import datasync_blueprint
     app.register_blueprint(datasync_blueprint)
@@ -222,11 +281,8 @@ def user_registered_sighandler(app, user, confirmation_token, **kwargs):
     app.security.datastore.add_role_to_user(user, default_role)
 
 
-if __name__ == '__main__':
+def main():
     with app.app_context():
-        logger.debug("Loading DB..")
-        db.create_all()
-
         # Download the icon sets if they aren't already in the DB
         icons = db.session.query(Icon).count()
         if icons == 0:
@@ -271,6 +327,12 @@ if __name__ == '__main__':
                                                password=hash_password("password"), roles=["administrator"])
         db.session.commit()
 
+    if app.config.get("OTS_ENABLE_MESHTASTIC"):
+        mestastic_thread = MeshtasticController(app.app_context(), logger, db, socketio)
+        app.mestastic_thread = mestastic_thread
+    else:
+        app.meshtastic_thread = None
+
     tcp_thread = SocketServer(logger, app.app_context(), app.config.get("OTS_TCP_STREAMING_PORT"))
     tcp_thread.start()
     app.tcp_thread = tcp_thread
@@ -294,4 +356,8 @@ if __name__ == '__main__':
     app.start_time = datetime.now()
 
     socketio.run(app, host=app.config.get("OTS_LISTENER_ADDRESS"), port=app.config.get("OTS_LISTENER_PORT"),
-                 debug=app.config.get("DEBUG"), log_output=app.config.get("DEBUG"))
+                 debug=app.config.get("DEBUG"), log_output=app.config.get("DEBUG"), use_reloader=False)
+
+
+if __name__ == '__main__':
+    main()

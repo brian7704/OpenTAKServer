@@ -22,7 +22,8 @@ import requests
 import sqlalchemy.exc
 from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
 from flask_security import auth_required, roles_accepted, hash_password, current_user, \
-    admin_change_password, verify_password
+    admin_change_password, verify_password, auth_token_required
+from flask_security.utils import parse_auth_token
 
 from opentakserver.extensions import logger, db
 from .marti import data_package_share
@@ -37,12 +38,13 @@ from opentakserver.models.Point import Point
 from opentakserver.models.user import User
 from opentakserver.models.Certificate import Certificate
 from opentakserver.models.VideoStream import VideoStream
+from opentakserver.models.APSchedulerJobs import APSchedulerJobs
 
 from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
 
 from opentakserver.SocketServer import SocketServer
 from opentakserver.certificate_authority import CertificateAuthority
-from opentakserver.models.Icon import Icon
+from opentakserver.models.Icon import Icon, IconSets
 from opentakserver.models.Marker import Marker
 from opentakserver.models.RBLine import RBLine
 from opentakserver.models.VideoRecording import VideoRecording
@@ -90,6 +92,13 @@ def change_config_setting(setting, value):
 
     except BaseException as e:
         logger.error("Failed to change setting {} to {} in config.yml: {}".format(setting, value, e))
+
+@api_blueprint.route('/api/health')
+def health():
+    if not app.cot_thread.iothread.is_alive():
+        return jsonify({'status': 'down', 'error': 'cot thread is dead'}), 503
+
+    return jsonify({'status': 'healthy'})
 
 
 @api_blueprint.route('/api/status')
@@ -467,6 +476,9 @@ def create_user():
 def delete_user():
     username = bleach.clean(request.json.get('username'))
 
+    if username == current_user.username:
+        return jsonify({'success': False, 'error': "You can't delete your own account"}), 400
+
     logger.info("Deleting user {}".format(username))
 
     try:
@@ -577,6 +589,33 @@ def set_user_role():
     return jsonify({'success': True})
 
 
+@api_blueprint.route('/api/rabbitmq/<path>', methods=['POST'])
+def rabbitmq_auth(path):
+    # https://github.com/rabbitmq/rabbitmq-server/tree/v3.13.x/deps/rabbitmq_auth_backend_http
+
+    # Only allow requests to this route from the RabbitMQ server
+    if request.remote_addr != app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"):
+        return 'deny', 200
+
+    user = None
+    if 'username' in request.form.keys():
+        user = app.security.datastore.find_user(username=bleach.clean(request.form.get('username')))
+
+    if user and 'password' in request.form.keys():
+        if user.active and verify_password(bleach.clean(request.form.get('password')), user.password):
+            if user.has_role("administrator"):
+                return 'allow administrator', 200
+            return 'allow', 200
+        else:
+            return 'deny', 200
+    # Always allow when path is topic, resource, or vhost if the user exists.
+    # This only occurs after the user has been successfully authenticated
+    elif user:
+        return 'allow', 200
+    else:
+        return 'deny', 200
+
+
 # This is mainly for mediamtx authentication
 @api_blueprint.route('/api/external_auth', methods=['POST'])
 def external_auth():
@@ -586,6 +625,24 @@ def external_auth():
     query = bleach.clean(request.json.get('query'))
 
     user = app.security.datastore.find_user(username=username)
+
+    # Token auth to prevent high CPU usage when reading HLS streams
+    if action != 'publish' and 'jwt' in query:
+        query = query.split(";")
+        for q in query:
+            if "=" not in q:
+                continue
+            key, value = q.split("=")
+            if key == 'jwt':
+                logger.warning("Validating token...")
+                try:
+                    parse_auth_token(value)
+                    logger.debug("Token is valid")
+                    return '', 200
+                except:
+                    logger.error("Invalid token")
+                    return '', 401
+
     if user and verify_password(password, user.password):
         if action == 'publish':
             logger.debug("Publish {}".format(request.json.get('path')))
@@ -1029,7 +1086,7 @@ def add_update_stream():
         settings = json.loads(video.mediamtx_settings)
 
         for setting in request.json:
-            if setting == 'csrf_token' or setting == 'sourceOnDemand' or setting == 'path':
+            if setting == 'csrf_token' or setting == 'sourceOnDemand' or setting == 'path' or setting == 'source':
                 continue
             key = bleach.clean(setting)
             value = request.json.get(setting)

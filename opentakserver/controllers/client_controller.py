@@ -91,6 +91,13 @@ class ClientController(Thread):
             body = json.loads(body)
             if body['uid'] != self.uid:
                 self.sock.send(body['cot'].encode())
+        except BrokenPipeError:
+            self.logger.error("{}: Broken Pipe, closing socket".format(self.callsign))
+            self.send_disconnect_cot()
+            self.sock.shutdown(socket.SHUT_RDWR)
+            self.sock.close()
+            self.shutdown = True
+            self.logger.error(traceback.format_exc())
         except:
             self.logger.error(traceback.format_exc())
 
@@ -100,6 +107,7 @@ class ClientController(Thread):
                 data = self.sock.recv(4096)
             except (ConnectionError, ConnectionResetError) as e:
                 self.send_disconnect_cot()
+                self.sock.close()
                 break
             except TimeoutError:
                 if self.shutdown:

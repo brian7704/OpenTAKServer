@@ -2,7 +2,7 @@ import base64
 from dataclasses import dataclass
 
 from opentakserver.extensions import db
-from sqlalchemy import Integer, String, LargeBinary
+from sqlalchemy import Integer, LargeBinary, TEXT, INTEGER
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
@@ -10,11 +10,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 class Icon(db.Model):
     __tablename__ = "icons"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    iconset_uid: Mapped[str] = mapped_column(String, nullable=True)
-    filename: Mapped[str] = mapped_column(String, nullable=True)
-    groupName: Mapped[str] = mapped_column(String, nullable=True)
-    type2525b: Mapped[str] = mapped_column(String, nullable=True)
+    id: Mapped[int] = mapped_column(INTEGER, primary_key=True)
+    iconset_uid: Mapped[str] = mapped_column(TEXT, nullable=True)
+    filename: Mapped[str] = mapped_column(TEXT, nullable=True)
+    groupName: Mapped[str] = mapped_column(TEXT, nullable=True)
+    type2525b: Mapped[str] = mapped_column(TEXT, nullable=True)
     useCnt: Mapped[int] = mapped_column(Integer, nullable=True)
     bitmap: Mapped[bytes] = mapped_column(LargeBinary, nullable=True)
     shadow: Mapped[bytes] = mapped_column(LargeBinary, nullable=True)
@@ -33,3 +33,17 @@ class Icon(db.Model):
 
     def to_json(self):
         return self.serialize()
+
+
+class IconSets(db.Model):
+    __tablename__ = "iconsets"
+
+    id: Mapped[int] = mapped_column(INTEGER, primary_key=True)
+    name: Mapped[str] = mapped_column(TEXT, nullable=True)
+    uid: Mapped[str] = mapped_column(TEXT, nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=True)
+    defaultFriendly: Mapped[str] = mapped_column(TEXT, nullable=True)
+    defaultHostile: Mapped[str] = mapped_column(TEXT, nullable=True)
+    defaultNeutral: Mapped[str] = mapped_column(TEXT, nullable=True)
+    defaultUnknown: Mapped[str] = mapped_column(TEXT, nullable=True)
+    selectedGroup: Mapped[str] = mapped_column(TEXT, nullable=True)

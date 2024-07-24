@@ -90,8 +90,8 @@ class VideoStream(db.Model):
                 'source': source,
                 'record': record,
                 'rtsp_link': "rtsp://{}:{}/{}".format(hostname, self.port, self.path),
-                'webrtc_link': "{}://{}:{}/webrtc/{}".format(protocol, hostname, port, self.path),
-                'hls_link': "{}://{}:{}/hls/{}/index.m3u8".format(protocol, hostname, port, self.path),
+                'webrtc_link': "{}://{}:{}/webrtc/{}/".format(protocol, hostname, port, self.path),
+                'hls_link': "{}://{}:{}/hls/{}/".format(protocol, hostname, port, self.path),
             }
 
     def generate_xml(self, hostname):

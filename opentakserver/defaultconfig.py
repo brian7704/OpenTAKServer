@@ -24,8 +24,9 @@ class DefaultConfig:
     OTS_SSL_STREAMING_PORT = 8089
     OTS_BACKUP_COUNT = 7
     OTS_RABBITMQ_SERVER_ADDRESS = "127.0.0.1"
+    OTS_MEDIAMTX_ENABLE = True
     OTS_MEDIAMTX_API_ADDRESS = "http://localhost:9997"
-    OTS_MEDIAMTX_TOKEN = str(secrets.SystemRandom().getrandbits(128))
+    OTS_MEDIAMTX_TOKEN = secrets.token_urlsafe(30*3//4)
     OTS_SSL_VERIFICATION_MODE = 2  # Equivalent to ssl.CERT_REQUIRED. https://docs.python.org/3/library/ssl.html#ssl.SSLContext.verify_mode
     OTS_NODE_ID = ''.join(random.choices(string.ascii_lowercase + string.digits, k=32))
     OTS_CA_NAME = 'OpenTAKServer-CA'
@@ -39,11 +40,20 @@ class DefaultConfig:
     OTS_CA_ORGANIZATIONAL_UNIT = 'OpenTAKServer'
     OTS_CA_SUBJECT = '/C={}/ST={}/L={}/O={}/OU={}'.format(OTS_CA_COUNTRY, OTS_CA_STATE, OTS_CA_CITY,
                                                           OTS_CA_ORGANIZATION, OTS_CA_ORGANIZATIONAL_UNIT)
+
+    # See https://docs.python.org/3/library/logging.handlers.html#logging.handlers.TimedRotatingFileHandler
+    OTS_LOG_ROTATE_WHEN = 'midnight'
+    OTS_LOG_ROTATE_INTERVAL = 0
+
     OTS_AIRPLANES_LIVE_LAT = 40.744213
     OTS_AIRPLANES_LIVE_LON = -73.986939
     OTS_AIRPLANES_LIVE_RADIUS = 10
 
     OTS_ENABLE_MUMBLE_AUTHENTICATION = False
+
+    OTS_ENABLE_MESHTASTIC = False
+    OTS_MESHTASTIC_TOPIC = "opentakserver"
+    OTS_MESHTASTIC_PUBLISH_INTERVAL = 30
 
     # Gmail settings
     OTS_ENABLE_EMAIL = False
@@ -106,6 +116,6 @@ class DefaultConfig:
     SECURITY_POST_CONFIRM_VIEW = "/login"
     SECURITY_REDIRECT_BEHAVIOR = 'spa'
     SECURITY_RESET_VIEW = '/reset'
+    SECURITY_USERNAME_MIN_LENGTH = 1
 
     SCHEDULER_API_ENABLED = False
-    #SCHEDULER_JOBSTORES = {'default': SQLAlchemyJobStore(url=SQLALCHEMY_DATABASE_URI)}
