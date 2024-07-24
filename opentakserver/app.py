@@ -4,9 +4,8 @@ eventlet.monkey_patch()
 import sys
 import traceback
 import logging
-import argparse
 
-from flask_migrate import Migrate, upgrade, stamp
+from flask_migrate import Migrate, upgrade
 from opentakserver.PasswordValidator import PasswordValidator
 
 import platform
@@ -52,14 +51,6 @@ try:
     from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
 except ModuleNotFoundError:
     print("Mumble auth not supported on this platform")
-
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--create-ca", help="Create the certificate authority and exit", action='store_true')
-    parser.add_argument("-d", "--upgrade-db", help="Create or update the database schema", action='store_true')
-    parser.add_argument("-s", "--stamp-db", help="Stamp the database schema version", action='store', type=str)
-    return parser.parse_args()
 
 
 def init_extensions(app):
@@ -163,45 +154,6 @@ def create_app():
     app.config.from_object(DefaultConfig)
     setup_logging(app)
 
-    args = parse_args()
-    if args.create_ca:
-        ca = CertificateAuthority(logger, app)
-        if not ca.check_if_ca_exists():
-            logger.info("Creating certificate authority...")
-            ca.create_ca()
-        else:
-            logger.warning("Certificate authority already exists")
-        sys.exit()
-    if args.upgrade_db:
-        logger.info("Upgrading database...")
-        try:
-            with app.app_context():
-                db.init_app(app)
-                Migrate(app, db)
-                upgrade(directory=os.path.join(os.path.dirname(os.path.realpath(opentakserver.__file__)), 'migrations'))
-                # Flask-Migrate does weird things to the logger
-                logger.disabled = False
-                logger.parent.handlers.pop()
-                logger.info("Successfully upgraded the database")
-        except BaseException as e:
-            logger.error(f"Failed to upgrade database: {e}")
-            logger.error(traceback.format_exc())
-        sys.exit()
-    if args.stamp_db:
-        try:
-            with app.app_context():
-                db.init_app(app)
-                Migrate(app, db)
-                stamp(directory=os.path.join(os.path.dirname(os.path.realpath(opentakserver.__file__)), 'migrations'), revision=args.stamp_db)
-                # Flask-Migrate does weird things to the logger
-                logger.disabled = False
-                logger.parent.handlers.pop()
-                logger.info("Successfully stamped the database")
-        except BaseException as e:
-            logger.error(f"Failed to upgrade database: {e}")
-            logger.error(traceback.format_exc())
-        sys.exit()
-
     # Load config.yml if it exists
     if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
         app.config.from_file(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), load=yaml.safe_load)
@@ -282,6 +234,7 @@ def user_registered_sighandler(app, user, confirmation_token, **kwargs):
 
 
 def main():
+    logger.info("main()")
     with app.app_context():
         # Download the icon sets if they aren't already in the DB
         icons = db.session.query(Icon).count()

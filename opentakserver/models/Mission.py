@@ -20,6 +20,7 @@ class Mission(db.Model):
     tool: Mapped[str] = mapped_column(String, nullable=True)
     group: Mapped[str] = mapped_column(String, nullable=True)
     defaultRole: Mapped[str] = mapped_column(String, nullable=True)
+    permissions: Mapped[str] = mapped_column(String, nullable=True)
     keywords: Mapped[str] = mapped_column(String, nullable=True)
     creatorUid: Mapped[str] = mapped_column(String, nullable=True)
     creationTime: Mapped[int] = mapped_column(Integer, nullable=True)

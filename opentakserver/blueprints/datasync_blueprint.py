@@ -36,7 +36,6 @@ def get_missions():
     tool = request.args.get('tool')
     if tool:
         tool = bleach.clean(tool)
-    logger.error("Tool is " + tool)
 
     default_role = request.args.get('defaultRole')
     if default_role:
@@ -56,7 +55,6 @@ def get_missions():
         logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
 
-    logger.warning(response)
     return jsonify(response)
 
 
