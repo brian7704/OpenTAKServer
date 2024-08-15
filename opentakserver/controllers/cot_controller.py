@@ -15,6 +15,8 @@ from bs4 import BeautifulSoup
 from meshtastic import mqtt_pb2, mesh_pb2, portnums_pb2, BROADCAST_NUM
 import unishox2
 
+from opentakserver.functions import *
+
 from opentakserver.proto import atak_pb2
 from opentakserver.controllers.rabbitmq_client import RabbitMQClient
 from opentakserver.extensions import socketio
@@ -631,24 +633,9 @@ class CoTController(RabbitMQClient):
             try:
                 marker = Marker()
                 marker.uid = event.attrs['uid']
-                marker.affiliation = self.get_affiliation(event.attrs['type'])
-                marker.battle_dimension = self.get_battle_dimension(event.attrs['type'])
-
-                marker.mil_std_2525c = "s"
-                cot_type_list = event.attrs['type'].split("-")
-                cot_type_list.pop(0)  # this should always be letter a
-                affiliation = cot_type_list.pop(0)
-                battle_dimension = cot_type_list.pop(0)
-                marker.mil_std_2525c += affiliation
-                marker.mil_std_2525c += battle_dimension
-                marker.mil_std_2525c += "-"
-
-                for letter in cot_type_list:
-                    if letter.isupper():
-                        marker.mil_std_2525c += letter.lower()
-
-                while len(marker.mil_std_2525c) < 10:
-                    marker.mil_std_2525c += "-"
+                marker.affiliation = get_affiliation(event.attrs['type'])
+                marker.battle_dimension = get_battle_dimension(event.attrs['type'])
+                marker.mil_std_2525c = cot_type_to_2525c(event.attrs['type'])
 
                 detail = event.find('detail')
                 icon = None
@@ -811,76 +798,6 @@ class CoTController(RabbitMQClient):
         # Do nothing because the RabbitMQ channel hasn't opened yet or has closed
         else:
             self.logger.debug("Not publishing, channel closed")
-
-    def get_affiliation(self, type):
-        if re.match("^t-", type):
-            return self.get_tasking(type)
-        if re.match("^a-f-", type):
-            return "friendly"
-        if re.match("^a-h-", type):
-            return "hostile"
-        if re.match("^a-u-", type):
-            return "unknown"
-        if re.match("^a-p-", type):
-            return "pending"
-        if re.match("^a-a-", type):
-            return "assumed"
-        if re.match("^a-n-", type):
-            return "neutral"
-        if re.match("^a-s-", type):
-            return "suspect"
-        if re.match("^a-j-", type):
-            return "joker"
-        if re.match("^a-k-", type):
-            return "faker"
-
-    def get_tasking(self, type):
-        if re.match("^t-x-f", type):
-            return "remarks"
-        if re.match("^t-x-s", type):
-            return "state/sync"
-        if re.match("^t-s", type):
-            return "required"
-        if re.match("^t-z", type):
-            return "cancel"
-        if re.match("^t-x-c-c", type):
-            return "commcheck"
-        if re.match("^t-x-c-g-d", type):
-            return "dgps"
-        if re.match("^t-k-d", type):
-            return "destroy"
-        if re.match("^t-k-i", type):
-            return "investigate"
-        if re.match("^t-k-t", type):
-            return "target"
-        if re.match("^t-k", type):
-            return "strike"
-        if re.match("^t-", type):
-            return "tasking"
-
-    def get_battle_dimension(self, type):
-        if re.match("^a-.-A", type):
-            return "airborne"
-        if re.match("^a-.-G", type):
-            return "ground"
-        if re.match("^a-.-G-I", type):
-            return "installation"
-        if re.match("^a-.-S", type):
-            return "surface/sea"
-        if re.match("^a-.-U", type):
-            return "subsurface"
-
-    def parse_type(self, type):
-        if re.match("^a-.-G-I", type):
-            return "installation"
-        if re.match("^a-.-G-E-V", type):
-            return "vehicle"
-        if re.match("^a-.-G-E", type):
-            return "equipment"
-        if re.match("^a-.-A-W-M-S", type):
-            return "sam"
-        if re.match("^a-.-A-M-F-Q-r", type):
-            return "uav"
 
     def publish_to_meshtastic(self, body):
         for channel in self.context.app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"):
