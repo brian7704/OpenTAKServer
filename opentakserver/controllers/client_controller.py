@@ -61,6 +61,11 @@ class ClientController(Thread):
                         self.logger.debug("Got common name {}".format(self.common_name))
             except BaseException as e:
                 logger.warning("Failed to do handshake: {}".format(e))
+                self.send_disconnect_cot()
+                self.sock.shutdown(socket.SHUT_RDWR)
+                self.sock.close()
+                self.shutdown = True
+                self.logger.error(traceback.format_exc())
 
         # RabbitMQ
         try:
@@ -91,14 +96,12 @@ class ClientController(Thread):
             body = json.loads(body)
             if body['uid'] != self.uid:
                 self.sock.send(body['cot'].encode())
-        except BrokenPipeError:
-            self.logger.error("{}: Broken Pipe, closing socket".format(self.callsign))
+        except BaseException as e:
+            self.logger.error(f"{self.callsign}: {e}, closing socket")
             self.send_disconnect_cot()
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
             self.shutdown = True
-            self.logger.error(traceback.format_exc())
-        except:
             self.logger.error(traceback.format_exc())
 
     def run(self):
