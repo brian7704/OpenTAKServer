@@ -1,9 +1,11 @@
+import uuid
 from datetime import datetime
 
 from opentakserver.extensions import db
 from sqlalchemy import Integer, String, ForeignKey, Float, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from opentakserver.forms.point_form import PointForm
 from opentakserver.functions import iso8601_string_from_datetime
 
 
@@ -36,6 +38,21 @@ class Point(db.Model):
     alert = relationship("Alert", back_populates="point")
     marker: Mapped["Marker"] = relationship(back_populates="point")
     rb_line = relationship("RBLine", back_populates="point")
+
+    def from_wtform(self, form: PointForm):
+        self.uid = str(uuid.uuid4())
+        self.latitude = form.latitude.data
+        self.longitude = form.longitude.data
+        self.ce = form.ce.data
+        self.hae = form.hae.data
+        self.le = form.le.data
+        self.course = form.course.data
+        self.speed = form.speed.data
+        self.location_source = form.location_source.data
+        self.battery = form.battery.data
+        self.timestamp = form.timestamp.data
+        self.azimuth = form.azimuth.data
+        self.fov = form.fov.data
 
     def serialize(self):
         return {
@@ -71,7 +88,7 @@ class Point(db.Model):
             'location_source': self.location_source,
             'battery': self.battery,
             'timestamp': iso8601_string_from_datetime(self.timestamp),
-            'how': self.cot.how,
-            'type': self.cot.type,
+            'how': self.cot.how if self.cot else None,
+            'type': self.cot.type if self.cot else None,
             'callsign': self.eud.callsign if self.eud else None
         }

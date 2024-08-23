@@ -1,5 +1,7 @@
+import logging
 from threading import Thread
 
+import flask_sqlalchemy
 import pika
 
 
@@ -7,7 +9,7 @@ class RabbitMQClient:
     def __init__(self, context, logger, db, socketio):
         self.context = context
         self.logger = logger
-        self.db = db
+        self.db: flask_sqlalchemy.SQLAlchemy = db
         self.socketio = socketio
 
         self.online_euds = {}

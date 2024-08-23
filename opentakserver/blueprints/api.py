@@ -421,18 +421,6 @@ def query_points():
     return paginate(query)
 
 
-@api_blueprint.route("/api/casevac", methods=['GET'])
-@auth_required()
-def query_casevac():
-    query = db.session.query(CasEvac)
-
-    query = search(query, EUD, 'callsign')
-    query = search(query, CasEvac, 'sender_uid')
-    query = search(query, CasEvac, 'uid')
-
-    return paginate(query)
-
-
 @api_blueprint.route("/api/user/add", methods=['POST'])
 @roles_accepted("administrator")
 def create_user():

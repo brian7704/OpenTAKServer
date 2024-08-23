@@ -602,12 +602,11 @@ class CoTController(RabbitMQClient):
                         medevac.attrs[a] = False
 
                 try:
-                    res = self.db.session.execute(
+                    self.db.session.execute(
                         insert(CasEvac).values(timestamp=datetime_from_iso8601_string(event.attrs['start']),
                                                sender_uid=uid, uid=event.attrs['uid'],
                                                point_id=point_pk, cot_id=cot_pk,
                                                **medevac.attrs))
-                    casevac_pk = res.inserted_primary_key[0]
 
                     if zmist:
                         self.db.session.execute(insert(ZMIST).values(casevac_uid=event.attrs['uid'], **zmist.attrs))
@@ -620,6 +619,12 @@ class CoTController(RabbitMQClient):
                         self.db.session.execute(
                             update(ZMIST).where(CasEvac.uid == event.attrs['uid']).values(**zmist.attrs))
                 self.db.session.commit()
+
+                try:
+                    casevac: CasEvac = self.db.session.execute(self.db.session.query(CasEvac).filter_by(uid=event.attrs['uid'])).first()[0]
+                    socketio.emit('casevac', casevac.to_json(), namespace='/socket.io')
+                except BaseException as e:
+                    self.logger.error(f"Failed to emit CasEvac: {e}")
 
     def parse_marker(self, event, uid, point_pk, cot_pk):
         if ((re.match("^a-[f|h|u|p|a|n|s|j|k]-[Z|P|A|G|S|U|F]", event.attrs['type']) or

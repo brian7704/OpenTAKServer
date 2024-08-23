@@ -111,4 +111,7 @@ def datetime_from_iso8601_string(datetime_string):
 
 
 def iso8601_string_from_datetime(datetime_object):
-    return datetime_object.strftime("%Y-%m-%dT%H:%M:%S.%f"[:-3] + "Z")
+    if datetime_object:
+        return datetime_object.strftime("%Y-%m-%dT%H:%M:%S.%f"[:-3] + "Z")
+    else:
+        return None

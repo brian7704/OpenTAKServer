@@ -1,0 +1,48 @@
+from wtforms import StringField, IntegerField, BooleanField, FloatField, FieldList, FormField
+from wtforms.validators import DataRequired, UUID
+
+from opentakserver.forms.point_form import PointForm
+from opentakserver.forms.zmist_form import ZmistForm
+
+
+class CasEvacForm(PointForm):
+    uid = StringField(validators=[DataRequired(), UUID()])
+    ambulatory = IntegerField()
+    casevac = BooleanField()
+    child = IntegerField()
+    enemy = IntegerField()
+    epw = IntegerField()
+    equipment_detail = StringField()
+    equipment_none = BooleanField()
+    equipment_other = BooleanField()
+    extraction_equipment = BooleanField()
+    freq = FloatField()
+    friendlies = StringField()
+    hlz_marking = IntegerField()
+    hlz_remarks = StringField()
+    hoist = BooleanField()
+    litter = IntegerField()
+    marked_by = StringField()
+    medline_remarks = StringField()
+    nonus_civilian = IntegerField()
+    nonus_military = IntegerField()
+    obstacles = StringField()
+    priority = IntegerField()
+    routine = IntegerField()
+    security = IntegerField()
+    terrain_loose = BooleanField()
+    terrain_other = BooleanField()
+    terrain_other_detail = BooleanField()
+    terrain_detail = StringField()
+    terrain_none = BooleanField()
+    terrain_rough = BooleanField()
+    terrain_slope = BooleanField()
+    terrain_slope_dir = StringField()
+    title = StringField(validators=[DataRequired()])
+    urgent = IntegerField()
+    us_civilian = IntegerField()
+    us_military = IntegerField()
+    ventilator = BooleanField()
+    winds_are_from = StringField()
+    zone_prot_selection = IntegerField()
+    zmist = FieldList(FormField(ZmistForm), min_entries=0)

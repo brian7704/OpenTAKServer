@@ -254,6 +254,9 @@ def create_app():
     from opentakserver.blueprints.marker_api import marker_api_blueprint
     app.register_blueprint(marker_api_blueprint)
 
+    from opentakserver.blueprints.casevac_api import casevac_api_blueprint
+    app.register_blueprint(casevac_api_blueprint)
+
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
     return app

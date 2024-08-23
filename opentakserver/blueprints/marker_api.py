@@ -61,8 +61,6 @@ def add_marker():
         return jsonify({'success': False, 'error': "Invalid UID. UIDs need to be in UUID4 format"}), 400
 
     cot_type = request.json['type'] if 'type' in request.json.keys() else 'a-u-G'
-    logger.info(f"Cot Type is {cot_type}")
-    logger.info(request.json)
 
     marker.affiliation = get_affiliation(cot_type)
     marker.battle_dimension = get_battle_dimension(cot_type)
@@ -118,6 +116,15 @@ def add_marker():
             track.set("course", str(point.course))
             track.set("speed", str(point.speed))
 
+            if point.azimuth or point.fov:
+                sensor = ET.SubElement(detail, "sensor")
+                sensor.set("azimuth", str(point.azimuth))
+                sensor.set("fov", str(point.fov))
+                sensor.set("fovBlue", "1.0")
+                sensor.set("fovGreen", "1.0")
+                sensor.set("fovRed", "1.0")
+                sensor.set("range", "100.0")
+
             rabbit_connection = pika.BlockingConnection(
                 pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
             channel = rabbit_connection.channel()
@@ -172,7 +179,6 @@ def add_marker():
 @marker_api_blueprint.route('/api/markers', methods=['DELETE'])
 @auth_required()
 def delete_marker():
-    logger.warning("delete marker")
     uid = request.args.get('uid')
     if not uid:
         return jsonify({'success': False, 'error': 'Please provide the UID of the marker to delete'}), 400
@@ -182,14 +188,14 @@ def delete_marker():
         query = search(query, Marker, 'uid')
         marker = db.session.execute(query).first()
         if not marker:
-            return jsonify({'success': False, 'error': 'Unknown UID'}), 400
+            return jsonify({'success': False, 'error': 'Unknown UID'}), 404
 
         marker = marker[0]
         now = datetime.now()
         event = ET.Element('event', {'how': 'h-g-i-g-o', 'type': 't-x-d-d', 'version': '2.0',
                                      'uid': marker.uid, 'start': iso8601_string_from_datetime(now),
                                      'time': iso8601_string_from_datetime(now),
-                                     'stale': iso8601_string_from_datetime(now + timedelta(seconds=10))})
+                                     'stale': iso8601_string_from_datetime(now + timedelta(minutes=10))})
         ET.SubElement(event, 'point', {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0',
                                        'lon': '0'})
         detail = ET.SubElement(event, 'detail')
