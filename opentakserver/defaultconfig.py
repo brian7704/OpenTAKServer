@@ -57,6 +57,8 @@ class DefaultConfig:
     OTS_AISHUB_MMSI_LIST = ""
     OTS_AISHUB_IMO_LIST = ""
 
+    OTS_UPDATES_FOLDER = "/var/www/html/opentakserver/updates"
+
     OTS_ENABLE_MUMBLE_AUTHENTICATION = False
 
     OTS_ENABLE_MESHTASTIC = False
