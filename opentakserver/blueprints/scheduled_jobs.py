@@ -5,6 +5,7 @@ import pika
 from bs4 import BeautifulSoup
 from flask import Blueprint
 import adsbxcot
+import aiscot
 from flask import current_app as app
 
 from opentakserver.extensions import apscheduler, logger, db
@@ -105,3 +106,48 @@ def purge_data():
     ZMIST.query.delete()
     db.session.commit()
     logger.info("Purged all data")
+
+
+@apscheduler.task("interval", id="ais", name="AISHub.net", next_run_time=None)
+def get_aishub_data():
+    if not app.config.get("OTS_AISHUB_USERNAME"):
+        logger.error("Please set your AISHub username")
+        return
+
+    with apscheduler.app.app_context():
+        try:
+            params = {"username": app.config.get("OTS_AISHUB_USERNAME"), "format": 1, "output": "json"}
+            if app.config.get("OTS_AISHUB_SOUTH_LAT"):
+                params['latmin'] = app.config.get("OTS_AISHUB_SOUTH_LAT")
+            if app.config.get("OTS_AISHUB_WEST_LON"):
+                params['lonmin'] = app.config.get("OTS_AISHUB_WEST_LON")
+            if app.config.get("OTS_AISHUB_NORTH_LAT"):
+                params['latmax'] = app.config.get("OTS_AISHUB_NORTH_LAT")
+            if app.config.get("OTS_AISHUB_EAST_LON"):
+                params['lonmax'] = app.config.get("OTS_AISHUB_EAST_LON")
+            if app.config.get("OTS_AISHUB_MMSI_LIST"):
+                params['mmsi'] = app.config.get("OTS_AISHUB_MMSI_LIST")
+            if app.config.get("OTS_AISHUB_IMO_LIST"):
+                params['imo'] = app.config.get("OTS_AISHUB_IMO_LIST")
+            r = requests.get("https://data.aishub.net/ws.php", params=params)
+
+            if r.status_code != 200:
+                logger.error(f"Failed to get AIS data: {r.text}")
+                return
+
+            rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+            channel = rabbit_connection.channel()
+            for vessel in r.json()[1]:
+                event = aiscot.ais_to_cot(vessel, None, None)
+                # noinspection PyTypeChecker
+                channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
+                    {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}))
+                # noinspection PyTypeChecker
+                channel.basic_publish(exchange='cot_controller', routing_key='', body=json.dumps(
+                    {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}))
+
+            channel.close()
+            rabbit_connection.close()
+        except BaseException as e:
+            logger.error(f"Failed to get AIS data: {e}")
+            logger.debug(traceback.format_exc())

@@ -10,6 +10,7 @@ documentation = "https://docs.opentakserver.io"
 
 [tool.poetry.dependencies]
 adsbxcot = "6.0.4"
+aiscot = "5.2.1"
 beautifulsoup4 = "4.12.3"
 colorlog = "6.8.2"
 datetime = "5.3"
