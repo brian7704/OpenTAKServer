@@ -58,6 +58,8 @@ def add_casevac():
     casevac = CasEvac()
     casevac.from_wtforms(form)
     casevac.sender_uid = app.config.get("OTS_NODE_ID")
+    if zmist:
+        casevac.zmist = zmist
 
     point = Point()
     point.from_wtform(form)

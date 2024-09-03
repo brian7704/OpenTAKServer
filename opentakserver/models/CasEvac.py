@@ -314,11 +314,29 @@ class CasEvac(db.Model):
         if self.zmist:
             zmist_map = ET.SubElement(medevac, "zMistsMap")
             zmist_tag = ET.SubElement(zmist_map, "zMist")
-            zmist_tag.set("i", self.zmist.i)
-            zmist_tag.set("m", self.zmist.m)
-            zmist_tag.set("s", self.zmist.s)
-            zmist_tag.set("t", self.zmist.t)
-            zmist_tag.set("title", self.zmist.title)
-            zmist_tag.set("z", self.zmist.z)
+            if self.zmist.i:
+                zmist_tag.set("i", self.zmist.i)
+            else:
+                zmist_tag.set("i", "")
+            if self.zmist.m:
+                zmist_tag.set("m", self.zmist.m)
+            else:
+                zmist_tag.set("m", "")
+            if self.zmist.s:
+                zmist_tag.set("s", self.zmist.s)
+            else:
+                zmist_tag.set("s", "")
+            if self.zmist.t:
+                zmist_tag.set("t", self.zmist.t)
+            else:
+                zmist_tag.set("t", "")
+            if self.zmist.title:
+                zmist_tag.set("title", self.zmist.title)
+            else:
+                zmist_tag.set("title", "ZMIST1")
+            if self.zmist.z:
+                zmist_tag.set("z", self.zmist.z)
+            else:
+                zmist_tag.set("z", "")
 
         return event
