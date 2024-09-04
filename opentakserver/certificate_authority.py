@@ -261,6 +261,11 @@ class CertificateAuthority:
                         <entry key="caPassword" class="class java.lang.String">{{ cert_password }}</entry>
                         <entry key="clientPassword" class="class java.lang.String">{{ cert_password }}</entry>
                         <entry key="certificateLocation" class="class java.lang.String">/storage/emulated/0/atak/cert/{{ user_filename }}</entry>
+                        <entry key="appMgmtEnableUpdateServer" class="class java.lang.Boolean">true</entry>
+                        <entry key="atakUpdateServerUrl" class="class java.lang.String">https://{{ server }}:8443/api/packages</entry>
+                        <entry key="repoStartupSync" class="class java.lang.Boolean">true</entry>
+                        <entry key="updateServerCaLocation" class="class java.lang.String">/storage/emulated/0/atak/cert/{{ server_filename }}</entry>
+                        <entry key="updateServerCaPassword" class="class java.lang.String">{{ cert_password }}</entry>
                     </preference>
                 </preferences>
                 """)

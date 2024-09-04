@@ -92,7 +92,7 @@ def tls_config():
 def enrollment():
     if not basic_auth(request.headers.get('Authorization')):
         return '', 401
-    logger.info("Enrollment request from {}".format(request.args.get('clientUid')))
+
     return '', 204
 
 
