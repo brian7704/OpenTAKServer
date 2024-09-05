@@ -16,8 +16,10 @@ import bleach
 import sqlalchemy
 from OpenSSL import crypto
 from bs4 import BeautifulSoup
-from flask import current_app as app, request, Blueprint, send_from_directory, jsonify
+from flask import current_app as app, request, Blueprint, send_from_directory, jsonify, send_file, Response
 from flask_security import verify_password, current_user
+from werkzeug.wsgi import FileWrapper
+
 from opentakserver.extensions import logger, db
 from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
 from opentakserver import __version__ as version
@@ -90,10 +92,15 @@ def tls_config():
 
 @marti_blueprint.route('/Marti/api/tls/profile/enrollment')
 def enrollment():
-    if not basic_auth(request.headers.get('Authorization')):
-        return '', 401
-
-    return '', 204
+    ca = CertificateAuthority(logger, app)
+    try:
+        enrollment_zip = ca.create_enrollment_profile()
+        enrollment_zip.seek(0)
+        return Response(FileWrapper(enrollment_zip), mimetype="application/zip", direct_passthrough=True)
+    except BaseException as e:
+        logger.error(f"Failed to send enrollment package: {e}")
+        logger.debug(traceback.format_exc())
+        return '', 500
 
 
 @marti_blueprint.route('/Marti/api/tls/signClient/', methods=['POST'])

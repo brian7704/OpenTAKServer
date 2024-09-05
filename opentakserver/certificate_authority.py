@@ -1,7 +1,9 @@
+import io
 import os
 import random
 import re
 import subprocess
+import traceback
 import uuid
 import zipfile
 from pathlib import Path
@@ -107,6 +109,56 @@ class CertificateAuthority:
 
         else:
             self.logger.debug("CA already exists")
+
+    def create_enrollment_profile(self):
+        enrollment_profile_template = Template("""<?xml version='1.0' standalone='yes'?>
+                <preferences>
+                    <preference version="1" name="com.atakmap.app_preferences">
+                        <entry key="displayServerConnectionWidget" class="class java.lang.Boolean">true</entry>
+                        <entry key="appMgmtEnableUpdateServer" class="class java.lang.Boolean">true</entry>
+                        <entry key="atakUpdateServerUrl" class="class java.lang.String">{{ server }}</entry>
+                        <entry key="repoStartupSync" class="class java.lang.Boolean">true</entry>
+                        <entry key="updateServerCaLocation" class="class java.lang.String">/storage/emulated/0/atak/cert/truststore-root.p12</entry>
+                        <entry key="updateServerCaPassword" class="class java.lang.String">{{ cert_password }}</entry>
+                    </preference>
+                </preferences>""")
+
+        manifest_file_template = Template("""<MissionPackageManifest version="2">
+                   <Configuration>
+                      <Parameter name="uid" value="{{ uid }}"/>
+                      <Parameter name="name" value="Enrollment Profile"/>
+                      <Parameter name="onReceiveDelete" value="true"/>
+                   </Configuration>
+                   <Contents>
+                      <Content ignore="false" zipEntry="5c2bfcae3d98c9f4d262172df99ebac5/preference.pref"/>
+                      <Content ignore="false" zipEntry="5c2bfcae3d98c9f4d262172df99ebac5/truststore-root.p12"/> 
+                   </Contents>
+                </MissionPackageManifest>
+                """)
+
+        update_server_address = (self.app.config.get("OTS_UPDATE_SERVER_ADDRESS") or
+                                 f"https://{urlparse(request.url_root).hostname}:{self.app.config.get('OTS_MARTI_HTTPS_PORT')}/api/packages")
+        pref = enrollment_profile_template.render(server=update_server_address,
+                                                  marti_port=self.app.config.get("OTS_MARTI_HTTPS_PORT"),
+                                                  cert_password=self.app.config.get("OTS_CA_PASSWORD"))
+
+        manifest = manifest_file_template.render(uid=uuid.uuid4())
+
+        try:
+            zip_buffer = io.BytesIO()
+            zipf = zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False)
+            zipf.writestr("MANIFEST/manifest.xml", manifest.encode())
+
+            zipf.writestr("5c2bfcae3d98c9f4d262172df99ebac5/preference.pref", pref.encode())
+
+            with open(os.path.join(self.app.config.get("OTS_CA_FOLDER"), 'truststore-root.p12'), 'rb') as truststore:
+                zipf.writestr("5c2bfcae3d98c9f4d262172df99ebac5/truststore-root.p12", truststore.read())
+
+            return zip_buffer
+        except BaseException as e:
+            self.logger.error(f"Failed to make enrollment package: {e}")
+            self.logger.error(traceback.format_exc())
+            return '', 500
 
     def issue_certificate(self, common_name, server=False):
         if not os.path.exists(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca.pem")):
@@ -262,7 +314,7 @@ class CertificateAuthority:
                         <entry key="clientPassword" class="class java.lang.String">{{ cert_password }}</entry>
                         <entry key="certificateLocation" class="class java.lang.String">/storage/emulated/0/atak/cert/{{ user_filename }}</entry>
                         <entry key="appMgmtEnableUpdateServer" class="class java.lang.Boolean">true</entry>
-                        <entry key="atakUpdateServerUrl" class="class java.lang.String">https://{{ server }}:8443/api/packages</entry>
+                        <entry key="atakUpdateServerUrl" class="class java.lang.String">https://{{ server }}:{{ marti_port }}/api/packages</entry>
                         <entry key="repoStartupSync" class="class java.lang.Boolean">true</entry>
                         <entry key="updateServerCaLocation" class="class java.lang.String">/storage/emulated/0/atak/cert/{{ server_filename }}</entry>
                         <entry key="updateServerCaPassword" class="class java.lang.String">{{ cert_password }}</entry>

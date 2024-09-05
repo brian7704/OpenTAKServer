@@ -4,7 +4,6 @@ eventlet.monkey_patch()
 import sys
 import traceback
 import logging
-import argparse
 
 from flask_migrate import Migrate, upgrade, stamp
 from opentakserver.PasswordValidator import PasswordValidator
@@ -65,6 +64,10 @@ def init_extensions(app):
         # Flask-Migrate does weird things to the logger
         logger.disabled = False
         logger.parent.handlers.pop()
+        if app.config.get("DEBUG"):
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.INFO)
 
     # Handle config options that can't be serialized to yaml
     app.config.update({"SCHEDULER_JOBSTORES": {'default': SQLAlchemyJobStore(url=app.config.get("SQLALCHEMY_DATABASE_URI"))}})
@@ -186,6 +189,7 @@ def create_app():
             logger.info("MediaMTX disabled")
 
     init_extensions(app)
+    logger.warning(f"LOGGER LEVEL IS {logger.level}")
 
     from opentakserver.blueprints.marti import marti_blueprint
     app.register_blueprint(marti_blueprint)

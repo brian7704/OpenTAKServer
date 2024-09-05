@@ -29,6 +29,7 @@ class DefaultConfig:
     OTS_MEDIAMTX_TOKEN = secrets.token_urlsafe(30*3//4)
     OTS_SSL_VERIFICATION_MODE = 2  # Equivalent to ssl.CERT_REQUIRED. https://docs.python.org/3/library/ssl.html#ssl.SSLContext.verify_mode
     OTS_NODE_ID = ''.join(random.choices(string.ascii_lowercase + string.digits, k=64))
+    OTS_UPDATE_SERVER_ADDRESS = None  # Only set this if you have an external update server, otherwise leave it set to None to use OTS as the update server
     OTS_CA_NAME = 'OpenTAKServer-CA'
     OTS_CA_FOLDER = os.path.join(OTS_DATA_FOLDER, 'ca')
     OTS_CA_PASSWORD = 'atakatak'

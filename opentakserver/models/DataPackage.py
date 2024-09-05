@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from opentakserver.extensions import db
+from opentakserver.models.DeviceProfiles import DeviceProfilesDataPackages
 from sqlalchemy import Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -26,6 +27,8 @@ class DataPackage(db.Model):
     eud: Mapped["EUD"] = relationship(back_populates="data_packages")
     certificate = relationship("Certificate", back_populates="data_package", uselist=False)
     user = relationship("User", back_populates="data_packages")
+    device_profiles = relationship("DeviceProfiles", secondary='device_profiles_data_packages',
+                                   back_populates='data_packages')
 
     def serialize(self):
         return {

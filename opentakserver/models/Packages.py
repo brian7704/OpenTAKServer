@@ -4,7 +4,7 @@ from pathlib import Path
 
 from werkzeug.utils import secure_filename
 
-from sqlalchemy import Integer, String, BLOB
+from sqlalchemy import Integer, String, BLOB, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 
 from flask import current_app as app
@@ -31,6 +31,8 @@ class Packages(db.Model):
     file_size: Mapped[int] = mapped_column(Integer)
     icon: Mapped[bytes] = mapped_column(BLOB, nullable=True)
     icon_filename: Mapped[str] = mapped_column(String, nullable=True)
+    install_on_enrollment: Mapped[bool] = mapped_column(Boolean, default=False)
+    install_on_connection: Mapped[bool] = mapped_column(Boolean, default=False)
 
     def from_wtform(self, form: PackageForm):
         self.platform = form.platform.data
@@ -46,7 +48,7 @@ class Packages(db.Model):
         self.tak_prereq = form.tak_prereq.data
         self.file_size = Path(os.path.join(app.config.get("OTS_DATA_FOLDER"), "updates", self.file_name)).stat().st_size
         self.icon = form.icon.data.read() if form.icon.data else None
-        self.icon_filename = secure_filename(form.icon.data.filename) if form.icon.data else None
+        self.icon_filename = secure_filename(form.icon.data.filename) if form.icon.data else None,
 
     def serialize(self):
         return {
@@ -63,23 +65,12 @@ class Packages(db.Model):
             'tak_prereq': self.tak_prereq,
             'file_size': self.file_size,
             'icon': self.icon,
-            'icon_filename': self.icon_filename
+            'icon_filename': self.icon_filename,
+            'install_on_enrollment': self.install_on_enrollment,
+            'install_on_connection': self.install_on_connection
         }
 
     def to_json(self):
-        return {
-            'platform': self.platform,
-            'plugin_type': self.plugin_type,
-            'package_name': self.package_name,
-            'name': self.name,
-            'file_name': self.file_name,
-            'version': self.version,
-            'revision_code': self.revision_code,
-            'description': self.description,
-            'apk_hash': self.apk_hash,
-            'os_requirement': self.os_requirement,
-            'tak_prereq': self.tak_prereq,
-            'file_size': self.file_size,
-            'icon': base64.urlsafe_b64encode(self.icon),
-            'icon_filename': self.icon_filename
-        }
+        data = self.serialize()
+        data['icon'] = base64.urlsafe_b64encode(self.icon)
+        return data

@@ -136,6 +136,7 @@ class ClientController(Thread):
                         except (ConnectionError, TimeoutError, ConnectionResetError) as e:
                             break
 
+                self.logger.debug(data)
                 soup = BeautifulSoup(data, 'xml')
 
                 event = soup.find('event')
