@@ -90,19 +90,6 @@ def tls_config():
     return tostring(root_element), 200, {'Content-Type': 'application/xml'}
 
 
-@marti_blueprint.route('/Marti/api/tls/profile/enrollment')
-def enrollment():
-    ca = CertificateAuthority(logger, app)
-    try:
-        enrollment_zip = ca.create_enrollment_profile()
-        enrollment_zip.seek(0)
-        return Response(FileWrapper(enrollment_zip), mimetype="application/zip", direct_passthrough=True)
-    except BaseException as e:
-        logger.error(f"Failed to send enrollment package: {e}")
-        logger.debug(traceback.format_exc())
-        return '', 500
-
-
 @marti_blueprint.route('/Marti/api/tls/signClient/', methods=['POST'])
 def sign_csr():
     if not basic_auth(request.headers.get('Authorization')):

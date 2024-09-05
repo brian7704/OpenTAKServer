@@ -6,7 +6,10 @@ from wtforms.validators import DataRequired, Optional
 
 class DeviceProfileForm(FlaskForm):
     name = StringField(validators=[DataRequired()])
-    profile_type = StringField(default="enrollment")
+    enrollment = BooleanField(default=True)
+    connection = BooleanField(default=False)
+    preference_key = StringField(validators=[Optional()])
+    preference_value = StringField(validators=[Optional()])
     tool = StringField(validators=[Optional()])
     active = BooleanField(default=True)
     data_package = FileField(validators=[FileRequired()])

@@ -2,8 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from opentakserver.extensions import db
-from opentakserver.models.DeviceProfiles import DeviceProfilesDataPackages
-from sqlalchemy import Integer, String, ForeignKey, DateTime
+from sqlalchemy import Integer, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.functions import iso8601_string_from_datetime
@@ -24,11 +23,11 @@ class DataPackage(db.Model):
     size: Mapped[int] = mapped_column(Integer)
     tool: Mapped[str] = mapped_column(String, nullable=True)
     expiration: Mapped[str] = mapped_column(String, nullable=True)
+    install_on_enrollment: Mapped[bool] = mapped_column(Boolean, default=False)
+    install_on_connection: Mapped[bool] = mapped_column(Boolean, default=False)
     eud: Mapped["EUD"] = relationship(back_populates="data_packages")
     certificate = relationship("Certificate", back_populates="data_package", uselist=False)
     user = relationship("User", back_populates="data_packages")
-    device_profiles = relationship("DeviceProfiles", secondary='device_profiles_data_packages',
-                                   back_populates='data_packages')
 
     def serialize(self):
         return {
@@ -42,6 +41,8 @@ class DataPackage(db.Model):
             'size': self.size,
             'tool': self.tool,
             'expiration': self.expiration,
+            'install_on_enrollment': self.install_on_enrollment,
+            'install_on_connection': self.install_on_connection
         }
 
     def to_json(self, include_eud=True):
@@ -56,5 +57,7 @@ class DataPackage(db.Model):
             'size': self.size,
             'tool': self.tool,
             'expiration': self.expiration,
-            'eud': self.eud.to_json(False) if include_eud and self.eud else None
+            'eud': self.eud.to_json(False) if include_eud and self.eud else None,
+            'install_on_enrollment': self.install_on_enrollment,
+            'install_on_connection': self.install_on_connection
         }

@@ -189,7 +189,6 @@ def create_app():
             logger.info("MediaMTX disabled")
 
     init_extensions(app)
-    logger.warning(f"LOGGER LEVEL IS {logger.level}")
 
     from opentakserver.blueprints.marti import marti_blueprint
     app.register_blueprint(marti_blueprint)
@@ -217,6 +216,9 @@ def create_app():
 
     from opentakserver.blueprints.package_api import packages_blueprint
     app.register_blueprint(packages_blueprint)
+
+    from opentakserver.blueprints.device_profile_api import device_profile_api_blueprint
+    app.register_blueprint(device_profile_api_blueprint)
 
     from opentakserver.blueprints.cli import ots
     app.cli.add_command(ots, name="ots")

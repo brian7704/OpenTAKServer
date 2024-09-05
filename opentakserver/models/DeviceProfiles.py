@@ -8,33 +8,29 @@ from opentakserver.forms.device_profile_form import DeviceProfileForm
 class DeviceProfiles(db.Model):
     __tablename__ = "device_profiles"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String, unique=True)
-    profile_type: Mapped[str] = mapped_column(String, default="enrollment")
+    preference_key: Mapped[str] = mapped_column(String, primary_key=True)
+    preference_value: Mapped[str] = mapped_column(String)
+    enrollment: Mapped[bool] = mapped_column(Boolean, default=True)
+    connection: Mapped[bool] = mapped_column(Boolean, default=False)
     tool: Mapped[str] = mapped_column(String, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
-    data_packages = relationship("DataPackage", secondary='device_profiles_data_packages', back_populates='device_profiles')
 
     def from_wtf(self, form: DeviceProfileForm):
-        self.name = form.name
-        self.profile_type = form.profile_type
-        self.tool = form.tool
-        self.active = form.active
+        self.preference_key = form.preference_key.data
+        self.preference_value = form.preference_value.data
+        self.enrollment = form.enrollment.data
+        self.tool = form.tool.data
+        self.active = form.active.data
 
     def serialize(self):
         return {
-            'name': self.name,
-            'profile_type': self.profile_type,
+            'preference_key': self.preference_key,
+            'preference_value': self.preference_value,
+            'enrollment': self.enrollment,
+            'connection': self.connection,
             'tool': self.tool,
             'active': self.active
         }
 
     def to_json(self):
         return self.serialize()
-
-
-class DeviceProfilesDataPackages(db.Model):
-    __tablename__ = "device_profiles_data_packages"
-
-    device_profile_id: Mapped[int] = mapped_column(Integer, ForeignKey("device_profiles.id"), primary_key=True)
-    data_package_id: Mapped[int] = mapped_column(Integer, ForeignKey("data_packages.id"), primary_key=True)
