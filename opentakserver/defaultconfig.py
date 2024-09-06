@@ -45,10 +45,12 @@ class DefaultConfig:
     OTS_LOG_ROTATE_WHEN = 'midnight'
     OTS_LOG_ROTATE_INTERVAL = 0
 
+    # ADS-B Settings
     OTS_AIRPLANES_LIVE_LAT = 40.744213
     OTS_AIRPLANES_LIVE_LON = -73.986939
     OTS_AIRPLANES_LIVE_RADIUS = 10
 
+    # AIS Settings
     OTS_AISHUB_USERNAME = None
     OTS_AISHUB_SOUTH_LAT = None
     OTS_AISHUB_WEST_LON = None
@@ -57,10 +59,11 @@ class DefaultConfig:
     OTS_AISHUB_MMSI_LIST = ""
     OTS_AISHUB_IMO_LIST = ""
 
-    OTS_UPDATES_FOLDER = "/var/www/html/opentakserver/updates"
+    OTS_MAPS_
 
     OTS_ENABLE_MUMBLE_AUTHENTICATION = False
 
+    # Meshtastic settings
     OTS_ENABLE_MESHTASTIC = False
     OTS_MESHTASTIC_TOPIC = "opentakserver"
     OTS_MESHTASTIC_PUBLISH_INTERVAL = 30

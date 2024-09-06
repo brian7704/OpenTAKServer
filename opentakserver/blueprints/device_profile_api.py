@@ -13,7 +13,6 @@ from flask import Blueprint, request, jsonify, current_app as app, Response
 from flask_security import auth_required, current_user, roles_required
 from sqlalchemy import insert, update
 from sqlalchemy.exc import IntegrityError
-from werkzeug.utils import secure_filename
 from werkzeug.wsgi import FileWrapper
 
 import opentakserver
@@ -36,7 +35,10 @@ def create_profile_zip(enrollment=True):
     update_server_address = SubElement(pref, "entry", {"key": "atakUpdateServerUrl", "class": "class java.lang.String"})
     update_server_address.text = f"https://{urlparse(request.url_root).hostname}:{app.config.get('OTS_MARTI_HTTPS_PORT')}/api/packages"
 
-    startup_sync = SubElement(pref, "entry", {"key": "repoStartupSync"})
+    startup_sync = SubElement(pref, "entry", {"key": "repoStartupSync", "class": "class java.lang.Boolean"})
+    startup_sync.text = "true"
+
+    startup_sync = SubElement(pref, "entry", {"key": "deviceProfileEnableOnConnect", "class": "class java.lang.Boolean"})
     startup_sync.text = "true"
 
     ca_location = SubElement(pref, "entry", {"key": "updateServerCaLocation", "class": "class java.lang.String"})
@@ -66,6 +68,15 @@ def create_profile_zip(enrollment=True):
             zipf.writestr(f"maps/{map}", open(os.path.join(maps_path, map), 'r').read())
             SubElement(contents, "Content", {"ignore": "false", "zipEntry": f"maps/{map}"})
 
+    if enrollment:
+        device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(enrollment=True, active=True)).all()
+    else:
+        device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(connection=True, active=True)).all()
+
+    for profile in device_profiles:
+        p = SubElement(pref, "entry", {"key": profile[0].preference_key, "class": profile[0].value_class})
+        p.text = profile[0].preference_value
+
     zipf.writestr("MANIFEST/manifest.xml", tostring(manifest))
 
     zipf.writestr("5c2bfcae3d98c9f4d262172df99ebac5/preference.pref", tostring(prefs))
@@ -76,10 +87,26 @@ def create_profile_zip(enrollment=True):
     return zip_buffer
 
 
+# Authentication for /Marti endpoints handled by client cert validation
+# EUDs hit this endpoint after a successful certificate enrollment
+@device_profile_api_blueprint.route('/api/enrollment')
 @device_profile_api_blueprint.route('/Marti/api/tls/profile/enrollment')
-def enrollment():
+def enrollment_profile():
     try:
         profile_zip = create_profile_zip()
+        profile_zip.seek(0)
+        return Response(FileWrapper(profile_zip), mimetype="application/zip", direct_passthrough=True)
+    except BaseException as e:
+        logger.error(f"Failed to send enrollment package: {e}")
+        logger.debug(traceback.format_exc())
+        return '', 500
+
+
+# EUDs his this endpoint when the app connects to the server if repoStartupSync is enabled
+@device_profile_api_blueprint.route('/Marti/api/device/profile/connection')
+def connection_profile():
+    try:
+        profile_zip = create_profile_zip(False)
         profile_zip.seek(0)
         return Response(FileWrapper(profile_zip), mimetype="application/zip", direct_passthrough=True)
     except BaseException as e:
@@ -95,49 +122,26 @@ def get_device_profiles():
 
 
 @device_profile_api_blueprint.route('/api/profile', methods=['POST'])
+@auth_required()
 @roles_required("administrator")
 def add_device_profile():
     form = DeviceProfileForm()
     if not form.validate():
         return jsonify({'success': False, 'errors': form.errors}), 400
-    elif "zip" not in form.data_package.data.mimetype:
-        return jsonify({'success': False, 'error': 'Only data package zip files are allowed'}), 400
 
     device_profile = DeviceProfiles()
     device_profile.from_wtf(form)
 
     try:
-        device_profile_id = db.session.add(device_profile)
+        db.session.add(device_profile)
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
-        device_profile_id = db.session.execute(update(DeviceProfiles).where(DeviceProfiles.name == device_profile.name)
-                                               .values(**device_profile.serialize()))
-
-    sha256 = hashlib.sha256()
-    sha256.update(form.data_package.data.stream.read())
-    form.data_package.data.stream.seek(0)
-    file_hash = sha256.hexdigest()
-
-    data_package = DataPackage()
-    data_package.filename = secure_filename(form.data_package.data.filename)
-    data_package.hash = file_hash
-    data_package.submission_time = datetime.datetime.now()
-    data_package.submission_user = current_user.id
-    data_package.mime_type = form.data_package.data.mimetype
-    data_package.size = form.data_package.data.stream.tell()
-
-    try:
-        data_package_id = db.session.add(data_package)
+        db.session.execute(update(DeviceProfiles).where(DeviceProfiles.preference_key == device_profile.preference_key)
+                           .values(**device_profile.serialize()))
         db.session.commit()
-    except IntegrityError:
-        db.session.rollback()
-        dp = db.session.execute(db.session.query(DataPackage).filter_by(hash=data_package.hash)).first()[0]
-        data_package_id = dp.id
 
-    form.data_package.data.save(app.config.get("UPLOAD_FOLDER"), f"{file_hash}.zip")
-
-    return '', 200
+    return jsonify({'success': True})
 
 
 @device_profile_api_blueprint.route('/api/profile', methods=['DELETE'])

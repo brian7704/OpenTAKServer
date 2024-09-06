@@ -21,6 +21,7 @@ def upgrade():
     op.create_table('device_profiles',
     sa.Column('preference_key', sa.String(), nullable=False),
     sa.Column('preference_value', sa.String(), nullable=False),
+    sa.Column('value_class', sa.String(), nullable=False),
     sa.Column('enrollment', sa.Boolean(), nullable=False),
     sa.Column('connection', sa.Boolean(), nullable=False),
     sa.Column('tool', sa.String(), nullable=True),

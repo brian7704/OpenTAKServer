@@ -10,6 +10,7 @@ class DeviceProfiles(db.Model):
 
     preference_key: Mapped[str] = mapped_column(String, primary_key=True)
     preference_value: Mapped[str] = mapped_column(String)
+    value_class: Mapped[str] = mapped_column(String)
     enrollment: Mapped[bool] = mapped_column(Boolean, default=True)
     connection: Mapped[bool] = mapped_column(Boolean, default=False)
     tool: Mapped[str] = mapped_column(String, nullable=True)
@@ -18,7 +19,9 @@ class DeviceProfiles(db.Model):
     def from_wtf(self, form: DeviceProfileForm):
         self.preference_key = form.preference_key.data
         self.preference_value = form.preference_value.data
+        self.value_class = form.value_class.data
         self.enrollment = form.enrollment.data
+        self.connection = form.connection.data
         self.tool = form.tool.data
         self.active = form.active.data
 
@@ -26,6 +29,7 @@ class DeviceProfiles(db.Model):
         return {
             'preference_key': self.preference_key,
             'preference_value': self.preference_value,
+            'value_class': self.value_class,
             'enrollment': self.enrollment,
             'connection': self.connection,
             'tool': self.tool,

@@ -5,6 +5,10 @@ ISO8601_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 ISO8601_FORMAT_NO_MICROSECONDS = "%Y-%m-%dT%H:%M:%SZ"
 affiliations = ['friendly', 'hostile', 'unknown', 'pending', 'assumed', 'neutral', 'suspect', 'joker', 'faker']
 
+# For WTForms BooleanField, the default doesn't include 'False'
+# https://wtforms.readthedocs.io/en/3.1.x/fields/?highlight=false_values#wtforms.fields.BooleanField
+false_values = (False, 'False', 'false', '')
+
 
 def get_tasking(cot_type):
     if re.match("^t-x-f", cot_type):
