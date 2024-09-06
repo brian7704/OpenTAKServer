@@ -59,7 +59,7 @@ class DefaultConfig:
     OTS_AISHUB_MMSI_LIST = ""
     OTS_AISHUB_IMO_LIST = ""
 
-    OTS_MAPS_
+    OTS_PROFILE_MAP_SOURCES = True
 
     OTS_ENABLE_MUMBLE_AUTHENTICATION = False
 

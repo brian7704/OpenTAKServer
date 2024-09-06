@@ -62,11 +62,12 @@ def create_profile_zip(enrollment=True):
     zipf = zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False)
 
     # Add the maps to the zip
-    maps_path = os.path.join(os.path.dirname(opentakserver.__file__), "maps")
-    for root, dirs, map_files in os.walk(maps_path):
-        for map in map_files:
-            zipf.writestr(f"maps/{map}", open(os.path.join(maps_path, map), 'r').read())
-            SubElement(contents, "Content", {"ignore": "false", "zipEntry": f"maps/{map}"})
+    if app.config.get("OTS_PROFILE_MAP_SOURCES"):
+        maps_path = os.path.join(os.path.dirname(opentakserver.__file__), "maps")
+        for root, dirs, map_files in os.walk(maps_path):
+            for map in map_files:
+                zipf.writestr(f"maps/{map}", open(os.path.join(maps_path, map), 'r').read())
+                SubElement(contents, "Content", {"ignore": "false", "zipEntry": f"maps/{map}"})
 
     if enrollment:
         device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(enrollment=True, active=True)).all()
