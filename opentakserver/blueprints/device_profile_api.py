@@ -20,6 +20,7 @@ from opentakserver.extensions import db, logger
 from opentakserver.forms.device_profile_form import DeviceProfileForm
 from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.DeviceProfiles import DeviceProfiles
+from opentakserver.models.Packages import Packages
 
 device_profile_api_blueprint = Blueprint('device_profile_api_blueprint', __name__)
 
@@ -70,14 +71,20 @@ def create_profile_zip(enrollment=True):
                 SubElement(contents, "Content", {"ignore": "false", "zipEntry": f"maps/{map}"})
 
     if enrollment:
-        device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(enrollment=True, active=True)).all()
+        device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(enrollment=True)).all()
+        plugins = db.session.execute(db.session.query(Packages).filter_by(install_on_enrollment=True)).all()
     else:
-        device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(connection=True, active=True)).all()
+        device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(connection=True)).all()
+        plugins = db.session.execute(db.session.query(Packages).filter_by(install_on_connection=True)).all()
 
     for profile in device_profiles:
         p = SubElement(pref, "entry", {"key": profile[0].preference_key, "class": profile[0].value_class})
         p.text = profile[0].preference_value
 
+    for plugin in plugins:
+        plugin = plugin[0]
+        SubElement(contents, "Content", {"ignore": "false", "zipEntry": f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}"})
+        zipf.write(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", plugin.file_name), f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}")
     zipf.writestr("MANIFEST/manifest.xml", tostring(manifest))
 
     zipf.writestr("5c2bfcae3d98c9f4d262172df99ebac5/preference.pref", tostring(prefs))
@@ -105,6 +112,7 @@ def enrollment_profile():
 
 # EUDs his this endpoint when the app connects to the server if repoStartupSync is enabled
 @device_profile_api_blueprint.route('/Marti/api/device/profile/connection')
+@device_profile_api_blueprint.route('/api/connection')
 def connection_profile():
     try:
         profile_zip = create_profile_zip(False)

@@ -10,10 +10,18 @@ from opentakserver.forms.package_form import PackageForm
 from opentakserver.models.Packages import Packages
 from opentakserver.extensions import db, logger
 from opentakserver.blueprints.api import search, paginate
+from opentakserver.blueprints.marti import basic_auth
 
 from werkzeug.utils import secure_filename
 
 packages_blueprint = Blueprint('packages_api_blueprint', __name__)
+
+
+@packages_blueprint.route('/api/packages/<package_name>')
+def download_package(package_name):
+    if not basic_auth(request.headers.get('Authorization')):
+        return '', 401
+    return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages"), secure_filename(package_name))
 
 
 @packages_blueprint.route('/api/packages')
@@ -84,23 +92,20 @@ def add_package():
 
     os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages"), exist_ok=True)
 
-    apk_filename = secure_filename(form.apk.data.filename)
+    apk_filename = secure_filename(request.files['apk'].filename)
 
-    form.apk.data.save(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", apk_filename))
+    request.files['apk'].save(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", apk_filename))
 
-    logger.info(form)
     package = Packages()
     package.from_wtform(form)
-    logger.info(package.to_json()['package_name'])
 
     try:
-        logger.info("Adding package...")
         db.session.add(package)
         db.session.commit()
-        logger.info("Package added")
     except sqlalchemy.exc.IntegrityError:
         db.session.rollback()
         db.session.execute(sqlalchemy.update(Packages).where(Packages.name == package.name).values(**package.serialize()))
+        db.session.commit()
 
     create_product_infz()
 

@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 from sqlalchemy import Integer, String, BLOB, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 
-from flask import current_app as app
+from flask import current_app as app, request
 
 from opentakserver.extensions import db
 from opentakserver.forms.package_form import PackageForm
@@ -46,9 +46,11 @@ class Packages(db.Model):
         self.apk_hash = form.apk_hash.data
         self.os_requirement = form.os_requirement.data
         self.tak_prereq = form.tak_prereq.data
-        self.file_size = Path(os.path.join(app.config.get("OTS_DATA_FOLDER"), "updates", self.file_name)).stat().st_size
-        self.icon = form.icon.data.read() if form.icon.data else None
-        self.icon_filename = secure_filename(form.icon.data.filename) if form.icon.data else None,
+        self.file_size = Path(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", self.file_name)).stat().st_size
+        self.icon = request.files['icon'].stream.read()
+        self.icon_filename = secure_filename(request.files['icon'].filename) if 'icon' in request.files else None
+        self.install_on_enrollment = form.install_on_enrollment.data
+        self.install_on_connection = form.install_on_connection.data
 
     def serialize(self):
         return {
