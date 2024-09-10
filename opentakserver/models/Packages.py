@@ -4,6 +4,7 @@ import os.path
 from pathlib import Path
 
 from androguard.core.apk import APK
+from androguard.core.axml import AXMLPrinter
 
 from werkzeug.utils import secure_filename
 
@@ -12,9 +13,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from flask import current_app as app, request
 
-from opentakserver.extensions import db
+from opentakserver.extensions import db, logger
 from opentakserver.forms.package_form import PackageForm
 
+from cairosvg import svg2png
 
 class Packages(db.Model):
     __tablename__ = "packages"
@@ -40,15 +42,15 @@ class Packages(db.Model):
     def from_wtform(self, form: PackageForm):
         self.platform = form.platform.data
         self.plugin_type = form.plugin_type.data
-        self.package_name = form.package_name.data
-        self.name = form.name.data
         self.file_name = secure_filename(form.apk.data.filename)
-        self.version = form.version.data
         apk = APK(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", self.file_name))
+        self.package_name = apk.get_package()
+        self.version = apk.get_androidversion_name()
         self.revision_code = apk.get_androidversion_code()
+        self.os_requirement = apk.get_min_sdk_version()
+        self.name = apk.get_app_name()
         self.description = form.description.data
         self.apk_hash = hashlib.sha256(form.apk.data.stream.read()).hexdigest()
-        self.os_requirement = form.os_requirement.data
         self.tak_prereq = form.tak_prereq.data
         self.file_size = Path(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", self.file_name)).stat().st_size
         self.icon = request.files['icon'].stream.read() if 'icon' in request.files else None

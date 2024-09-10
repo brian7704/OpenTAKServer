@@ -104,7 +104,7 @@ def add_package():
         db.session.commit()
     except sqlalchemy.exc.IntegrityError:
         db.session.rollback()
-        db.session.execute(sqlalchemy.update(Packages).where(Packages.name == package.name).values(**package.serialize()))
+        db.session.execute(sqlalchemy.update(Packages).where(Packages.package_name == package.package_name).values(**package.serialize()))
         db.session.commit()
 
     create_product_infz()
