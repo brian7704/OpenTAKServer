@@ -13,10 +13,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from flask import current_app as app, request
 
-from opentakserver.extensions import db, logger
+from opentakserver.extensions import db
 from opentakserver.forms.package_form import PackageForm
 
-from cairosvg import svg2png
 
 class Packages(db.Model):
     __tablename__ = "packages"
