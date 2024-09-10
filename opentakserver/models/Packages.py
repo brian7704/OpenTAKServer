@@ -8,7 +8,7 @@ from androguard.core.apk import APK
 
 from werkzeug.utils import secure_filename
 
-from sqlalchemy import Integer, String, BLOB, Boolean
+from sqlalchemy import Integer, String, BLOB, Boolean, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column
 
 from flask import current_app as app, request
@@ -35,7 +35,7 @@ class Packages(db.Model):
     os_requirement: Mapped[str] = mapped_column(Integer, nullable=True)
     tak_prereq: Mapped[str] = mapped_column(Integer, nullable=True)
     file_size: Mapped[int] = mapped_column(Integer)
-    icon: Mapped[bytes] = mapped_column(BLOB, nullable=True)
+    icon: Mapped[bytes] = mapped_column(LargeBinary, nullable=True)
     icon_filename: Mapped[str] = mapped_column(String, nullable=True)
     install_on_enrollment: Mapped[bool] = mapped_column(Boolean, default=False)
     install_on_connection: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -88,13 +88,11 @@ class Packages(db.Model):
             'os_requirement': self.os_requirement,
             'tak_prereq': self.tak_prereq,
             'file_size': self.file_size,
-            'icon': self.icon,
+            'icon': f"data:image/png;base64,{base64.b64encode(self.icon).decode('utf-8')}" if self.icon else None,
             'icon_filename': self.icon_filename,
             'install_on_enrollment': self.install_on_enrollment,
             'install_on_connection': self.install_on_connection
         }
 
     def to_json(self):
-        data = self.serialize()
-        data['icon'] = base64.urlsafe_b64encode(self.icon).decode('utf-8') if self.icon else None
-        return data
+        return self.serialize()
