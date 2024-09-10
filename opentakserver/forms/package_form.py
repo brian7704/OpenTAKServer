@@ -11,6 +11,5 @@ class PackageForm(FlaskForm):
     apk = FileField(validators=[FileRequired()])
     icon = FileField(validators=[Optional()])
     description = StringField(validators=[Optional()])
-    tak_prereq = StringField(default="com.atakmap.app@4.10.0.CIV")
     install_on_enrollment = BooleanField(false_values=false_values)
     install_on_connection = BooleanField(false_values=false_values)
