@@ -1,6 +1,9 @@
 import base64
+import hashlib
 import os.path
 from pathlib import Path
+
+from androguard.core.apk import APK
 
 from werkzeug.utils import secure_filename
 
@@ -41,13 +44,14 @@ class Packages(db.Model):
         self.name = form.name.data
         self.file_name = secure_filename(form.apk.data.filename)
         self.version = form.version.data
-        self.revision_code = form.revision_code.data
+        apk = APK(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", self.file_name))
+        self.revision_code = apk.get_androidversion_code()
         self.description = form.description.data
-        self.apk_hash = form.apk_hash.data
+        self.apk_hash = hashlib.sha256(form.apk.data.stream.read()).hexdigest()
         self.os_requirement = form.os_requirement.data
         self.tak_prereq = form.tak_prereq.data
         self.file_size = Path(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", self.file_name)).stat().st_size
-        self.icon = request.files['icon'].stream.read()
+        self.icon = request.files['icon'].stream.read() if 'icon' in request.files else None
         self.icon_filename = secure_filename(request.files['icon'].filename) if 'icon' in request.files else None
         self.install_on_enrollment = form.install_on_enrollment.data
         self.install_on_connection = form.install_on_connection.data

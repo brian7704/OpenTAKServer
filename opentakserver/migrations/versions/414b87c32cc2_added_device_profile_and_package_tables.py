@@ -26,6 +26,7 @@ def upgrade():
     sa.Column('connection', sa.Boolean(), nullable=False),
     sa.Column('tool', sa.String(), nullable=True),
     sa.Column('active', sa.Boolean(), nullable=False),
+    sa.Column('publish_time', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.PrimaryKeyConstraint('preference_key')
     )
     op.create_table('packages',

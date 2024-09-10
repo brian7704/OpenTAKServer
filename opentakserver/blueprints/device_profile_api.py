@@ -21,11 +21,12 @@ from opentakserver.forms.device_profile_form import DeviceProfileForm
 from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.DeviceProfiles import DeviceProfiles
 from opentakserver.models.Packages import Packages
+from opentakserver.blueprints.api import search, paginate
 
 device_profile_api_blueprint = Blueprint('device_profile_api_blueprint', __name__)
 
 
-def create_profile_zip(enrollment=True):
+def create_profile_zip(enrollment=True, syncSecago=-1):
     # preference.pref
     prefs = Element("preferences")
     pref = SubElement(prefs, "preference", {"version": "1", "name": "com.atakmap.app_preferences"})
@@ -49,7 +50,7 @@ def create_profile_zip(enrollment=True):
     ca_password.text = app.config.get("OTS_CA_PASSWORD")
 
     # MANIFEST file
-    manifest = Element("MissionPackageManifest")
+    manifest = Element("MissionPackageManifest", {"version": "2"})
     config = SubElement(manifest, "Configuration")
     SubElement(config, "Parameter", {"name": "uid", "value": str(uuid.uuid4())})
     SubElement(config, "Parameter", {"name": "name", "value": "Enrollment Profile"})
@@ -63,28 +64,33 @@ def create_profile_zip(enrollment=True):
     zipf = zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False)
 
     # Add the maps to the zip
-    if app.config.get("OTS_PROFILE_MAP_SOURCES"):
+    if app.config.get("OTS_PROFILE_MAP_SOURCES") and enrollment:
         maps_path = os.path.join(os.path.dirname(opentakserver.__file__), "maps")
         for root, dirs, map_files in os.walk(maps_path):
             for map in map_files:
                 zipf.writestr(f"maps/{map}", open(os.path.join(maps_path, map), 'r').read())
                 SubElement(contents, "Content", {"ignore": "false", "zipEntry": f"maps/{map}"})
 
+    plugins = None
     if enrollment:
-        device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(enrollment=True)).all()
+        device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(enrollment=True, active=True)).all()
         plugins = db.session.execute(db.session.query(Packages).filter_by(install_on_enrollment=True)).all()
+    elif syncSecago > 0:
+        publish_time = datetime.datetime.now() - datetime.timedelta(seconds=syncSecago)
+        device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(connection=True, active=True)
+                                             .filter(DeviceProfiles.publish_time >= publish_time)).all()
     else:
-        device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(connection=True)).all()
-        plugins = db.session.execute(db.session.query(Packages).filter_by(install_on_connection=True)).all()
+        device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(connection=True, active=True)).all()
 
     for profile in device_profiles:
         p = SubElement(pref, "entry", {"key": profile[0].preference_key, "class": profile[0].value_class})
         p.text = profile[0].preference_value
 
-    for plugin in plugins:
-        plugin = plugin[0]
-        SubElement(contents, "Content", {"ignore": "false", "zipEntry": f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}"})
-        zipf.write(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", plugin.file_name), f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}")
+    if plugins:
+        for plugin in plugins:
+            plugin = plugin[0]
+            SubElement(contents, "Content", {"ignore": "false", "zipEntry": f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}"})
+            zipf.write(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", plugin.file_name), f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}")
     zipf.writestr("MANIFEST/manifest.xml", tostring(manifest))
 
     zipf.writestr("5c2bfcae3d98c9f4d262172df99ebac5/preference.pref", tostring(prefs))
@@ -97,7 +103,6 @@ def create_profile_zip(enrollment=True):
 
 # Authentication for /Marti endpoints handled by client cert validation
 # EUDs hit this endpoint after a successful certificate enrollment
-@device_profile_api_blueprint.route('/api/enrollment')
 @device_profile_api_blueprint.route('/Marti/api/tls/profile/enrollment')
 def enrollment_profile():
     try:
@@ -112,10 +117,15 @@ def enrollment_profile():
 
 # EUDs his this endpoint when the app connects to the server if repoStartupSync is enabled
 @device_profile_api_blueprint.route('/Marti/api/device/profile/connection')
-@device_profile_api_blueprint.route('/api/connection')
 def connection_profile():
     try:
-        profile_zip = create_profile_zip(False)
+        syncSecago = -1
+        if 'syncSecago' in request.args:
+            try:
+                syncSecago = int(request.args['syncSecago'])
+            except ValueError:
+                pass
+        profile_zip = create_profile_zip(False, syncSecago)
         profile_zip.seek(0)
         return Response(FileWrapper(profile_zip), mimetype="application/zip", direct_passthrough=True)
     except BaseException as e:
@@ -127,7 +137,11 @@ def connection_profile():
 @device_profile_api_blueprint.route('/api/profile')
 @roles_required("administrator")
 def get_device_profiles():
-    return
+    query = db.session.query(DeviceProfiles)
+    query = search(query, DeviceProfiles, 'preference_key')
+    query = search(query, DeviceProfiles, 'preference_value')
+    query = search(query, DeviceProfiles, 'tool')
+    return paginate(query)
 
 
 @device_profile_api_blueprint.route('/api/profile', methods=['POST'])
@@ -156,4 +170,11 @@ def add_device_profile():
 @device_profile_api_blueprint.route('/api/profile', methods=['DELETE'])
 @roles_required("administrator")
 def delete_device_profile():
-    return
+    try:
+        db.session.delete(request.form.get('preference_key'))
+        db.commit()
+        return jsonify({'success': True})
+    except BaseException as e:
+        logger.error(f"Failed to delete device profile: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 400

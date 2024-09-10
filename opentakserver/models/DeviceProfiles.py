@@ -1,8 +1,11 @@
-from sqlalchemy import Integer, String, Boolean, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import datetime
+
+from sqlalchemy import String, Boolean, DateTime
+from sqlalchemy.orm import Mapped, mapped_column
 
 from opentakserver.extensions import db
 from opentakserver.forms.device_profile_form import DeviceProfileForm
+from opentakserver.functions import iso8601_string_from_datetime
 
 
 class DeviceProfiles(db.Model):
@@ -15,6 +18,7 @@ class DeviceProfiles(db.Model):
     connection: Mapped[bool] = mapped_column(Boolean, default=False)
     tool: Mapped[str] = mapped_column(String, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    publish_time: Mapped[datetime] = mapped_column(DateTime)
 
     def from_wtf(self, form: DeviceProfileForm):
         self.preference_key = form.preference_key.data
@@ -24,6 +28,7 @@ class DeviceProfiles(db.Model):
         self.connection = form.connection.data
         self.tool = form.tool.data
         self.active = form.active.data
+        self.publish_time = datetime.now()
 
     def serialize(self):
         return {
@@ -33,8 +38,11 @@ class DeviceProfiles(db.Model):
             'enrollment': self.enrollment,
             'connection': self.connection,
             'tool': self.tool,
-            'active': self.active
+            'active': self.active,
+            'publish_time': self.publish_time
         }
 
     def to_json(self):
-        return self.serialize()
+        return_value = self.serialize()
+        return_value['publish_time'] = iso8601_string_from_datetime(self.publish_time)
+        return return_value
