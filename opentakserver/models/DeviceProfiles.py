@@ -23,7 +23,7 @@ class DeviceProfiles(db.Model):
     def from_wtf(self, form: DeviceProfileForm):
         self.preference_key = form.preference_key.data
         self.preference_value = form.preference_value.data
-        self.value_class = f"class java.lang.{form.value_class.data}"
+        self.value_class = f"class java.lang.{form.value_class.data.split('.')[-1]}"
         self.enrollment = form.enrollment.data
         self.connection = form.connection.data
         self.tool = form.tool.data
