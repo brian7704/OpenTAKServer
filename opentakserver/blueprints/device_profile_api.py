@@ -10,15 +10,14 @@ from urllib.parse import urlparse
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from flask import Blueprint, request, jsonify, current_app as app, Response
-from flask_security import auth_required, current_user, roles_required
-from sqlalchemy import insert, update
+from flask_security import auth_required, roles_required
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from werkzeug.wsgi import FileWrapper
 
 import opentakserver
 from opentakserver.extensions import db, logger
 from opentakserver.forms.device_profile_form import DeviceProfileForm
-from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.DeviceProfiles import DeviceProfiles
 from opentakserver.models.Packages import Packages
 from opentakserver.blueprints.api import search, paginate
@@ -115,7 +114,7 @@ def enrollment_profile():
         return '', 500
 
 
-# EUDs his this endpoint when the app connects to the server if repoStartupSync is enabled
+# EUDs hit this endpoint when the app connects to the server if repoStartupSync is enabled
 @device_profile_api_blueprint.route('/Marti/api/device/profile/connection')
 def connection_profile():
     try:
@@ -134,7 +133,7 @@ def connection_profile():
         return '', 500
 
 
-@device_profile_api_blueprint.route('/api/profile')
+@device_profile_api_blueprint.route('/api/profiles')
 @roles_required("administrator")
 def get_device_profiles():
     query = db.session.query(DeviceProfiles)
@@ -144,7 +143,7 @@ def get_device_profiles():
     return paginate(query)
 
 
-@device_profile_api_blueprint.route('/api/profile', methods=['POST'])
+@device_profile_api_blueprint.route('/api/profiles', methods=['POST'])
 @auth_required()
 @roles_required("administrator")
 def add_device_profile():
@@ -167,12 +166,21 @@ def add_device_profile():
     return jsonify({'success': True})
 
 
-@device_profile_api_blueprint.route('/api/profile', methods=['DELETE'])
+@device_profile_api_blueprint.route('/api/profiles', methods=['DELETE'])
 @roles_required("administrator")
 def delete_device_profile():
+    preference_key = request.args.get('preference_key')
+    if not preference_key:
+        return jsonify({'success': False, 'error': 'Please specify the preference_key'}), 400
     try:
-        db.session.delete(request.form.get('preference_key'))
-        db.commit()
+        query = db.session.query(DeviceProfiles)
+        query = search(query, DeviceProfiles, 'preference_key')
+        preference = db.session.execute(query).first()
+        if not preference:
+            return jsonify({'success': False, 'error': f'Unknown preference_key: {preference_key}'}), 404
+
+        db.session.delete(preference[0])
+        db.session.commit()
         return jsonify({'success': True})
     except BaseException as e:
         logger.error(f"Failed to delete device profile: {e}")
