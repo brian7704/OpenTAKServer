@@ -93,7 +93,7 @@ class DefaultConfig:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = False
 
-    ALLOWED_EXTENSIONS = {'zip', 'xml'}
+    ALLOWED_EXTENSIONS = ['zip', 'xml', 'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'kml', 'kmz']
 
     UPLOAD_FOLDER = os.path.join(OTS_DATA_FOLDER, 'uploads')
     if not os.path.exists(UPLOAD_FOLDER):

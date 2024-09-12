@@ -3,7 +3,6 @@ import hashlib
 import json
 import os
 import platform
-import shutil
 import traceback
 import uuid
 from shutil import copyfile
@@ -26,7 +25,6 @@ from flask_security import auth_required, roles_accepted, hash_password, current
 from flask_security.utils import parse_auth_token
 
 from opentakserver.extensions import logger, db
-from .marti import data_package_share
 
 from opentakserver.models.Alert import Alert
 from opentakserver.models.CasEvac import CasEvac
@@ -305,86 +303,6 @@ def certificate():
 def me():
     me = db.session.execute(db.session.query(User).where(User.id == current_user.id)).first()[0]
     return jsonify(me.serialize())
-
-
-@api_blueprint.route('/api/data_packages', methods=['POST'])
-@auth_required()
-def upload_data_package():
-    return data_package_share()
-
-
-@api_blueprint.route('/api/data_packages', methods=['DELETE'])
-@auth_required()
-def delete_data_package():
-    file_hash = request.args.get('hash')
-    if not file_hash:
-        return jsonify({'success': False, 'error': 'Please provide a file hash'}), 400
-
-    query = db.session.query(DataPackage)
-    query = search(query, DataPackage, 'hash')
-    data_package = db.session.execute(query).first()
-    if not data_package:
-        return jsonify({'success': False, 'error': 'Invalid/unknown hash'}), 400
-
-    try:
-        logger.warning("Deleting data package {} - {}".format(data_package[0].filename, data_package[0].hash))
-        db.session.delete(data_package[0])
-        db.session.commit()
-        os.remove(os.path.join(app.config.get("UPLOAD_FOLDER"), "{}.zip".format(data_package[0].hash)))
-
-        if data_package[0].certificate:
-            Certificate.query.filter_by(id=data_package[0].certificate.id).delete()
-            db.session.commit()
-            shutil.rmtree(
-                os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", data_package[0].certificate.common_name),
-                ignore_errors=True)
-    except BaseException as e:
-        logger.error("Failed to delete data package")
-        logger.error(traceback.format_exc())
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-    return jsonify({'success': True})
-
-
-@api_blueprint.route('/api/data_packages')
-@auth_required()
-def data_packages():
-    query = db.session.query(DataPackage)
-    query = search(query, DataPackage, 'filename')
-    query = search(query, DataPackage, 'hash')
-    query = search(query, DataPackage, 'createor_uid')
-    query = search(query, DataPackage, 'keywords')
-    query = search(query, DataPackage, 'mime_type')
-    query = search(query, DataPackage, 'size')
-    query = search(query, DataPackage, 'tool')
-
-    return paginate(query)
-
-
-@api_blueprint.route('/api/data_packages/download')
-@auth_required()
-def data_package_download():
-    if 'hash' not in request.args.keys():
-        return ({'success': False, 'error': 'Please provide a data package hash'}, 400,
-                {'Content-Type': 'application/json'})
-
-    file_hash = request.args.get('hash')
-
-    query = db.session.query(DataPackage)
-    query = search(query, DataPackage, 'hash')
-
-    data_package = db.session.execute(query).first()
-
-    if not data_package:
-        return ({'success': False, 'error': "Data package with hash '{}' not found".format(file_hash)}, 404,
-                {'Content-Type': 'application/json'})
-
-    download_name = data_package[0].filename
-    if not download_name.endswith('.zip'):
-        download_name += ".zip"
-
-    return send_from_directory(app.config.get("UPLOAD_FOLDER"), "{}.zip".format(file_hash), as_attachment=True,
-                               download_name=download_name)
 
 
 @api_blueprint.route('/api/cot', methods=['GET'])

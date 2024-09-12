@@ -51,8 +51,8 @@ def upgrade():
     sa.UniqueConstraint('package_name')
     )
     with op.batch_alter_table('data_packages', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('install_on_enrollment', sa.Boolean(), nullable=False))
-        batch_op.add_column(sa.Column('install_on_connection', sa.Boolean(), nullable=False))
+        batch_op.add_column(sa.Column('install_on_enrollment', sa.Boolean(), nullable=True))
+        batch_op.add_column(sa.Column('install_on_connection', sa.Boolean(), nullable=True))
 
     # ### end Alembic commands ###
 

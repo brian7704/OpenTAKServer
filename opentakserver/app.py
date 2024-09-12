@@ -220,6 +220,9 @@ def create_app():
     from opentakserver.blueprints.device_profile_api import device_profile_api_blueprint
     app.register_blueprint(device_profile_api_blueprint)
 
+    from opentakserver.blueprints.data_package_api import data_package_api
+    app.register_blueprint(data_package_api)
+
     from opentakserver.blueprints.cli import ots
     app.cli.add_command(ots, name="ots")
 
