@@ -1,12 +1,14 @@
 import csv
+import datetime
 import os
 import zipfile
 
 import sqlalchemy.exc
 from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
 from flask_security import roles_accepted, auth_required
+from werkzeug.datastructures import ImmutableMultiDict
 
-from opentakserver.forms.package_form import PackageForm
+from opentakserver.forms.package_form import PackageForm, PackageUpdateForm
 from opentakserver.models.Packages import Packages
 from opentakserver.extensions import db, logger
 from opentakserver.blueprints.api import search, paginate
@@ -108,6 +110,29 @@ def add_package():
         db.session.commit()
 
     create_product_infz()
+
+    return jsonify({'success': True})
+
+
+@packages_blueprint.route('/api/packages', methods=['PATCH'])
+@auth_required()
+@roles_accepted("administrator")
+def edit_package():
+    form = PackageUpdateForm(formdata=ImmutableMultiDict(request.json))
+    if not form.validate():
+        return jsonify({'success': False, 'errors': form.errors}), 400
+
+    package = db.session.execute(db.session.query(Packages).filter_by(package_name=form.package_name.data)).first()
+    if not package:
+        return jsonify({'success': False, 'error': f"{form.package_name.data} not found"}), 404
+
+    package = package[0]
+    package.install_on_enrollment = form.install_on_enrollment.data
+    package.install_on_connection = form.install_on_connection.data
+    package.publish_time = datetime.datetime.now()
+
+    db.session.execute(sqlalchemy.update(Packages).where(Packages.package_name == form.package_name.data).values(**package.serialize()))
+    db.session.commit()
 
     return jsonify({'success': True})
 

@@ -30,16 +30,18 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
     prefs = Element("preferences")
     pref = SubElement(prefs, "preference", {"version": "1", "name": "com.atakmap.app_preferences"})
 
-    enable_update_server = SubElement(pref, "entry", {"key": "appMgmtEnableUpdateServer", "class": "class java.lang.Boolean"})
+    enable_update_server = SubElement(pref, "entry",
+                                      {"key": "appMgmtEnableUpdateServer", "class": "class java.lang.Boolean"})
     enable_update_server.text = "true"
 
     update_server_address = SubElement(pref, "entry", {"key": "atakUpdateServerUrl", "class": "class java.lang.String"})
-    update_server_address.text = f"https://{urlparse(request.url_root).hostname}:{app.config.get('OTS_MARTI_HTTPS_PORT')}/api/packages"
+    update_server_address.text = f"https://{urlparse(request.url_root).hostname}/api/packages"
 
     startup_sync = SubElement(pref, "entry", {"key": "repoStartupSync", "class": "class java.lang.Boolean"})
     startup_sync.text = "true"
 
-    startup_sync = SubElement(pref, "entry", {"key": "deviceProfileEnableOnConnect", "class": "class java.lang.Boolean"})
+    startup_sync = SubElement(pref, "entry",
+                              {"key": "deviceProfileEnableOnConnect", "class": "class java.lang.Boolean"})
     startup_sync.text = "true"
 
     ca_location = SubElement(pref, "entry", {"key": "updateServerCaLocation", "class": "class java.lang.String"})
@@ -57,7 +59,8 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
 
     contents = SubElement(manifest, "Contents")
     SubElement(contents, "Content", {"ignore": "false", "zipEntry": "5c2bfcae3d98c9f4d262172df99ebac5/preference.pref"})
-    SubElement(contents, "Content", {"ignore": "false", "zipEntry": "5c2bfcae3d98c9f4d262172df99ebac5/truststore-root.p12"})
+    SubElement(contents, "Content",
+               {"ignore": "false", "zipEntry": "5c2bfcae3d98c9f4d262172df99ebac5/truststore-root.p12"})
 
     zip_buffer = io.BytesIO()
     zipf = zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False)
@@ -72,17 +75,22 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
 
     plugins = None
     if enrollment:
-        device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(enrollment=True, active=True)).all()
+        device_profiles = db.session.execute(
+            db.session.query(DeviceProfiles).filter_by(enrollment=True, active=True)).all()
         plugins = db.session.execute(db.session.query(Packages).filter_by(install_on_enrollment=True)).all()
-        data_packages = plugins = db.session.execute(db.session.query(DataPackage).filter_by(install_on_enrollment=True)).all()
+        data_packages = db.session.execute(db.session.query(DataPackage).filter_by(install_on_enrollment=True)).all()
     elif syncSecago > 0:
         publish_time = datetime.datetime.now() - datetime.timedelta(seconds=syncSecago)
+
         device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(connection=True, active=True)
                                              .filter(DeviceProfiles.publish_time >= publish_time)).all()
         data_packages = db.session.execute(db.session.query(DataPackage).filter_by(install_on_connection=True)
                                            .filter(DataPackage.submission_time >= publish_time)).all()
+        plugins = db.session.execute(db.session.query(Packages).filter_by(install_on_connection=True)
+                                     .filter(Packages.publish_time >= publish_time)).all()
     else:
-        device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(connection=True, active=True)).all()
+        device_profiles = db.session.execute(
+            db.session.query(DeviceProfiles).filter_by(connection=True, active=True)).all()
         data_packages = db.session.execute(db.session.query(DataPackage).filter_by(install_on_connection=True)).all()
 
     for profile in device_profiles:
@@ -92,14 +100,19 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
     if plugins:
         for plugin in plugins:
             plugin = plugin[0]
-            SubElement(contents, "Content", {"ignore": "false", "zipEntry": f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}"})
-            zipf.write(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", plugin.file_name), f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}")
+
+            SubElement(contents, "Content",
+                       {"ignore": "false", "zipEntry": f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}"})
+            zipf.write(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", plugin.file_name),
+                       f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}")
 
     if data_packages:
         for data_package in data_packages:
             data_package = data_package[0]
-            SubElement(contents, "Content",{"ignore": "false", "zipEntry": f"5c2bfcae3d98c9f4d262172df99ebac5/{data_package.filename}"})
-            zipf.write(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{data_package.hash}.zip"), f"5c2bfcae3d98c9f4d262172df99ebac5/{data_package.filename}")
+            SubElement(contents, "Content",
+                       {"ignore": "false", "zipEntry": f"5c2bfcae3d98c9f4d262172df99ebac5/{data_package.filename}"})
+            zipf.write(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{data_package.hash}.zip"),
+                       f"5c2bfcae3d98c9f4d262172df99ebac5/{data_package.filename}")
 
     zipf.writestr("MANIFEST/manifest.xml", tostring(manifest))
 
@@ -127,7 +140,6 @@ def enrollment_profile():
 
 # EUDs hit this endpoint when the app connects to the server if repoStartupSync is enabled
 @device_profile_api_blueprint.route('/Marti/api/device/profile/connection')
-@device_profile_api_blueprint.route('/api/data_packages/connection')
 def connection_profile():
     try:
         syncSecago = -1

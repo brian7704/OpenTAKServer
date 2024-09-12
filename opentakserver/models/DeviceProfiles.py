@@ -11,8 +11,7 @@ from opentakserver.functions import iso8601_string_from_datetime
 class DeviceProfiles(db.Model):
     __tablename__ = "device_profiles"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    preference_key: Mapped[str] = mapped_column(String, nullable=True)
+    preference_key: Mapped[str] = mapped_column(String, primary_key=True)
     preference_value: Mapped[str] = mapped_column(String, nullable=True)
     value_class: Mapped[str] = mapped_column(String, nullable=True)
     enrollment: Mapped[bool] = mapped_column(Boolean, default=True)
