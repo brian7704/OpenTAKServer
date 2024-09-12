@@ -3,15 +3,10 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
-from flask import current_app as app
-from flask_login import current_user
-from werkzeug.utils import secure_filename
-
 from opentakserver.extensions import db
 from sqlalchemy import Integer, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from opentakserver.forms.data_package_form import DataPackageForm
 from opentakserver.functions import iso8601_string_from_datetime
 
 
@@ -35,15 +30,6 @@ class DataPackage(db.Model):
     eud: Mapped["EUD"] = relationship(back_populates="data_packages")
     certificate = relationship("Certificate", back_populates="data_package", uselist=False)
     user = relationship("User", back_populates="data_packages")
-
-    def from_wtform(self, form: DataPackageForm):
-        self.filename = secure_filename(form.file.data.filename)
-        self.hash = form.hash.data
-        self.creator_uid = form.creatorUid.data or str(uuid.uuid4())
-        self.submission_user = current_user.id if current_user.is_authenticated else None
-        self.submission_time = datetime.now()
-        self.mime_type = form.file.data.mimetype
-        self.size = os.path.getsize(os.path.join(app.config.get("UPLOAD_FOLDER"), self.filename))
 
     def serialize(self):
         return {

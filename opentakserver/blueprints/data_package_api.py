@@ -13,6 +13,8 @@ import sqlalchemy
 from flask import Blueprint, request, jsonify, current_app as app, send_from_directory
 from flask_login import current_user
 from flask_security import auth_required
+from sqlalchemy import update
+from werkzeug.datastructures import ImmutableMultiDict
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures.file_storage import FileStorage
 
@@ -20,6 +22,7 @@ from xml.etree.ElementTree import Element, tostring, SubElement
 
 from opentakserver.blueprints.api import search, paginate
 from opentakserver.extensions import logger, db
+from opentakserver.forms.data_package_form import DataPackageUpdateForm
 from opentakserver.models.Certificate import Certificate
 from opentakserver.models.DataPackage import DataPackage
 
@@ -90,6 +93,30 @@ def create_data_package_zip(file: FileStorage) -> io.BytesIO:
     save_data_package_to_db(f"{filename}.zip", data_package_hash, file.content_type, len(zip_buffer.getbuffer()))
 
     return data_package_hash
+
+
+@data_package_api.route('/api/data_packages', methods=['PATCH'])
+@auth_required()
+def edit_data_package():
+    form = DataPackageUpdateForm(formdata=ImmutableMultiDict(request.json))
+    if not form.validate():
+        return jsonify({'success': False, 'errors': form.errors}), 400
+
+    data_package = db.session.execute(db.session.query(DataPackage).filter_by(hash=form.hash.data)).first()
+    if not data_package:
+        return jsonify({'success': False, 'error': f"Package with hash {form.hash.data} not found"}), 404
+
+    data_package = data_package[0]
+
+    if form.install_on_enrollment.data is not None:
+        data_package.install_on_enrollment = form.install_on_enrollment.data
+    if form.install_on_connection.data is not None:
+        data_package.install_on_connection = form.install_on_connection.data
+
+    db.session.execute(update(DataPackage).filter(DataPackage.hash == data_package.hash).values(**data_package.serialize()))
+    db.session.commit()
+
+    return jsonify({'success': True})
 
 
 @data_package_api.route('/api/data_packages', methods=['DELETE'])
