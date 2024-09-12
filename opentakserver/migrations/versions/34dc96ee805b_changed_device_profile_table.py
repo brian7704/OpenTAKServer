@@ -28,7 +28,6 @@ def upgrade():
 
     with op.batch_alter_table('device_profiles', schema=None) as batch_op:
         batch_op.add_column(sa.Column('id', sa.Integer(), nullable=False))
-        batch_op.add_column(sa.Column('filename', sa.String(), nullable=True))
         batch_op.alter_column('preference_key',
                existing_type=sa.VARCHAR(),
                nullable=True)
@@ -54,7 +53,6 @@ def downgrade():
         batch_op.alter_column('preference_key',
                existing_type=sa.VARCHAR(),
                nullable=False)
-        batch_op.drop_column('filename')
         batch_op.drop_column('id')
 
     with op.batch_alter_table('data_packages', schema=None) as batch_op:

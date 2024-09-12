@@ -48,9 +48,9 @@ def save_data_package_to_db(filename: str = None, sha256_hash: str = None, mimet
         return jsonify({'success': False, 'error': 'This data package has already been uploaded'}), 400
 
 
-def create_data_package_zip(file: FileStorage) -> io.BytesIO:
-    zip_buffer = io.BytesIO()
-    zipf = zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False)
+def create_data_package_zip(file: FileStorage) -> str:
+    filename, extension = os.path.splitext(secure_filename(file.filename))
+    zipf = zipfile.ZipFile(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{filename}.zip"), "a", zipfile.ZIP_DEFLATED, False)
 
     # Use the md5 of the uploaded file as its folder name in the data package zip
     md5 = hashlib.md5()
@@ -77,20 +77,19 @@ def create_data_package_zip(file: FileStorage) -> io.BytesIO:
         SubElement(content, 'Parameter', {'name': 'visible', 'value': 'true'})
 
     zipf.writestr("MANIFEST/manifest.xml", tostring(manifest))
+    zipf.close()
 
     # Get the sha256 hash of the data package zip for its file name on disk and for the data_packages table
+    zip_file = open(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{filename}.zip"), 'rb')
+    zip_file_bytes = zip_file.read()
+    zip_file.close()
+
     sha256 = hashlib.sha256()
-    zip_buffer.seek(0)
-    sha256.update(zip_buffer.getbuffer())
+    sha256.update(zip_file_bytes)
     data_package_hash = sha256.hexdigest()
 
-    with open(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{data_package_hash}.zip"), "wb") as f:
-        zip_buffer.seek(0)
-        f.write(zip_buffer.getbuffer())
-
-    filename, extension = os.path.splitext(secure_filename(file.filename))
-    zip_buffer.seek(0)
-    save_data_package_to_db(f"{filename}.zip", data_package_hash, file.content_type, len(zip_buffer.getbuffer()))
+    os.rename(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{filename}.zip"), os.path.join(app.config.get("UPLOAD_FOLDER"), f"{data_package_hash}.zip"))
+    save_data_package_to_db(f"{filename}.zip", data_package_hash, file.content_type, len(zip_file_bytes))
 
     return data_package_hash
 
@@ -108,10 +107,15 @@ def edit_data_package():
 
     data_package = data_package[0]
 
+    if data_package.filename.endswith("_CONFIG.zip"):
+        return jsonify({'success': False, 'error': "Server connection data packages can't be installed on enrollment or connection"}), 400
+
     if form.install_on_enrollment.data is not None:
         data_package.install_on_enrollment = form.install_on_enrollment.data
     if form.install_on_connection.data is not None:
         data_package.install_on_connection = form.install_on_connection.data
+
+    data_package.submission_time = datetime.now()
 
     db.session.execute(update(DataPackage).filter(DataPackage.hash == data_package.hash).values(**data_package.serialize()))
     db.session.commit()

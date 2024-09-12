@@ -1,5 +1,4 @@
 import datetime
-import hashlib
 import io
 import os
 import traceback
@@ -20,6 +19,7 @@ from opentakserver.extensions import db, logger
 from opentakserver.forms.device_profile_form import DeviceProfileForm
 from opentakserver.models.DeviceProfiles import DeviceProfiles
 from opentakserver.models.Packages import Packages
+from opentakserver.models.DataPackage import DataPackage
 from opentakserver.blueprints.api import search, paginate
 
 device_profile_api_blueprint = Blueprint('device_profile_api_blueprint', __name__)
@@ -52,7 +52,7 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
     manifest = Element("MissionPackageManifest", {"version": "2"})
     config = SubElement(manifest, "Configuration")
     SubElement(config, "Parameter", {"name": "uid", "value": str(uuid.uuid4())})
-    SubElement(config, "Parameter", {"name": "name", "value": "Enrollment Profile"})
+    SubElement(config, "Parameter", {"name": "name", "value": "Device Profile"})
     SubElement(config, "Parameter", {"name": "onReceiveDelete", "value": "true"})
 
     contents = SubElement(manifest, "Contents")
@@ -74,12 +74,16 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
     if enrollment:
         device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(enrollment=True, active=True)).all()
         plugins = db.session.execute(db.session.query(Packages).filter_by(install_on_enrollment=True)).all()
+        data_packages = plugins = db.session.execute(db.session.query(DataPackage).filter_by(install_on_enrollment=True)).all()
     elif syncSecago > 0:
         publish_time = datetime.datetime.now() - datetime.timedelta(seconds=syncSecago)
         device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(connection=True, active=True)
                                              .filter(DeviceProfiles.publish_time >= publish_time)).all()
+        data_packages = db.session.execute(db.session.query(DataPackage).filter_by(install_on_connection=True)
+                                           .filter(DataPackage.submission_time >= publish_time)).all()
     else:
         device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(connection=True, active=True)).all()
+        data_packages = db.session.execute(db.session.query(DataPackage).filter_by(install_on_connection=True)).all()
 
     for profile in device_profiles:
         p = SubElement(pref, "entry", {"key": profile[0].preference_key, "class": profile[0].value_class})
@@ -90,6 +94,13 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
             plugin = plugin[0]
             SubElement(contents, "Content", {"ignore": "false", "zipEntry": f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}"})
             zipf.write(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", plugin.file_name), f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}")
+
+    if data_packages:
+        for data_package in data_packages:
+            data_package = data_package[0]
+            SubElement(contents, "Content",{"ignore": "false", "zipEntry": f"5c2bfcae3d98c9f4d262172df99ebac5/{data_package.filename}"})
+            zipf.write(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{data_package.hash}.zip"), f"5c2bfcae3d98c9f4d262172df99ebac5/{data_package.filename}")
+
     zipf.writestr("MANIFEST/manifest.xml", tostring(manifest))
 
     zipf.writestr("5c2bfcae3d98c9f4d262172df99ebac5/preference.pref", tostring(prefs))
@@ -116,6 +127,7 @@ def enrollment_profile():
 
 # EUDs hit this endpoint when the app connects to the server if repoStartupSync is enabled
 @device_profile_api_blueprint.route('/Marti/api/device/profile/connection')
+@device_profile_api_blueprint.route('/api/data_packages/connection')
 def connection_profile():
     try:
         syncSecago = -1
