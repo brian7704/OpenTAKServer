@@ -1,5 +1,4 @@
 import hashlib
-import io
 import os
 import shutil
 import traceback
@@ -70,7 +69,7 @@ def create_data_package_zip(file: FileStorage) -> str:
     content = SubElement(contents, "Content", {"ignore": "false", "zipEntry": f"{md5_hash}/{secure_filename(file.filename)}"})
 
     filename, extension = os.path.splitext(secure_filename(file.filename))
-    extension = extension.lower()
+    extension = extension.lower().replace(".", "")
     if extension == 'kml' or extension == 'kmz':
         SubElement(content, 'Parameter', {'name': 'name', 'value': secure_filename(file.filename)})
         SubElement(content, 'Parameter', {'name': 'contentType', 'value': 'KML'})
