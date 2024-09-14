@@ -231,7 +231,8 @@ def data_package_share():
             file.save(os.path.join(app.config.get("UPLOAD_FOLDER"), f'{file_hash}.zip'))
 
             filename, extension = os.path.splitext(secure_filename(file.filename))
-            save_data_package_to_db(f'{filename}.zip', file_hash, file.content_type, file.content_length)
+            file_size = os.path.getsize(os.path.join(app.config.get("UPLOAD_FOLDER"), f'{file_hash}.zip'))
+            save_data_package_to_db(f'{filename}.zip', file_hash, file.content_type, file_size)
 
         url = urlparse(request.url_root)
         return 'https://{}:{}/Marti/api/sync/metadata/{}/tool'.format(url.hostname,
