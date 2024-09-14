@@ -40,9 +40,8 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
     startup_sync = SubElement(pref, "entry", {"key": "repoStartupSync", "class": "class java.lang.Boolean"})
     startup_sync.text = "true"
 
-    startup_sync = SubElement(pref, "entry",
-                              {"key": "deviceProfileEnableOnConnect", "class": "class java.lang.Boolean"})
-    startup_sync.text = "true"
+    enable_profiles = SubElement(pref, "entry",{"key": "deviceProfileEnableOnConnect", "class": "class java.lang.Boolean"})
+    enable_profiles.text = "true"
 
     ca_location = SubElement(pref, "entry", {"key": "updateServerCaLocation", "class": "class java.lang.String"})
     ca_location.text = "/storage/emulated/0/atak/cert/truststore-root.p12"

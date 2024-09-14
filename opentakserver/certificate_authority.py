@@ -258,6 +258,7 @@ class CertificateAuthority:
                         <entry key="connectString0" class="class java.lang.String">{{ server }}:{{ ssl_port }}:ssl</entry>
                     </preference>
                     <preference version="1" name="com.atakmap.app_preferences">
+                        <entry key="deviceProfileEnableOnConnect" class="class java.lang.Boolean">true</entry>
                         <entry key="displayServerConnectionWidget" class="class java.lang.Boolean">true</entry>
                         <entry key="caLocation" class="class java.lang.String">/storage/emulated/0/atak/cert/{{ server_filename }}</entry>
                         <entry key="caPassword" class="class java.lang.String">{{ cert_password }}</entry>
