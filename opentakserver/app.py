@@ -1,3 +1,5 @@
+import random
+
 import eventlet
 eventlet.monkey_patch()
 
@@ -48,6 +50,8 @@ from opentakserver.controllers.meshtastic_controller import MeshtasticController
 from opentakserver.controllers.cot_controller import CoTController
 from opentakserver.certificate_authority import CertificateAuthority
 from opentakserver.SocketServer import SocketServer
+from pyfiglet import Figlet
+
 try:
     from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
 except ModuleNotFoundError:
@@ -58,6 +62,9 @@ def init_extensions(app):
     db.init_app(app)
     Migrate(app, db)
 
+    f = Figlet(font=random.choice(app.config.get("OTS_FIGLET_FONTS")), justify="center", width=app.config.get("OTS_FIGLET_WIDTH"))
+    logger.info(f.renderText(f"\nOpenTAKServer {opentakserver.__version__}\n"))
+    logger.info(f"OpenTAKServer {opentakserver.__version__}")
     logger.info("Loading the database...")
     with app.app_context():
         upgrade(directory=os.path.join(os.path.dirname(os.path.realpath(opentakserver.__file__)), 'migrations'))

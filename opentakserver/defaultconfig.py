@@ -16,7 +16,7 @@ class DefaultConfig:
     OTS_DATA_FOLDER = os.path.join(Path.home(), 'ots')
     OTS_LISTENER_ADDRESS = "127.0.0.1"
     OTS_LISTENER_PORT = 8081  # OTS will listen for HTTP requests on this port. Nginx will listen on ports 80, 443,
-                              # 8080, 8443, and 8446 and proxy requests to OTS_LISTENER_PORT
+    # 8080, 8443, and 8446 and proxy requests to OTS_LISTENER_PORT
     OTS_MARTI_HTTP_PORT = 8080
     OTS_MARTI_HTTPS_PORT = 8443
     OTS_ENABLE_TCP_STREAMING_PORT = True
@@ -26,7 +26,7 @@ class DefaultConfig:
     OTS_RABBITMQ_SERVER_ADDRESS = "127.0.0.1"
     OTS_MEDIAMTX_ENABLE = True
     OTS_MEDIAMTX_API_ADDRESS = "http://localhost:9997"
-    OTS_MEDIAMTX_TOKEN = secrets.token_urlsafe(30*3//4)
+    OTS_MEDIAMTX_TOKEN = secrets.token_urlsafe(30 * 3 // 4)
     OTS_SSL_VERIFICATION_MODE = 2  # Equivalent to ssl.CERT_REQUIRED. https://docs.python.org/3/library/ssl.html#ssl.SSLContext.verify_mode
     OTS_NODE_ID = ''.join(random.choices(string.ascii_lowercase + string.digits, k=64))
     OTS_CA_NAME = 'OpenTAKServer-CA'
@@ -40,6 +40,11 @@ class DefaultConfig:
     OTS_CA_ORGANIZATIONAL_UNIT = 'OpenTAKServer'
     OTS_CA_SUBJECT = '/C={}/ST={}/L={}/O={}/OU={}'.format(OTS_CA_COUNTRY, OTS_CA_STATE, OTS_CA_CITY,
                                                           OTS_CA_ORGANIZATION, OTS_CA_ORGANIZATIONAL_UNIT)
+    OTS_FIGLET_WIDTH = 100
+    OTS_FIGLET_FONTS = ["slant", "thin", "stampatello", "rectangles", "bell", "doom", "banner", "banner3-D", "banner3",
+                        "mini", "marquee", "big", "chunky", "poison", "pepper", "computer", "puffy", "cosmic", "script",
+                        "sblood", "epic", "speed", "trek", "rev", "larry3d", "3-d", "5lineoblique", "lean", "cursive",
+                        "gothic"]
 
     # See https://docs.python.org/3/library/logging.handlers.html#logging.handlers.TimedRotatingFileHandler
     OTS_LOG_ROTATE_WHEN = 'midnight'
