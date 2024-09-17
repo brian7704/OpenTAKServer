@@ -107,7 +107,7 @@ class ClientController(Thread):
     def run(self):
         while not self.shutdown:
             try:
-                data = self.sock.recv(4096)
+                data = self.sock.recv(1)
             except (ConnectionError, ConnectionResetError) as e:
                 self.send_disconnect_cot()
                 self.sock.close()
@@ -127,12 +127,17 @@ class ClientController(Thread):
                 # and if not, call recv() until it is
                 while True:
                     try:
-                        fromstring(data)
-                        break
+                        if data.decode('utf-8').endswith(">"):
+                            # fromstring will raise ParseError if the XML data isn't valid yet
+                            fromstring(data)
+                            break
+                        else:
+                            data += self.sock.recv(1)
+                            continue
                     except ParseError as e:
                         try:
-                            data += self.sock.recv(4096)
-                            break
+                            data += self.sock.recv(1)
+                            continue
                         except (ConnectionError, TimeoutError, ConnectionResetError) as e:
                             break
 

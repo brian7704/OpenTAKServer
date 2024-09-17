@@ -61,7 +61,7 @@ class CoTController(RabbitMQClient):
         takv = event.find('takv')
 
         # Only assume it's an EUD if it's got a <takv> tag
-        if uid not in self.online_euds and not uid.endswith('ping') and takv:
+        if takv and uid and uid not in self.online_euds and not uid.endswith('ping'):
             device = takv.attrs['device'] if 'device' in takv.attrs else ""
             operating_system = takv.attrs['os'] if 'os' in takv.attrs else ""
             platform = takv.attrs['platform'] if 'platform' in takv.attrs else ""
@@ -814,16 +814,18 @@ class CoTController(RabbitMQClient):
             body = json.loads(body)
             soup = BeautifulSoup(body['cot'], 'xml')
             event = soup.find('event')
+
+            uid = body['uid'] or event.attrs['uid']
             if event:
-                self.parse_device_info(body['uid'], soup, event)
-                cot_pk = self.insert_cot(soup, event, body['uid'])
-                point_pk = self.parse_point(event, body['uid'], cot_pk)
+                self.parse_device_info(uid, soup, event)
+                cot_pk = self.insert_cot(soup, event, uid)
+                point_pk = self.parse_point(event, uid, cot_pk)
                 self.parse_geochat(event, cot_pk, point_pk)
                 self.parse_video(event, cot_pk)
-                self.parse_alert(event, body['uid'], point_pk, cot_pk)
-                self.parse_casevac(event, body['uid'], point_pk, cot_pk)
-                self.parse_marker(event, body['uid'], point_pk, cot_pk)
-                self.parse_rbline(event, body['uid'], point_pk, cot_pk)
+                self.parse_alert(event, uid, point_pk, cot_pk)
+                self.parse_casevac(event, uid, point_pk, cot_pk)
+                self.parse_marker(event, uid, point_pk, cot_pk)
+                self.parse_rbline(event, uid, point_pk, cot_pk)
                 self.rabbitmq_routing(event, body)
 
                 # EUD went offline
@@ -831,13 +833,13 @@ class CoTController(RabbitMQClient):
 
                     try:
                         with self.context:
-                            eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=body['uid'])).first()
+                            eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()
                             if eud:
                                 eud = eud[0]
                                 eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
                                 eud.last_status = 'Disconnected'
                                 self.db.session.commit()
-                                self.logger.debug("Updated {}".format(body['uid']))
+                                self.logger.debug("Updated {}".format(uid))
                                 eud_json = eud.to_json()
                                 # The first time an EUD connects but doesn't have a location.
                                 # Tells the UI what kind of EUD this is, ie ATAK/WinTAK/iTAK or OpenTAK ICU
@@ -848,8 +850,8 @@ class CoTController(RabbitMQClient):
                         self.logger.error("Failed to update EUD: {}".format(e))
                         self.logger.debug(traceback.format_exc())
 
-                    if body['uid'] in self.online_euds.keys():
-                        self.online_euds.pop(body['uid'])
+                    if uid in self.online_euds.keys():
+                        self.online_euds.pop(uid)
         except BaseException as e:
             self.logger.error(f"Failed to parse CoT: {e}")
             self.logger.debug(traceback.format_exc())
