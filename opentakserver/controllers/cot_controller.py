@@ -60,14 +60,12 @@ class CoTController(RabbitMQClient):
         phone_number = None
         takv = event.find('takv')
 
-        if uid not in self.online_euds and not uid.endswith('ping'):
-            if takv:
-                device = takv.attrs['device'] if 'device' in takv.attrs else ""
-                operating_system = takv.attrs['os'] if 'os' in takv.attrs else ""
-                platform = takv.attrs['platform'] if 'platform' in takv.attrs else ""
-                version = takv.attrs['version'] if 'version' in takv.attrs else ""
-            else:
-                device = operating_system = platform = version = ""
+        # Only assume it's an EUD if it's got a <takv> tag
+        if uid not in self.online_euds and not uid.endswith('ping') and takv:
+            device = takv.attrs['device'] if 'device' in takv.attrs else ""
+            operating_system = takv.attrs['os'] if 'os' in takv.attrs else ""
+            platform = takv.attrs['platform'] if 'platform' in takv.attrs else ""
+            version = takv.attrs['version'] if 'version' in takv.attrs else ""
 
             contact = event.find('contact')
             if contact:
@@ -830,24 +828,28 @@ class CoTController(RabbitMQClient):
 
                 # EUD went offline
                 if event.attrs['type'] == 't-x-d-d':
-                    link = event.find('link')
 
                     try:
                         with self.context:
-                            eud = self.db.session.execute(self.db.select(EUD).filter_by(uid=body['uid'])).scalar_one()
-                            eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
-                            eud.last_status = 'Disconnected'
-                            self.db.session.commit()
-                            self.logger.debug("Updated {}".format(body['uid']))
-                            eud_json = eud.to_json()
-                            # The first time an EUD connects but doesn't have a location.
-                            # Tells the UI what kind of EUD this is, ie ATAK/WinTAK/iTAK or OpenTAK ICU
-                            if not eud_json['last_point']:
-                                eud_json['type'] = event.attrs['type']
-                            socketio.emit('eud', eud.to_json(), namespace='/socket.io')
+                            eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=body['uid'])).first()
+                            if eud:
+                                eud = eud[0]
+                                eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
+                                eud.last_status = 'Disconnected'
+                                self.db.session.commit()
+                                self.logger.debug("Updated {}".format(body['uid']))
+                                eud_json = eud.to_json()
+                                # The first time an EUD connects but doesn't have a location.
+                                # Tells the UI what kind of EUD this is, ie ATAK/WinTAK/iTAK or OpenTAK ICU
+                                if not eud_json['last_point']:
+                                    eud_json['type'] = event.attrs['type']
+                                socketio.emit('eud', eud.to_json(), namespace='/socket.io')
                     except BaseException as e:
                         self.logger.error("Failed to update EUD: {}".format(e))
+                        self.logger.debug(traceback.format_exc())
 
-                    self.online_euds.pop(link.attrs['uid'])
+                    if body['uid'] in self.online_euds.keys():
+                        self.online_euds.pop(body['uid'])
         except BaseException as e:
-            self.logger.error(traceback.format_exc())
+            self.logger.error(f"Failed to parse CoT: {e}")
+            self.logger.debug(traceback.format_exc())

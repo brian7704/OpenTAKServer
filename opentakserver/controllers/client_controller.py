@@ -234,9 +234,11 @@ class ClientController(Thread):
     def parse_device_info(self, event):
         if not self.rabbit_channel:
             return
-        self.uid = event.attrs['uid']
+
         contact = event.find('contact')
-        if contact:
+        takv = event.find('takv')
+        if contact and takv:
+            self.uid = event.attrs['uid']
             if 'callsign' in contact.attrs:
                 self.callsign = contact.attrs['callsign']
 
