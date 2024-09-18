@@ -42,7 +42,7 @@ python = ">=3.10,<3.13"
 python-socketio = {extras = ["client", "websocket_client", "asyncio_client"], version = "5.10.0"}
 pyOpenSSL = "23.3.0"
 pyotp = "2.9.0"
-PyYAML = "6.0.1"
+PyYAML = "6.0.2"
 sqlalchemy = "2.0.28"
 sqlalchemy-utils = "0.41.1"
 tldextract = "5.1.2"
