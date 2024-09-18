@@ -43,7 +43,7 @@ python-socketio = {extras = ["client", "websocket_client", "asyncio_client"], ve
 pyOpenSSL = "23.3.0"
 pyotp = "2.9.0"
 PyYAML = "6.0.2"
-sqlalchemy = "2.0.28"
+sqlalchemy = "2.0.35"
 sqlalchemy-utils = "0.41.2"
 tldextract = "5.1.2"
 unishox2-py3 = "1.0.0"
