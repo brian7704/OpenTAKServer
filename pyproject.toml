@@ -38,7 +38,7 @@ PyJWT = "2.8.0"
 pytak = "6.3.2"
 pytest = "7.4.4"
 pytest-cov = "4.1.0"
-python = "^3.10"
+python = ">=3.10,<3.13"
 python-socketio = {extras = ["client", "websocket_client", "asyncio_client"], version = "5.10.0"}
 pyOpenSSL = "23.3.0"
 pyotp = "2.9.0"
