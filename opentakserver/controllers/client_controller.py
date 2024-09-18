@@ -213,7 +213,8 @@ class ClientController(Thread):
                     message = {'uid': self.uid, 'cot': str(soup)}
                     if self.rabbit_channel:
                         self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='',
-                                                          body=json.dumps(message))
+                                                          body=json.dumps(message),
+                                                          properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
             else:
                 self.send_disconnect_cot()
@@ -273,7 +274,8 @@ class ClientController(Thread):
             flow_tags = SubElement(detail, '_flow-tags_', {'TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0': now})
 
             message = json.dumps({'uid': self.uid, 'cot': tostring(event).decode('utf-8')})
-            self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='', body=message)
+            self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='', body=message,
+                                              properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
         self.logger.info('{} disconnected'.format(self.address))
         if self.rabbit_connection:
             self.rabbit_connection.close()

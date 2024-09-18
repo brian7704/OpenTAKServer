@@ -112,9 +112,8 @@ def add_casevac():
     rabbit_connection = pika.BlockingConnection(
         pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
     channel = rabbit_connection.channel()
-    channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
-        {'cot': cot.xml, 'uid': app.config['OTS_NODE_ID']}
-    ))
+    channel.basic_publish(exchange='cot', routing_key='', body=json.dumps({'cot': cot.xml, 'uid': app.config['OTS_NODE_ID']}),
+                          properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
     channel.close()
     rabbit_connection.close()
 
@@ -160,8 +159,8 @@ def delete_casevac():
         pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
     channel = rabbit_connection.channel()
     channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
-        {'cot': tostring(event).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}
-    ))
+        {'cot': tostring(event).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
+                          properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
     channel.close()
     rabbit_connection.close()
 

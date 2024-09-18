@@ -51,10 +51,12 @@ def get_airplanes_live_data():
 
                     # noinspection PyTypeChecker
                     channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
-                        {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}))
+                        {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
+                                          properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
                     # noinspection PyTypeChecker
                     channel.basic_publish(exchange='cot_controller', routing_key='', body=json.dumps(
-                        {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}))
+                        {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
+                                          properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
 
                 channel.close()
                 rabbit_connection.close()
@@ -141,10 +143,12 @@ def get_aishub_data():
                 event = aiscot.ais_to_cot(vessel, None, None)
                 # noinspection PyTypeChecker
                 channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
-                    {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}))
+                    {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
+                                      properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
                 # noinspection PyTypeChecker
                 channel.basic_publish(exchange='cot_controller', routing_key='', body=json.dumps(
-                    {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}))
+                    {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
+                                      properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
 
             channel.close()
             rabbit_connection.close()

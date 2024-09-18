@@ -45,6 +45,9 @@ class DefaultConfig:
                         "mini", "marquee", "big", "chunky", "poison", "pepper", "computer", "puffy", "cosmic", "script",
                         "sblood", "epic", "speed", "trek", "rev", "larry3d", "3-d", "5lineoblique", "lean", "cursive",
                         "gothic"]
+    # Messages queued in RabbitMQ will auto-delete after 1 day if not consumed https://www.rabbitmq.com/docs/ttl
+    # Set to '0' to disable auto-deletion
+    OTS_RABBITMQ_TTL = '86400000'
 
     # See https://docs.python.org/3/library/logging.handlers.html#logging.handlers.TimedRotatingFileHandler
     OTS_LOG_ROTATE_WHEN = 'midnight'

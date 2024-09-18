@@ -7,6 +7,7 @@ import traceback
 
 import random
 import bleach
+import pika
 import sqlalchemy.exc
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -89,7 +90,8 @@ class CoTController(RabbitMQClient):
                                                               routing_key=uid,
                                                               body=json.dumps(
                                                                   {'cot': str(self.online_euds[eud]['cot']),
-                                                                   'uid': None}))
+                                                                   'uid': None}),
+                                                              properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
 
                 if 'phone' in contact.attrs:
                     phone_number = contact.attrs['phone']
@@ -796,7 +798,8 @@ class CoTController(RabbitMQClient):
 
         # If no destination or callsign is specified, broadcast to all TAK clients
         elif self.rabbit_channel and self.rabbit_channel.is_open:
-            self.rabbit_channel.basic_publish(exchange='cot', routing_key="", body=json.dumps(data))
+            self.rabbit_channel.basic_publish(exchange='cot', routing_key="", body=json.dumps(data),
+                                              properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
 
         # Do nothing because the RabbitMQ channel hasn't opened yet or has closed
         else:
@@ -806,7 +809,8 @@ class CoTController(RabbitMQClient):
         for channel in self.context.app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"):
             body.channel_id = channel
             routing_key = "{}.2.e.{}.outgoing".format(self.context.app.config.get("OTS_MESHTASTIC_TOPIC"), channel)
-            self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key, body=body.SerializeToString())
+            self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key, body=body.SerializeToString(),
+                                              properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
             self.logger.debug("Published message to " + routing_key)
 
     def on_message(self, unused_channel, basic_deliver, properties, body):

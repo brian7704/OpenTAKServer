@@ -3,6 +3,8 @@ import datetime
 import json
 import traceback
 import uuid
+
+import pika
 import unishox2
 import os
 
@@ -87,7 +89,8 @@ class MeshtasticController(RabbitMQClient):
         for channel in self.context.app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"):
             routing_key = "{}.2.e.{}.".format(self.context.app.config.get("OTS_MESHTASTIC_TOPIC"), channel)
             if not basic_deliver.routing_key.startswith(routing_key):
-                self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key + "outgoing", body=body)
+                self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key + "outgoing", body=body,
+                                                  properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
 
         se = mqtt_pb2.ServiceEnvelope()
         try:
@@ -374,14 +377,16 @@ class MeshtasticController(RabbitMQClient):
                     try:
                         if to_id == "all":
                             self.rabbit_channel.basic_publish(exchange='chatrooms', routing_key='All Chat Rooms',
-                                                              body=message)
+                                                              body=message,
+                                                              properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
                         else:
                             for meshtastic_device in self.meshtastic_devices:
                                 meshtastic_device = self.meshtastic_devices[meshtastic_device]
                                 if meshtastic_device['meshtastic_id'] == to_id:
                                     self.rabbit_channel.basic_publish(exchange='dms',
                                                                       routing_key=meshtastic_device['uid'],
-                                                                      body=message)
+                                                                      body=message,
+                                                                      properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
                     except BaseException as e:
                         self.logger.error("Failed to publish chat message: {}".format(e))
                 elif portnum == "ATAK_PLUGIN" and pb.HasField('chat'):
@@ -392,13 +397,15 @@ class MeshtasticController(RabbitMQClient):
                         else:
                             self.rabbit_channel.basic_publish(exchange='chatrooms',
                                                               routing_key=to,
-                                                              body=message)
+                                                              body=message,
+                                                              properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
                     except BaseException as e:
                         self.logger.error("Failed to publish chat message to {}: {}".format(
                             unishox2.decompress(pb.chat.to, len(pb.chat.to)), e))
                         self.logger.error(traceback.format_exc())
                 else:
-                    self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='', body=message)
+                    self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='', body=message,
+                                                      properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
         except BaseException as e:
             self.logger.error(str(e))
             self.logger.error(traceback.format_exc())

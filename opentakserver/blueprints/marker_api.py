@@ -129,8 +129,8 @@ def add_marker():
                 pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
             channel = rabbit_connection.channel()
             channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
-                {'cot': ET.tostring(event).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}
-            ))
+                {'cot': ET.tostring(event).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
+                                  properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
             channel.close()
             rabbit_connection.close()
 
@@ -206,8 +206,8 @@ def delete_marker():
             pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
         channel = rabbit_connection.channel()
         channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
-            {'cot': ET.tostring(event).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}
-        ))
+            {'cot': ET.tostring(event).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
+                              properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
         channel.close()
         rabbit_connection.close()
 
