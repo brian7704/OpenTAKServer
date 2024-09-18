@@ -30,7 +30,7 @@ lxml = "5.1.0"
 meshtastic = "2.3.6"
 pika = "1.3.2"
 poetry-dynamic-versioning = {version = "1.2.0", extras = ["plugin"]}
-protobuf = "5.26.1"
+protobuf = "5.28.1"
 psutil = "5.9.8"
 pyfiglet = "1.0.2"
 pygc = "1.3.0"
