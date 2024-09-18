@@ -24,7 +24,7 @@ Flask-Security-Too = {version="5.4.3", extras=["common", "mfa"]}
 flask-socketio = "5.3.6"
 flask-sqlalchemy = "3.1.1"
 eventlet = "0.35.2"
-gevent = "23.9.1"
+gevent = "24.2.1"
 lastversion = "*"
 lxml = "5.1.0"
 meshtastic = "2.3.6"
