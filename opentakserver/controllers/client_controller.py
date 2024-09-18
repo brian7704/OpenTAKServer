@@ -132,14 +132,20 @@ class ClientController(Thread):
                             fromstring(data)
                             break
                         else:
-                            data += self.sock.recv(1)
-                            continue
+                            try:
+                                data += self.sock.recv(1)
+                                continue
+                            except (ConnectionError, TimeoutError, ConnectionResetError) as e:
+                                break
                     except ParseError as e:
                         try:
                             data += self.sock.recv(1)
                             continue
                         except (ConnectionError, TimeoutError, ConnectionResetError) as e:
                             break
+                    except UnicodeDecodeError:
+                        self.sock.close()
+                        break
 
                 self.logger.debug(data)
                 soup = BeautifulSoup(data, 'xml')

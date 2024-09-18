@@ -44,7 +44,7 @@ class CoTController(RabbitMQClient):
         self.rabbit_channel.queue_declare(queue='cot_controller')
         self.rabbit_channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
         self.rabbit_channel.queue_bind(exchange='cot_controller', queue='cot_controller')
-        self.rabbit_channel.basic_consume(queue='cot_controller', on_message_callback=self.on_message, auto_ack=True)
+        self.rabbit_channel.basic_consume(queue='cot_controller', on_message_callback=self.on_message, auto_ack=False)
         self.rabbit_channel.add_on_close_callback(self.on_close)
 
     def parse_device_info(self, uid, soup, event):
@@ -826,6 +826,7 @@ class CoTController(RabbitMQClient):
                 self.parse_casevac(event, uid, point_pk, cot_pk)
                 self.parse_marker(event, uid, point_pk, cot_pk)
                 self.parse_rbline(event, uid, point_pk, cot_pk)
+                self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
                 self.rabbitmq_routing(event, body)
 
                 # EUD went offline
