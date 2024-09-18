@@ -23,7 +23,7 @@ flask-migrate = "4.0.0"
 Flask-Security-Too = {version="5.4.3", extras=["common", "mfa"]}
 flask-socketio = "5.3.7"
 flask-sqlalchemy = "3.1.1"
-eventlet = "0.35.2"
+eventlet = "0.37.0"
 gevent = "24.2.1"
 lastversion = "*"
 lxml = "5.3.0"
