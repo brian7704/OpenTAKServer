@@ -192,10 +192,10 @@ class ClientController(Thread):
                                 self.db.session.add(eud)
                                 self.db.session.commit()
 
-                            else:
-                                self.logger.warning("Wrong password for user {}".format(username))
-                                self.close_connection()
-                                break
+                        else:
+                            self.logger.warning("Wrong password for user {}".format(username))
+                            self.close_connection()
+                            break
 
                 if event:
                     # If this client is connected via ssl, make sure they're authenticated
