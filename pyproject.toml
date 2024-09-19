@@ -20,7 +20,7 @@ flask = "3.0.3"
 flask-apscheduler = "1.13.1"
 flask-cors = "4.0.0"
 flask-migrate = "4.0.7"
-Flask-Security-Too = {version="5.4.3", extras=["common", "mfa"]}
+Flask-Security-Too = {version="5.5.2", extras=["common", "mfa"]}
 flask-socketio = "5.3.7"
 flask-sqlalchemy = "3.1.1"
 eventlet = "0.37.0"
