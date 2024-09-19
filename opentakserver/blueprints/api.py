@@ -532,10 +532,12 @@ def external_auth():
     query = bleach.clean(request.json.get('query'))
 
     user = app.security.datastore.find_user(username=username)
+    if not user:
+        return '', 401
 
     # Token auth to prevent high CPU usage when reading HLS streams
-    if action != 'publish' and 'jwt' in query:
-        query = query.split(";")
+    if 'jwt' in query:
+        query = query.split("&")
         for q in query:
             if "=" not in q:
                 continue
@@ -546,8 +548,8 @@ def external_auth():
                     parse_auth_token(value)
                     logger.debug("Token is valid")
                     return '', 200
-                except:
-                    logger.error("Invalid token")
+                except BaseException as e:
+                    logger.error(f"Invalid token: {e}")
                     return '', 401
 
     if user and verify_password(password, user.password):

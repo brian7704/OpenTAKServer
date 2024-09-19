@@ -123,8 +123,6 @@ class ClientController(Thread):
                     continue
 
             if data:
-                # Sometimes recv() doesn't get all of the XML data in one go. Test if the XML is well-formed
-                # and if not, call recv() until it is
                 while True:
                     try:
                         if data.decode('utf-8').endswith(">"):

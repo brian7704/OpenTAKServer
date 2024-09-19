@@ -58,8 +58,6 @@ def create_channel():
 
             channel_set.settings.append(channel_settings)
 
-            url = "https://meshtastic.org/e/#" + base64.urlsafe_b64encode(channel_set.SerializeToString()).decode('utf-8')
-
         except BaseException as e:
             logger.error("Failed to save Meshtastic channel: {}".format(e))
             logger.error(traceback.format_exc())
@@ -68,7 +66,7 @@ def create_channel():
     return save_channel(channel_set)
 
 
-def save_channel(channel_set):
+def save_channel(channel_set: apponly_pb2.ChannelSet):
     for channel_settings in channel_set.settings:
         # Make a unique URL for each channel in a channel set
         single_channel_set = apponly_pb2.ChannelSet()
