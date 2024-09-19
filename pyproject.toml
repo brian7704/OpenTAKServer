@@ -40,7 +40,7 @@ pytest = "8.3.3"
 pytest-cov = "4.1.0"
 python = ">=3.10,<3.13"
 python-socketio = {extras = ["client", "websocket_client", "asyncio_client"], version = "5.11.4"}
-pyOpenSSL = "23.3.0"
+pyOpenSSL = "24.2.1"
 pyotp = "2.9.0"
 PyYAML = "6.0.2"
 sqlalchemy = "2.0.35"
