@@ -3776,13 +3776,13 @@ cp2110 = ["hidapi"]
 
 [[package]]
 name = "pytak"
-version = "6.3.2"
-description = "PyTAK: Python Team Awareness Kit Module"
+version = "7.1.0"
+description = "PyTAK is a Python package for rapid TAK integration."
 optional = false
 python-versions = "<4,>=3.6"
 files = [
-    {file = "pytak-6.3.2-py3-none-any.whl", hash = "sha256:49b8ca0151d48d5d931571ccb9df4899bb2eac94cb73a470f79594c556015424"},
-    {file = "pytak-6.3.2.tar.gz", hash = "sha256:61346285ba647257d0333f7f5e44a653fcb155892f3b8bc91796a264223e10c9"},
+    {file = "pytak-7.1.0-py3-none-any.whl", hash = "sha256:c6ec6e698f67aae5ebc5398853ef058dfa4f271a86d9da2f585d10c6fbc5c768"},
+    {file = "pytak-7.1.0.tar.gz", hash = "sha256:5b624918b455cf040e2e18701cc4f056b92d96db07b61ed88a01d835fba20130"},
 ]
 
 [package.extras]
@@ -5269,4 +5269,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.13"
-content-hash = "cc27835bd64c50746de5d5d7f840b026f364ed4062db7e410ea0a0cc71ef9619"
+content-hash = "b0eee0f9b591dc7f48386614bc18ccebf58a1865fc995fe62324fc9d409351da"
