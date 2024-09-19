@@ -3376,17 +3376,17 @@ files = [
 
 [[package]]
 name = "poetry-dynamic-versioning"
-version = "1.2.0"
+version = "1.4.1"
 description = "Plugin for Poetry to enable dynamic versioning based on VCS tags"
 optional = false
-python-versions = ">=3.7,<4.0"
+python-versions = "<4.0,>=3.7"
 files = [
-    {file = "poetry_dynamic_versioning-1.2.0-py3-none-any.whl", hash = "sha256:8dbef9728d866eb3d1a4edbb29c7ac8abdf96e3ca659473e950e2c016f3785ec"},
-    {file = "poetry_dynamic_versioning-1.2.0.tar.gz", hash = "sha256:1a7bbdba2530499e73dfc6ac0af19de29020ab4aaa3e507573877114e6b71ed6"},
+    {file = "poetry_dynamic_versioning-1.4.1-py3-none-any.whl", hash = "sha256:44866ccbf869849d32baed4fc5fadf97f786180d8efa1719c88bf17a471bd663"},
+    {file = "poetry_dynamic_versioning-1.4.1.tar.gz", hash = "sha256:21584d21ca405aa7d83d23d38372e3c11da664a8742995bdd517577e8676d0e1"},
 ]
 
 [package.dependencies]
-dunamai = ">=1.18.0,<2.0.0"
+dunamai = ">=1.21.0,<2.0.0"
 jinja2 = ">=2.11.1,<4"
 poetry = {version = ">=1.2.0,<2.0.0", optional = true, markers = "extra == \"plugin\""}
 tomlkit = ">=0.4"
@@ -5269,4 +5269,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.13"
-content-hash = "b174dd7c0ca3299b1ebc0c7a94b9c84fe59769f6e394a6d0c5d302fc549a1e0f"
+content-hash = "30c2e59175ed5369281b5b0051c38769623dd783bc2a3fe1b6a794393e908658"
