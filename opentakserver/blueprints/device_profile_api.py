@@ -35,7 +35,7 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
     enable_update_server.text = "true"
 
     update_server_address = SubElement(pref, "entry", {"key": "atakUpdateServerUrl", "class": "class java.lang.String"})
-    update_server_address.text = f"https://{urlparse(request.url_root).hostname}/api/packages"
+    update_server_address.text = f"https://{urlparse(request.url_root).hostname}:{app.config.get('OTS_MARTI_HTTPS_PORT')}/api/packages"
 
     startup_sync = SubElement(pref, "entry", {"key": "repoStartupSync", "class": "class java.lang.Boolean"})
     startup_sync.text = "true"
