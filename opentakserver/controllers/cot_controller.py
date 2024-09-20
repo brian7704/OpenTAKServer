@@ -860,3 +860,4 @@ class CoTController(RabbitMQClient):
         except BaseException as e:
             self.logger.error(f"Failed to parse CoT: {e}")
             self.logger.debug(traceback.format_exc())
+            self.rabbit_channel.basic_nack(delivery_tag=basic_deliver.delivery_tag, requeue=False)
