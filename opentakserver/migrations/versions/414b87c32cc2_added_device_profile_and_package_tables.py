@@ -22,8 +22,8 @@ def upgrade():
     sa.Column('preference_key', sa.String(), nullable=False),
     sa.Column('preference_value', sa.String(), nullable=False),
     sa.Column('value_class', sa.String(), nullable=False),
-    sa.Column('enrollment', sa.Boolean(), nullable=False),
-    sa.Column('connection', sa.Boolean(), nullable=False),
+    sa.Column('enrollment', sa.Boolean(), nullable=True),
+    sa.Column('connection', sa.Boolean(), nullable=True),
     sa.Column('tool', sa.String(), nullable=True),
     sa.Column('active', sa.Boolean(), nullable=False),
     sa.Column('publish_time', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
@@ -45,8 +45,8 @@ def upgrade():
     sa.Column('file_size', sa.Integer(), nullable=False),
     sa.Column('icon', sa.BLOB(), nullable=True),
     sa.Column('icon_filename', sa.String(), nullable=True),
-    sa.Column('install_on_enrollment', sa.Boolean(), nullable=False),
-    sa.Column('install_on_connection', sa.Boolean(), nullable=False),
+    sa.Column('install_on_enrollment', sa.Boolean(), nullable=True),
+    sa.Column('install_on_connection', sa.Boolean(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('package_name')
     )
