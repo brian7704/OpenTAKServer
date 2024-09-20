@@ -39,8 +39,8 @@ class Packages(db.Model):
     file_size: Mapped[int] = mapped_column(Integer)
     icon: Mapped[bytes] = mapped_column(LargeBinary, nullable=True)
     icon_filename: Mapped[str] = mapped_column(String, nullable=True)
-    install_on_enrollment: Mapped[bool] = mapped_column(Boolean, default=False)
-    install_on_connection: Mapped[bool] = mapped_column(Boolean, default=False)
+    install_on_enrollment: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
+    install_on_connection: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
     publish_time: Mapped[datetime] = mapped_column(DateTime)
 
     def from_wtform(self, form: PackageForm):
