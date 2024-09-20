@@ -543,7 +543,7 @@ def external_auth():
                 continue
             key, value = q.split("=")
             if key == 'jwt':
-                logger.warning("Validating token...")
+                logger.debug("Validating token...")
                 try:
                     parse_auth_token(value)
                     logger.debug("Token is valid")
@@ -751,7 +751,8 @@ def get_video_streams():
 
 @api_blueprint.route('/api/truststore')
 def get_truststore():
-    return send_from_directory(app.config.get("OTS_CA_FOLDER"), 'truststore-root.p12', as_attachment=True)
+    filename = f"truststore_root_{urlparse(request.url_root).hostname}.p12"
+    return send_from_directory(app.config.get("OTS_CA_FOLDER"), 'truststore-root.p12', download_name=filename, as_attachment=True)
 
 
 def get_stream_protocol(source_type):
