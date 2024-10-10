@@ -1,5 +1,6 @@
 import datetime
 import hashlib
+import json
 import os
 import time
 import traceback
@@ -16,17 +17,17 @@ from sqlalchemy import update, insert
 from werkzeug.utils import secure_filename
 import pika
 
+from xml.etree.ElementTree import Element, SubElement, tostring
+
 from opentakserver.constants import ADD_CONTENT
 from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.blueprints.marti import basic_auth
 from opentakserver.extensions import db, logger
-from opentakserver.models.EUD import EUD
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionChange import MissionChange
 from opentakserver.models.MissionContent import MissionContent
 from opentakserver.models.MissionContentMission import MissionContentMission
 from opentakserver.models.MissionInvitation import MissionInvitation
-from opentakserver.models.MissionLogEntry import MissionLogEntry
 from opentakserver.models.MissionRole import MissionRole
 
 datasync_api = Blueprint('datasync_api', __name__)
@@ -37,7 +38,6 @@ def verify_token(token) -> dict | bool:
         return False
 
     token = token.replace("Bearer ", "")
-    logger.info(token)
 
     with open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.pub"), "r") as key:
         try:
@@ -63,8 +63,6 @@ def generate_token(mission: Mission):
 
 @datasync_api.route('/Marti/api/missions')
 def get_missions():
-    logger.warning(request.args)
-
     password_protected = request.args.get('passwordProtected')
     if password_protected:
         password_protected = bleach.clean(password_protected).lower() == 'true'
@@ -72,7 +70,6 @@ def get_missions():
     tool = request.args.get('tool')
     if tool:
         tool = bleach.clean(tool)
-    logger.error("Tool is " + tool)
 
     default_role = request.args.get('defaultRole')
     if default_role:
@@ -92,7 +89,6 @@ def get_missions():
         logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
 
-    logger.warning(response)
     return jsonify(response)
 
 
@@ -177,11 +173,11 @@ def put_mission(mission_name: str):
 def get_mission(mission_name: str):
     """ Used by the Data Sync plugin to get a feed's metadata """
     if 'Authorization' in request.headers:
+
         if 'Bearer' in request.headers.get('Authorization') and not verify_token(request.headers.get("Authorization")):
-            logger.error(f"invalid token {request.headers.get('Authorization')}")
             return jsonify({'success': False, 'error': 'Invalid token'}), 401
+
         elif 'Basic' in request.headers.get('Authorization') and not basic_auth(request.headers.get('Authorization').replace("Basic ", "")):
-            logger.error(f"bad auth {request.headers.get('Authorization')}")
             return jsonify({'success': False, 'error': 'Bad username or password'}), 401
 
     if not mission_name:
@@ -193,11 +189,8 @@ def get_mission(mission_name: str):
         mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
         if not mission:
             return jsonify({'success': False, 'error': f'Mission {mission_name} not found'}), 404
-        logger.warning(mission)
 
-        response = {'version': "3", 'type': 'Mission', 'data': [mission[0].to_json()], 'nodeId': app.config.get("OTS_NODE_ID")}
-        logger.info(response)
-        return jsonify(response)
+        return jsonify({'version': "3", 'type': 'Mission', 'data': [mission[0].to_json()], 'nodeId': app.config.get("OTS_NODE_ID")})
     except BaseException as e:
         logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -323,16 +316,14 @@ def mission_changes(mission_name):
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/log', methods=['GET'])
 def mission_log(mission_name):
+    # ATAK makes queries for this path but the TAK.gov server doesn't seem to ever return anything in the data
+    # list. Keeping the response as-is until I can find out what exactly what this API call is supposed to do
+
     response = {
         "version": "3", "type": "com.bbn.marti.sync.model.LogEntry", "data": [],
         "nodeId": app.config.get("OTS_NODE_ID")
     }
 
-    logs = db.session.execute(db.session.query(MissionLogEntry).filter_by(mission_name=mission_name)).all()
-    for log in logs:
-        response['data'].append(log[0].to_json())
-
-    logger.info(response)
     return jsonify(response)
 
 
@@ -351,7 +342,7 @@ def upload_content() -> flask.Response:
         return jsonify({'success': False, 'error': 'File name cannot be blank'}), 400
 
     if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "missions", file_name)):
-        return jsonify({'success': False, 'error': f"File already exists: {file_name}"}), 400
+        return jsonify({'success': True})
 
     filename, extension = os.path.splitext(secure_filename(file_name))
     if extension.replace('.', '').lower() not in app.config.get("ALLOWED_EXTENSIONS"):
@@ -397,8 +388,6 @@ def upload_content() -> flask.Response:
 @datasync_api.route('/Marti/api/missions/<mission_name>/contents', methods=['PUT'])
 def mission_contents(mission_name: str) -> flask.Response:
     """ Associates content/files with a mission """
-    # Body: {"hashes":["6277ed0d85fa6015b05fbc0b4656d3854a41281c83bb2a6b49b09010c1067baf"]}
-    # {"version":"3","type":"Mission","data":[{"name":"my_mission","description":"hhb","chatRoom":"","baseLayer":"","bbox":"","path":"","classification":"","tool":"public","keywords":[],"creatorUid":"ANDROID-e3a3c5d176263d80","createTime":"2024-05-17T16:39:34.621Z","externalData":[],"feeds":[],"mapLayers":[],"defaultRole":{"permissions":["MISSION_WRITE","MISSION_READ"],"hibernateLazyInitializer":{},"type":"MISSION_SUBSCRIBER"},"inviteOnly":false,"missionChanges":[],"expiration":-1,"guid":"351961e9-0a9a-428e-a7bc-d56aa6e95f35","uids":[],"contents":[{"data":{"keywords":[],"mimeType":"application/pdf","name":"ATAK_TAK_GeoCam.pdf","submissionTime":"2024-05-17T16:45:55.517Z","submitter":"anonymous","uid":"a398db81-d0c0-48df-91ec-9b97f95d6fbc","creatorUid":"ANDROID-e3a3c5d176263d80","hash":"6277ed0d85fa6015b05fbc0b4656d3854a41281c83bb2a6b49b09010c1067baf","size":388745,"expiration":-1},"timestamp":"2024-05-17T16:45:55.630Z","creatorUid":"ANDROID-e3a3c5d176263d80"}],"passwordProtected":true}],"nodeId":"a2efc4ca15a74ccd89c947d6b5e551bf"}
 
     body = request.json
 
@@ -407,15 +396,20 @@ def mission_contents(mission_name: str) -> flask.Response:
         logger.error(f"No such mission: {mission_name}")
         return jsonify({'success': False, 'error': f"No such mission: {mission_name}"}), 404
 
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    channel = rabbit_connection.channel()
+
     for content_hash in body['hashes']:
         content = db.session.execute(db.session.query(MissionContent).filter_by(hash=content_hash)).first()
         if not content:
             logger.error(f"No such file with hash {content_hash}")
             return jsonify({'success': False, 'error': f"No such file with hash {content_hash}"}), 404
 
+        content: MissionContent = content[0]
+
         mission_content_mission = MissionContentMission()
         mission_content_mission.mission_name = mission_name
-        mission_content_mission.mission_content_id = content[0].id
+        mission_content_mission.mission_content_id = content.id
 
         db.session.add(mission_content_mission)
 
@@ -424,28 +418,47 @@ def mission_contents(mission_name: str) -> flask.Response:
         mission_change.change_type = ADD_CONTENT
         mission_change.mission_name = mission_name
         mission_change.timestamp = datetime.datetime.now()
-        mission_change.creator_uid = content[0].creator_uid
+        mission_change.creator_uid = content.creator_uid
         mission_change.server_time = datetime.datetime.now()
 
         db.session.add(mission_change)
 
-        eud = db.session.execute(db.session.query(EUD).filter_by(uid=content[0].creator_uid)).first()
-        if eud:
-            callsign = eud[0].callsign
-        else:
-            callsign = content[0].creator_uid
+        event = Element("event", {"version": "2.0", "uid": content.uid, "type": "t-x-m-c", "how": "h-g-i-g-o",
+                                  "start": iso8601_string_from_datetime(mission_change.timestamp),
+                                  "time": iso8601_string_from_datetime(mission_change.timestamp),
+                                  "stale": iso8601_string_from_datetime(mission_change.timestamp + datetime.timedelta(minutes=2))})
+        SubElement(event, "point", {"ce": "9999999", "le": "9999999", "hae": "0", "lat": "0", "lon": "0"})
 
-        log_entry = MissionLogEntry()
-        log_entry.content = f"{callsign} added {content[0].filename}"
-        log_entry.creator_uid = content[0].creator_uid
-        log_entry.mission_name = mission_name
-        log_entry.content_hash = content_hash
+        detail = SubElement(event, "detail")
+        mission_element = SubElement(detail, "mission",
+                                     {"type": "CHANGE", "tool": "public", "name": mission_name, "guid": mission[0].guid,
+                                      "authorUid": mission_change.creator_uid})
+        mission_changes = SubElement(mission_element, "MissionChanges")
+        mission_change_element = SubElement(mission_changes, "MissionChange")
 
-        db.session.add(log_entry)
+        content_resource = SubElement(mission_change_element, "contentResource")
+        SubElement(content_resource, "creatorUid").text = mission_change.creator_uid
+        SubElement(content_resource, "expiration").text = "-1"
+        SubElement(content_resource, "groupVector").text = "0"
+        SubElement(content_resource, "hash").text = content.hash
+        SubElement(content_resource, "mimeType").text = content.mime_type
+        SubElement(content_resource, "name").text = content.filename
+        SubElement(content_resource, "size").text = str(content.size)
+        SubElement(content_resource, "submissionTime").text = iso8601_string_from_datetime(content.submission_time)
+        SubElement(content_resource, "submitter").text = content.submitter
+        SubElement(content_resource, "uid").text = content.uid
+
+        SubElement(mission_change_element, "creatorUid").text = mission_change.creator_uid
+        SubElement(mission_change_element, "isFederatedChange").text = str(mission_change.isFederatedChange)
+        SubElement(mission_change_element, "missionName").text = mission_name
+        SubElement(mission_change_element, "timestamp").text = iso8601_string_from_datetime(mission_change.timestamp)
+        SubElement(mission_change_element, "type").text = mission_change.change_type
+
+        body = json.dumps({'uid': mission_change.creator_uid, 'cot': tostring(event).decode('utf-8')})
+        channel.basic_publish("missions", routing_key=mission_name, body=body)
 
     db.session.commit()
 
-    logger.info({"version": "3", "type": "Mission", "data": [mission[0].to_json()], "nodeId": app.config.get("OTS_NODE_ID")})
     return jsonify({"version": "3", "type": "Mission", "data": [mission[0].to_json()], "nodeId": app.config.get("OTS_NODE_ID")})
 
 
@@ -472,7 +485,6 @@ def content_upload():
     sha256 = hashlib.sha256()
     sha256.update(file)
     file_hash = sha256.hexdigest()
-    logger.debug("got sha256 {}".format(file_hash))
     hash_filename = secure_filename(f"{file_hash}{extension}")
 
     with open(os.path.join(app.config.get("UPLOAD_FOLDER"), hash_filename), "wb") as f:
