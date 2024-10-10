@@ -21,6 +21,7 @@ class CoT(db.Model):
     start: Mapped[datetime] = mapped_column(DateTime)
     stale: Mapped[datetime] = mapped_column(DateTime)
     xml: Mapped[str] = mapped_column(String)
+    mission_name: Mapped[str] = mapped_column(String, ForeignKey("missions.name"), nullable=True)
     eud = relationship("EUD", back_populates="cots", uselist=False)
     alert = relationship("Alert", back_populates="cot", uselist=False)
     point = relationship("Point", back_populates="cot", uselist=False)
@@ -29,6 +30,7 @@ class CoT(db.Model):
     geochat = relationship("GeoChat", back_populates="cot", uselist=False)
     marker = relationship("Marker", back_populates="cot", uselist=False)
     rb_line = relationship("RBLine", back_populates="cot")
+    mission = relationship("Mission", back_populates="cots")
 
     def serialize(self):
         return {

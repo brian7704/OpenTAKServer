@@ -189,10 +189,9 @@ def data_package_download():
                 {'Content-Type': 'application/json'})
 
     download_name = data_package[0].filename
-    if not download_name.endswith('.zip'):
-        download_name += ".zip"
+    name, extension = os.path.splitext(download_name)
 
-    return send_from_directory(app.config.get("UPLOAD_FOLDER"), "{}.zip".format(file_hash), as_attachment=True,
+    return send_from_directory(app.config.get("UPLOAD_FOLDER"), f"{file_hash}{extension}", as_attachment=True,
                                download_name=download_name)
 
 
@@ -289,55 +288,19 @@ def data_package_search():
     return jsonify(res)
 
 
-@data_package_api.route('/Marti/sync/content', methods=['GET'])
+@data_package_api.route('/Marti/sync/content', methods=['GET', 'HEAD'])
 def download_data_package():
     file_hash = request.args.get('hash')
-    data_package = db.session.execute(db.select(DataPackage).filter_by(hash=file_hash)).scalar_one()
+    data_package = db.session.execute(db.select(DataPackage).filter_by(hash=file_hash)).first()
+    if not data_package and request.method == 'HEAD':
+        return '', 404
+    elif not data_package:
+        return jsonify({'success': False, 'error': f'No data package found with hash {file_hash}'}), 404
+    elif data_package and request.method == 'HEAD':
+        return '', 200
 
-    return send_from_directory(app.config.get("UPLOAD_FOLDER"), f"{file_hash}.zip", download_name=data_package.filename)
-
-
-@data_package_api.route('/Marti/sync/upload', methods=['POST'])
-def itak_data_package_upload():
-    if not request.content_length:
-        return {'error': 'no file'}, 400, {'Content-Type': 'application/json'}
-    elif request.content_type != 'application/x-zip-compressed':
-        logger.error("Not a zip")
-        return {'error': 'Please only upload zip files'}, 415, {'Content-Type': 'application/json'}
-
-    file = request.data
-    sha256 = hashlib.sha256()
-    sha256.update(file)
-    file_hash = sha256.hexdigest()
-    logger.debug("got sha256 {}".format(file_hash))
-    hash_filename = secure_filename(file_hash + '.zip')
-
-    with open(os.path.join(app.config.get("UPLOAD_FOLDER"), hash_filename), "wb") as f:
-        f.write(file)
-
-    try:
-        data_package = DataPackage()
-        data_package.filename = request.args.get('name')
-        data_package.hash = file_hash
-        data_package.creator_uid = request.args.get('CreatorUid') if request.args.get('CreatorUid') else str(
-            uuid.uuid4())
-        data_package.submission_user = current_user.id if current_user.is_authenticated else None
-        data_package.submission_time = datetime.now()
-        data_package.mime_type = request.content_type
-        data_package.size = os.path.getsize(os.path.join(app.config.get("UPLOAD_FOLDER"), hash_filename))
-        db.session.add(data_package)
-        db.session.commit()
-    except sqlalchemy.exc.IntegrityError as e:
-        db.session.rollback()
-        logger.error("Failed to save data package: {}".format(e))
-        return jsonify({'success': False, 'error': 'This data package has already been uploaded'}), 400
-
-    return_value = {"UID": data_package.hash, "SubmissionDateTime": data_package.submission_time,
-                    "Keywords": ["missionpackage"],
-                    "MIMEType": data_package.mime_type, "SubmissionUser": "anonymous", "PrimaryKey": "1",
-                    "Hash": data_package.hash, "CreatorUid": data_package.creator_uid, "Name": data_package.filename}
-
-    return jsonify(return_value)
+    filename, extension = os.path.splitext(secure_filename(data_package[0].filename))
+    return send_from_directory(app.config.get("UPLOAD_FOLDER"), f"{file_hash}{extension}", download_name=data_package[0].filename)
 
 
 @data_package_api.route('/Marti/sync/missionquery')

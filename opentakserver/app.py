@@ -52,10 +52,10 @@ from opentakserver.certificate_authority import CertificateAuthority
 from opentakserver.SocketServer import SocketServer
 from pyfiglet import Figlet
 
-try:
-    from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
-except ModuleNotFoundError:
-    print("Mumble auth not supported on this platform")
+#try:
+from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
+#except ModuleNotFoundError:
+#    print("Mumble auth not supported on this platform")
 
 
 def init_extensions(app):
@@ -229,6 +229,9 @@ def create_app():
 
     from opentakserver.blueprints.data_package_api import data_package_api
     app.register_blueprint(data_package_api)
+
+    from opentakserver.blueprints.datasync_api import datasync_api
+    app.register_blueprint(datasync_api)
 
     from opentakserver.blueprints.cli import ots
     app.cli.add_command(ots, name="ots")
