@@ -13,7 +13,7 @@ class MissionChange(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     isFederatedChange: Mapped[bool] = mapped_column(Boolean)
-    change_type: Mapped[str] = mapped_column(String)
+    change_type: Mapped[str] = mapped_column(String)  # "CREATE_MISSION" "DELETE_MISSION" "ADD_CONTENT" "REMOVE_CONTENT" "CREATE_DATA_FEED" "DELETE_DATA_FEED"
     mission_name: Mapped[str] = mapped_column(String, ForeignKey('missions.name'))
     timestamp: Mapped[datetime] = mapped_column(DateTime)
     creator_uid: Mapped[str] = mapped_column(String)

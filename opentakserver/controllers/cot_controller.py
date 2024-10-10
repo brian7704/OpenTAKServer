@@ -8,6 +8,7 @@ import traceback
 import random
 import bleach
 import pika
+from pika.channel import Channel
 import sqlalchemy.exc
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -40,7 +41,7 @@ from opentakserver.models.Marker import Marker
 
 class CoTController(RabbitMQClient):
 
-    def on_channel_open(self, channel):
+    def on_channel_open(self, channel: Channel):
         self.rabbit_channel = channel
         self.rabbit_channel.queue_declare(queue='cot_controller')
         self.rabbit_channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
@@ -784,17 +785,21 @@ class CoTController(RabbitMQClient):
 
         elif destinations:
             for destination in destinations:
+                uid = None
                 # ATAK and WinTAK use callsign, iTAK uses uid
                 if 'callsign' in destination.attrs and destination.attrs['callsign'] in self.online_callsigns:
                     uid = self.online_callsigns[destination.attrs['callsign']]['uid']
                 elif 'uid' in destination.attrs:
                     uid = destination.attrs['uid']
-                else:
-                    continue
 
-                self.rabbit_channel.basic_publish(exchange='dms',
-                                                  routing_key=uid,
-                                                  body=json.dumps(data))
+                if uid:
+                    self.rabbit_channel.basic_publish(exchange='dms',
+                                                      routing_key=uid,
+                                                      body=json.dumps(data))
+
+                # For data sync missions
+                if 'mission' in destination.attrs:
+                    self.rabbit_channel.basic_publish("missions", routing_key=destination.attrs['mission'], body=json.dumps(data))
 
         # If no destination or callsign is specified, broadcast to all TAK clients
         elif self.rabbit_channel and self.rabbit_channel.is_open:

@@ -24,6 +24,7 @@ from opentakserver.extensions import logger, db
 from opentakserver.forms.data_package_form import DataPackageUpdateForm
 from opentakserver.models.Certificate import Certificate
 from opentakserver.models.DataPackage import DataPackage
+from opentakserver.models.MissionContent import MissionContent
 
 data_package_api = Blueprint('data_package_api', __name__)
 
@@ -291,16 +292,23 @@ def data_package_search():
 @data_package_api.route('/Marti/sync/content', methods=['GET', 'HEAD'])
 def download_data_package():
     file_hash = request.args.get('hash')
-    data_package = db.session.execute(db.select(DataPackage).filter_by(hash=file_hash)).first()
-    if not data_package and request.method == 'HEAD':
+    file = db.session.execute(db.select(DataPackage).filter_by(hash=file_hash)).first()
+    if not file:
+        file = db.session.execute(db.select(MissionContent).filter_by(hash=file_hash)).first()
+    if not file and request.method == 'HEAD':
         return '', 404
-    elif not data_package:
+    elif not file:
         return jsonify({'success': False, 'error': f'No data package found with hash {file_hash}'}), 404
-    elif data_package and request.method == 'HEAD':
+    elif file and request.method == 'HEAD':
         return '', 200
 
-    filename, extension = os.path.splitext(secure_filename(data_package[0].filename))
-    return send_from_directory(app.config.get("UPLOAD_FOLDER"), f"{file_hash}{extension}", download_name=data_package[0].filename)
+    filename, extension = os.path.splitext(secure_filename(file[0].filename))
+    if os.path.exists(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{file_hash}{extension}")):
+        return send_from_directory(app.config.get("UPLOAD_FOLDER"), f"{file_hash}{extension}", download_name=file[0].filename)
+    elif os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "missions", file[0].filename)):
+        return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "missions"), file[0].filename)
+    else:
+        return jsonify({'success': False, 'error': f'File not found: {file[0].filename}'}), 404
 
 
 @data_package_api.route('/Marti/sync/missionquery')

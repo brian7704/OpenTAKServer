@@ -117,6 +117,7 @@ def init_extensions(app):
     channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
     channel.queue_declare(queue='cot_controller')
     channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
+    channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
 
     cot_thread = CoTController(app.app_context(), logger, db, socketio)
     app.cot_thread = cot_thread

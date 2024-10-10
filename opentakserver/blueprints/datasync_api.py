@@ -4,6 +4,8 @@ import os
 import time
 import traceback
 import uuid
+
+import flask
 import jwt
 
 import bleach
@@ -12,21 +14,26 @@ from flask import Blueprint, request, current_app as app, jsonify
 from flask_security import current_user
 from sqlalchemy import update, insert
 from werkzeug.utils import secure_filename
+import pika
 
+from opentakserver.constants import ADD_CONTENT
 from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.blueprints.marti import basic_auth
 from opentakserver.extensions import db, logger
+from opentakserver.models.EUD import EUD
 from opentakserver.models.Mission import Mission
+from opentakserver.models.MissionChange import MissionChange
 from opentakserver.models.MissionContent import MissionContent
 from opentakserver.models.MissionContentMission import MissionContentMission
 from opentakserver.models.MissionInvitation import MissionInvitation
+from opentakserver.models.MissionLogEntry import MissionLogEntry
 from opentakserver.models.MissionRole import MissionRole
 
 datasync_api = Blueprint('datasync_api', __name__)
 
 
 def verify_token(token) -> dict | bool:
-    if "Bearer" not in token:
+    if not token or "Bearer" not in token:
         return False
 
     token = token.replace("Bearer ", "")
@@ -111,7 +118,8 @@ def all_invitations():
 
 
 @datasync_api.route('/Marti/api/missions/<mission_name>', methods=['PUT', 'POST'])
-def put_mission(mission_name):
+def put_mission(mission_name: str):
+    """ Used by the Data Sync plugin to create a new feed """
     if not mission_name:
         return jsonify({'success': False, 'error': 'Invalid mission name'}), 400
 
@@ -162,20 +170,18 @@ def put_mission(mission_name):
         'nodeId': app.config.get("OTS_NODE_ID")
     }
 
-    logger.warning(token)
-
     return jsonify(response), 201
 
 
 @datasync_api.route('/Marti/api/missions/<mission_name>', methods=['GET'])
-@datasync_api.route('/api/missions/<mission_name>', methods=['GET'])
-def get_mission(mission_name):
-    if 'Authorization' not in request.headers:
-        return jsonify({'success': False, 'error': 'Missing token'}), 401
-    else:
+def get_mission(mission_name: str):
+    """ Used by the Data Sync plugin to get a feed's metadata """
+    if 'Authorization' in request.headers:
         if 'Bearer' in request.headers.get('Authorization') and not verify_token(request.headers.get("Authorization")):
+            logger.error(f"invalid token {request.headers.get('Authorization')}")
             return jsonify({'success': False, 'error': 'Invalid token'}), 401
         elif 'Basic' in request.headers.get('Authorization') and not basic_auth(request.headers.get('Authorization').replace("Basic ", "")):
+            logger.error(f"bad auth {request.headers.get('Authorization')}")
             return jsonify({'success': False, 'error': 'Bad username or password'}), 401
 
     if not mission_name:
@@ -198,7 +204,8 @@ def get_mission(mission_name):
 
 
 @datasync_api.route('/Marti/api/missions/<mission_name>', methods=['DELETE'])
-def delete_mission(mission_name):
+def delete_mission(mission_name: str):
+    """ Used by the Data Sync plugin to delete a feed """
     if 'creatorUid' not in request.args:
         return jsonify({'success': False, 'error': 'Invalid creator UID'}), 400
 
@@ -214,7 +221,8 @@ def delete_mission(mission_name):
 
 
 @datasync_api.route('/Marti/api/mission/<mission_name>/password', methods=['PUT'])
-def set_password(mission_name):
+def set_password(mission_name: str):
+    """ Used by the Data Sync plugin to add a password to a feed """
     if 'creatorUid' not in request.args or 'password' not in request.args:
         return jsonify({'success': False, 'error': 'Please provide the creatorUid and password'}), 400
 
@@ -232,7 +240,7 @@ def set_password(mission_name):
 
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/subscriptions/roles')
-def mission_roles(mission_name):
+def mission_roles(mission_name: str):
     response = {"version": "3", "type": "MissionSubscription", "data": [], "nodeId": app.config.get("OTS_NODE_ID")}
     roles = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name))
     for role in roles:
@@ -249,8 +257,9 @@ def put_mission_keywords(mission_name):
 
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/subscription', methods=['PUT'])
-@datasync_api.route('/api/missions/<mission_name>/subscription', methods=['PUT'])
-def mission_subscribe(mission_name):
+def mission_subscribe(mission_name: str) -> flask.Response:
+    """ Used by the Data Sync plugin to subscribe to a feed """
+
     if "uid" not in request.args:
         return jsonify({'success': False, 'error': 'Missing UID'}), 400
 
@@ -279,6 +288,10 @@ def mission_subscribe(mission_name):
         db.session.commit()
     else:
         role = role[0]
+
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    channel = rabbit_connection.channel()
+    channel.queue_bind(queue=uid, exchange="missions", routing_key=mission_name)
 
     response = {
         "version": "3", "type": "com.bbn.marti.sync.model.MissionSubscription", "data": {
@@ -311,39 +324,25 @@ def mission_changes(mission_name):
 @datasync_api.route('/Marti/api/missions/<mission_name>/log', methods=['GET'])
 def mission_log(mission_name):
     response = {
-        "version": "3", "type": "com.bbn.marti.sync.model.MissionSubscription", "data": [],
+        "version": "3", "type": "com.bbn.marti.sync.model.LogEntry", "data": [],
         "nodeId": app.config.get("OTS_NODE_ID")
     }
 
+    logs = db.session.execute(db.session.query(MissionLogEntry).filter_by(mission_name=mission_name)).all()
+    for log in logs:
+        response['data'].append(log[0].to_json())
+
+    logger.info(response)
     return jsonify(response)
 
 
-@datasync_api.route('/Marti/sync/content', methods=['HEAD'])
-def check_content_exists():
-    content_hash = request.args.get('hash')
-    if not content_hash:
-        return jsonify({'success': False, 'error': 'Invalid hash'}), 400
-
-    content_hash = bleach.clean(content_hash)
-    logger.warning(f"hash is {content_hash}")
-    content = db.session.execute(db.session.query(MissionContent).filter_by(hash=content_hash)).first()
-    if not content:
-        logger.error(f"no soup for {content_hash}")
-        return '', 404
-    elif not os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "missions", content[0].name)):
-        logger.info(f"No file {content.serialize()}")
-        return '', 404
-
-    return '', 200
-
-
 @datasync_api.route('/Marti/sync/upload', methods=['POST'])
-def upload_content():
-    decoded_jwt = verify_token(request.headers.get('Authorization'))
-    logger.error(decoded_jwt)
+def upload_content() -> flask.Response:
+    """
+    Used by the Data Sync plugin when adding files to a mission
 
-    if 'Authorization' not in request.headers or not decoded_jwt:
-        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 400
+    :return: flask.Response
+    """
 
     file_name = bleach.clean(request.args.get('name')) if 'name' in request.args else None
     creator_uid = bleach.clean(request.args.get('creatorUid')) if 'creatorUid' in request.args else None
@@ -361,7 +360,7 @@ def upload_content():
 
     content = MissionContent()
     content.mime_type = request.content_type
-    content.name = file_name
+    content.filename = file_name
     content.submission_time = datetime.datetime.now()
     content.submitter = current_user.username if current_user.is_authenticated else "anonymous"
     content.uid = str(uuid.uuid4())
@@ -382,13 +381,6 @@ def upload_content():
         logger.debug(traceback.format_exc())
         return jsonify({'success': False, 'error': f"Failed to save content to database: {e}"}), 400
 
-    mission_content_mission = MissionContentMission()
-    mission_content_mission.mission_name = decoded_jwt['MISSION_NAME']
-    mission_content_mission.mission_content_id = content_pk.inserted_primary_key[0]
-
-    db.session.add(mission_content_mission)
-    db.session.commit()
-
     os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'missions'), exist_ok=True)
     with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'missions', file_name), 'wb') as f:
         f.write(file)
@@ -403,17 +395,55 @@ def upload_content():
 
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/contents', methods=['PUT'])
-def mission_contents(mission_name):
+def mission_contents(mission_name: str) -> flask.Response:
+    """ Associates content/files with a mission """
     # Body: {"hashes":["6277ed0d85fa6015b05fbc0b4656d3854a41281c83bb2a6b49b09010c1067baf"]}
     # {"version":"3","type":"Mission","data":[{"name":"my_mission","description":"hhb","chatRoom":"","baseLayer":"","bbox":"","path":"","classification":"","tool":"public","keywords":[],"creatorUid":"ANDROID-e3a3c5d176263d80","createTime":"2024-05-17T16:39:34.621Z","externalData":[],"feeds":[],"mapLayers":[],"defaultRole":{"permissions":["MISSION_WRITE","MISSION_READ"],"hibernateLazyInitializer":{},"type":"MISSION_SUBSCRIBER"},"inviteOnly":false,"missionChanges":[],"expiration":-1,"guid":"351961e9-0a9a-428e-a7bc-d56aa6e95f35","uids":[],"contents":[{"data":{"keywords":[],"mimeType":"application/pdf","name":"ATAK_TAK_GeoCam.pdf","submissionTime":"2024-05-17T16:45:55.517Z","submitter":"anonymous","uid":"a398db81-d0c0-48df-91ec-9b97f95d6fbc","creatorUid":"ANDROID-e3a3c5d176263d80","hash":"6277ed0d85fa6015b05fbc0b4656d3854a41281c83bb2a6b49b09010c1067baf","size":388745,"expiration":-1},"timestamp":"2024-05-17T16:45:55.630Z","creatorUid":"ANDROID-e3a3c5d176263d80"}],"passwordProtected":true}],"nodeId":"a2efc4ca15a74ccd89c947d6b5e551bf"}
 
-    decoded_jwt = verify_token(request.headers.get('Authorization'))
-    if 'Authorization' not in request.headers or not decoded_jwt:
-        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+    body = request.json
 
-    mission = db.session.execute(db.session.query(Mission).filter_by(name=decoded_jwt['MISSION_NAME'])).first()
+    mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
-        return jsonify({'success': False, 'error': f"Mission {decoded_jwt['MISSION_NAME']} not found"}), 404
+        logger.error(f"No such mission: {mission_name}")
+        return jsonify({'success': False, 'error': f"No such mission: {mission_name}"}), 404
+
+    for content_hash in body['hashes']:
+        content = db.session.execute(db.session.query(MissionContent).filter_by(hash=content_hash)).first()
+        if not content:
+            logger.error(f"No such file with hash {content_hash}")
+            return jsonify({'success': False, 'error': f"No such file with hash {content_hash}"}), 404
+
+        mission_content_mission = MissionContentMission()
+        mission_content_mission.mission_name = mission_name
+        mission_content_mission.mission_content_id = content[0].id
+
+        db.session.add(mission_content_mission)
+
+        mission_change = MissionChange()
+        mission_change.isFederatedChange = False
+        mission_change.change_type = ADD_CONTENT
+        mission_change.mission_name = mission_name
+        mission_change.timestamp = datetime.datetime.now()
+        mission_change.creator_uid = content[0].creator_uid
+        mission_change.server_time = datetime.datetime.now()
+
+        db.session.add(mission_change)
+
+        eud = db.session.execute(db.session.query(EUD).filter_by(uid=content[0].creator_uid)).first()
+        if eud:
+            callsign = eud[0].callsign
+        else:
+            callsign = content[0].creator_uid
+
+        log_entry = MissionLogEntry()
+        log_entry.content = f"{callsign} added {content[0].filename}"
+        log_entry.creator_uid = content[0].creator_uid
+        log_entry.mission_name = mission_name
+        log_entry.content_hash = content_hash
+
+        db.session.add(log_entry)
+
+    db.session.commit()
 
     logger.info({"version": "3", "type": "Mission", "data": [mission[0].to_json()], "nodeId": app.config.get("OTS_NODE_ID")})
     return jsonify({"version": "3", "type": "Mission", "data": [mission[0].to_json()], "nodeId": app.config.get("OTS_NODE_ID")})

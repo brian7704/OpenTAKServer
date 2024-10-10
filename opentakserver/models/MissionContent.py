@@ -14,7 +14,7 @@ class MissionContent(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     keywords: Mapped[JSON] = mapped_column(JSON, nullable=True)
     mime_type: Mapped[str] = mapped_column(String, nullable=True)
-    name: Mapped[str] = mapped_column(String, nullable=True)
+    filename: Mapped[str] = mapped_column(String, nullable=True)
     submission_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     submitter: Mapped[str] = mapped_column(String, nullable=True)
     uid: Mapped[str] = mapped_column(String, nullable=True)
@@ -29,7 +29,7 @@ class MissionContent(db.Model):
         return {
             "keywords": self.keywords,
             "mime_type": self.mime_type,
-            "name": self.name,
+            "filename": self.filename,
             "submission_time": self.submission_time,
             "submitter": self.submitter,
             "uid": self.uid,
@@ -44,7 +44,7 @@ class MissionContent(db.Model):
             "data": {
                 "keywords": self.keywords if self.keywords else [],
                 "mimeType": self.mime_type,
-                "name": self.name,
+                "name": self.filename,
                 "submissionTime": iso8601_string_from_datetime(self.submission_time),
                 "submitter": self.submitter,
                 "uid": self.uid,
