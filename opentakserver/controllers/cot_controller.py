@@ -6,6 +6,8 @@ import time
 import traceback
 
 import random
+from xml.etree.ElementTree import Element, tostring
+
 import bleach
 import pika
 from pika.channel import Channel
@@ -17,7 +19,11 @@ from bs4 import BeautifulSoup
 from meshtastic import mqtt_pb2, mesh_pb2, portnums_pb2, BROADCAST_NUM
 import unishox2
 
+from opentakserver.constants import MissionChangeConstants
 from opentakserver.functions import *
+from opentakserver.models.Mission import Mission
+from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
+from opentakserver.models.MissionUID import MissionUID
 
 from opentakserver.proto import atak_pb2
 from opentakserver.controllers.rabbitmq_client import RabbitMQClient
@@ -210,10 +216,16 @@ class CoTController(RabbitMQClient):
         stale = datetime_from_iso8601_string(event.attrs['stale'])
         timestamp = datetime_from_iso8601_string(event.attrs['time'])
 
+        # Assign CoT to a data sync mission
+        dest = event.find("dest")
+        mission_name = None
+        if dest and 'mission' in dest.attrs:
+            mission_name = dest.attrs['mission']
+
         with self.context:
             res = self.db.session.execute(insert(CoT).values(
                 how=event.attrs['how'], type=event.attrs['type'], sender_callsign=sender_callsign,
-                sender_uid=uid, timestamp=timestamp, xml=str(soup), start=start, stale=stale
+                sender_uid=uid, timestamp=timestamp, xml=str(soup), start=start, stale=stale, mission_name=mission_name
             ))
 
             self.db.session.commit()
@@ -799,7 +811,60 @@ class CoTController(RabbitMQClient):
 
                 # For data sync missions
                 if 'mission' in destination.attrs:
+                    with self.context:
+                        mission = self.db.session.execute(
+                            self.db.session.query(Mission).filter_by(name=destination.attrs['mission'])).first()
+
+                    if not mission:
+                        self.logger.error(f"No such mission found: {destination.attrs['mission']}")
+                        return
+
                     self.rabbit_channel.basic_publish("missions", routing_key=destination.attrs['mission'], body=json.dumps(data))
+
+                    mission_change = MissionChange()
+                    mission_change.isFederatedChange = False
+                    mission_change.change_type = MissionChangeConstants.ADD_CONTENT
+                    mission_change.mission_name = destination.attrs['mission']
+                    mission_change.timestamp = datetime_from_iso8601_string(event.attrs['start'])
+                    mission_change.creator_uid = data['uid']
+                    mission_change.server_time = datetime_from_iso8601_string(event.attrs['start'])
+
+                    with self.context:
+                        change_pk = self.db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
+                        self.db.session.commit()
+
+                        body = {'uid': uid, 'cot': tostring(generate_mission_change_cot(destination.attrs['mission'], mission, None, event, mission_change)).decode('utf-8')}
+                        self.rabbit_channel.basic_publish("dms", routing_key=data['uid'], body=json.dumps(body))
+
+                        mission_uid = MissionUID()
+                        mission_uid.uid = event.attrs['uid']
+                        mission_uid.mission_name = destination.attrs['mission']
+                        mission_uid.timestamp = datetime_from_iso8601_string(event.attrs['start'])
+                        mission_uid.creator_uid = body['uid']
+                        mission_uid.cot_type = event.attrs['type']
+                        mission_uid.mission_change_id = change_pk.inserted_primary_key[0]
+
+                        color = event.find('color')
+                        icon = event.find('usericon')
+                        point = event.find('point')
+                        contact = event.find('contact')
+
+                        if color:
+                            mission_uid.color = color.attrs['argb']
+                        if icon:
+                            mission_uid.iconset_path = icon['iconsetpath']
+                        if point:
+                            mission_uid.latitude = float(point.attrs['lat'])
+                            mission_uid.longitude = float(point.attrs['lon'])
+                        if contact:
+                            mission_uid.callsign = contact.attrs['callsign']
+
+                        try:
+                            self.db.session.add(mission_uid)
+                            self.db.session.commit()
+                        except sqlalchemy.exc.IntegrityError:
+                            self.db.session.rollback()
+                            self.db.session.execute(update(MissionUID).values(**mission_uid.serialize().pop['uid']))
 
         # If no destination or callsign is specified, broadcast to all TAK clients
         elif self.rabbit_channel and self.rabbit_channel.is_open:
@@ -822,7 +887,7 @@ class CoTController(RabbitMQClient):
         try:
             body = json.loads(body)
             soup = BeautifulSoup(body['cot'], 'xml')
-            event = soup.find('event')
+            event: BeautifulSoup = soup.find('event')
 
             uid = body['uid'] or event.attrs['uid']
             if event:

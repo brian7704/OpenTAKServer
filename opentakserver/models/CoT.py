@@ -13,6 +13,7 @@ class CoT(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     how: Mapped[str] = mapped_column(String, nullable=True)
     type: Mapped[str] = mapped_column(String, nullable=True)
+    uid: Mapped[str] = mapped_column(String, nullable=True)
     sender_callsign: Mapped[str] = mapped_column(String)
     sender_device_name: Mapped[str] = mapped_column(String, nullable=True)
     sender_uid: Mapped[str] = mapped_column(String, ForeignKey("euds.uid"), nullable=True)
@@ -36,6 +37,7 @@ class CoT(db.Model):
         return {
             'how': self.how,
             'type': self.type,
+            'uid': self.uid,
             'sender_callsign': self.sender_callsign,
             'sender_uid': self.sender_uid,
             'recipients': self.recipients,
@@ -49,6 +51,7 @@ class CoT(db.Model):
         return {
             'how': self.how,
             'type': self.type,
+            'uid': self.uid,
             'sender_callsign': self.sender_callsign,
             'sender_uid': self.sender_uid,
             'recipients': self.recipients,

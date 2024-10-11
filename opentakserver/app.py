@@ -52,18 +52,21 @@ from opentakserver.certificate_authority import CertificateAuthority
 from opentakserver.SocketServer import SocketServer
 from pyfiglet import Figlet
 
-#try:
-from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
-#except ModuleNotFoundError:
-#    print("Mumble auth not supported on this platform")
+try:
+    from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
+except ModuleNotFoundError:
+    print("Mumble auth not supported on this platform")
 
 
 def init_extensions(app):
     db.init_app(app)
     Migrate(app, db)
 
+    from opentakserver.logo import ots_logo
+
     f = Figlet(font=random.choice(app.config.get("OTS_FIGLET_FONTS")), justify="center", width=app.config.get("OTS_FIGLET_WIDTH"))
-    logger.info(f.renderText(f"\nOpenTAKServer {opentakserver.__version__}\n"))
+    print(ots_logo)
+    #logger.info(f.renderText(f"\nOpenTAKServer {opentakserver.__version__}\n"))
     logger.info(f"OpenTAKServer {opentakserver.__version__}")
     logger.info("Loading the database...")
     with app.app_context():

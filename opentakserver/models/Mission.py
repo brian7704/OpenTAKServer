@@ -1,10 +1,7 @@
 import datetime
 from dataclasses import dataclass
 
-from opentakserver.models.MissionContentMission import MissionContentMission
-from opentakserver.models.MissionChange import MissionChange
-from opentakserver.models.MissionContentMissionChange import MissionContentMissionChange
-from opentakserver.models.MissionContent import MissionContent
+from opentakserver.constants import MissionRoleConstants
 from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.extensions import db
 from sqlalchemy import Integer, String, Boolean, JSON, DateTime
@@ -34,14 +31,14 @@ class Mission(db.Model):
     invite_only: Mapped[bool] = mapped_column(Boolean, nullable=True)
     expiration: Mapped[int] = mapped_column(Integer, nullable=False, default=-1)
     guid: Mapped[str] = mapped_column(String, nullable=True)
-    uids: Mapped[str] = mapped_column(String, nullable=True)
     password_protected: Mapped[bool] = mapped_column(Boolean, nullable=True)
     password: Mapped[str] = mapped_column(String, nullable=True)
     invitations = relationship("MissionInvitation", cascade="all, delete-orphan",  back_populates="mission")
     roles = relationship("MissionRole", cascade="all, delete-orphan",  back_populates="mission")
     mission_changes = relationship("MissionChange", cascade="all, delete-orphan",  back_populates="mission", uselist=True)
     contents = relationship("MissionContent", cascade="all",  secondary="mission_content_mission", back_populates="mission", uselist=True)
-    cots = relationship("CoT", back_populates="mission")
+    cots = relationship("CoT", back_populates="mission", uselist=True)
+    uids = relationship("MissionUID", cascade="all, delete-orphan", back_populates="mission")
 
     def serialize(self):
         return {
@@ -90,28 +87,19 @@ class Mission(db.Model):
             'inviteOnly': self.invite_only if self.invite_only is not None else False,
             'expiration': self.expiration if self.expiration is not None else -1,
             'guid': self.guid or "",
-            'uids': self.uids if self.uids else [],
+            'uids': [uid.to_json() for uid in self.uids],
             'contents': [content.to_json() for content in self.contents],
             'passwordProtected': self.password_protected if self.password_protected is not None else False,
             'missionChanges': [mission_change.to_json() for mission_change in self.mission_changes]
         }
 
-        if self.default_role == "MISSION_SUBSCRIBER" or not self.default_role:
-            json['defaultRole'] = {
-                "permissions": ["MISSION_READ", "MISSION_WRITE"],
-                "type": "MISSION_SUBSCRIBER"
-            }
-        elif self.default_role == "MISSION_OWNER":
-            json['defaultRole']['permissions'].append("MISSION_MANAGE_FEEDS")
-            json['defaultRole']['permissions'].append("MISSION_SET_PASSWORD")
-            json['defaultRole']['permissions'].append("MISSION_WRITE")
-            json['defaultRole']['permissions'].append("MISSION_MANAGE_LAYERS")
-            json['defaultRole']['permissions'].append("MISSION_UPDATE_GROUPS")
-            json['defaultRole']['permissions'].append("MISSION_DELETE")
-            json['defaultRole']['permissions'].append("MISSION_SET_ROLE")
-            json['defaultRole']['permissions'].append("MISSION_READ")
-            json['defaultRole']['type'] = "MISSION_OWNER"
+        if self.default_role == MissionRoleConstants.MISSION_SUBSCRIBER or not self.default_role:
+            json['defaultRole'] = MissionRoleConstants.SUBSCRIBER_ROLE
+
+        elif self.default_role == MissionRoleConstants.MISSION_OWNER:
+            json['defaultRole'] = MissionRoleConstants.OWNER_ROLE
+
+        else:
+            json['defaultRole'] = MissionRoleConstants.READ_ONLY_ROLE
 
         return json
-
-

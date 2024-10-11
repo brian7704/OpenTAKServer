@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from opentakserver.extensions import db
 from opentakserver.functions import iso8601_string_from_datetime
+from opentakserver.constants import MissionRoleConstants
 from sqlalchemy import Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -38,21 +39,13 @@ class MissionRole(db.Model):
             }
         }
 
-        if self.role_type == "MISSION_OWNER":
-            json['role']['permissions'].append("MISSION_MANAGE_FEEDS")
-            json['role']['permissions'].append("MISSION_SET_PASSWORD")
-            json['role']['permissions'].append("MISSION_WRITE")
-            json['role']['permissions'].append("MISSION_MANAGE_LAYERS")
-            json['role']['permissions'].append("MISSION_UPDATE_GROUPS")
-            json['role']['permissions'].append("MISSION_DELETE")
-            json['role']['permissions'].append("MISSION_SET_ROLE")
-            json['role']['permissions'].append("MISSION_READ")
+        if self.role_type == MissionRoleConstants.MISSION_OWNER:
+            json['role'] = MissionRoleConstants.OWNER_ROLE
 
-        elif self.role_type == "MISSION_SUBSCRIBER":
-            json['role']['permissions'].append("MISSION_WRITE")
-            json['role']['permissions'].append("MISSION_READ")
+        elif self.role_type == MissionRoleConstants.MISSION_SUBSCRIBER:
+            json['role'] = MissionRoleConstants.SUBSCRIBER_ROLE
 
         else:
-            json['role']['permissions'].append("MISSION_READ")
+            json['role'] = MissionRoleConstants.READ_ONLY_ROLE
 
         return json

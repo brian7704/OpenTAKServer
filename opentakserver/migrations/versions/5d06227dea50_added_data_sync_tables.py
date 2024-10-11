@@ -52,7 +52,6 @@ def upgrade():
     sa.Column('invite_only', sa.Boolean(), nullable=True),
     sa.Column('expiration', sa.Integer(), nullable=False),
     sa.Column('guid', sa.String(), nullable=True),
-    sa.Column('uids', sa.String(), nullable=True),
     sa.Column('password_protected', sa.Boolean(), nullable=True),
     sa.Column('password', sa.String(), nullable=True),
     sa.PrimaryKeyConstraint('name')

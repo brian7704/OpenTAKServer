@@ -17,18 +17,21 @@ from sqlalchemy import update, insert
 from werkzeug.utils import secure_filename
 import pika
 
-from xml.etree.ElementTree import Element, SubElement, tostring
+from xml.etree.ElementTree import tostring, Element, fromstring
 
-from opentakserver.constants import ADD_CONTENT
+from opentakserver.constants import MissionChangeConstants, MissionRoleConstants
 from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.blueprints.marti import basic_auth
 from opentakserver.extensions import db, logger
+from opentakserver.models.CoT import CoT
 from opentakserver.models.Mission import Mission
-from opentakserver.models.MissionChange import MissionChange
+from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
 from opentakserver.models.MissionContent import MissionContent
 from opentakserver.models.MissionContentMission import MissionContentMission
+from opentakserver.models.MissionContentMissionChange import MissionContentMissionChange
 from opentakserver.models.MissionInvitation import MissionInvitation
 from opentakserver.models.MissionRole import MissionRole
+from opentakserver.models.MissionUID import MissionUID
 
 datasync_api = Blueprint('datasync_api', __name__)
 
@@ -82,9 +85,8 @@ def get_missions():
     try:
         missions = db.session.execute(db.session.query(Mission).filter_by(tool=tool)).scalars()
         for mission in missions:
-            mission = mission.serialize()
-            mission['defaultRole'] = {'permissions': ["MISSION_WRITE", "MISSION_READ"], "type": "MISSION_SUBSCRIBER"}
-            response['data'].append(mission)
+            response['data'].append(mission.to_json())
+
     except BaseException as e:
         logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -140,8 +142,6 @@ def put_mission(mission_name: str):
 
     token = generate_token(mission)
 
-    os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "missions", bleach.clean(mission_name)), exist_ok=True)
-
     try:
         db.session.add(mission)
         db.session.commit()
@@ -150,21 +150,22 @@ def put_mission(mission_name: str):
         logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': "Failed to add mission: {}".format(e)}), 400
 
-    response = {
-        'version': "3", 'type': 'Mission', 'data': [{
-            'name': mission_name, 'description': mission.description, 'chatRoom': '', 'baseLayer': '', 'path': '',
-            'classification': '', 'tool': mission.tool, 'keywords': [], 'creatorUid': mission.creator_uid, 'bbox': '',
-            'createTime': mission.create_time, 'externalData': [], 'feeds': [], 'mapLayers': [], 'defaultRole': {
-                'permissions': ["MISSION_WRITE", "MISSION_READ"], "type": "MISSION_SUBSCRIBER"},
+    mission_change = MissionChange()
+    mission_change.isFederatedChange = False
+    mission_change.change_type = MissionChangeConstants.CREATE_MISSION
+    mission_change.mission_name = mission_name
+    mission_change.timestamp = mission.create_time
+    mission_change.creator_uid = mission.creator_uid
+    mission_change.server_time = mission.create_time
 
-            'ownerRole': {"permissions": ["MISSION_MANAGE_FEEDS", "MISSION_SET_PASSWORD", "MISSION_WRITE",
-                                          "MISSION_MANAGE_LAYERS", "MISSION_UPDATE_GROUPS", "MISSION_SET_ROLE",
-                                          "MISSION_READ", "MISSION_DELETE"], "type": "MISSION_OWNER"},
-            'inviteOnly': False, 'expiration': -1, 'guid': mission.guid, 'uids': [], 'contents': [], 'token': token,
-            'passwordProtected': mission.password_protected
-        }],
-        'nodeId': app.config.get("OTS_NODE_ID")
-    }
+    db.session.add(mission_change)
+    db.session.commit()
+
+    mission_json = mission.to_json()
+    mission_json['token'] = token
+    mission_json['ownerRole'] = MissionRoleConstants.OWNER_ROLE
+
+    response = {'version': "3", 'type': 'Mission', 'data': [mission_json], 'nodeId': app.config.get("OTS_NODE_ID")}
 
     return jsonify(response), 201
 
@@ -300,6 +301,26 @@ def mission_subscribe(mission_name: str) -> flask.Response:
     return jsonify(response), 201
 
 
+@datasync_api.route('/Marti/api/missions/<mission_name>/subscription', methods=['DELETE'])
+def mission_unsubscribe(mission_name: str) -> flask.Response:
+    """ Used by the Data Sync plugin to unsubscribe to a feed """
+    if "uid" not in request.args:
+        return jsonify({'success': False, 'error': 'Missing UID'}), 400
+
+    uid = bleach.clean(request.args.get("uid"))
+    role = db.session.execute(db.session.query(MissionRole).filter_by(clientUid=uid, mission_name=mission_name)).first()
+
+    if role:
+        db.session.delete(role[0])
+        db.session.commit()
+
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    channel = rabbit_connection.channel()
+    channel.queue_unbind(queue=uid, exchange="missions", routing_key=mission_name)
+
+    return '', 200
+
+
 @datasync_api.route('/Marti/api/missions/<mission_name>/changes', methods=['GET'])
 def mission_changes(mission_name):
     # {"version":"3","type":"MissionChange","data":[{"isFederatedChange":false,"type":"CREATE_MISSION","missionName":"my_mission","timestamp":"2024-05-17T16:39:34.621Z","creatorUid":"ANDROID-e3a3c5d176263d80","serverTime":"2024-05-17T16:39:34.621Z"}],"nodeId":"a2efc4ca15a74ccd89c947d6b5e551bf"}
@@ -396,9 +417,6 @@ def mission_contents(mission_name: str) -> flask.Response:
         logger.error(f"No such mission: {mission_name}")
         return jsonify({'success': False, 'error': f"No such mission: {mission_name}"}), 404
 
-    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
-    channel = rabbit_connection.channel()
-
     for content_hash in body['hashes']:
         content = db.session.execute(db.session.query(MissionContent).filter_by(hash=content_hash)).first()
         if not content:
@@ -415,7 +433,7 @@ def mission_contents(mission_name: str) -> flask.Response:
 
         mission_change = MissionChange()
         mission_change.isFederatedChange = False
-        mission_change.change_type = ADD_CONTENT
+        mission_change.change_type = MissionChangeConstants.ADD_CONTENT
         mission_change.mission_name = mission_name
         mission_change.timestamp = datetime.datetime.now()
         mission_change.creator_uid = content.creator_uid
@@ -423,43 +441,47 @@ def mission_contents(mission_name: str) -> flask.Response:
 
         db.session.add(mission_change)
 
-        event = Element("event", {"version": "2.0", "uid": content.uid, "type": "t-x-m-c", "how": "h-g-i-g-o",
-                                  "start": iso8601_string_from_datetime(mission_change.timestamp),
-                                  "time": iso8601_string_from_datetime(mission_change.timestamp),
-                                  "stale": iso8601_string_from_datetime(mission_change.timestamp + datetime.timedelta(minutes=2))})
-        SubElement(event, "point", {"ce": "9999999", "le": "9999999", "hae": "0", "lat": "0", "lon": "0"})
-
-        detail = SubElement(event, "detail")
-        mission_element = SubElement(detail, "mission",
-                                     {"type": "CHANGE", "tool": "public", "name": mission_name, "guid": mission[0].guid,
-                                      "authorUid": mission_change.creator_uid})
-        mission_changes = SubElement(mission_element, "MissionChanges")
-        mission_change_element = SubElement(mission_changes, "MissionChange")
-
-        content_resource = SubElement(mission_change_element, "contentResource")
-        SubElement(content_resource, "creatorUid").text = mission_change.creator_uid
-        SubElement(content_resource, "expiration").text = "-1"
-        SubElement(content_resource, "groupVector").text = "0"
-        SubElement(content_resource, "hash").text = content.hash
-        SubElement(content_resource, "mimeType").text = content.mime_type
-        SubElement(content_resource, "name").text = content.filename
-        SubElement(content_resource, "size").text = str(content.size)
-        SubElement(content_resource, "submissionTime").text = iso8601_string_from_datetime(content.submission_time)
-        SubElement(content_resource, "submitter").text = content.submitter
-        SubElement(content_resource, "uid").text = content.uid
-
-        SubElement(mission_change_element, "creatorUid").text = mission_change.creator_uid
-        SubElement(mission_change_element, "isFederatedChange").text = str(mission_change.isFederatedChange)
-        SubElement(mission_change_element, "missionName").text = mission_name
-        SubElement(mission_change_element, "timestamp").text = iso8601_string_from_datetime(mission_change.timestamp)
-        SubElement(mission_change_element, "type").text = mission_change.change_type
+        event = generate_mission_change_cot(mission_name, mission, content, mission_change)
 
         body = json.dumps({'uid': mission_change.creator_uid, 'cot': tostring(event).decode('utf-8')})
+        rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+        channel = rabbit_connection.channel()
         channel.basic_publish("missions", routing_key=mission_name, body=body)
 
     db.session.commit()
 
     return jsonify({"version": "3", "type": "Mission", "data": [mission[0].to_json()], "nodeId": app.config.get("OTS_NODE_ID")})
+
+
+@datasync_api.route('/Marti/api/missions/<mission_name>/contents', methods=['DELETE'])
+def delete_content(mission_name: str):
+    mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
+    if not mission:
+        return jsonify({'success': False, 'error': f'Mission {mission_name} not found'}), 404
+
+    if 'uid' in request.args:
+        mission_uid = db.session.execute(db.session.query(MissionUID).filter_by(uid=request.args.get('uid'))).first()
+        if not mission_uid:
+            return jsonify({'success': False, 'error': f"UID {request.args.get('uid')} not found"}), 404
+        else:
+            db.session.delete(mission_uid[0])
+            db.session.commit()
+
+    if 'hash' in request.args:
+        content = db.session.execute(db.session.query(MissionContent).filter_by(hash=request.args.get('hash'))).first()
+        if not content:
+            return jsonify({'success': False, 'error': f"No content found with hash {request.args.get('hash')}"}), 404
+
+        try:
+            os.remove(os.path.join(app.config.get("OTS_DATA_FOLDER"), "missions", content[0].filename))
+            db.session.delete(content[0])
+            db.session.commit()
+        except BaseException as e:
+            logger.error(f"Failed to delete content with hash {request.args.get('hash')}: {e}")
+            logger.debug(traceback.format_exc())
+            return jsonify({'success': False, 'error': f"Failed to delete content with hash {request.args.get('hash')}: {e}"}), 500
+
+    return jsonify({'success': True})
 
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/contents/missionpackage', methods=['PUT'])
@@ -469,6 +491,23 @@ def add_content(mission_name):
         return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
 
     return '', 200
+
+
+@datasync_api.route('/Marti/api/missions/<mission_name>/cot')
+def get_mission_cots(mission_name: str):
+    """
+    Used by the Data Sync plugin to get all CoTs associated with a feed. Returns the CoTs encapsulated by an
+    <events> tag
+    """
+
+    cots = db.session.execute(db.session.query(CoT).filter_by(mission_name=mission_name)).all()
+
+    events = Element("events")
+
+    for cot in cots:
+        events.append(fromstring(cot[0].xml))
+
+    return tostring(events).decode('utf-8'), 200
 
 
 #@datasync_api.route('/Marti/sync/upload', methods=['POST'])
