@@ -33,7 +33,7 @@ from opentakserver.certificate_authority import CertificateAuthority
 
 from opentakserver.models.Certificate import Certificate
 
-marti_blueprint = Blueprint('marti_blueprint', __name__)
+certificate_authority_api_blueprint = Blueprint('certificate_authority_api_blueprint', __name__)
 
 
 # flask-security's http_auth_required() decorator will deny access because ATAK doesn't do CSRF,
@@ -50,25 +50,8 @@ def basic_auth(credentials):
         return False
 
 
-@marti_blueprint.route('/Marti/api/clientEndPoints', methods=['GET'])
-def client_end_points():
-    euds = db.session.execute(db.select(EUD)).scalars()
-    return_value = {'version': 3, "type": "com.bbn.marti.remote.ClientEndpoint", 'data': [],
-                    'nodeId': app.config.get("OTS_NODE_ID")}
-    for eud in euds:
-        return_value['data'].append({
-            'callsign': eud.callsign,
-            'uid': eud.uid,
-            'username': current_user.username if current_user.is_authenticated else 'anonymous',
-            'lastEventTime': eud.last_event_time,
-            'lastStatus': eud.last_status
-        })
-
-    return return_value, 200, {'Content-Type': 'application/json'}
-
-
 # require basic auth
-@marti_blueprint.route('/Marti/api/tls/config')
+@certificate_authority_api_blueprint.route('/Marti/api/tls/config')
 def tls_config():
     if not basic_auth(request.headers.get('Authorization')):
         return '', 401
@@ -89,14 +72,14 @@ def tls_config():
     return tostring(root_element), 200, {'Content-Type': 'application/xml'}
 
 
-@marti_blueprint.route('/Marti/api/tls/signClient/', methods=['POST'])
+@certificate_authority_api_blueprint.route('/Marti/api/tls/signClient/', methods=['POST'])
 def sign_csr():
     if not basic_auth(request.headers.get('Authorization')):
         return '', 401
     return '', 200
 
 
-@marti_blueprint.route('/Marti/api/tls/signClient/v2', methods=['POST'])
+@certificate_authority_api_blueprint.route('/Marti/api/tls/signClient/v2', methods=['POST'])
 def sign_csr_v2():
     if not basic_auth(request.headers.get('Authorization')):
         return '', 401
@@ -204,148 +187,3 @@ def sign_csr_v2():
     except BaseException as e:
         logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
-
-
-@marti_blueprint.route('/Marti/api/version/config', methods=['GET'])
-def marti_config():
-    url = urlparse(request.url_root)
-
-    return {"version": "3", "type": "ServerConfig",
-            "data": {"version": version, "api": "3", "hostname": url.hostname},
-            "nodeId": app.config.get("OTS_NODE_ID")}, 200, {'Content-Type': 'application/json'}
-
-
-@marti_blueprint.route('/Marti/api/missions/citrap/subscription', methods=['PUT'])
-def citrap_subscription():
-    uid = bleach.clean(request.args.get('uid'))
-    response = {
-        'version': 3, 'type': 'com.bbn.marti.sync.model.MissionSubscription',
-        'data': {
-
-        }
-    }
-    return '', 201
-
-
-@marti_blueprint.route('/Marti/api/groups/all')
-def groups():
-    use_cache = bleach.clean(request.args.get('useCache'))  # bool
-
-    response = {
-        'version': 3, 'type': 'com.bbn.marti.remote.groups.Group', 'data': [{}], 'nodeId': app.config.get("OTS_NODE_ID")
-    }
-
-    return jsonify(response)
-
-
-@marti_blueprint.route('/Marti/api/citrap')
-def citrap():
-    return jsonify([])
-
-
-@marti_blueprint.route('/Marti/api/groups/groupCacheEnabled')
-def group_cache_enabled():
-    response = {
-        'version': 3, 'type': 'java.lang.Boolean', 'data': False, 'nodeId': app.config.get('OTS_NODE_ID')
-    }
-
-    return jsonify(response)
-
-
-@marti_blueprint.route('/Marti/vcm', methods=['GET', 'POST'])
-def video():
-    if request.method == 'POST':
-        soup = BeautifulSoup(request.data, 'xml')
-        video_connections = soup.find('videoConnections')
-
-        path = video_connections.find('path').text
-        if path.startswith("/"):
-            path = path[1:]
-
-        if video_connections:
-            v = VideoStream()
-            v.protocol = video_connections.find('protocol').text
-            v.alias = video_connections.find('alias').text
-            v.uid = video_connections.find('uid').text
-            v.port = video_connections.find('port').text
-            v.rover_port = video_connections.find('roverPort').text
-            v.ignore_embedded_klv = (video_connections.find('ignoreEmbeddedKLV').text.lower() == 'true')
-            v.preferred_mac_address = video_connections.find('preferredMacAddress').text
-            v.preferred_interface_address = video_connections.find('preferredInterfaceAddress').text
-            v.path = path
-            v.buffer_time = video_connections.find('buffer').text
-            v.network_timeout = video_connections.find('timeout').text
-            v.rtsp_reliable = video_connections.find('rtspReliable').text
-            path_config = MediaMTXPathConfig(None).serialize()
-            path_config['sourceOnDemand'] = False
-            v.mediamtx_settings = json.dumps(path_config)
-
-            # Discard username and password for security
-            feed = soup.find('feed')
-            address = feed.find('address').text
-            feed.find('address').string.replace_with(address.split("@")[-1])
-
-            v.xml = str(feed)
-
-            with app.app_context():
-                try:
-                    db.session.add(v)
-                    db.session.commit()
-                    logger.debug("Inserted Video")
-                except sqlalchemy.exc.IntegrityError as e:
-                    db.session.rollback()
-                    v = db.session.execute(db.select(VideoStream).filter_by(path=v.path)).scalar_one()
-                    v.protocol = video_connections.find('protocol').text
-                    v.alias = video_connections.find('alias').text
-                    v.uid = video_connections.find('uid').text
-                    v.port = video_connections.find('port').text
-                    v.rover_port = video_connections.find('roverPort').text
-                    v.ignore_embedded_klv = (video_connections.find('ignoreEmbeddedKLV').text.lower() == 'true')
-                    v.preferred_mac_address = video_connections.find('preferredMacAddress').text
-                    v.preferred_interface_address = video_connections.find('preferredInterfaceAddress').text
-                    v.path = video_connections.find('path').text
-                    v.buffer_time = video_connections.find('buffer').text
-                    v.network_timeout = video_connections.find('timeout').text
-                    v.rtsp_reliable = video_connections.find('rtspReliable').text
-                    feed = soup.find('feed')
-                    address = feed.find('address').text
-                    feed.find('address').replace_with(address.split("@")[-1])
-
-                    v.xml = str(feed)
-
-                    db.session.commit()
-                    logger.debug("Updated video")
-
-        return '', 200
-
-    elif request.method == 'GET':
-        try:
-            with app.app_context():
-                videos = db.session.execute(db.select(VideoStream)).scalars()
-                videoconnections = Element('videoConnections')
-
-                for video in videos:
-                    # Make sure videos have the correct address based off of the Flask request and not 127.0.0.1
-                    # This also forces all streams to bounce through MediaMTX
-                    feed = BeautifulSoup(video.xml, 'xml')
-
-                    url = urlparse(request.url_root).hostname
-                    path = feed.find('path').text
-                    if not path.startswith("/"):
-                        path = "/" + path
-
-                    if 'iTAK' in request.user_agent.string:
-                        url = feed.find('protocol').text + "://" + url + ":" + feed.find("port").text + path
-
-                    if feed.find('address'):
-                        feed.find('address').string.replace_with(url)
-                    else:
-                        address = feed.new_tag('address')
-                        address.string = url
-                        feed.feed.append(address)
-                    videoconnections.append(fromstring(str(feed)))
-
-            return tostring(videoconnections), 200
-        except BaseException as e:
-            logger.error(traceback.format_exc())
-            return '', 500

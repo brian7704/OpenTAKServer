@@ -1,9 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 import json
 from uuid import UUID
 
-import bleach
-import flask_security
 import pika
 import sqlalchemy.exc
 from flask import Blueprint, request, jsonify, current_app as app
@@ -13,7 +11,7 @@ from xml.etree.ElementTree import tostring, Element, SubElement
 
 from werkzeug.datastructures import ImmutableMultiDict
 
-from opentakserver.blueprints.api import search, paginate
+from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.extensions import db, logger, socketio
 from opentakserver.forms.casevac_form import CasEvacForm
 from opentakserver.forms.zmist_form import ZmistForm

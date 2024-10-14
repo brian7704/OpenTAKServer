@@ -10,9 +10,9 @@ from werkzeug.datastructures import ImmutableMultiDict
 
 from opentakserver.forms.package_form import PackageForm, PackageUpdateForm
 from opentakserver.models.Packages import Packages
-from opentakserver.extensions import db, logger
-from opentakserver.blueprints.api import search, paginate
-from opentakserver.blueprints.marti import basic_auth
+from opentakserver.extensions import db
+from opentakserver.blueprints.ots_api.api import search, paginate
+from opentakserver.blueprints.marti_api.marti import basic_auth
 
 from werkzeug.utils import secure_filename
 

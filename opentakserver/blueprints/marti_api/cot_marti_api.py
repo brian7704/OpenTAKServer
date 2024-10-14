@@ -8,7 +8,7 @@ from opentakserver.functions import datetime_from_iso8601_string
 from opentakserver.extensions import db, logger
 from opentakserver.models.CoT import CoT
 
-cot_api = Blueprint('cot_api', __name__)
+cot_marti_api = Blueprint('cot_api', __name__)
 
 """
 Right now OpenTAKServer only uses a few of these for Data Sync. The rest were added as place holders 
@@ -16,7 +16,7 @@ based on the API docs until I find an example of them actually being used by a T
 """
 
 
-@cot_api.route('/Marti/api/cot')
+@cot_marti_api.route('/Marti/api/cot')
 def get_cots():
     logger.info(request.headers)
     logger.info(request.args)
@@ -24,7 +24,7 @@ def get_cots():
     return '', 200
 
 
-@cot_api.route('/Marti/api/cot/xml/<uid>')
+@cot_marti_api.route('/Marti/api/cot/xml/<uid>')
 def get_cot(uid):
     logger.info(request.headers)
     logger.info(request.args)
@@ -36,7 +36,7 @@ def get_cot(uid):
     return cot[0].xml
 
 
-@cot_api.route('/Marti/api/cot/xml/<uid>/all')
+@cot_marti_api.route('/Marti/api/cot/xml/<uid>/all')
 def get_cot(uid):
     logger.info(request.headers)
     logger.info(request.args)
@@ -62,7 +62,7 @@ def get_cot(uid):
     return tostring(events).decode('utf-8'), 200
 
 
-@cot_api.route('/Marti/api/cot/sa')
+@cot_marti_api.route('/Marti/api/cot/sa')
 def get_cot_by_time_and_bbox():
     logger.info(request.headers)
     logger.info(request.args)

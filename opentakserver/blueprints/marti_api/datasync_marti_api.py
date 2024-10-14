@@ -21,14 +21,13 @@ from xml.etree.ElementTree import tostring, Element, fromstring
 
 from opentakserver.constants import MissionChangeConstants, MissionRoleConstants
 from opentakserver.functions import iso8601_string_from_datetime
-from opentakserver.blueprints.marti import basic_auth
+from opentakserver.blueprints.marti_api.marti import basic_auth
 from opentakserver.extensions import db, logger
 from opentakserver.models.CoT import CoT
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
 from opentakserver.models.MissionContent import MissionContent
 from opentakserver.models.MissionContentMission import MissionContentMission
-from opentakserver.models.MissionContentMissionChange import MissionContentMissionChange
 from opentakserver.models.MissionInvitation import MissionInvitation
 from opentakserver.models.MissionRole import MissionRole
 from opentakserver.models.MissionUID import MissionUID

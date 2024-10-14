@@ -8,21 +8,16 @@ from urllib.parse import urlparse
 
 from xml.etree.ElementTree import Element, SubElement, tostring
 
-from flask import Blueprint, request, jsonify, current_app as app, Response
-from flask_security import auth_required, roles_required
-from sqlalchemy import update
-from sqlalchemy.exc import IntegrityError
+from flask import Blueprint, request, current_app as app, Response
 from werkzeug.wsgi import FileWrapper
 
 import opentakserver
 from opentakserver.extensions import db, logger
-from opentakserver.forms.device_profile_form import DeviceProfileForm
 from opentakserver.models.DeviceProfiles import DeviceProfiles
 from opentakserver.models.Packages import Packages
 from opentakserver.models.DataPackage import DataPackage
-from opentakserver.blueprints.api import search, paginate
 
-device_profile_api_blueprint = Blueprint('device_profile_api_blueprint', __name__)
+device_profile_marti_api_blueprint = Blueprint('device_profile_marti_api_blueprint', __name__)
 
 
 def create_profile_zip(enrollment=True, syncSecago=-1):
@@ -125,7 +120,7 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
 
 # Authentication for /Marti endpoints handled by client cert validation
 # EUDs hit this endpoint after a successful certificate enrollment
-@device_profile_api_blueprint.route('/Marti/api/tls/profile/enrollment')
+@device_profile_marti_api_blueprint.route('/Marti/api/tls/profile/enrollment')
 def enrollment_profile():
     try:
         profile_zip = create_profile_zip()
@@ -138,7 +133,7 @@ def enrollment_profile():
 
 
 # EUDs hit this endpoint when the app connects to the server if repoStartupSync is enabled
-@device_profile_api_blueprint.route('/Marti/api/device/profile/connection')
+@device_profile_marti_api_blueprint.route('/Marti/api/device/profile/connection')
 def connection_profile():
     try:
         syncSecago = -1
@@ -154,58 +149,3 @@ def connection_profile():
         logger.error(f"Failed to send enrollment package: {e}")
         logger.debug(traceback.format_exc())
         return '', 500
-
-
-@device_profile_api_blueprint.route('/api/profiles')
-@roles_required("administrator")
-def get_device_profiles():
-    query = db.session.query(DeviceProfiles)
-    query = search(query, DeviceProfiles, 'preference_key')
-    query = search(query, DeviceProfiles, 'preference_value')
-    query = search(query, DeviceProfiles, 'tool')
-    return paginate(query)
-
-
-@device_profile_api_blueprint.route('/api/profiles', methods=['POST'])
-@auth_required()
-@roles_required("administrator")
-def add_device_profile():
-    form = DeviceProfileForm()
-    if not form.validate():
-        return jsonify({'success': False, 'errors': form.errors}), 400
-
-    device_profile = DeviceProfiles()
-    device_profile.from_wtf(form)
-
-    try:
-        db.session.add(device_profile)
-        db.session.commit()
-    except IntegrityError:
-        db.session.rollback()
-        db.session.execute(update(DeviceProfiles).where(DeviceProfiles.preference_key == device_profile.preference_key)
-                           .values(**device_profile.serialize()))
-        db.session.commit()
-
-    return jsonify({'success': True})
-
-
-@device_profile_api_blueprint.route('/api/profiles', methods=['DELETE'])
-@roles_required("administrator")
-def delete_device_profile():
-    preference_key = request.args.get('preference_key')
-    if not preference_key:
-        return jsonify({'success': False, 'error': 'Please specify the preference_key'}), 400
-    try:
-        query = db.session.query(DeviceProfiles)
-        query = search(query, DeviceProfiles, 'preference_key')
-        preference = db.session.execute(query).first()
-        if not preference:
-            return jsonify({'success': False, 'error': f'Unknown preference_key: {preference_key}'}), 404
-
-        db.session.delete(preference[0])
-        db.session.commit()
-        return jsonify({'success': True})
-    except BaseException as e:
-        logger.error(f"Failed to delete device profile: {e}")
-        logger.debug(traceback.format_exc())
-        return jsonify({'success': False, 'error': str(e)}), 400

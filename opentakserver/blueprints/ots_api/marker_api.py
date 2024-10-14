@@ -1,5 +1,5 @@
 import traceback
-from datetime import datetime, timedelta
+from datetime import timedelta
 import json
 from uuid import UUID, uuid4
 
@@ -11,7 +11,7 @@ from sqlalchemy import insert, update
 from sqlalchemy.exc import IntegrityError
 import xml.etree.ElementTree as ET
 
-from opentakserver.blueprints.api import search, paginate
+from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.extensions import db, logger, socketio
 from opentakserver.functions import *
 from opentakserver.models.CoT import CoT
