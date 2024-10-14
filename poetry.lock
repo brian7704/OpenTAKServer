@@ -2765,13 +2765,13 @@ traitlets = "*"
 
 [[package]]
 name = "meshtastic"
-version = "2.5.0"
+version = "2.5.2"
 description = "Python API & client shell for talking to Meshtastic devices"
 optional = false
 python-versions = "<3.13,>=3.9"
 files = [
-    {file = "meshtastic-2.5.0-py3-none-any.whl", hash = "sha256:2327481695336082e55719b30e911505dabb68a5d9fdd7d33b8d4f359799d90f"},
-    {file = "meshtastic-2.5.0.tar.gz", hash = "sha256:48faac2e6eb4fef885945339d695a51f9b91e8a62d7eed408a633e14e30cb37f"},
+    {file = "meshtastic-2.5.2-py3-none-any.whl", hash = "sha256:ddd5d236f949ac90175f79dfd9d3433b792cff3e3ee5b2ecee5f8a382bade8d9"},
+    {file = "meshtastic-2.5.2.tar.gz", hash = "sha256:54260e8ed9ba662136893c4985fa8af322275c067ae6f35b7f5dd2337d79f8e7"},
 ]
 
 [package.dependencies]
@@ -5269,4 +5269,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.13"
-content-hash = "cc27835bd64c50746de5d5d7f840b026f364ed4062db7e410ea0a0cc71ef9619"
+content-hash = "cf8bb37ed7bdbf30fafd280c9cccdef107f2ac40014d3e852d57d33dab43d2e1"
