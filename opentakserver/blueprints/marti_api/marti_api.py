@@ -12,6 +12,7 @@ from flask_security import current_user
 
 from opentakserver.extensions import logger, db
 from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
+from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver import __version__ as version
 from opentakserver.models.EUD import EUD
 from opentakserver.models.VideoStream import VideoStream
@@ -42,7 +43,7 @@ def client_end_points():
             'callsign': eud.callsign,
             'uid': eud.uid,
             'username': current_user.username if current_user.is_authenticated else 'anonymous',
-            'lastEventTime': eud.last_event_time,
+            'lastEventTime': iso8601_string_from_datetime(eud.last_event_time),
             'lastStatus': eud.last_status
         })
 

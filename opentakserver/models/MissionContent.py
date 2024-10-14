@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.extensions import db
+from opentakserver.models.MissionContentMissionChange import MissionContentMissionChange
 from sqlalchemy import Integer, String, DateTime, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

@@ -3,7 +3,6 @@ from dataclasses import dataclass
 
 from opentakserver.extensions import db
 from opentakserver.functions import iso8601_string_from_datetime
-from opentakserver.constants import MissionRoleConstants
 from sqlalchemy import Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -11,6 +10,35 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 @dataclass
 class MissionRole(db.Model):
     __tablename__ = "mission_roles"
+
+    MISSION_MANAGE_FEEDS = "MISSION_MANAGE_FEEDS"
+    MISSION_SET_PASSWORD = "MISSION_SET_PASSWORD"
+    MISSION_WRITE = "MISSION_WRITE"
+    MISSION_MANAGE_LAYERS = "MISSION_MANAGE_LAYERS"
+    MISSION_UPDATE_GROUPS = "MISSION_UPDATE_GROUPS"
+    MISSION_DELETE = "MISSION_DELETE"
+    MISSION_SET_ROLE = "MISSION_SET_ROLE"
+    MISSION_READ = "MISSION_READ"
+    MISSION_OWNER = "MISSION_OWNER"
+    MISSION_SUBSCRIBER = "MISSION_SUBSCRIBER"
+    MISSION_READ_ONLY = "MISSION_READ_ONLY"
+
+    OWNER_ROLE = {'type': MISSION_OWNER, 'permissions': []}
+    OWNER_ROLE['permissions'].append(MISSION_MANAGE_FEEDS)
+    OWNER_ROLE['permissions'].append(MISSION_SET_PASSWORD)
+    OWNER_ROLE['permissions'].append(MISSION_WRITE)
+    OWNER_ROLE['permissions'].append(MISSION_MANAGE_LAYERS)
+    OWNER_ROLE['permissions'].append(MISSION_UPDATE_GROUPS)
+    OWNER_ROLE['permissions'].append(MISSION_DELETE)
+    OWNER_ROLE['permissions'].append(MISSION_SET_ROLE)
+    OWNER_ROLE['permissions'].append(MISSION_READ)
+
+    SUBSCRIBER_ROLE = {'type': MISSION_SUBSCRIBER, 'permissions': []}
+    SUBSCRIBER_ROLE['permissions'].append(MISSION_READ)
+    SUBSCRIBER_ROLE['permissions'].append(MISSION_WRITE)
+
+    READ_ONLY_ROLE = {'type': MISSION_READ_ONLY, 'permissions': []}
+    READ_ONLY_ROLE['permissions'].append(MISSION_READ)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     clientUid: Mapped[str] = mapped_column(String)
@@ -39,13 +67,13 @@ class MissionRole(db.Model):
             }
         }
 
-        if self.role_type == MissionRoleConstants.MISSION_OWNER:
-            json['role'] = MissionRoleConstants.OWNER_ROLE
+        if self.role_type == self.MISSION_OWNER:
+            json['role'] = self.OWNER_ROLE
 
-        elif self.role_type == MissionRoleConstants.MISSION_SUBSCRIBER:
-            json['role'] = MissionRoleConstants.SUBSCRIBER_ROLE
+        elif self.role_type == self.MISSION_SUBSCRIBER:
+            json['role'] = self.SUBSCRIBER_ROLE
 
         else:
-            json['role'] = MissionRoleConstants.READ_ONLY_ROLE
+            json['role'] = self.READ_ONLY_ROLE
 
         return json

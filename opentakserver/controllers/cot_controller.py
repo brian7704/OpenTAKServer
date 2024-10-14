@@ -19,7 +19,6 @@ from bs4 import BeautifulSoup
 from meshtastic import mqtt_pb2, mesh_pb2, portnums_pb2, BROADCAST_NUM
 import unishox2
 
-from opentakserver.constants import MissionChangeConstants
 from opentakserver.functions import *
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
@@ -815,25 +814,25 @@ class CoTController(RabbitMQClient):
                         mission = self.db.session.execute(
                             self.db.session.query(Mission).filter_by(name=destination.attrs['mission'])).first()
 
-                    if not mission:
-                        self.logger.error(f"No such mission found: {destination.attrs['mission']}")
-                        return
+                        if not mission:
+                            self.logger.error(f"No such mission found: {destination.attrs['mission']}")
+                            return
 
-                    self.rabbit_channel.basic_publish("missions", routing_key=destination.attrs['mission'], body=json.dumps(data))
+                        mission = mission[0]
+                        self.rabbit_channel.basic_publish("missions", routing_key=destination.attrs['mission'], body=json.dumps(data))
 
-                    mission_change = MissionChange()
-                    mission_change.isFederatedChange = False
-                    mission_change.change_type = MissionChangeConstants.ADD_CONTENT
-                    mission_change.mission_name = destination.attrs['mission']
-                    mission_change.timestamp = datetime_from_iso8601_string(event.attrs['start'])
-                    mission_change.creator_uid = data['uid']
-                    mission_change.server_time = datetime_from_iso8601_string(event.attrs['start'])
+                        mission_change = MissionChange()
+                        mission_change.isFederatedChange = False
+                        mission_change.change_type = MissionChange.ADD_CONTENT
+                        mission_change.mission_name = destination.attrs['mission']
+                        mission_change.timestamp = datetime_from_iso8601_string(event.attrs['start'])
+                        mission_change.creator_uid = data['uid']
+                        mission_change.server_time = datetime_from_iso8601_string(event.attrs['start'])
 
-                    with self.context:
                         change_pk = self.db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
                         self.db.session.commit()
 
-                        body = {'uid': uid, 'cot': tostring(generate_mission_change_cot(destination.attrs['mission'], mission, None, event, mission_change)).decode('utf-8')}
+                        body = {'uid': uid, 'cot': tostring(generate_mission_change_cot(destination.attrs['mission'], mission, mission_change, cot_event=event)).decode('utf-8')}
                         self.rabbit_channel.basic_publish("dms", routing_key=data['uid'], body=json.dumps(body))
 
                         mission_uid = MissionUID()
@@ -864,7 +863,7 @@ class CoTController(RabbitMQClient):
                             self.db.session.commit()
                         except sqlalchemy.exc.IntegrityError:
                             self.db.session.rollback()
-                            self.db.session.execute(update(MissionUID).values(**mission_uid.serialize().pop['uid']))
+                            self.db.session.execute(update(MissionUID).values(**mission_uid.serialize()))
 
         # If no destination or callsign is specified, broadcast to all TAK clients
         elif self.rabbit_channel and self.rabbit_channel.is_open:

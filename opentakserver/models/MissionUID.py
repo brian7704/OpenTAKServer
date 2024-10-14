@@ -1,7 +1,6 @@
 import datetime
 from dataclasses import dataclass
 
-from opentakserver.constants import MissionRoleConstants
 from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.extensions import db
 from sqlalchemy import String, DateTime, Float, ForeignKey, Integer

@@ -18,7 +18,15 @@ from opentakserver.models.MissionContent import MissionContent
 class MissionChange(db.Model):
     __tablename__ = "mission_changes"
 
+    CREATE_MISSION = "CREATE_MISSION"
+    DELETE_MISSION = "DELETE_MISSION"
+    ADD_CONTENT = "ADD_CONTENT"
+    REMOVE_CONTENT = "REMOVE_CONTENT"
+    CREATE_DATA_FEED = "CREATE_DATA_FEED"
+    DELETE_DATA_FEED = "DELETE_DATA_FEED"
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    content_uid: Mapped[str] = mapped_column(String, ForeignKey("mission_content.uid"), nullable=True)
     isFederatedChange: Mapped[bool] = mapped_column(Boolean)
     change_type: Mapped[str] = mapped_column(String)
     mission_name: Mapped[str] = mapped_column(String, ForeignKey('missions.name'))
@@ -58,8 +66,8 @@ class MissionChange(db.Model):
         return json
 
 
-def generate_mission_change_cot(mission_name: str, mission: Mission, content: MissionContent | None,
-                                cot_event: BeautifulSoup | None, mission_change: MissionChange) -> Element:
+def generate_mission_change_cot(mission_name: str, mission: Mission, mission_change: MissionChange,
+                                content: MissionContent | None = None, cot_event: BeautifulSoup | None = None, ) -> Element:
     if content:
         uid = content.uid
     elif cot_event:
@@ -77,7 +85,7 @@ def generate_mission_change_cot(mission_name: str, mission: Mission, content: Mi
     detail = SubElement(event, "detail")
     mission_element = SubElement(detail, "mission",
                                  {"type": mission_change.change_type, "tool": "public", "name": mission_name,
-                                  "guid": mission[0].guid, "authorUid": mission_change.creator_uid})
+                                  "guid": mission.guid, "authorUid": mission_change.creator_uid})
     mission_changes_element = SubElement(mission_element, "MissionChanges")
     mission_change_element = SubElement(mission_changes_element, "MissionChange")
 
@@ -111,6 +119,9 @@ def generate_mission_change_cot(mission_name: str, mission: Mission, content: Mi
 
         SubElement(details_tag, "location", {'lon': point.attrs['lon'], 'lat': point.attrs['lat']})
         SubElement(mission_change_element, "contentUid").text = cot_event.attrs['uid']
+
+    if mission_change.content_uid:
+        SubElement(mission_change_element, "contentUid").text = mission_change.content_uid
 
     SubElement(mission_change_element, "creatorUid").text = mission_change.creator_uid
     SubElement(mission_change_element, "isFederatedChange").text = str(mission_change.isFederatedChange)

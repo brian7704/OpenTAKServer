@@ -12,7 +12,7 @@ from opentakserver.forms.package_form import PackageForm, PackageUpdateForm
 from opentakserver.models.Packages import Packages
 from opentakserver.extensions import db
 from opentakserver.blueprints.ots_api.api import search, paginate
-from opentakserver.blueprints.marti_api.marti import basic_auth
+from opentakserver.blueprints.marti_api.certificate_enrollment_api import basic_auth
 
 from werkzeug.utils import secure_filename
 

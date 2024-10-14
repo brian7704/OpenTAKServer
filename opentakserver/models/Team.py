@@ -14,6 +14,7 @@ class Team(db.Model):
     chatroom_id: Mapped[str] = mapped_column(String, ForeignKey("chatrooms.id"), nullable=True)
     euds = relationship("EUD", back_populates="team")
     chatroom = relationship("Chatroom", back_populates="team")
+    mission_invitations = relationship("MissionInvitations", backpopulates="team")
 
     colors = {'Cyan': '#00FFFF', 'White': '#000000', 'Yellow': '#FFFF00', 'Orange': '#FFA500', 'Magenta': '#FF00FF',
               'Red': '#FF0000', 'Maroon': '#800000', 'Purple': '#800080', 'Dark Blue': '#00008B', 'Blue': '#0000FF',

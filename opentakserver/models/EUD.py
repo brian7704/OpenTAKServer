@@ -39,6 +39,8 @@ class EUD(db.Model):
     markers = relationship("Marker", back_populates="eud")
     rb_lines = relationship("RBLine", back_populates="eud")
     team = relationship("Team", back_populates="euds")
+    mission_invitations_uid = relationship("MissionInvitation", back_populates="eud_uid")
+    mission_invitations_callsign = relationship("MissionInvitation", back_populates="eud_callsign")
 
     def serialize(self):
         return {

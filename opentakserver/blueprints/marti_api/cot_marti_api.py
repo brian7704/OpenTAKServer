@@ -37,7 +37,7 @@ def get_cot(uid):
 
 
 @cot_marti_api.route('/Marti/api/cot/xml/<uid>/all')
-def get_cot(uid):
+def get_all_cot(uid):
     logger.info(request.headers)
     logger.info(request.args)
 

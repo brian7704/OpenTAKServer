@@ -1,11 +1,12 @@
 import datetime
 from dataclasses import dataclass
 
-from opentakserver.constants import MissionRoleConstants
 from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.extensions import db
 from sqlalchemy import Integer, String, Boolean, JSON, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from opentakserver.models.MissionRole import MissionRole
 
 
 @dataclass
@@ -93,13 +94,13 @@ class Mission(db.Model):
             'missionChanges': [mission_change.to_json() for mission_change in self.mission_changes]
         }
 
-        if self.default_role == MissionRoleConstants.MISSION_SUBSCRIBER or not self.default_role:
-            json['defaultRole'] = MissionRoleConstants.SUBSCRIBER_ROLE
+        if self.default_role == MissionRole.MISSION_SUBSCRIBER or not self.default_role:
+            json['defaultRole'] = MissionRole.SUBSCRIBER_ROLE
 
-        elif self.default_role == MissionRoleConstants.MISSION_OWNER:
-            json['defaultRole'] = MissionRoleConstants.OWNER_ROLE
+        elif self.default_role == MissionRole.MISSION_OWNER:
+            json['defaultRole'] = MissionRole.OWNER_ROLE
 
         else:
-            json['defaultRole'] = MissionRoleConstants.READ_ONLY_ROLE
+            json['defaultRole'] = MissionRole.READ_ONLY_ROLE
 
         return json

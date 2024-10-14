@@ -13,6 +13,7 @@ class User(db.Model, fsqla.FsUserMixin):
     euds = relationship("EUD", back_populates="user")
     data_packages = relationship("DataPackage", back_populates="user")
     certificate = relationship("Certificate", back_populates="user")
+    mission_invitattions = relationship("MissionInvitations", backpopulates="user")
 
     def serialize(self):
         return {
