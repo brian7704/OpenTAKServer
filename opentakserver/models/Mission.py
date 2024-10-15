@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.extensions import db
-from sqlalchemy import Integer, String, Boolean, JSON, DateTime
+from sqlalchemy import Integer, String, Boolean, JSON, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.models.MissionRole import MissionRole
@@ -13,6 +13,8 @@ from opentakserver.models.MissionRole import MissionRole
 class Mission(db.Model):
     __tablename__ = "missions"
 
+    INVITE = "INVITE"
+
     name: Mapped[str] = mapped_column(String, primary_key=True)
     description: Mapped[str] = mapped_column(String, nullable=True)
     chat_room: Mapped[str] = mapped_column(String, nullable=True)
@@ -21,7 +23,7 @@ class Mission(db.Model):
     path: Mapped[str] = mapped_column(String, nullable=True)
     classification: Mapped[str] = mapped_column(String, nullable=True)
     tool: Mapped[str] = mapped_column(String, nullable=True)
-    group: Mapped[str] = mapped_column(String, nullable=True)
+    group: Mapped[str] = mapped_column(String, ForeignKey("groups.group_name"), nullable=True)
     default_role: Mapped[str] = mapped_column(String, nullable=True)
     keywords: Mapped[JSON] = mapped_column(JSON, nullable=True)
     creator_uid: Mapped[str] = mapped_column(String, nullable=True)

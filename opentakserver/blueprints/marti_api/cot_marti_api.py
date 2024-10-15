@@ -29,7 +29,7 @@ def get_cot(uid):
     logger.info(request.headers)
     logger.info(request.args)
 
-    cot = db.session.execute(db.session.query(CoT).filter_by(uid=uid))
+    cot = db.session.execute(db.session.query(CoT).filter_by(uid=uid)).first()
     if not cot:
         return jsonify({'success': False, 'error': f"No CoT found for UID {uid}"}), 404
 

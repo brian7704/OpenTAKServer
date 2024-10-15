@@ -17,13 +17,14 @@ from sqlalchemy import update, insert
 from werkzeug.utils import secure_filename
 import pika
 
-from xml.etree.ElementTree import tostring, Element, fromstring
+from xml.etree.ElementTree import tostring, Element, fromstring, SubElement
 
 from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.blueprints.marti_api.certificate_enrollment_api import basic_auth
 from opentakserver.extensions import db, logger
 from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
+from opentakserver.models.Group import Group
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
 from opentakserver.models.MissionContent import MissionContent
@@ -31,6 +32,8 @@ from opentakserver.models.MissionContentMission import MissionContentMission
 from opentakserver.models.MissionInvitation import MissionInvitation
 from opentakserver.models.MissionRole import MissionRole
 from opentakserver.models.MissionUID import MissionUID
+from opentakserver.models.Team import Team
+from opentakserver.models.user import User
 
 datasync_api = Blueprint('datasync_api', __name__)
 
@@ -61,6 +64,40 @@ def generate_token(mission: Mission):
     server_key.close()
 
     return token
+
+
+def generate_invitation_cot(mission: Mission):
+    logger.info(mission.serialize())
+    event = Element("event", {"type": "t-x-m-i", "how": "h-g-i-g-o", "version": "2.0", "uid": str(uuid.uuid4()),
+                              "start": iso8601_string_from_datetime(datetime.datetime.now()),
+                              "time": iso8601_string_from_datetime(datetime.datetime.now()),
+                              "stale": iso8601_string_from_datetime(
+                                  datetime.datetime.now() + datetime.timedelta(hours=1))})
+
+    SubElement(event, "point", {"ce": "9999999", "le": "9999999", "hae": "0", "lat": "0", "lon": "0"})
+    detail = SubElement(event, "detail")
+    mission_tag = SubElement(detail, "mission", {"type": Mission.INVITE, "tool": "public", "name": mission.name,
+                                                 "guid": mission.guid, "authorUid": "",
+                                                 "token": generate_token(mission)})
+    role = SubElement(mission_tag, "role", {"type": mission.default_role})
+    permissions = SubElement(role, "permissions")
+
+    if mission.default_role == MissionRole.MISSION_SUBSCRIBER:
+        SubElement(permissions, "permission", {"type": MissionRole.MISSION_READ})
+        SubElement(permissions, "permission", {"type": MissionRole.MISSION_WRITE})
+    elif mission.default_role == MissionRole.MISSION_OWNER:
+        SubElement(permissions, "permission", {"type": MissionRole.MISSION_MANAGE_FEEDS})
+        SubElement(permissions, "permission", {"type": MissionRole.MISSION_SET_PASSWORD})
+        SubElement(permissions, "permission", {"type": MissionRole.MISSION_WRITE})
+        SubElement(permissions, "permission", {"type": MissionRole.MISSION_MANAGE_LAYERS})
+        SubElement(permissions, "permission", {"type": MissionRole.MISSION_UPDATE_GROUPS})
+        SubElement(permissions, "permission", {"type": MissionRole.MISSION_DELETE})
+        SubElement(permissions, "permission", {"type": MissionRole.MISSION_SET_ROLE})
+        SubElement(permissions, "permission", {"type": MissionRole.MISSION_READ})
+    else:
+        SubElement(permissions, "permission", {"type": MissionRole.MISSION_READ})
+
+    return event
 
 
 @datasync_api.route('/Marti/api/missions')
@@ -109,7 +146,7 @@ def all_invitations():
     invitations = db.session.execute(db.session.query(MissionInvitation).filter_by(client_uid=client_uid)).all()
 
     for invitation in invitations:
-        response['data'].append(invitation['name'])
+        response['data'].append(invitation[0].name)
 
     return jsonify(response)
 
@@ -127,7 +164,7 @@ def put_mission(mission_name: str):
     mission.description = bleach.clean(request.args.get('description')) if 'description' in request.args else None
     mission.tool = bleach.clean(request.args.get('tool')) if 'tool' in request.args else None
     mission.group = bleach.clean(request.args.get('group')) if 'group' in request.args else None
-    mission.default_role = bleach.clean(request.args.get('defaultRole')) if 'defaultRole' in request.args else None
+    mission.default_role = bleach.clean(request.args.get('defaultRole')) if 'defaultRole' in request.args else MissionRole.MISSION_SUBSCRIBER
     mission.password = request.args.get('password') if 'password' in request.args else None
     mission.guid = str(uuid.uuid4())
 
@@ -232,24 +269,84 @@ def set_password(mission_name: str):
 def invite(mission_name: str, invitation_type: str, invitee: str):
     invitation_types = ['clientUid', 'callsign', 'userName', 'group', 'team']
 
-    mission = db.session.execute(db.session.query(Mission).filter_by(mission_name=mission_name)).first()
+    mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
 
     mission = mission[0]
 
-    if invitation_type == "clientUid":
+    invitation = MissionInvitation()
+    invitation.mission_name = mission_name
+
+    if invitation_type.lower() == "clientuid":
         eud = db.session.execute(db.session.query(EUD).filter_by(uid=invitee)).first()
         if not eud:
             return jsonify({'success': False, 'error': f"No EUD found with UID {invitee}"}), 404
+        invitation.client_uid = invitee
 
+    elif invitation_type == "callsign":
+        eud = db.session.execute(db.session.query(EUD).filter_by(callsign=invitee)).first()
+        if not eud:
+            return jsonify({'success': False, 'error': f"No EUD found with callsign {invitee}"}), 404
+        invitation.callsign = invitee
+
+    elif invitation_type.lower() == "username":
+        eud = db.session.execute(db.session.query(User).filter_by(username=invitee)).first()
+        if not eud:
+            return jsonify({'success': False, 'error': f"No user found with username {invitee}"}), 404
+        invitation.username = invitee
+
+    elif invitation_type == "group":
+        group = db.session.execute(db.session.query(Group).filter_by(group_name=invitee)).first()
+        if not group:
+            return jsonify({'success': False, 'error': f"No group found: {invitee}"}), 404
+        invitation.group_name = invitee
+
+    elif invitation_type == "team":
+        team = db.session.execute(db.session.query(Team).filter_by(name=invitee)).first()
+        if not team:
+            return jsonify({'success': False, 'error': f"Team not found: {invitee}"}), 404
+        invitation.team_name = invitee
+
+    db.session.add(invitation)
+    db.session.commit()
+
+    event = generate_invitation_cot(mission)
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    channel = rabbit_connection.channel()
+    logger.warning(f"publishing messages to {invitee}")
+    logger.error(tostring(event))
+    channel.basic_publish(exchange="dms", routing_key=invitee, body=json.dumps({"uid": app.config.get("OTS_NODE_ID"),
+                                                                                "cot": tostring(event).decode('utf-8')}))
+
+    return '', 200
+
+
+@datasync_api.route('/Marti/api/missions/<mission_name>/invite', methods=['POST'])
+def invite_by_form(mission_name: str):
+    creator_uid = request.args.get("creatorUid")
+    contacts = request.form.getlist("contacts")
+
+    mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
+    if not mission:
+        return jsonify({'success': False, 'error': f"Mission not found: {mission_name}"}), 404
+    mission = mission[0]
+
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    channel = rabbit_connection.channel()
+
+    for contact in contacts:
         invitation = MissionInvitation()
         invitation.mission_name = mission_name
-        invitation.client_uid = invitee
+        invitation.client_uid = contact
+
         db.session.add(invitation)
         db.session.commit()
 
-    return '', 200
+        event = generate_invitation_cot(mission)
+
+        channel.basic_publish(exchange="dms", routing_key=contact, body=json.dumps({'uid': app.config['OTS_NODE_ID'],
+                                                                                    "cot": tostring(event).decode('utf-8')}))
 
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/subscriptions/roles')
@@ -307,7 +404,7 @@ def mission_subscribe(mission_name: str) -> flask.Response:
         role.clientUid = uid
         role.username = username
         role.createTime = datetime.datetime.now()
-        role.role_type = MissionRole.SUBSCRIBER_ROLE
+        role.role_type = MissionRole.MISSION_SUBSCRIBER
         role.mission_name = mission.name
 
         db.session.add(role)

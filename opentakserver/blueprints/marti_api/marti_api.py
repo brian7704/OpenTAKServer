@@ -59,17 +59,6 @@ def marti_config():
             "nodeId": app.config.get("OTS_NODE_ID")}, 200, {'Content-Type': 'application/json'}
 
 
-@marti_api.route('/Marti/api/groups/all')
-def groups():
-    use_cache = bleach.clean(request.args.get('useCache'))  # bool
-
-    response = {
-        'version': 3, 'type': 'com.bbn.marti.remote.groups.Group', 'data': [{}], 'nodeId': app.config.get("OTS_NODE_ID")
-    }
-
-    return jsonify(response)
-
-
 @marti_api.route('/Marti/vcm', methods=['GET', 'POST'])
 def video():
     if request.method == 'POST':

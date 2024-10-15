@@ -110,8 +110,10 @@ def generate_mission_change_cot(mission_name: str, mission: Mission, mission_cha
         callsign = cot_event.find("contact")
         icon = cot_event.find("usericon")
 
-        if color:
+        if color and 'argb' in color.attrs:
             details_tag.set("color", color.attrs['argb'])
+        if color and 'value' in color.attrs:
+            details_tag.set("color", color.attrs['value'])
         if callsign:
             details_tag.set("callsign", callsign.attrs['callsign'])
         if icon:

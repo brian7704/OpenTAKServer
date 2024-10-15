@@ -15,12 +15,13 @@ class MissionInvitation(db.Model):
     client_uid: Mapped[str] = mapped_column(String, ForeignKey("euds.uid"), nullable=True)
     callsign: Mapped[str] = mapped_column(String, ForeignKey("euds.callsign"), nullable=True)
     username: Mapped[str] = mapped_column(String, ForeignKey("user.username"), nullable=True)
-    group: Mapped[str] = mapped_column(String, nullable=True)
+    group_name: Mapped[str] = mapped_column(String, ForeignKey("groups.group_name"), nullable=True)
     team_name: Mapped[str] = mapped_column(String, ForeignKey("teams.name"), nullable=True)
 
-    eud_uid = relationship("EUD", back_populates="mission_invitations_uid", uselist=False)
-    eud_callsign = relationship("EUD", back_populates="mission_invitations", uselist=False)
+    eud_uid = relationship("EUD", foreign_keys=[client_uid], uselist=False)
+    eud_callsign = relationship("EUD", foreign_keys=[callsign], uselist=False)
     user = relationship("User", back_populates="mission_invitations", uselist=False)
+    group = relationship("Group", back_populates="mission_invitations", uselist=False)
     team = relationship("Team", back_populates="mission_invitations", uselist=False)
     mission = relationship("Mission", back_populates="invitations", uselist=False)
 
@@ -30,7 +31,7 @@ class MissionInvitation(db.Model):
             'client_uid': self.client_uid,
             'callsign': self.callsign,
             'username': self.username,
-            'group': self.group,
+            'group_name': self.group,
             'team_name': self.team_name
         }
 

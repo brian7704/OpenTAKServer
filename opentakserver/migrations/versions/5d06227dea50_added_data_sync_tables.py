@@ -41,7 +41,7 @@ def upgrade():
     sa.Column('path', sa.String(), nullable=True),
     sa.Column('classification', sa.String(), nullable=True),
     sa.Column('tool', sa.String(), nullable=True),
-    sa.Column('group', sa.String(), nullable=True),
+    sa.Column('group_name', sa.String(), nullable=True),
     sa.Column('default_role', sa.String(), nullable=True),
     sa.Column('keywords', sa.JSON(), nullable=True),
     sa.Column('creator_uid', sa.String(), nullable=True),
