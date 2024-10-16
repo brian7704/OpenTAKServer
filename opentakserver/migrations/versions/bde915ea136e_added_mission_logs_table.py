@@ -35,7 +35,7 @@ def upgrade():
         batch_op.alter_column('hash',
                existing_type=sa.VARCHAR(),
                nullable=False)
-        batch_op.drop_index('hash_index')
+        #batch_op.drop_index('hash_index')
         batch_op.create_unique_constraint("hash_index", ['hash'])
 
     # ### end Alembic commands ###

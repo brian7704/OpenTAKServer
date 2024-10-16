@@ -203,6 +203,20 @@ def put_mission(mission_name: str):
     mission_json['token'] = token
     mission_json['ownerRole'] = MissionRole.OWNER_ROLE
 
+    event = Element("event", {"type": "t-x-m-n", "how": "h-g-i-g-o", "version": "2.0", "uid": str(uuid.uuid4()),
+                              "start": iso8601_string_from_datetime(datetime.datetime.now()),
+                              "time": iso8601_string_from_datetime(datetime.datetime.now()),
+                              "stale": iso8601_string_from_datetime(datetime.datetime.now() + datetime.timedelta(hours=1))})
+    SubElement(event, "point", {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0', 'lon': '0'})
+    detail = SubElement(event, "detail")
+    mission = SubElement(detail, "mission", {'type': Mission.CREATE, 'tool': mission.tool, 'name': mission.name,
+                                             'guid': mission.guid, 'authorUid': mission.creator_uid})
+
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    channel = rabbit_connection.channel()
+    channel.basic_publish(exchange="missions", routing_key="missions",
+                          body=json.dumps({'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}))
+
     response = {'version': "3", 'type': 'Mission', 'data': [mission_json], 'nodeId': app.config.get("OTS_NODE_ID")}
 
     return jsonify(response), 201
@@ -245,8 +259,24 @@ def delete_mission(mission_name: str):
 
     mission = db.session.execute(db.session.query(Mission).filter_by(creator_uid=creator_uid, name=mission_name)).first()
     if mission:
-        db.session.delete(mission[0])
+        mission = mission[0]
+        db.session.delete(mission)
         db.session.commit()
+
+        event = Element("event", {"type": "t-x-m-d", "how": "h-g-i-g-o", "version": "2.0", "uid": str(uuid.uuid4()),
+                                  "start": iso8601_string_from_datetime(datetime.datetime.now()),
+                                  "time": iso8601_string_from_datetime(datetime.datetime.now()),
+                                  "stale": iso8601_string_from_datetime(datetime.datetime.now() + datetime.timedelta(hours=1))})
+        SubElement(event, "point", {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0', 'lon': '0'})
+        detail = SubElement(event, "detail")
+        mission = SubElement(detail, "mission", {'type': Mission.DELETE, 'tool': mission.tool, 'name': mission.name,
+                                                 'guid': mission.guid, 'authorUid': mission.creator_uid})
+
+        rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+        channel = rabbit_connection.channel()
+        channel.basic_publish(exchange="missions", routing_key="missions",
+                              body=json.dumps({'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}))
+
         return jsonify({'success': True})
     else:
         return jsonify({'success': False, 'error': f'Mission {mission_name} not found'}), 404
@@ -416,7 +446,7 @@ def mission_subscribe(mission_name: str) -> flask.Response:
 
     rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
     channel = rabbit_connection.channel()
-    channel.queue_bind(queue=uid, exchange="missions", routing_key=mission_name)
+    channel.queue_bind(queue=uid, exchange="missions", routing_key=f"missions.{mission_name}")
 
     response = {
         "version": "3", "type": "com.bbn.marti.sync.model.MissionSubscription", "data": {
@@ -447,7 +477,7 @@ def mission_unsubscribe(mission_name: str) -> flask.Response:
 
     rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
     channel = rabbit_connection.channel()
-    channel.queue_unbind(queue=uid, exchange="missions", routing_key=mission_name)
+    channel.queue_unbind(queue=uid, exchange="missions", routing_key=f"missions.{mission_name}")
 
     return '', 200
 
@@ -608,7 +638,7 @@ def mission_contents(mission_name: str) -> flask.Response:
         body = json.dumps({'uid': mission_change.creator_uid, 'cot': tostring(event).decode('utf-8')})
         rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
         channel = rabbit_connection.channel()
-        channel.basic_publish("missions", routing_key=mission_name, body=body)
+        channel.basic_publish("missions", routing_key=f"missions.{mission_name}", body=body)
 
     db.session.commit()
 
@@ -659,7 +689,7 @@ def delete_content(mission_name: str):
     rabbit_connection = pika.BlockingConnection(
         pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
     channel = rabbit_connection.channel()
-    channel.basic_publish(exchange="missions", routing_key=mission_name, body=json.dumps(body))
+    channel.basic_publish(exchange="missions", routing_key=f"missions.{mission_name}", body=json.dumps(body))
 
     return jsonify({'success': True})
 

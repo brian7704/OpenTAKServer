@@ -199,8 +199,8 @@ def create_app():
 
     init_extensions(app)
 
-    from opentakserver.blueprints.marti_api.marti_api import marti_api
-    app.register_blueprint(marti_api)
+    from opentakserver.blueprints.marti_api import marti_blueprint
+    app.register_blueprint(marti_blueprint)
 
     from opentakserver.blueprints.ots_api import ots_api
     app.register_blueprint(ots_api)

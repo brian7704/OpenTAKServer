@@ -255,6 +255,7 @@ class ClientController(Thread):
                 self.logger.debug("Declaring queue {}".format(self.uid))
                 self.rabbit_channel.queue_declare(queue=self.uid)
                 self.rabbit_channel.queue_bind(exchange='cot', queue=self.uid)
+                self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.uid)
                 self.rabbit_channel.basic_consume(queue=self.uid, on_message_callback=self.on_message, auto_ack=True)
                 self.logger.debug("{} is consuming".format(self.callsign))
 

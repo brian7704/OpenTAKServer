@@ -15,6 +15,8 @@ class Mission(db.Model):
     __tablename__ = "missions"
 
     INVITE = "INVITE"
+    DELETE = "DELETE"
+    CREATE = "CREATE"
 
     name: Mapped[str] = mapped_column(String, primary_key=True)
     description: Mapped[str] = mapped_column(String, nullable=True)
@@ -98,8 +100,6 @@ class Mission(db.Model):
             'missionChanges': [mission_change.to_json() for mission_change in self.mission_changes],
             'qr_code': f"{url}:{app.config.get('OTS_SSL_STREAMING_PORT')}:ssl,{url}-{app.config.get('OTS_MARTI_HTTPS_PORT')}-ssl-{self.name},{self.name}"
         }
-
-        logger.info(f"{url}:{app.config.get('OTS_SSL_STREAMING_PORT')}:ssl,{url}-{app.config.get('OTS_MARTI_HTTPS_PORT')}-ssl-{self.name},{self.name}")
 
         if self.default_role == MissionRole.MISSION_SUBSCRIBER or not self.default_role:
             json['defaultRole'] = MissionRole.SUBSCRIBER_ROLE

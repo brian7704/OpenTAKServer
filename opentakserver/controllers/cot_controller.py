@@ -822,7 +822,7 @@ class CoTController(RabbitMQClient):
 
                         mission = mission[0]
                         self.logger.error(f"PUBLISHING TO MISSION {destination.attrs['mission']}")
-                        self.rabbit_channel.basic_publish("missions", routing_key=destination.attrs['mission'], body=json.dumps(data))
+                        self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{destination.attrs['mission']}", body=json.dumps(data))
 
                         mission_change = MissionChange()
                         mission_change.isFederatedChange = False
