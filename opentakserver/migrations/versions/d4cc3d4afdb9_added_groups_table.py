@@ -26,7 +26,7 @@ def upgrade():
     sa.Column('group_type', sa.String(), nullable=False),
     sa.Column('bitpos', sa.Integer(), nullable=False),
     sa.Column('active', sa.Boolean(), nullable=False),
-    sa.Column('description', sa.String(), nullable=False),
+    sa.Column('description', sa.String(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
 

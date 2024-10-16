@@ -1,3 +1,5 @@
+import datetime
+
 import sqlalchemy.exc
 from sqlalchemy import update
 from flask import Blueprint, current_app as app, jsonify, request
@@ -21,9 +23,32 @@ def get_all_groups():
                 "nodeId": app.config.get("OTS_NODE_ID")}
 
     groups = db.session.execute(db.session.query(Group)).all()
-    for group in groups:
-        group = group[0]
-        response['data'].append(group.to_json())
+    if not groups:
+        in_group = Group()
+        in_group.group_name = "__ANON__"
+        in_group.direction = Group.IN
+        in_group.created = datetime.datetime.now()
+        in_group.group_type = Group.SYSTEM
+        in_group.bitpos = 2
+        in_group.active = True
+
+        out_group = Group()
+        out_group.group_name = "__ANON__"
+        out_group.direction = Group.OUT
+        out_group.created = datetime.datetime.now()
+        out_group.group_type = Group.SYSTEM
+        out_group.bitpos = 2
+        out_group.active = True
+
+        db.session.add(in_group)
+        db.session.add(out_group)
+        db.session.commit()
+
+        response['data'].append(in_group.to_json())
+
+    for in_group in groups:
+        in_group = in_group[0]
+        response['data'].append(in_group.to_json())
 
     return jsonify(response)
 

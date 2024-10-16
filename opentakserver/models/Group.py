@@ -23,7 +23,7 @@ class Group(db.Model):
     group_type: Mapped[str] = mapped_column(String, default=SYSTEM)  # SYSTEM, LDAP
     bitpos: Mapped[int] = mapped_column(Integer)
     active: Mapped[bool] = mapped_column(Boolean)
-    description: Mapped[str] = mapped_column(String)
+    description: Mapped[str] = mapped_column(String, nullable=True)
     mission_invitations = relationship("MissionInvitation", back_populates="group")
 
     def serialize(self):
@@ -41,9 +41,9 @@ class Group(db.Model):
         return {
             "name": self.group_name,
             "direction": self.direction,
-            "created": iso8601_string_from_datetime(self.created),
+            "created": iso8601_string_from_datetime(self.created).split("T")[0],
             "type": self.group_type,
             "bitpos": self.bitpos,
             "active": self.active,
-            "description": self.description
+            "description": self.description if self.description else ""
         }
