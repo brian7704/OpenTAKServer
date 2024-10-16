@@ -22,15 +22,9 @@ from opentakserver.blueprints.marti_api.cot_marti_api import cot_marti_api
 from opentakserver.blueprints.marti_api.device_profile_marti_api import device_profile_marti_api_blueprint
 from opentakserver.blueprints.marti_api.citrap_api import citrap_api_blueprint
 from opentakserver.blueprints.marti_api.certificate_enrollment_api import certificate_authority_api_blueprint
+from opentakserver.blueprints.marti_api.group_marti_api import group_api
 
 marti_api = Blueprint('marti_api', __name__)
-
-marti_api.register_blueprint(data_package_marti_api)
-marti_api.register_blueprint(datasync_api)
-marti_api.register_blueprint(cot_marti_api)
-marti_api.register_blueprint(device_profile_marti_api_blueprint)
-marti_api.register_blueprint(citrap_api_blueprint)
-marti_api.register_blueprint(certificate_authority_api_blueprint)
 
 
 @marti_api.route('/Marti/api/clientEndPoints', methods=['GET'])

@@ -16,12 +16,13 @@ class MissionLogEntry(db.Model):
     content: Mapped[str] = mapped_column(String)
     creator_uid: Mapped[str] = mapped_column(String)
     entry_uid: Mapped[str] = mapped_column(String, default=str(uuid.uuid4()))
-    mission_name: Mapped[str] = mapped_column(String)
+    mission_name: Mapped[str] = mapped_column(String, ForeignKey("missions.name"))
     server_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.datetime.now())
     dtg: Mapped[datetime] = mapped_column(DateTime, default=datetime.datetime.now())
     created: Mapped[datetime] = mapped_column(DateTime, default=datetime.datetime.now())
     content_hash: Mapped[str] = mapped_column(String, nullable=True)
     keywords: Mapped[JSON] = mapped_column(JSON, default=[])
+    mission = relationship("Mission", back_populates="mission_logs")
 
     def serialize(self):
         return {
@@ -38,6 +39,7 @@ class MissionLogEntry(db.Model):
 
     def to_json(self):
         return {
+            'id': self.id,
             'content': self.content,
             'creatorUid': self.creator_uid,
             'entryUid': self.entry_uid,
@@ -45,6 +47,6 @@ class MissionLogEntry(db.Model):
             'servertime': iso8601_string_from_datetime(self.server_time),
             'dtg': iso8601_string_from_datetime(self.dtg),
             'created': iso8601_string_from_datetime(self.created),
-            'contentHashes': [self.content_hash],
+            'contentHashes': [self.content_hash] if self.content_hash else [],
             'keywords': self.keywords if self.keywords is not None else []
         }

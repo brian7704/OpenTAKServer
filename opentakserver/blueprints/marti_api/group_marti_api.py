@@ -16,7 +16,7 @@ def group_cache_enabled():
 
 
 @group_api.route('/Marti/api/groups/all')
-def group_cache_enabled():
+def get_all_groups():
     response = {"version": "3", "type": "com.bbn.marti.remote.groups.Group", "data": [],
                 "nodeId": app.config.get("OTS_NODE_ID")}
 

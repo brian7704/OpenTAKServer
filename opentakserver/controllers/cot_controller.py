@@ -224,7 +224,8 @@ class CoTController(RabbitMQClient):
         with self.context:
             res = self.db.session.execute(insert(CoT).values(
                 how=event.attrs['how'], type=event.attrs['type'], sender_callsign=sender_callsign,
-                sender_uid=uid, timestamp=timestamp, xml=str(soup), start=start, stale=stale, mission_name=mission_name
+                sender_uid=uid, timestamp=timestamp, xml=str(soup), start=start, stale=stale, mission_name=mission_name,
+                uid=event.attrs['uid']
             ))
 
             self.db.session.commit()
@@ -804,6 +805,7 @@ class CoTController(RabbitMQClient):
                     uid = destination.attrs['uid']
 
                 if uid:
+                    self.logger.error(f"SENDING DM TO {uid}")
                     self.rabbit_channel.basic_publish(exchange='dms',
                                                       routing_key=uid,
                                                       body=json.dumps(data))
@@ -819,6 +821,7 @@ class CoTController(RabbitMQClient):
                             return
 
                         mission = mission[0]
+                        self.logger.error(f"PUBLISHING TO MISSION {destination.attrs['mission']}")
                         self.rabbit_channel.basic_publish("missions", routing_key=destination.attrs['mission'], body=json.dumps(data))
 
                         mission_change = MissionChange()
@@ -848,8 +851,10 @@ class CoTController(RabbitMQClient):
                         point = event.find('point')
                         contact = event.find('contact')
 
-                        if color:
+                        if color and 'argb' in color.attrs:
                             mission_uid.color = color.attrs['argb']
+                        elif color and 'value' in color.attrs:
+                            mission_uid.color = color.attrs['value']
                         if icon:
                             mission_uid.iconset_path = icon['iconsetpath']
                         if point:
@@ -867,6 +872,7 @@ class CoTController(RabbitMQClient):
 
         # If no destination or callsign is specified, broadcast to all TAK clients
         elif self.rabbit_channel and self.rabbit_channel.is_open:
+            self.logger.error("PUBLISHING TO EVERYONE")
             self.rabbit_channel.basic_publish(exchange='cot', routing_key="", body=json.dumps(data),
                                               properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
 

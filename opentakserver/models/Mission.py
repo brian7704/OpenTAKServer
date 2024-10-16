@@ -1,8 +1,9 @@
 import datetime
 from dataclasses import dataclass
+from flask import request, current_app as app
 
 from opentakserver.functions import iso8601_string_from_datetime
-from opentakserver.extensions import db
+from opentakserver.extensions import db, logger
 from sqlalchemy import Integer, String, Boolean, JSON, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -42,10 +43,10 @@ class Mission(db.Model):
     contents = relationship("MissionContent", cascade="all",  secondary="mission_content_mission", back_populates="mission", uselist=True)
     cots = relationship("CoT", back_populates="mission", uselist=True)
     uids = relationship("MissionUID", cascade="all, delete-orphan", back_populates="mission")
+    mission_logs = relationship("MissionLogEntry", back_populates="mission")
 
     def serialize(self):
         return {
-            'name': self.name,
             'description': self.description,
             'chat_room': self.chat_room,
             'base_layer': self.base_layer,
@@ -70,6 +71,7 @@ class Mission(db.Model):
         }
 
     def to_json(self):
+        url = request.url_root.replace("http://", "").replace("https://", "").replace("/", "")
         json = {
             'name': self.name,
             'description': self.description or "",
@@ -93,8 +95,11 @@ class Mission(db.Model):
             'uids': [uid.to_json() for uid in self.uids],
             'contents': [content.to_json() for content in self.contents],
             'passwordProtected': self.password_protected if self.password_protected is not None else False,
-            'missionChanges': [mission_change.to_json() for mission_change in self.mission_changes]
+            'missionChanges': [mission_change.to_json() for mission_change in self.mission_changes],
+            'qr_code': f"{url}:{app.config.get('OTS_SSL_STREAMING_PORT')}:ssl,{url}-{app.config.get('OTS_MARTI_HTTPS_PORT')}-ssl-{self.name},{self.name}"
         }
+
+        logger.info(f"{url}:{app.config.get('OTS_SSL_STREAMING_PORT')}:ssl,{url}-{app.config.get('OTS_MARTI_HTTPS_PORT')}-ssl-{self.name},{self.name}")
 
         if self.default_role == MissionRole.MISSION_SUBSCRIBER or not self.default_role:
             json['defaultRole'] = MissionRole.SUBSCRIBER_ROLE

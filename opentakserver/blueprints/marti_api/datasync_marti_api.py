@@ -19,7 +19,7 @@ import pika
 
 from xml.etree.ElementTree import tostring, Element, fromstring, SubElement
 
-from opentakserver.functions import iso8601_string_from_datetime
+from opentakserver.functions import iso8601_string_from_datetime, datetime_from_iso8601_string
 from opentakserver.blueprints.marti_api.certificate_enrollment_api import basic_auth
 from opentakserver.extensions import db, logger
 from opentakserver.models.CoT import CoT
@@ -30,6 +30,7 @@ from opentakserver.models.MissionChange import MissionChange, generate_mission_c
 from opentakserver.models.MissionContent import MissionContent
 from opentakserver.models.MissionContentMission import MissionContentMission
 from opentakserver.models.MissionInvitation import MissionInvitation
+from opentakserver.models.MissionLogEntry import MissionLogEntry
 from opentakserver.models.MissionRole import MissionRole
 from opentakserver.models.MissionUID import MissionUID
 from opentakserver.models.Team import Team
@@ -146,7 +147,7 @@ def all_invitations():
     invitations = db.session.execute(db.session.query(MissionInvitation).filter_by(client_uid=client_uid)).all()
 
     for invitation in invitations:
-        response['data'].append(invitation[0].name)
+        response['data'].append(invitation[0].mission_name)
 
     return jsonify(response)
 
@@ -162,8 +163,8 @@ def put_mission(mission_name: str):
 
     mission.creator_uid = bleach.clean(request.args.get('creatorUid')) if 'creatorUid' in request.args else None
     mission.description = bleach.clean(request.args.get('description')) if 'description' in request.args else None
-    mission.tool = bleach.clean(request.args.get('tool')) if 'tool' in request.args else None
-    mission.group = bleach.clean(request.args.get('group')) if 'group' in request.args else None
+    mission.tool = bleach.clean(request.args.get('tool')) if 'tool' in request.args else "public"
+    mission.group = bleach.clean(request.args.get('group')) if 'group' in request.args else "__ANON__"
     mission.default_role = bleach.clean(request.args.get('defaultRole')) if 'defaultRole' in request.args else MissionRole.MISSION_SUBSCRIBER
     mission.password = request.args.get('password') if 'password' in request.args else None
     mission.guid = str(uuid.uuid4())
@@ -182,8 +183,9 @@ def put_mission(mission_name: str):
         db.session.add(mission)
         db.session.commit()
     except BaseException as e:
+        # Usually this means a mission with already exists with the same name
         logger.error("Failed to add mission: {}".format(e))
-        logger.error(traceback.format_exc())
+        logger.debug(traceback.format_exc())
         return jsonify({'success': False, 'error': "Failed to add mission: {}".format(e)}), 400
 
     mission_change = MissionChange()
@@ -464,15 +466,44 @@ def mission_changes(mission_name):
     return jsonify(response)
 
 
+@datasync_api.route('/Marti/api/missions/logs/entries', methods=['POST'])
+def create_log_entry():
+    # {'dtg': '2024-10-15T20:13:18.607Z', 'creatorUid': 'ANDROID-e3a3c5d176263d80', 'content': 'mbxkhxkgx',
+    # 'contentHashes': [], 'keywords': [], 'missionNames': ['wintakfeed']}
+    log_entry = MissionLogEntry()
+    log_entry.content = request.json.get('content')
+    log_entry.creator_uid = request.json.get('creatorUid')
+    log_entry.entry_uid = str(uuid.uuid4())
+    log_entry.mission_name = request.json.get('missionNames')[0]
+    log_entry.server_time = datetime.datetime.now()
+    log_entry.dtg = datetime_from_iso8601_string(request.json.get('dtg'))
+    log_entry.created = datetime.datetime.now()
+    log_entry.keywords = request.json.get('keywords')
+
+    db.session.add(log_entry)
+    db.session.commit()
+
+    response = {
+        'version': '3', 'type': '', 'messages': [], 'nodeId': app.config.get('OTS_NODE_ID'), 'data': [log_entry.to_json()]
+    }
+
+    return jsonify(response), 201
+
+
 @datasync_api.route('/Marti/api/missions/<mission_name>/log', methods=['GET'])
 def mission_log(mission_name):
-    # ATAK makes queries for this path but the TAK.gov server doesn't seem to ever return anything in the data
-    # list. Keeping the response as-is until I can find out what exactly what this API call is supposed to do
+    mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
+    if not mission:
+        return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
+    mission = mission[0]
 
     response = {
         "version": "3", "type": "com.bbn.marti.sync.model.LogEntry", "data": [],
         "nodeId": app.config.get("OTS_NODE_ID")
     }
+
+    for log in mission.mission_logs:
+        response['data'].append(log.to_json())
 
     return jsonify(response)
 
@@ -589,6 +620,7 @@ def delete_content(mission_name: str):
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f'Mission {mission_name} not found'}), 404
+    mission = mission[0]
 
     if 'uid' in request.args:
         mission_uid = db.session.execute(db.session.query(MissionUID).filter_by(uid=request.args.get('uid'))).first()
@@ -620,8 +652,8 @@ def delete_content(mission_name: str):
     mission_change.creator_uid = request.args.get('creatorUid')
     mission_change.server_time = datetime.datetime.now()
 
-    cot = generate_mission_change_cot(mission_name, mission, mission_change, content_uid=request.args.get('uid'))
-    body = {'uid': 'server', 'cot': tostring(cot).decode('utf-8')}
+    cot = generate_mission_change_cot(mission_name, mission, mission_change)
+    body = {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(cot).decode('utf-8')}
     logger.warning(tostring(cot).decode('utf-8'))
 
     rabbit_connection = pika.BlockingConnection(

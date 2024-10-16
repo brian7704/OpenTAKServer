@@ -202,8 +202,8 @@ def create_app():
     from opentakserver.blueprints.marti_api.marti_api import marti_api
     app.register_blueprint(marti_api)
 
-    from opentakserver.blueprints.ots_api.api import api_blueprint
-    app.register_blueprint(api_blueprint)
+    from opentakserver.blueprints.ots_api import ots_api
+    app.register_blueprint(ots_api)
 
     from opentakserver.blueprints.ots_socketio import ots_socketio_blueprint
     app.register_blueprint(ots_socketio_blueprint)

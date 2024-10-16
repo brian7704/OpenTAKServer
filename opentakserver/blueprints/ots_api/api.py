@@ -27,6 +27,7 @@ from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.Point import Point
 from opentakserver.models.user import User
 from opentakserver.models.Certificate import Certificate
+from opentakserver.models.APSchedulerJobs import APSchedulerJobs
 
 from opentakserver.SocketServer import SocketServer
 from opentakserver.certificate_authority import CertificateAuthority
