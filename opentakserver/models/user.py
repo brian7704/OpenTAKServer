@@ -30,4 +30,6 @@ class User(db.Model, fsqla.FsUserMixin):
         }
 
     def to_json(self):
-        return self.serialize()
+        response = self.serialize()
+        response['token'] = self.get_auth_token()
+        return response
