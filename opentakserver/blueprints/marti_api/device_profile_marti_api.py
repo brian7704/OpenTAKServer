@@ -51,7 +51,7 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
     enable_channels_host.text = "true"
 
     enable_channels = SubElement(pref, "entry", {'key': 'prefs_enable_channels', 'class': 'class java.lang.String'})
-    enable_channels.text = "true"
+    enable_channels.text = "true" if app.config.get("OTS_ENABLE_CHANNELS") else "false"
 
     # MANIFEST file
     manifest = Element("MissionPackageManifest", {"version": "2"})

@@ -12,9 +12,9 @@ group_api = Blueprint('group_api', __name__)
 
 @group_api.route('/Marti/api/groups/groupCacheEnabled')
 def group_cache_enabled():
-    # Always return False until the group cache functionality is implemented
     return jsonify(
-        {"version": "3", "type": "java.lang.Boolean", "data": False, "nodeId": app.config.get("OTS_NODE_ID")})
+        {"version": "3", "type": "java.lang.Boolean", "nodeId": app.config.get("OTS_NODE_ID"),
+         "data": app.config.get("OTS_ENABLE_CHANNELS")})
 
 
 @group_api.route('/Marti/api/groups/all')
