@@ -10,9 +10,11 @@ from flask_security import verify_password
 
 from bs4 import BeautifulSoup
 import pika
+from pika.channel import Channel
 
 from opentakserver.extensions import db
 from opentakserver.models.EUD import EUD
+from opentakserver.models.Mission import Mission
 
 
 class ClientController(Thread):
@@ -61,6 +63,7 @@ class ClientController(Thread):
                         self.logger.debug("Got common name {}".format(self.common_name))
             except BaseException as e:
                 logger.warning("Failed to do handshake: {}".format(e))
+                self.unbind_rabbitmq_queues()
                 self.send_disconnect_cot()
                 self.sock.shutdown(socket.SHUT_RDWR)
                 self.sock.close()
@@ -71,7 +74,7 @@ class ClientController(Thread):
         try:
             self.rabbit_connection = pika.SelectConnection(pika.ConnectionParameters(self.app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")),
                                                            self.on_connection_open)
-            self.rabbit_channel = None
+            self.rabbit_channel: Channel | None = None
             self.iothread = Thread(target=self.rabbit_connection.ioloop.start)
             self.iothread.daemon = True
             self.iothread.start()
@@ -98,6 +101,7 @@ class ClientController(Thread):
                 self.sock.send(body['cot'].encode())
         except BaseException as e:
             self.logger.error(f"{self.callsign}: {e}, closing socket")
+            self.unbind_rabbitmq_queues()
             self.send_disconnect_cot()
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
@@ -109,12 +113,14 @@ class ClientController(Thread):
             try:
                 data = self.sock.recv(1)
             except (ConnectionError, ConnectionResetError) as e:
+                self.unbind_rabbitmq_queues()
                 self.send_disconnect_cot()
                 self.sock.close()
                 break
             except TimeoutError:
                 if self.shutdown:
                     self.logger.warning("Closing connection to {}".format(self.address))
+                    self.unbind_rabbitmq_queues()
                     self.send_disconnect_cot()
                     self.sock.shutdown(socket.SHUT_RDWR)
                     self.sock.close()
@@ -215,10 +221,12 @@ class ClientController(Thread):
                                                           properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
             else:
+                self.unbind_rabbitmq_queues()
                 self.send_disconnect_cot()
                 break
 
     def close_connection(self):
+        self.unbind_rabbitmq_queues()
         self.send_disconnect_cot()
         self.sock.shutdown(socket.SHUT_RDWR)
         self.sock.close()
@@ -258,6 +266,16 @@ class ClientController(Thread):
                 self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.uid)
                 self.rabbit_channel.basic_consume(queue=self.uid, on_message_callback=self.on_message, auto_ack=True)
                 self.logger.debug("{} is consuming".format(self.callsign))
+
+    def unbind_rabbitmq_queues(self):
+        if self.uid:
+            self.rabbit_channel.queue_unbind(queue=self.uid, exchange="missions", routing_key="missions")
+            self.rabbit_channel.queue_unbind(queue=self.uid, exchange="cot")
+            with self.app.app_context():
+                missions = db.session.execute(db.session.query(Mission)).all()
+                for mission in missions:
+                    self.rabbit_channel.queue_unbind(queue=self.uid, exchange="missions", routing_key=f"missions.{mission[0].name}")
+                    self.logger.debug(f"Unbound {self.uid} from mission.{mission[0].name}")
 
     def send_disconnect_cot(self):
         if self.uid:
