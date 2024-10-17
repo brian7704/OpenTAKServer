@@ -11,6 +11,7 @@ from opentakserver.blueprints.ots_api.scheduler_api import scheduler_api_bluepri
 from opentakserver.blueprints.ots_api.user_api import user_api_blueprint
 from opentakserver.blueprints.ots_api.video_api import video_api_blueprint
 from opentakserver.blueprints.ots_api.data_sync_api import data_sync_api
+from opentakserver.blueprints.ots_api.group_api import group_api
 
 ots_api = Blueprint("ots_api", __name__)
 ots_api.register_blueprint(api_blueprint)
@@ -24,3 +25,4 @@ ots_api.register_blueprint(scheduler_api_blueprint)
 ots_api.register_blueprint(user_api_blueprint)
 ots_api.register_blueprint(video_api_blueprint)
 ots_api.register_blueprint(data_sync_api)
+ots_api.register_blueprint(group_api)
