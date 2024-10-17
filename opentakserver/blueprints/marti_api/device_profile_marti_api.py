@@ -35,7 +35,8 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
     startup_sync = SubElement(pref, "entry", {"key": "repoStartupSync", "class": "class java.lang.Boolean"})
     startup_sync.text = "true"
 
-    enable_profiles = SubElement(pref, "entry",{"key": "deviceProfileEnableOnConnect", "class": "class java.lang.Boolean"})
+    enable_profiles = SubElement(pref, "entry",
+                                 {"key": "deviceProfileEnableOnConnect", "class": "class java.lang.Boolean"})
     enable_profiles.text = "true"
 
     ca_location = SubElement(pref, "entry", {"key": "updateServerCaLocation", "class": "class java.lang.String"})
@@ -43,6 +44,14 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
 
     ca_password = SubElement(pref, "entry", {"key": "updateServerCaPassword", "class": "class java.lang.String"})
     ca_password.text = app.config.get("OTS_CA_PASSWORD")
+
+    enable_channels_host = SubElement(pref, "entry",
+                                      {'key': f'prefs_enable_channels_host-{urlparse(request.url_root).hostname}',
+                                       'class': 'class java.lang.String'})
+    enable_channels_host.text = "true"
+
+    enable_channels = SubElement(pref, "entry", {'key': 'prefs_enable_channels', 'class': 'class java.lang.String'})
+    enable_channels.text = "true"
 
     # MANIFEST file
     manifest = Element("MissionPackageManifest", {"version": "2"})
