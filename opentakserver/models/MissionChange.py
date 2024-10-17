@@ -24,6 +24,7 @@ class MissionChange(db.Model):
     REMOVE_CONTENT = "REMOVE_CONTENT"
     CREATE_DATA_FEED = "CREATE_DATA_FEED"
     DELETE_DATA_FEED = "DELETE_DATA_FEED"
+    CHANGE = "CHANGE"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     content_uid: Mapped[str] = mapped_column(String, ForeignKey("mission_content.uid"), nullable=True)
@@ -61,13 +62,14 @@ class MissionChange(db.Model):
             json['contentResource'] = self.content_resource.mission_content.to_json()
 
         if self.uid:
-            json['details'] = self.uid.to_json()
+            json['details'] = self.uid.to_details_json()
 
         return json
 
 
 def generate_mission_change_cot(mission_name: str, mission: Mission, mission_change: MissionChange,
-                                content: MissionContent | None = None, cot_event: BeautifulSoup | None = None, ) -> Element:
+                                content: MissionContent | None = None, cot_event: BeautifulSoup | None = None,
+                                cot_type: str = "t-x-m-c") -> Element:
     if content:
         uid = content.uid
     elif cot_event:
@@ -75,7 +77,7 @@ def generate_mission_change_cot(mission_name: str, mission: Mission, mission_cha
     else:
         uid = str(uuid.uuid4())
 
-    event = Element("event", {"version": "2.0", "uid": uid, "type": "t-x-m-c", "how": "h-g-i-g-o",
+    event = Element("event", {"version": "2.0", "uid": uid, "type": cot_type, "how": "h-g-i-g-o",
                               "start": iso8601_string_from_datetime(mission_change.timestamp),
                               "time": iso8601_string_from_datetime(mission_change.timestamp),
                               "stale": iso8601_string_from_datetime(

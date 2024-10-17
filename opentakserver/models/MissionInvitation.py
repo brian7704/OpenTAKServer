@@ -17,6 +17,8 @@ class MissionInvitation(db.Model):
     username: Mapped[str] = mapped_column(String, ForeignKey("user.username"), nullable=True)
     group_name: Mapped[str] = mapped_column(String, ForeignKey("groups.group_name"), nullable=True)
     team_name: Mapped[str] = mapped_column(String, ForeignKey("teams.name"), nullable=True)
+    creator_uid: Mapped[str] = mapped_column(String, nullable=True)
+    role: Mapped[str] = mapped_column(String, nullable=True)
 
     eud_uid = relationship("EUD", foreign_keys=[client_uid], uselist=False)
     eud_callsign = relationship("EUD", foreign_keys=[callsign], uselist=False)
@@ -32,7 +34,9 @@ class MissionInvitation(db.Model):
             'callsign': self.callsign,
             'username': self.username,
             'group_name': self.group,
-            'team_name': self.team_name
+            'team_name': self.team_name,
+            'creator_uid': self.creator_uid,
+            'role': self.role
         }
 
     def to_json(self):

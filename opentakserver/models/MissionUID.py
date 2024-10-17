@@ -53,3 +53,15 @@ class MissionUID(db.Model):
                 }
             }
         }
+
+    def to_details_json(self):
+        return {
+            'type': self.cot_type,
+            'callsign': self.callsign,
+            'iconsetPath': self.iconset_path,
+            'color': self.color,
+            'location': {
+                'lat': self.latitude,
+                'lon': self.longitude
+            }
+        }

@@ -120,7 +120,10 @@ def get_missions():
     }
 
     try:
-        missions = db.session.execute(db.session.query(Mission).filter_by(tool=tool)).scalars()
+        query = db.session.query(Mission)
+        if tool:
+            query = query.where(Mission.tool == tool)
+        missions = db.session.execute(query).scalars()
         for mission in missions:
             response['data'].append(mission.to_json())
 
@@ -245,7 +248,8 @@ def get_mission(mission_name: str):
 
         return jsonify({'version': "3", 'type': 'Mission', 'data': [mission[0].to_json()], 'nodeId': app.config.get("OTS_NODE_ID")})
     except BaseException as e:
-        logger.error(traceback.format_exc())
+        logger.error(f"Failed to get mission: {e}")
+        logger.debug(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
@@ -299,8 +303,6 @@ def set_password(mission_name: str):
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/invite/<invitation_type>/<invitee>', methods=['PUT'])
 def invite(mission_name: str, invitation_type: str, invitee: str):
-    invitation_types = ['clientUid', 'callsign', 'userName', 'group', 'team']
-
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
@@ -346,18 +348,50 @@ def invite(mission_name: str, invitation_type: str, invitee: str):
     event = generate_invitation_cot(mission)
     rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
     channel = rabbit_connection.channel()
-    logger.warning(f"publishing messages to {invitee}")
-    logger.error(tostring(event))
     channel.basic_publish(exchange="dms", routing_key=invitee, body=json.dumps({"uid": app.config.get("OTS_NODE_ID"),
                                                                                 "cot": tostring(event).decode('utf-8')}))
 
     return '', 200
 
 
+@datasync_api.route('/Marti/api/missions/<mission_name>/invite/<invitation_type>/<invitee>', methods=['DELETE'])
+def delete_invitation(mission_name: str, invitation_type: str, invitee: str):
+    mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
+    if not mission:
+        return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
+
+    mission = mission[0]
+
+    if invitation_type.lower() not in ['clientuid', 'callsign', 'username', 'group', 'team']:
+        return jsonify({'success': False, 'error': f"Invalid invitation type: {invitation_type}"}), 400
+
+    # Doing it like this because I can select an EUD, user, group, or team and automatically
+    # get all of their invitations
+    query = db.session.query(MissionInvitation).where(MissionInvitation.mission_name == mission_name)
+    if invitation_type.lower() == 'clientuid':
+        query = query.where(MissionInvitation.client_uid == invitee)
+    elif invitation_type.lower() == 'callsign':
+        query = query.where(MissionInvitation.callsign == invitee)
+    elif invitation_type.lower() == 'username':
+        query = query.where(MissionInvitation.username == invite)
+    elif invitation_type.lower() == 'group':
+        query = query.where(MissionInvitation.group == invite)
+    elif invitation_type.lower() == 'team':
+        query = query.where(MissionInvitation.team == invite)
+
+    invitations = db.session.execute(query).scalars()
+    for invitation in invitations:
+        db.session.delete(invitation)
+    db.session.commit()
+
+    return jsonify({'success': True})
+
+
 @datasync_api.route('/Marti/api/missions/<mission_name>/invite', methods=['POST'])
-def invite_by_form(mission_name: str):
+def invite_json(mission_name: str):
+    # [{"type":"clientUid","invitee":"S-1-5-21-2205846298-3636538060-4260733431-1001","role":{"type":"MISSION_SUBSCRIBER"}}]'
     creator_uid = request.args.get("creatorUid")
-    contacts = request.form.getlist("contacts")
+    invitees = request.json
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
@@ -367,18 +401,34 @@ def invite_by_form(mission_name: str):
     rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
     channel = rabbit_connection.channel()
 
-    for contact in contacts:
+    for invitee in invitees:
         invitation = MissionInvitation()
         invitation.mission_name = mission_name
-        invitation.client_uid = contact
+        invitation.role = invitee['role']['type']
+
+        if invitee['type'].lower() == 'clientuid':
+            invitation.client_uid = invitee['invitee']
+        elif invitee['type'].lower() == 'callsign':
+            invitation.callsign = invitee['invitee']
+        elif invitee['type'].lower() == 'username':
+            invitation.username = invitee['invitee']
+        elif invitee['type'].lower() == 'group':
+            invitation.group = invitee['invitee']
+        elif invitee['type'].lower() == 'team':
+            invitation.team = invitee['invitee']
+        else:
+            return jsonify({'success': False, 'error': f"Invalid invitation type: {invitation['type']}"}), 400
 
         db.session.add(invitation)
         db.session.commit()
 
         event = generate_invitation_cot(mission)
 
-        channel.basic_publish(exchange="dms", routing_key=contact, body=json.dumps({'uid': app.config['OTS_NODE_ID'],
-                                                                                    "cot": tostring(event).decode('utf-8')}))
+        logger.debug(f"Sending invitation to mission {mission_name} to {invitee['invitee']}")
+        channel.basic_publish(exchange="dms", routing_key=invitee['invitee'],
+                              body=json.dumps({'uid': app.config['OTS_NODE_ID'], "cot": tostring(event).decode('utf-8')}))
+
+    return jsonify({'success': True})
 
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/subscriptions/roles')
@@ -386,7 +436,7 @@ def mission_roles(mission_name: str):
     response = {"version": "3", "type": "MissionSubscription", "data": [], "nodeId": app.config.get("OTS_NODE_ID")}
     roles = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name))
     for role in roles:
-        response['data'].append(role.to_json())
+        response['data'].append(role[0].to_json())
 
     return jsonify(response)
 
@@ -493,13 +543,19 @@ def mission_changes(mission_name):
         "version": "3", "type": "MissionChange", "data": [], "nodeId": app.config.get("OTS_NODE_ID")
     }
 
+    changes = db.session.execute(db.session.query(MissionChange).filter_by(mission_name=mission_name)).all()
+    for change in changes:
+        response['data'].append(change[0].to_json())
+
     return jsonify(response)
 
 
 @datasync_api.route('/Marti/api/missions/logs/entries', methods=['POST'])
 def create_log_entry():
-    # {'dtg': '2024-10-15T20:13:18.607Z', 'creatorUid': 'ANDROID-e3a3c5d176263d80', 'content': 'mbxkhxkgx',
-    # 'contentHashes': [], 'keywords': [], 'missionNames': ['wintakfeed']}
+    mission = db.session.execute(db.session.query(Mission).filter_by(name=request.json['missionNames'][0])).first()
+    if not mission:
+        return jsonify({'success': False, 'error': f"Mission not found: {request.json['missionNames'][0]}"}), 404
+
     log_entry = MissionLogEntry()
     log_entry.content = request.json.get('content')
     log_entry.creator_uid = request.json.get('creatorUid')
@@ -511,11 +567,29 @@ def create_log_entry():
     log_entry.keywords = request.json.get('keywords')
 
     db.session.add(log_entry)
-    db.session.commit()
 
     response = {
         'version': '3', 'type': '', 'messages': [], 'nodeId': app.config.get('OTS_NODE_ID'), 'data': [log_entry.to_json()]
     }
+
+    mission_change = MissionChange()
+    mission_change.content_uid = log_entry.entry_uid
+    mission_change.isFederatedChange = False
+    mission_change.change_type = MissionChange.CHANGE
+    mission_change.timestamp = log_entry.dtg
+    mission_change.creator_uid = log_entry.creator_uid
+    mission_change.server_time = datetime.datetime.now()
+    mission_change.mission_name = log_entry.mission_name
+
+    db.session.add(mission_change)
+    db.session.commit()
+
+    change_cot = generate_mission_change_cot(log_entry.mission_name, mission[0], mission_change, cot_type='t-x-m-c-l')
+    body = json.dumps({'uid': log_entry.creator_uid, 'cot': tostring(change_cot).decode('utf-8')})
+
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    channel = rabbit_connection.channel()
+    channel.basic_publish("missions", routing_key=f"missions.{log_entry.mission_name}", body=body)
 
     return jsonify(response), 201
 
@@ -548,6 +622,7 @@ def upload_content() -> flask.Response:
 
     file_name = bleach.clean(request.args.get('name')) if 'name' in request.args else None
     creator_uid = bleach.clean(request.args.get('creatorUid')) if 'creatorUid' in request.args else None
+    keywords = request.args.getlist('keywords')
 
     if not file_name:
         return jsonify({'success': False, 'error': 'File name cannot be blank'}), 400
@@ -569,6 +644,7 @@ def upload_content() -> flask.Response:
     content.creator_uid = creator_uid
     content.size = request.content_length
     content.expiration = -1
+    content.keywords = keywords if keywords else []
 
     file = request.data
     sha256 = hashlib.sha256()
@@ -594,6 +670,24 @@ def upload_content() -> flask.Response:
     }
 
     return jsonify(response)
+
+
+@datasync_api.route('/Marti/api/sync/metadata/<content_hash>/keywords', methods=['PUT'])
+def add_content_keywords(content_hash: str):
+    keywords = request.json
+    content = db.session.execute(db.session.query(MissionContent).filter_by(hash=content_hash)).first()
+    if not content:
+        return jsonify({'success': False, 'error': f"No content found with hash: {content_hash}"})
+    content: MissionContent = content[0]
+    current_keywords = content.keywords if content.keywords else []
+
+    for keyword in keywords:
+        if keyword not in current_keywords:
+            current_keywords.append(keyword)
+    db.session.execute(update(MissionContent).where(MissionContent.hash == content_hash).values(keywords=current_keywords))
+    db.session.commit()
+
+    return '', 200
 
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/contents', methods=['PUT'])
@@ -684,7 +778,6 @@ def delete_content(mission_name: str):
 
     cot = generate_mission_change_cot(mission_name, mission, mission_change)
     body = {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(cot).decode('utf-8')}
-    logger.warning(tostring(cot).decode('utf-8'))
 
     rabbit_connection = pika.BlockingConnection(
         pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))

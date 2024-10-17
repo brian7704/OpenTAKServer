@@ -29,6 +29,7 @@ marti_api = Blueprint('marti_api', __name__)
 
 @marti_api.route('/Marti/api/clientEndPoints', methods=['GET'])
 def client_end_points():
+    # TODO: Add group support ?group=__ANON__
     euds = db.session.execute(db.select(EUD)).scalars()
     return_value = {'version': 3, "type": "com.bbn.marti.remote.ClientEndpoint", 'data': [],
                     'nodeId': app.config.get("OTS_NODE_ID")}

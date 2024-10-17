@@ -39,7 +39,7 @@ class MissionLogEntry(db.Model):
 
     def to_json(self):
         return {
-            'id': self.id,
+            'id': self.entry_uid,
             'content': self.content,
             'creatorUid': self.creator_uid,
             'entryUid': self.entry_uid,
