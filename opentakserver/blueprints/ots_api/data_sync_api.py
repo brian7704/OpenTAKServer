@@ -2,6 +2,7 @@ import sqlalchemy.exc
 from flask import Blueprint, request, jsonify
 from flask_security import auth_required, current_user
 
+from opentakserver.blueprints.marti_api.datasync_marti_api import invite
 from opentakserver.extensions import db
 from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.models.Mission import Mission
@@ -94,3 +95,10 @@ def delete_mission():
 
     return jsonify({'success': False, 'error': f"Only an admin or the mission creator can delete this mission"}), 403
 
+
+@data_sync_api.route('/api/missions/invite')
+@auth_required()
+def invite_eud():
+    mission_name = request.json['mission_name']
+    eud_uid = request.json['uid']
+    return invite(mission_name, 'clientuid', eud_uid)

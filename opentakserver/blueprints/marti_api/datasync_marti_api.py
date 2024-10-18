@@ -5,6 +5,7 @@ import os
 import time
 import traceback
 import uuid
+from urllib.parse import urlparse
 
 import flask
 import jwt
@@ -12,15 +13,15 @@ import jwt
 import bleach
 import sqlalchemy.exc
 from flask import Blueprint, request, current_app as app, jsonify
-from flask_security import current_user
+from flask_security import current_user, hash_password, verify_password
 from sqlalchemy import update, insert
 from werkzeug.utils import secure_filename
 import pika
 
 from xml.etree.ElementTree import tostring, Element, fromstring, SubElement
 
+from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
 from opentakserver.functions import iso8601_string_from_datetime, datetime_from_iso8601_string
-from opentakserver.blueprints.marti_api.certificate_enrollment_api import basic_auth
 from opentakserver.extensions import db, logger
 from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
@@ -39,7 +40,17 @@ from opentakserver.models.user import User
 datasync_api = Blueprint('datasync_api', __name__)
 
 
-def verify_token(token) -> dict | bool:
+# Only allow access to the mission/data sync API over SSL/port 8443 with a valid client cert.
+# nginx will proxy the cert in a header called X-Ssl-Cert by default. This is configurable in ots_https and with the
+# OTS_SSL_CERT_HEADER option in config.yml
+@datasync_api.before_request()
+def verify_client_cert():
+    if not verify_client_cert():
+        return jsonify({'success': False, 'error': 'Missing or invalid client certificate'}), 400
+
+
+def verify_token() -> dict | bool:
+    token = request.headers.get('Authorization')
     if not token or "Bearer" not in token:
         return False
 
@@ -54,9 +65,21 @@ def verify_token(token) -> dict | bool:
             return False
 
 
-def generate_token(mission: Mission):
-    payload = {'jti': mission.guid, 'iat': mission.create_time or time.time(), 'sub': 'SUBSCRIPTION', 'iss': '',
-               'SUBSCRIPTION': mission.guid, 'MISSION_NAME': mission.name, 'MISSION_GUID': mission.guid}
+def generate_token(mission: Mission, eud_uid: str):
+    """
+    jti: Unique UUID for the token
+    iat: Time token was issued. Can be used to invalidate a token if it was issued before a security event occurred
+    sub: The thing the token identifies, the EUD's UID in this case. Used to verify EUD roles, ie MISSION_SUBSCRIBER, MISSION_OWNER, or MISSION_READ_ONLY
+    MISSION_NAME: The mission this token is for
+    MISSION_GUID: The guid of the mission this token is for
+
+    :param mission:
+    :param eud_uid:
+    :return: string token
+    """
+    payload = {'jti': str(uuid.uuid4()), 'iat': int(time.time()), 'sub': eud_uid,
+               'iss': urlparse(request.base_url).hostname, 'MISSION_NAME': mission.name,
+               'MISSION_GUID': mission.guid}
 
     server_key = open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver",
                                    "opentakserver.nopass.key"), "r")
@@ -67,7 +90,7 @@ def generate_token(mission: Mission):
     return token
 
 
-def generate_invitation_cot(mission: Mission):
+def generate_invitation_cot(mission: Mission, uid: str):
     logger.info(mission.serialize())
     event = Element("event", {"type": "t-x-m-i", "how": "h-g-i-g-o", "version": "2.0", "uid": str(uuid.uuid4()),
                               "start": iso8601_string_from_datetime(datetime.datetime.now()),
@@ -79,7 +102,7 @@ def generate_invitation_cot(mission: Mission):
     detail = SubElement(event, "detail")
     mission_tag = SubElement(detail, "mission", {"type": Mission.INVITE, "tool": "public", "name": mission.name,
                                                  "guid": mission.guid, "authorUid": "",
-                                                 "token": generate_token(mission)})
+                                                 "token": generate_token(mission, uid)})
     role = SubElement(mission_tag, "role", {"type": mission.default_role})
     permissions = SubElement(role, "permissions")
 
@@ -157,68 +180,87 @@ def all_invitations():
 
 @datasync_api.route('/Marti/api/missions/<mission_name>', methods=['PUT', 'POST'])
 def put_mission(mission_name: str):
-    """ Used by the Data Sync plugin to create a new feed """
-    if not mission_name:
-        return jsonify({'success': False, 'error': 'Invalid mission name'}), 400
+    """ Used by the Data Sync plugin to create or change a mission """
+    if not mission_name or not request.args.get('creatorUid'):
+        return jsonify({'success': False, 'error': 'Please provide a mission name and creatorUid'}), 400
+
+    eud = db.session.execute(db.session.query(EUD).filter_by(uid=request.args.get('creatorUid'))).first()
+    if not eud:
+        return jsonify({'success': False, 'error': f"Invalid creatorUid: {request.args.get('creatorUid')}"}), 400
+    eud = eud[0]
 
     mission = Mission()
     mission.name = bleach.clean(mission_name)
+    if 'password' in request.args and request.args.get('password'):
+        password = hash_password(request.args.get('password'))
+    else:
+        password = None
 
     mission.creator_uid = bleach.clean(request.args.get('creatorUid')) if 'creatorUid' in request.args else None
     mission.description = bleach.clean(request.args.get('description')) if 'description' in request.args else None
     mission.tool = bleach.clean(request.args.get('tool')) if 'tool' in request.args else "public"
     mission.group = bleach.clean(request.args.get('group')) if 'group' in request.args else "__ANON__"
     mission.default_role = bleach.clean(request.args.get('defaultRole')) if 'defaultRole' in request.args else MissionRole.MISSION_SUBSCRIBER
-    mission.password = request.args.get('password') if 'password' in request.args else None
+    mission.password = password
+    mission.password_protected = (mission.password is not None)
     mission.guid = str(uuid.uuid4())
-
-    mission.password_protected = False
-    if mission.password:
-        mission.password = bleach.clean(mission.password)
-        mission.password_protected = True
-
     mission.uid = str(uuid.uuid4())
     mission.create_time = datetime.datetime.now()
 
-    token = generate_token(mission)
-
     try:
         db.session.add(mission)
+        # Will raise IntegrityError if the mission exists, meaning we should update it
         db.session.commit()
+
+        mission_role = MissionRole()
+        mission_role.clientUid = mission.creator_uid
+        mission_role.username = eud.user.username or "anonymous"
+        mission_role.createTime = datetime.datetime.now()
+        mission_role.role_type = MissionRole.MISSION_OWNER
+        mission_role.mission_name = mission_name
+        db.session.add(mission_role)
+
+        mission_change = MissionChange()
+        mission_change.isFederatedChange = False
+        mission_change.change_type = MissionChange.CREATE_MISSION
+        mission_change.mission_name = mission_name
+        mission_change.timestamp = mission.create_time
+        mission_change.creator_uid = mission.creator_uid
+        mission_change.server_time = mission.create_time
+
+        db.session.add(mission_change)
+        db.session.commit()
+
+        event = Element("event", {"type": "t-x-m-n", "how": "h-g-i-g-o", "version": "2.0", "uid": str(uuid.uuid4()),
+                                  "start": iso8601_string_from_datetime(datetime.datetime.now()),
+                                  "time": iso8601_string_from_datetime(datetime.datetime.now()),
+                                  "stale": iso8601_string_from_datetime(
+                                      datetime.datetime.now() + datetime.timedelta(hours=1))})
+        SubElement(event, "point", {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0', 'lon': '0'})
+        detail = SubElement(event, "detail")
+        SubElement(detail, "mission", {'type': Mission.CREATE, 'tool': mission.tool, 'name': mission.name,
+                                                 'guid': mission.guid, 'authorUid': mission.creator_uid})
+
+        rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+        channel = rabbit_connection.channel()
+        channel.basic_publish(exchange="missions", routing_key="missions",
+                              body=json.dumps(
+                                  {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}))
+    except sqlalchemy.exc.IntegrityError:
+        # Mission exists, needs updating
+        db.session.rollback()
+        db.session.execute(update(Mission).where(Mission.name == mission.mission_changes).values(**mission.serialize()))
+        db.session.commit()
+        return jsonify({'version': "3", 'type': 'Mission', 'data': [mission.to_json()], 'nodeId': app.config.get("OTS_NODE_ID")})
     except BaseException as e:
-        # Usually this means a mission with already exists with the same name
-        logger.error("Failed to add mission: {}".format(e))
+        logger.error(f"Failed to add mission: {e}")
         logger.debug(traceback.format_exc())
-        return jsonify({'success': False, 'error': "Failed to add mission: {}".format(e)}), 400
+        return jsonify({'success': False, 'error': f"Failed to add mission: {e}"}), 500
 
-    mission_change = MissionChange()
-    mission_change.isFederatedChange = False
-    mission_change.change_type = MissionChange.CREATE_MISSION
-    mission_change.mission_name = mission_name
-    mission_change.timestamp = mission.create_time
-    mission_change.creator_uid = mission.creator_uid
-    mission_change.server_time = mission.create_time
-
-    db.session.add(mission_change)
-    db.session.commit()
-
+    token = generate_token(mission, mission.creator_uid)
     mission_json = mission.to_json()
     mission_json['token'] = token
     mission_json['ownerRole'] = MissionRole.OWNER_ROLE
-
-    event = Element("event", {"type": "t-x-m-n", "how": "h-g-i-g-o", "version": "2.0", "uid": str(uuid.uuid4()),
-                              "start": iso8601_string_from_datetime(datetime.datetime.now()),
-                              "time": iso8601_string_from_datetime(datetime.datetime.now()),
-                              "stale": iso8601_string_from_datetime(datetime.datetime.now() + datetime.timedelta(hours=1))})
-    SubElement(event, "point", {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0', 'lon': '0'})
-    detail = SubElement(event, "detail")
-    mission = SubElement(detail, "mission", {'type': Mission.CREATE, 'tool': mission.tool, 'name': mission.name,
-                                             'guid': mission.guid, 'authorUid': mission.creator_uid})
-
-    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
-    channel = rabbit_connection.channel()
-    channel.basic_publish(exchange="missions", routing_key="missions",
-                          body=json.dumps({'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}))
 
     response = {'version': "3", 'type': 'Mission', 'data': [mission_json], 'nodeId': app.config.get("OTS_NODE_ID")}
 
@@ -228,14 +270,6 @@ def put_mission(mission_name: str):
 @datasync_api.route('/Marti/api/missions/<mission_name>', methods=['GET'])
 def get_mission(mission_name: str):
     """ Used by the Data Sync plugin to get a feed's metadata """
-    if 'Authorization' in request.headers:
-
-        if 'Bearer' in request.headers.get('Authorization') and not verify_token(request.headers.get("Authorization")):
-            return jsonify({'success': False, 'error': 'Invalid token'}), 401
-
-        elif 'Basic' in request.headers.get('Authorization') and not basic_auth(request.headers.get('Authorization').replace("Basic ", "")):
-            return jsonify({'success': False, 'error': 'Bad username or password'}), 401
-
     if not mission_name:
         return jsonify({'success': False, 'error': 'Invalid mission name'}), 400
 
@@ -256,14 +290,33 @@ def get_mission(mission_name: str):
 @datasync_api.route('/Marti/api/missions/<mission_name>', methods=['DELETE'])
 def delete_mission(mission_name: str):
     """ Used by the Data Sync plugin to delete a feed """
-    if 'creatorUid' not in request.args:
-        return jsonify({'success': False, 'error': 'Invalid creator UID'}), 400
 
+    # ATAK sends a creatorUid param, but we ignore it in favor of the UID in the signed JWT token that ATAK also sends.
     creator_uid = request.args.get('creatorUid')
 
-    mission = db.session.execute(db.session.query(Mission).filter_by(creator_uid=creator_uid, name=mission_name)).first()
+    token = verify_token()
+    if not token:
+        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+
+    # Make sure this is the correct token for this mission
+    if token['MISSION_NAME'] != mission_name:
+        return jsonify({'success': False, 'error': 'Invalid token for this mission'}), 403
+
+    mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if mission:
         mission = mission[0]
+
+        can_delete = False
+
+        # Check if the UID in the token has the MISSION_OWNER role for this mission. If not, it can't delete the mission
+        for role in mission.roles:
+            if role.clientUid == token['eud_id'] and role.role_type == MissionRole.MISSION_OWNER:
+                can_delete = True
+                break
+
+        if not can_delete:
+            return jsonify({'success': False, 'error': 'Only mission owners can delete missions'}), 403
+
         db.session.delete(mission)
         db.session.commit()
 
@@ -273,7 +326,7 @@ def delete_mission(mission_name: str):
                                   "stale": iso8601_string_from_datetime(datetime.datetime.now() + datetime.timedelta(hours=1))})
         SubElement(event, "point", {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0', 'lon': '0'})
         detail = SubElement(event, "detail")
-        mission = SubElement(detail, "mission", {'type': Mission.DELETE, 'tool': mission.tool, 'name': mission.name,
+        SubElement(detail, "mission", {'type': Mission.DELETE, 'tool': mission.tool, 'name': mission.name,
                                                  'guid': mission.guid, 'authorUid': mission.creator_uid})
 
         rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
@@ -288,6 +341,9 @@ def delete_mission(mission_name: str):
 
 @datasync_api.route('/Marti/api/mission/<mission_name>/password', methods=['PUT'])
 def set_password(mission_name: str):
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
     """ Used by the Data Sync plugin to add a password to a feed """
     if 'creatorUid' not in request.args or 'password' not in request.args:
         return jsonify({'success': False, 'error': 'Please provide the creatorUid and password'}), 400
@@ -303,6 +359,9 @@ def set_password(mission_name: str):
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/invite/<invitation_type>/<invitee>', methods=['PUT'])
 def invite(mission_name: str, invitation_type: str, invitee: str):
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
@@ -345,7 +404,7 @@ def invite(mission_name: str, invitation_type: str, invitee: str):
     db.session.add(invitation)
     db.session.commit()
 
-    event = generate_invitation_cot(mission)
+    event = generate_invitation_cot(mission, invitee)
     rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
     channel = rabbit_connection.channel()
     channel.basic_publish(exchange="dms", routing_key=invitee, body=json.dumps({"uid": app.config.get("OTS_NODE_ID"),
@@ -356,6 +415,9 @@ def invite(mission_name: str, invitation_type: str, invitee: str):
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/invite/<invitation_type>/<invitee>', methods=['DELETE'])
 def delete_invitation(mission_name: str, invitation_type: str, invitee: str):
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
@@ -389,6 +451,9 @@ def delete_invitation(mission_name: str, invitation_type: str, invitee: str):
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/invite', methods=['POST'])
 def invite_json(mission_name: str):
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
     # [{"type":"clientUid","invitee":"S-1-5-21-2205846298-3636538060-4260733431-1001","role":{"type":"MISSION_SUBSCRIBER"}}]'
     creator_uid = request.args.get("creatorUid")
     invitees = request.json
@@ -422,7 +487,7 @@ def invite_json(mission_name: str):
         db.session.add(invitation)
         db.session.commit()
 
-        event = generate_invitation_cot(mission)
+        event = generate_invitation_cot(mission, invitee['invitee'])
 
         logger.debug(f"Sending invitation to mission {mission_name} to {invitee['invitee']}")
         channel.basic_publish(exchange="dms", routing_key=invitee['invitee'],
@@ -433,6 +498,9 @@ def invite_json(mission_name: str):
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/subscriptions/roles')
 def mission_roles(mission_name: str):
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
     response = {"version": "3", "type": "MissionSubscription", "data": [], "nodeId": app.config.get("OTS_NODE_ID")}
     roles = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name))
     for role in roles:
@@ -441,8 +509,48 @@ def mission_roles(mission_name: str):
     return jsonify(response)
 
 
+@datasync_api.route('/Marti/api/mission/api/<mission_name>/role', methods=['PUT'])
+def kick_eud_from_mission(mission_name: str):
+    """ Used by Data Sync to kick an EUD off of a mission """
+    token = verify_token()
+    if not token:
+        return jsonify({'success': False, 'error': "Missing or invalid token"}), 401
+
+    if token['MISSION_NAME'] != mission_name:
+        return jsonify({'success': False, 'error': 'Invalid token for this mission'}), 403
+
+    mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
+    if not mission:
+        return jsonify({'success': False, 'error': f"No such mission found: {mission_name}"}), 404
+    mission = mission[0]
+
+    role = db.session.execute(db.session.query(MissionRole).filter_by(clientUid=token['eud_uid'], role_type=MissionRole.MISSION_OWNER)).first()
+    if not role:
+        return jsonify({'success': False, 'error': 'Only mission owners can kick EUDs from a mission'}), 403
+
+    start = event_time = iso8601_string_from_datetime(datetime.datetime.now())
+    stale = iso8601_string_from_datetime(datetime.datetime.now() + datetime.timedelta(minutes=1))
+
+    event = Element("event", {"version": "2.0", "uid": str(uuid.uuid4()), 'start': start, 'time': event_time,
+                              'stale': stale, 'how': 'h-g-i-g-o', 'type': 't-x-m-r', 'access': 'Undefined'})
+    SubElement(event, 'point', {'lat': '0', 'lon': '0', 'hae': '0', 'ce': '9999999', 'le': '9999999'})
+    detail = SubElement(event, 'detail')
+    SubElement(detail, 'mission', {'name': mission_name, 'guid': mission.guid, 'type': Mission.INVITE, 'tool': mission.tool})
+    body = {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}
+
+    rabbit_connection = pika.BlockingConnection(
+        pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    channel = rabbit_connection.channel()
+    channel.basic_publish(exchange="missions", routing_key=f"missions.{mission_name}", body=json.dumps(body))
+
+    return '', 200
+
+
 @datasync_api.route('/Marti/api/missions/<mission_name>/subscriptions')
 def get_subscriptions(mission_name: str):
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
     subscriptions = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name)).all()
     response = {
         "version": "3", "type": "MissionSubscription", "data": [], "nodeId": app.config.get("OTS_NODE_ID")
@@ -456,7 +564,10 @@ def get_subscriptions(mission_name: str):
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/keywords', methods=['PUT'])
 def put_mission_keywords(mission_name):
-    keywords = request.json()
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
+    keywords = request.json
 
     return '', 200
 
@@ -469,24 +580,28 @@ def mission_subscribe(mission_name: str) -> flask.Response:
         return jsonify({'success': False, 'error': 'Missing UID'}), 400
 
     uid = bleach.clean(request.args.get("uid"))
+    eud = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()
+    if not eud:
+        return jsonify({'success': False, 'error': f"Invalid UID: {uid}"}), 400
+    eud = eud[0]
+
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f"Cannot find mission {mission_name}"}), 404
 
     mission = mission[0]
 
-    if not current_user.is_authenticated:
-        username = "anonymous"
-    else:
-        username = current_user.username
+    if mission.password_protected:
+        if not verify_password(request.args.get('password', ''), mission.password):
+            return jsonify({'success': False, 'error': 'Invalid password'}), 401
 
     role = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name, clientUid=uid)).first()
     if not role:
         role = MissionRole()
         role.clientUid = uid
-        role.username = username
+        role.username = eud.user.username
         role.createTime = datetime.datetime.now()
-        role.role_type = MissionRole.MISSION_SUBSCRIBER
+        role.role_type = mission.default_role
         role.mission_name = mission.name
 
         db.session.add(role)
@@ -500,9 +615,9 @@ def mission_subscribe(mission_name: str) -> flask.Response:
 
     response = {
         "version": "3", "type": "com.bbn.marti.sync.model.MissionSubscription", "data": {
-            "token": generate_token(mission),
+            "token": generate_token(mission, uid),
             "mission": mission.to_json(),
-            "username": username,
+            "username": eud.user.username,
             "createTime": role.createTime,
             "role": role.to_json(),
             "nodeId": app.config.get("OTS_NODE_ID")
@@ -514,6 +629,9 @@ def mission_subscribe(mission_name: str) -> flask.Response:
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/subscription', methods=['DELETE'])
 def mission_unsubscribe(mission_name: str) -> flask.Response:
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
     """ Used by the Data Sync plugin to unsubscribe to a feed """
     if "uid" not in request.args:
         return jsonify({'success': False, 'error': 'Missing UID'}), 400
@@ -534,6 +652,9 @@ def mission_unsubscribe(mission_name: str) -> flask.Response:
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/changes', methods=['GET'])
 def mission_changes(mission_name):
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
     # {"version":"3","type":"MissionChange","data":[{"isFederatedChange":false,"type":"CREATE_MISSION","missionName":"my_mission","timestamp":"2024-05-17T16:39:34.621Z","creatorUid":"ANDROID-e3a3c5d176263d80","serverTime":"2024-05-17T16:39:34.621Z"}],"nodeId":"a2efc4ca15a74ccd89c947d6b5e551bf"}
     squashed = request.args.get('squashed')
     if squashed:
@@ -552,6 +673,9 @@ def mission_changes(mission_name):
 
 @datasync_api.route('/Marti/api/missions/logs/entries', methods=['POST'])
 def create_log_entry():
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
     mission = db.session.execute(db.session.query(Mission).filter_by(name=request.json['missionNames'][0])).first()
     if not mission:
         return jsonify({'success': False, 'error': f"Mission not found: {request.json['missionNames'][0]}"}), 404
@@ -596,6 +720,9 @@ def create_log_entry():
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/log', methods=['GET'])
 def mission_log(mission_name):
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
@@ -614,6 +741,9 @@ def mission_log(mission_name):
 
 @datasync_api.route('/Marti/sync/upload', methods=['POST'])
 def upload_content() -> flask.Response:
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
     """
     Used by the Data Sync plugin when adding files to a mission
 
@@ -674,6 +804,9 @@ def upload_content() -> flask.Response:
 
 @datasync_api.route('/Marti/api/sync/metadata/<content_hash>/keywords', methods=['PUT'])
 def add_content_keywords(content_hash: str):
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
     keywords = request.json
     content = db.session.execute(db.session.query(MissionContent).filter_by(hash=content_hash)).first()
     if not content:
@@ -692,6 +825,9 @@ def add_content_keywords(content_hash: str):
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/contents', methods=['PUT'])
 def mission_contents(mission_name: str) -> flask.Response:
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
     """ Associates content/files with a mission """
 
     body = request.json
@@ -741,6 +877,9 @@ def mission_contents(mission_name: str) -> flask.Response:
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/contents', methods=['DELETE'])
 def delete_content(mission_name: str):
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f'Mission {mission_name} not found'}), 404
@@ -789,8 +928,11 @@ def delete_content(mission_name: str):
 
 @datasync_api.route('/Marti/api/missions/<mission_name>/contents/missionpackage', methods=['PUT'])
 def add_content(mission_name):
+    logger.info(request.headers)
+    logger.info(request.args)
+    logger.info(request.data)
     client_uid = request.args.get('clientUid')
-    if 'Authorization' not in request.headers or not verify_token(request.headers.get('Authorization')):
+    if 'Authorization' not in request.headers or not verify_token():
         return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
 
     return '', 200
@@ -802,6 +944,9 @@ def get_mission_cots(mission_name: str):
     Used by the Data Sync plugin to get all CoTs associated with a feed. Returns the CoTs encapsulated by an
     <events> tag
     """
+
+    if not verify_token():
+        return jsonify({'success': False, 'error': 'Invalid token'}), 401
 
     cots = db.session.execute(db.session.query(CoT).filter_by(mission_name=mission_name)).all()
 

@@ -69,7 +69,8 @@ class Mission(db.Model):
             'guid': self.guid,
             'uids': self.uids,
             'contents': self.contents,
-            'password_protected': self.password_protected
+            'password_protected': self.password_protected,
+            'password': self.password
         }
 
     def to_json(self):
