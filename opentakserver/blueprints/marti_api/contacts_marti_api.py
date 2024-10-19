@@ -21,7 +21,7 @@ def get_all_contacts():
         username = eud.user.username if eud.user else ''
         response.append(
             {'filterGroups': [], 'notes': username, 'callsign': eud.callsign, 'team': team_name,
-             'role': team_role, 'takv': eud.platform, 'uid': eud.uid}
+             'role': team_role, 'takv': f"{eud.platform} {eud.version}", 'uid': eud.uid}
         )
 
     return jsonify(response)
