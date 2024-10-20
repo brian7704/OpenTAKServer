@@ -10,7 +10,7 @@ from opentakserver.blueprints.ots_api.package_api import packages_blueprint
 from opentakserver.blueprints.ots_api.scheduler_api import scheduler_api_blueprint
 from opentakserver.blueprints.ots_api.user_api import user_api_blueprint
 from opentakserver.blueprints.ots_api.video_api import video_api_blueprint
-from opentakserver.blueprints.ots_api.data_sync_api import data_sync_api
+from opentakserver.blueprints.ots_api.mission_api import data_sync_api
 from opentakserver.blueprints.ots_api.group_api import group_api
 
 ots_api = Blueprint("ots_api", __name__)

@@ -2,7 +2,7 @@ import sqlalchemy.exc
 from flask import Blueprint, request, jsonify
 from flask_security import auth_required, current_user
 
-from opentakserver.blueprints.marti_api.datasync_marti_api import invite
+from opentakserver.blueprints.marti_api.mission_marti_api import invite
 from opentakserver.extensions import db
 from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.models.Mission import Mission
