@@ -611,11 +611,27 @@ def get_subscriptions(mission_name: str):
 
 @marti_api.route('/Marti/api/missions/<mission_name>/keywords', methods=['PUT'])
 def put_mission_keywords(mission_name):
-    # TODO: ADD TOKEN
-    logger.info(request.headers)
-    logger.info(request.args)
-    logger.info(request.data)
-    keywords = request.json
+    token = verify_token()
+    if not token or token['MISSION_NAME'] != mission_name:
+        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+
+    role = db.session.execute(db.session.query(MissionRole).filter_by(clientUid=token['sub'], mission_name=mission_name)).first()
+    if not role or role[0].role_type != MissionRole.MISSION_OWNER:
+        return jsonify({'success': False, 'error': 'Only mission owners can change keywords'})
+
+    mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
+    if not mission:
+        return jsonify({'success': False, 'error': f"Cannot find mission {mission_name}"}), 404
+    mission = mission[0]
+
+    new_keywords = request.json
+    current_keywords = mission.keywords
+    for keyword in new_keywords:
+        if keyword not in current_keywords:
+            current_keywords.append(keyword)
+
+    db.session.execute(update(Mission).where(Mission.name == mission_name).values(keywords=current_keywords))
+    db.session.commit()
 
     return '', 200
 
