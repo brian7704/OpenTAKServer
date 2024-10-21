@@ -30,7 +30,6 @@ def verify_client_cert():
         return False
 
     cert = unquote(request.headers.get(cert_header))
-    logger.warning(cert)
     cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert)
     with open(os.path.join(app.config.get("OTS_CA_FOLDER"), "ca.pem"), 'rb') as f:
         ca_cert = crypto.load_certificate(crypto.FILETYPE_PEM, f.read())
@@ -53,6 +52,9 @@ def client_end_points():
     return_value = {'version': 3, "type": "com.bbn.marti.remote.ClientEndpoint", 'data': [],
                     'nodeId': app.config.get("OTS_NODE_ID")}
     for eud in euds:
+        if not eud.callsign:
+            continue
+
         return_value['data'].append({
             'callsign': eud.callsign,
             'uid': eud.uid,

@@ -244,7 +244,11 @@ class ClientController(Thread):
             SubElement(cot, 'point', {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0',
                                                 'lon': '0'})
 
-            self.sock.send(event.encode())
+            try:
+                self.sock.send(event.encode())
+            except BaseException as e:
+                self.logger.error(e)
+                self.logger.debug(traceback.format_exc())
             return True
 
         return False

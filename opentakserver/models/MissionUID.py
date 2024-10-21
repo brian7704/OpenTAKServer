@@ -41,7 +41,7 @@ class MissionUID(db.Model):
         return {
             'data': self.uid,
             'timestamp': iso8601_string_from_datetime(self.timestamp),
-            'creatorUid': self.creator_uid,
+            'creatorUid': self.creator_uid if self.creator_uid else "",
             'details': {
                 'type': self.cot_type,
                 'callsign': self.callsign,

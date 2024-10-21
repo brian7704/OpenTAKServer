@@ -133,9 +133,7 @@ def generate_invitation_cot(mission: Mission, uid: str, cot_type: str = "t-x-m-i
 
 @mission_marti_api.route('/Marti/api/missions')
 def get_missions():
-    password_protected = request.args.get('passwordProtected')
-    if password_protected:
-        password_protected = bleach.clean(password_protected).lower() == 'true'
+    password_protected = request.args.get('passwordProtected', False)
 
     tool = request.args.get('tool')
     if tool:
@@ -151,6 +149,8 @@ def get_missions():
 
     try:
         query = db.session.query(Mission)
+        if not password_protected:
+            query = query.where(Mission.password_protected is False)
         if tool:
             query = query.where(Mission.tool == tool)
         missions = db.session.execute(query).scalars()
@@ -158,9 +158,11 @@ def get_missions():
             response['data'].append(mission.to_json())
 
     except BaseException as e:
-        logger.error(traceback.format_exc())
+        logger.error(f"Failed to get missions: {e}")
+        logger.debug(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
 
+    logger.error(response)
     return jsonify(response)
 
 
@@ -256,7 +258,7 @@ def put_mission(mission_name: str):
     except sqlalchemy.exc.IntegrityError:
         # Mission exists, needs updating
         db.session.rollback()
-        db.session.execute(update(Mission).where(Mission.name == mission.mission_changes).values(**mission.serialize()))
+        db.session.execute(update(Mission).where(Mission.name == mission_name).values(**mission.serialize()))
         db.session.commit()
         return jsonify({'version': "3", 'type': 'Mission', 'data': [mission.to_json()], 'nodeId': app.config.get("OTS_NODE_ID")})
     except BaseException as e:
@@ -462,7 +464,7 @@ def invite_json(mission_name: str):
     logger.info(request.headers)
     logger.info(request.args)
     logger.info(request.data)
-    # [{"type":"clientUid","invitee":"S-1-5-21-2205846298-3636538060-4260733431-1001","role":{"type":"MISSION_SUBSCRIBER"}}]'
+
     creator_uid = request.args.get("creatorUid")
     invitees = request.json
 
@@ -518,7 +520,7 @@ def mission_roles(mission_name: str):
     return jsonify(response)
 
 
-@mission_marti_api.route('/Marti/api/mission/api/<mission_name>/role', methods=['PUT'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/role', methods=['PUT'])
 def change_eud_role(mission_name: str):
     """ Used by Data Sync to change EUD mission roles or kick an EUD off of a mission """
     token = verify_token()
@@ -639,55 +641,92 @@ def put_mission_keywords(mission_name):
 def mission_subscribe(mission_name: str):
     """ Used by the Data Sync plugin to subscribe to a feed """
 
-    if "uid" not in request.args:
-        return jsonify({'success': False, 'error': 'Missing UID'}), 400
-
-    uid = bleach.clean(request.args.get("uid"))
-    eud = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()
-    if not eud:
-        return jsonify({'success': False, 'error': f"Invalid UID: {uid}"}), 400
-    eud = eud[0]
-
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f"Cannot find mission {mission_name}"}), 404
 
     mission = mission[0]
 
-    if mission.password_protected:
-        if not verify_password(request.args.get('password', ''), mission.password):
-            return jsonify({'success': False, 'error': 'Invalid password'}), 401
-    else:
-        logger.error(f"Mission {mission_name} isn't password protected")
+    response = {
+        "version": "3", "type": "com.bbn.marti.sync.model.MissionSubscription", "data": {}, "nodeId": app.config.get("OTS_NODE_ID")
+    }
 
-    role = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name, clientUid=uid)).first()
-    if not role:
-        role = MissionRole()
-        role.clientUid = uid
-        role.username = eud.user.username
-        role.createTime = datetime.datetime.now()
-        role.role_type = mission.default_role
-        role.mission_name = mission.name
+    # And EUD will send a token if it has previously subscribed to the mission
+    if 'Authorization' in request.headers:
+        token = verify_token()
+        if not token or token['MISSION_NAME'] != mission_name:
+            return jsonify({'success': False, 'error': 'Invalid token'}), 400
+        eud = db.session.execute(db.session.query(EUD).filter_by(uid=token['sub'])).first()[0]
+        uid = token['sub']
+        role = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name, clientUid=uid)).first()
 
-        db.session.add(role)
-        db.session.commit()
+        # If this request has a token but no role in the DB, this EUD was invited and this is its first time subscribing
+        if not role:
+            role = MissionRole()
+            role.clientUid = token['sub']
+            role.username = eud.user.username
+            role.createTime = datetime.datetime.now()
+            role.role_type = mission.default_role
+            role.mission_name = token['MISSION_NAME']
+
+            db.session.add(role)
+            db.session.commit()
+        else:
+            role = role[0]
+
+        response['data'] = {
+            "token": token,
+            "clientUid": token['sub'],
+            "username": eud.user.username,
+            "createTime": role.createTime,
+            "role": role.to_json()['role'],
+        }
+
+    # If no token is sent, this is a new subscription request
     else:
-        role = role[0]
+        if "uid" not in request.args:
+            return jsonify({'success': False, 'error': 'Missing UID'}), 400
+
+        uid = bleach.clean(request.args.get("uid"))
+        eud = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()
+        if not eud:
+            return jsonify({'success': False, 'error': f"Invalid UID: {uid}"}), 400
+        eud = eud[0]
+
+        if mission.password_protected:
+            if not verify_password(request.args.get('password', ''), mission.password):
+                return jsonify({'success': False, 'error': 'Invalid password'}), 401
+
+        role = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name, clientUid=uid)).first()
+        if not role:
+            role = MissionRole()
+            role.clientUid = uid
+            role.username = eud.user.username
+            role.createTime = datetime.datetime.now()
+            role.role_type = mission.default_role
+            role.mission_name = mission.name
+
+            db.session.add(role)
+            db.session.commit()
+        else:
+            role = role[0]
+
+        token = generate_token(mission, uid)
+
+        response['data'] = {
+            "token": token,
+            "clientUid": uid,
+            "mission": mission.to_json(),
+            "username": eud.user.username,
+            "createTime": role.createTime,
+            "role": role.to_json()['role'],
+        }
 
     rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
     channel = rabbit_connection.channel()
     channel.queue_bind(queue=uid, exchange="missions", routing_key=f"missions.{mission_name}")
 
-    response = {
-        "version": "3", "type": "com.bbn.marti.sync.model.MissionSubscription", "data": {
-            "token": generate_token(mission, uid),
-            "mission": mission.to_json(),
-            "username": eud.user.username,
-            "createTime": role.createTime,
-            "role": role.to_json(),
-            "nodeId": app.config.get("OTS_NODE_ID")
-        }
-    }
+    logger.info(jsonify(response).json)
 
     return jsonify(response), 201
 
