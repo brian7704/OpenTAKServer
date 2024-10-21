@@ -1,21 +1,14 @@
 import base64
-import hashlib
-import json
 import os
 import datetime
-import time
 import traceback
-import uuid
 from urllib.parse import urlparse
 
-import jwt
-
-from xml.etree.ElementTree import Element, tostring, fromstring, SubElement
+from xml.etree.ElementTree import Element, tostring, SubElement
 
 import bleach
 import sqlalchemy
 from OpenSSL import crypto
-from bs4 import BeautifulSoup
 from flask import current_app as app, request, Blueprint, jsonify
 from flask_security import verify_password, current_user
 
@@ -25,7 +18,6 @@ from opentakserver import __version__ as version
 
 from opentakserver.models.EUD import EUD
 from opentakserver.models.DataPackage import DataPackage
-from werkzeug.utils import secure_filename
 
 from opentakserver.models.VideoStream import VideoStream
 
@@ -53,9 +45,6 @@ def basic_auth(credentials):
 # require basic auth
 @certificate_authority_api_blueprint.route('/Marti/api/tls/config')
 def tls_config():
-    if not basic_auth(request.headers.get('Authorization')):
-        return '', 401
-
     root_element = Element('ns2:certificateConfig')
     root_element.set('xmlns', "http://bbn.com/marti/xml/config")
     root_element.set('xmlns:ns2', "com.bbn.marti.config")
@@ -63,11 +52,11 @@ def tls_config():
     name_entries = SubElement(root_element, "nameEntries")
     first_name_entry = SubElement(name_entries, "nameEntry")
     first_name_entry.set('name', 'O')
-    first_name_entry.set('value', 'Test Organization Name')
+    first_name_entry.set('value', app.config.get('OTS_CA_ORGANIZATION'))
 
     second_name_entry = SubElement(name_entries, "nameEntry")
     second_name_entry.set('name', 'OU')
-    second_name_entry.set('value', 'Test Organization Unit Name')
+    second_name_entry.set('value', app.config.get('OTS_CA_ORGANIZATIONAL_UNIT'))
 
     return tostring(root_element), 200, {'Content-Type': 'application/xml'}
 
@@ -90,13 +79,12 @@ def sign_csr_v2():
         else:
             uid = request.args.get("clientUid")
 
-        if "iTAK" not in request.user_agent.string:
-            csr = '-----BEGIN CERTIFICATE REQUEST-----\n' + request.data.decode(
-                'utf-8') + '-----END CERTIFICATE REQUEST-----'
-        else:
-            csr = request.data.decode('utf-8')
+        csr = request.data.decode('utf-8')
+        if "BEGIN CERTIFICATE REQUEST" not in csr:
+            csr = '-----BEGIN CERTIFICATE REQUEST-----\n' + csr + '-----END CERTIFICATE REQUEST-----'
 
         x509 = crypto.load_certificate_request(crypto.FILETYPE_PEM, csr.encode())
+
         common_name = x509.get_subject().CN
         logger.debug("Attempting to sign CSR for {}".format(common_name))
 
@@ -113,7 +101,8 @@ def sign_csr_v2():
         cert = cert.replace("-----BEGIN CERTIFICATE-----\n", "")
         cert = cert.replace("\n-----END CERTIFICATE-----\n", "")
 
-        if "iTAK" in request.user_agent.string:
+        # iTAK expects a JSON response but with the Content-Type header set to text/plain for some reason
+        if request.headers.get('Accept') == 'text/plain' or request.headers.get('Accept') == 'application/json':
             response = {'signedCert': signed_csr, 'ca0': cert, 'ca1': cert}
         else:
             enrollment = Element('enrollment')
@@ -180,8 +169,10 @@ def sign_csr_v2():
 
             db.session.commit()
 
-        if "iTAK" in request.user_agent.string:
+        if request.headers.get('Accept') == 'text/plain':
             return response, 200, {'Content-Type': 'text/plain', 'Content-Encoding': 'charset=UTF-8'}
+        elif request.headers.get('Accept') == 'application/json':
+            return jsonify(response)
         else:
             return response, 200, {'Content-Type': 'application/xml', 'Content-Encoding': 'charset=UTF-8'}
     except BaseException as e:
