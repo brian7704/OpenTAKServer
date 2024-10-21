@@ -37,14 +37,14 @@ from opentakserver.models.MissionUID import MissionUID
 from opentakserver.models.Team import Team
 from opentakserver.models.user import User
 
-marti_api = Blueprint('marti_api', __name__)
+mission_marti_api = Blueprint('mission_marti_api', __name__)
 
 
 # Only allow access to the mission/data sync API over SSL/port 8443 with a valid client cert.
 # nginx will proxy the cert in a header called X-Ssl-Cert by default. This is configurable in ots_https and with the
 # OTS_SSL_CERT_HEADER option in config.yml
-@marti_api.before_request()
-def verify_client_cert():
+@mission_marti_api.before_request
+def verify_client_cert_before_request():
     if not verify_client_cert():
         return jsonify({'success': False, 'error': 'Missing or invalid client certificate'}), 400
 
@@ -131,7 +131,7 @@ def generate_invitation_cot(mission: Mission, uid: str, cot_type: str = "t-x-m-i
     return event
 
 
-@marti_api.route('/Marti/api/missions')
+@mission_marti_api.route('/Marti/api/missions')
 def get_missions():
     password_protected = request.args.get('passwordProtected')
     if password_protected:
@@ -164,8 +164,8 @@ def get_missions():
     return jsonify(response)
 
 
-@marti_api.route('/Marti/api/missions/all/invitations', methods=['GET'])
-@marti_api.route('/Marti/api/missions/invitations', methods=['GET'])
+@mission_marti_api.route('/Marti/api/missions/all/invitations', methods=['GET'])
+@mission_marti_api.route('/Marti/api/missions/invitations', methods=['GET'])
 def all_invitations():
     if 'clientUid' in request.args and request.args.get('clientUid'):
         client_uid = bleach.clean(request.args.get('clientUid'))
@@ -185,7 +185,7 @@ def all_invitations():
     return jsonify(response)
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>', methods=['PUT', 'POST'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>', methods=['PUT', 'POST'])
 def put_mission(mission_name: str):
     """ Used by the Data Sync plugin to create or change a mission """
     if not mission_name or not request.args.get('creatorUid'):
@@ -274,7 +274,7 @@ def put_mission(mission_name: str):
     return jsonify(response), 201
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>', methods=['GET'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>', methods=['GET'])
 def get_mission(mission_name: str):
     """ Used by the Data Sync plugin to get a feed's metadata """
     if not mission_name:
@@ -294,7 +294,7 @@ def get_mission(mission_name: str):
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>', methods=['DELETE'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>', methods=['DELETE'])
 def delete_mission(mission_name: str):
     """ Used by the Data Sync plugin to delete a feed """
 
@@ -302,12 +302,8 @@ def delete_mission(mission_name: str):
     creator_uid = request.args.get('creatorUid')
 
     token = verify_token()
-    if not token:
+    if not token or token['MISSION_NAME'] != mission_name:
         return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
-
-    # Make sure this is the correct token for this mission
-    if token['MISSION_NAME'] != mission_name:
-        return jsonify({'success': False, 'error': 'Invalid token for this mission'}), 403
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if mission:
@@ -317,7 +313,7 @@ def delete_mission(mission_name: str):
 
         # Check if the UID in the token has the MISSION_OWNER role for this mission. If not, it can't delete the mission
         for role in mission.roles:
-            if role.clientUid == token['eud_id'] and role.role_type == MissionRole.MISSION_OWNER:
+            if role.clientUid == token['sub'] and role.role_type == MissionRole.MISSION_OWNER:
                 can_delete = True
                 break
 
@@ -346,25 +342,30 @@ def delete_mission(mission_name: str):
         return jsonify({'success': False, 'error': f'Mission {mission_name} not found'}), 404
 
 
-@marti_api.route('/Marti/api/mission/<mission_name>/password', methods=['PUT'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/password', methods=['PUT'])
 def set_password(mission_name: str):
-    logger.info(request.headers)
-    logger.info(request.args)
-    logger.info(request.data)
     """ Used by the Data Sync plugin to add a password to a feed """
+    token = verify_token()
+    if not token or token['MISSION_NAME'] != mission_name:
+        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+
     if 'creatorUid' not in request.args or 'password' not in request.args:
         return jsonify({'success': False, 'error': 'Please provide the creatorUid and password'}), 400
+
+    role = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name, clientUid=token['sub'])).first()
+    if not role or role[0].role_type != MissionRole.MISSION_OWNER:
+        return jsonify({'success': False, 'error': "You do not have permission to change this mission's password"}), 403
 
     creator_uid = request.args.get('creatorUid')
     password = request.args.get('password')
 
-    db.session.execute(update(Mission).where(Mission.name == mission_name).where(Mission.creatorUid == creator_uid)
-                       .values(password=password))
+    db.session.execute(update(Mission).where(Mission.name == mission_name).values(password=password))
+    db.session.commit()
 
     return jsonify({'success': True})
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>/invite/<invitation_type>/<invitee>', methods=['PUT'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/invite/<invitation_type>/<invitee>', methods=['PUT'])
 def invite(mission_name: str, invitation_type: str, invitee: str):
     logger.info(request.headers)
     logger.info(request.args)
@@ -420,7 +421,7 @@ def invite(mission_name: str, invitation_type: str, invitee: str):
     return '', 200
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>/invite/<invitation_type>/<invitee>', methods=['DELETE'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/invite/<invitation_type>/<invitee>', methods=['DELETE'])
 def delete_invitation(mission_name: str, invitation_type: str, invitee: str):
     logger.info(request.headers)
     logger.info(request.args)
@@ -456,7 +457,7 @@ def delete_invitation(mission_name: str, invitation_type: str, invitee: str):
     return jsonify({'success': True})
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>/invite', methods=['POST'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/invite', methods=['POST'])
 def invite_json(mission_name: str):
     logger.info(request.headers)
     logger.info(request.args)
@@ -503,11 +504,12 @@ def invite_json(mission_name: str):
     return jsonify({'success': True})
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>/subscriptions/roles')
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/subscriptions/roles')
 def mission_roles(mission_name: str):
-    logger.info(request.headers)
-    logger.info(request.args)
-    logger.info(request.data)
+    token = verify_token()
+    if not token or token['MISSION_NAME'] != mission_name:
+        return jsonify({'success': False, 'error': "Missing or invalid token"}), 401
+
     response = {"version": "3", "type": "MissionSubscription", "data": [], "nodeId": app.config.get("OTS_NODE_ID")}
     roles = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name))
     for role in roles:
@@ -516,22 +518,19 @@ def mission_roles(mission_name: str):
     return jsonify(response)
 
 
-@marti_api.route('/Marti/api/mission/api/<mission_name>/role', methods=['PUT'])
+@mission_marti_api.route('/Marti/api/mission/api/<mission_name>/role', methods=['PUT'])
 def change_eud_role(mission_name: str):
     """ Used by Data Sync to change EUD mission roles or kick an EUD off of a mission """
     token = verify_token()
-    if not token:
+    if not token or token['MISSION_NAME'] != mission_name:
         return jsonify({'success': False, 'error': "Missing or invalid token"}), 401
-
-    if token['MISSION_NAME'] != mission_name:
-        return jsonify({'success': False, 'error': 'Invalid token for this mission'}), 403
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f"No such mission found: {mission_name}"}), 404
     mission = mission[0]
 
-    role = db.session.execute(db.session.query(MissionRole).filter_by(clientUid=token['eud_uid'], role_type=MissionRole.MISSION_OWNER)).first()
+    role = db.session.execute(db.session.query(MissionRole).filter_by(clientUid=token['sub'], role_type=MissionRole.MISSION_OWNER)).first()
     if not role:
         return jsonify({'success': False, 'error': 'Only mission owners can change EUD roles'}), 403
 
@@ -592,7 +591,7 @@ def change_eud_role(mission_name: str):
     return '', 200
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>/subscriptions')
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/subscriptions')
 def get_subscriptions(mission_name: str):
     # TODO: ADD TOKEN
     logger.info(request.headers)
@@ -609,7 +608,7 @@ def get_subscriptions(mission_name: str):
     return jsonify(response)
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>/keywords', methods=['PUT'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/keywords', methods=['PUT'])
 def put_mission_keywords(mission_name):
     token = verify_token()
     if not token or token['MISSION_NAME'] != mission_name:
@@ -636,7 +635,7 @@ def put_mission_keywords(mission_name):
     return '', 200
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>/subscription', methods=['PUT'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/subscription', methods=['PUT'])
 def mission_subscribe(mission_name: str):
     """ Used by the Data Sync plugin to subscribe to a feed """
 
@@ -658,6 +657,8 @@ def mission_subscribe(mission_name: str):
     if mission.password_protected:
         if not verify_password(request.args.get('password', ''), mission.password):
             return jsonify({'success': False, 'error': 'Invalid password'}), 401
+    else:
+        logger.error(f"Mission {mission_name} isn't password protected")
 
     role = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name, clientUid=uid)).first()
     if not role:
@@ -691,13 +692,13 @@ def mission_subscribe(mission_name: str):
     return jsonify(response), 201
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>/subscription', methods=['DELETE'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/subscription', methods=['DELETE'])
 def mission_unsubscribe(mission_name: str):
-    # TODO: ADD TOKEN
-    logger.info(request.headers)
-    logger.info(request.args)
-    logger.info(request.data)
     """ Used by the Data Sync plugin to unsubscribe to a feed """
+    token = verify_token()
+    if not token or token['MISSION_NAME'] != mission_name:
+        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+
     if "uid" not in request.args:
         return jsonify({'success': False, 'error': 'Missing UID'}), 400
 
@@ -715,7 +716,7 @@ def mission_unsubscribe(mission_name: str):
     return '', 200
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>/changes', methods=['GET'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/changes', methods=['GET'])
 def mission_changes(mission_name):
     token = verify_token()
     if not token or token['MISSION_NAME'] != mission_name:
@@ -736,7 +737,7 @@ def mission_changes(mission_name):
     return jsonify(response)
 
 
-@marti_api.route('/Marti/api/missions/logs/entries', methods=['POST'])
+@mission_marti_api.route('/Marti/api/missions/logs/entries', methods=['POST'])
 def create_log_entry():
     token = verify_token()
     if not token or token['MISSION_NAME'] != request.json['missionNames'][0]:
@@ -784,7 +785,7 @@ def create_log_entry():
     return jsonify(response), 201
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>/log', methods=['GET'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/log', methods=['GET'])
 def mission_log(mission_name):
     token = verify_token()
     if not token or token['MISSION_NAME'] != mission_name:
@@ -806,7 +807,7 @@ def mission_log(mission_name):
     return jsonify(response)
 
 
-@marti_api.route('/Marti/sync/upload', methods=['POST'])
+@mission_marti_api.route('/Marti/sync/upload', methods=['POST'])
 def upload_content():
     """
     Used by the Data Sync plugin when adding files to a mission
@@ -867,11 +868,12 @@ def upload_content():
     return jsonify(response)
 
 
-@marti_api.route('/Marti/api/sync/metadata/<content_hash>/keywords', methods=['PUT'])
+@mission_marti_api.route('/Marti/api/sync/metadata/<content_hash>/keywords', methods=['PUT'])
 def add_content_keywords(content_hash: str):
-    logger.info(request.headers)
-    logger.info(request.args)
-    logger.info(request.data)
+    token = verify_token()
+    if not token:
+        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+
     keywords = request.json
     content = db.session.execute(db.session.query(MissionContent).filter_by(hash=content_hash)).first()
     if not content:
@@ -888,12 +890,12 @@ def add_content_keywords(content_hash: str):
     return '', 200
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>/contents', methods=['PUT'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/contents', methods=['PUT'])
 def mission_contents(mission_name: str):
-    logger.info(request.headers)
-    logger.info(request.args)
-    logger.info(request.data)
     """ Associates content/files with a mission """
+    token = verify_token()
+    if not token or token['MISSION_NAME'] != mission_name:
+        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
 
     body = request.json
 
@@ -940,11 +942,12 @@ def mission_contents(mission_name: str):
     return jsonify({"version": "3", "type": "Mission", "data": [mission.to_json()], "nodeId": app.config.get("OTS_NODE_ID")})
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>/contents', methods=['DELETE'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/contents', methods=['DELETE'])
 def delete_content(mission_name: str):
-    logger.info(request.headers)
-    logger.info(request.args)
-    logger.info(request.data)
+    token = verify_token()
+    if not token or token['MISSION_NAME'] != mission_name:
+        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f'Mission {mission_name} not found'}), 404
@@ -991,7 +994,7 @@ def delete_content(mission_name: str):
     return jsonify({'success': True})
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>/contents/missionpackage', methods=['PUT'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/contents/missionpackage', methods=['PUT'])
 def add_content(mission_name):
     logger.info(request.headers)
     logger.info(request.args)
@@ -1003,7 +1006,7 @@ def add_content(mission_name):
     return '', 200
 
 
-@marti_api.route('/Marti/api/missions/<mission_name>/cot')
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/cot')
 def get_mission_cots(mission_name: str):
     """
     Used by the Data Sync plugin to get all CoTs associated with a feed. Returns the CoTs encapsulated by an

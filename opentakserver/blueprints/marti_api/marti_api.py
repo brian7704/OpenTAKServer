@@ -1,7 +1,7 @@
 import json
 import os
 import traceback
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 
 from xml.etree.ElementTree import Element, tostring, fromstring
 
@@ -26,10 +26,12 @@ marti_api = Blueprint('marti_api', __name__)
 # Returns the parsed cert if valid, otherwise returns False
 def verify_client_cert():
     cert_header = app.config.get("OTS_SSL_CERT_HEADER")
-    if cert_header not in request:
+    if cert_header not in request.headers:
         return False
 
-    cert = crypto.load_certificate(crypto.FILETYPE_PEM, request.headers.get(cert_header).strip())
+    cert = unquote(request.headers.get(cert_header))
+    logger.warning(cert)
+    cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert)
     with open(os.path.join(app.config.get("OTS_CA_FOLDER"), "ca.pem"), 'rb') as f:
         ca_cert = crypto.load_certificate(crypto.FILETYPE_PEM, f.read())
 
