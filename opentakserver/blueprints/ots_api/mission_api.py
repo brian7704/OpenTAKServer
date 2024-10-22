@@ -96,7 +96,7 @@ def delete_mission():
     return jsonify({'success': False, 'error': f"Only an admin or the mission creator can delete this mission"}), 403
 
 
-@data_sync_api.route('/api/missions/invite')
+@data_sync_api.route('/api/missions/invite', methods=['POST'])
 @auth_required()
 def invite_eud():
     mission_name = request.json['mission_name']
