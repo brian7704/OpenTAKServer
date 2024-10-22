@@ -90,7 +90,21 @@ def generate_token(mission: Mission, eud_uid: str):
     return token
 
 
-def generate_invitation_cot(mission: Mission, uid: str, cot_type: str = "t-x-m-i"):
+def generate_new_mission_cot(mission: Mission) -> Element:
+    event = Element("event", {"type": "t-x-m-n", "how": "h-g-i-g-o", "version": "2.0", "uid": str(uuid.uuid4()),
+                              "start": iso8601_string_from_datetime(datetime.datetime.now()),
+                              "time": iso8601_string_from_datetime(datetime.datetime.now()),
+                              "stale": iso8601_string_from_datetime(
+                                  datetime.datetime.now() + datetime.timedelta(hours=1))})
+    SubElement(event, "point", {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0', 'lon': '0'})
+    detail = SubElement(event, "detail")
+    SubElement(detail, "mission", {'type': Mission.CREATE, 'tool': mission.tool, 'name': mission.name,
+                                   'guid': mission.guid, 'authorUid': mission.creator_uid})
+
+    return event
+
+
+def generate_invitation_cot(mission: Mission, uid: str, cot_type: str = "t-x-m-i") -> Element:
     """
     Generates an invitation (t-x-m-i) or role change (t-x-m-r) cot
     :param mission:
@@ -131,7 +145,7 @@ def generate_invitation_cot(mission: Mission, uid: str, cot_type: str = "t-x-m-i
     return event
 
 
-def generate_mission_delete_cot(mission: Mission):
+def generate_mission_delete_cot(mission: Mission) -> Element:
     event = Element("event", {"type": "t-x-m-d", "how": "h-g-i-g-o", "version": "2.0", "uid": str(uuid.uuid4()),
                               "start": iso8601_string_from_datetime(datetime.datetime.now()),
                               "time": iso8601_string_from_datetime(datetime.datetime.now()),
@@ -196,8 +210,6 @@ def all_invitations():
     for invitation in invitations:
         response['data'].append(invitation[0].mission_name)
 
-    logger.warning(response)
-
     return jsonify(response)
 
 
@@ -241,7 +253,6 @@ def put_mission(mission_name: str):
         db.session.commit()
 
         if new_mission:
-            logger.error(f"NEW MISSION {mission_name} {request.args}")
             mission_role = MissionRole()
             mission_role.clientUid = mission.creator_uid
             mission_role.username = eud.user.username if eud.user else "anonymous"
@@ -261,15 +272,7 @@ def put_mission(mission_name: str):
             db.session.add(mission_change)
             db.session.commit()
 
-        event = Element("event", {"type": "t-x-m-n", "how": "h-g-i-g-o", "version": "2.0", "uid": str(uuid.uuid4()),
-                                  "start": iso8601_string_from_datetime(datetime.datetime.now()),
-                                  "time": iso8601_string_from_datetime(datetime.datetime.now()),
-                                  "stale": iso8601_string_from_datetime(
-                                      datetime.datetime.now() + datetime.timedelta(hours=1))})
-        SubElement(event, "point", {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0', 'lon': '0'})
-        detail = SubElement(event, "detail")
-        SubElement(detail, "mission", {'type': Mission.CREATE, 'tool': mission.tool, 'name': mission.name,
-                                                 'guid': mission.guid, 'authorUid': mission.creator_uid})
+        event = generate_new_mission_cot(mission)
 
         rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
         channel = rabbit_connection.channel()
@@ -279,7 +282,6 @@ def put_mission(mission_name: str):
     except sqlalchemy.exc.IntegrityError:
         # Mission exists, needs updating
         db.session.rollback()
-        logger.error(mission.serialize())
         db.session.execute(update(Mission).where(Mission.name == mission_name).values(**mission.serialize()))
         db.session.commit()
         return jsonify({'version': "3", 'type': 'Mission', 'data': [mission.to_json()], 'nodeId': app.config.get("OTS_NODE_ID")})
@@ -294,7 +296,6 @@ def put_mission(mission_name: str):
     mission_json['ownerRole'] = MissionRole.OWNER_ROLE
 
     response = {'version': "3", 'type': 'Mission', 'data': [mission_json], 'nodeId': app.config.get("OTS_NODE_ID")}
-    logger.error(response)
     return jsonify(response), 201
 
 
@@ -653,7 +654,6 @@ def put_mission_keywords(mission_name):
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/subscription', methods=['PUT'])
 def mission_subscribe(mission_name: str):
-    logger.info(request.headers)
     """ Used by the Data Sync plugin to subscribe to a feed """
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
@@ -748,7 +748,6 @@ def mission_subscribe(mission_name: str):
         db.session.delete(invitation[0])
     db.session.commit()
 
-    logger.warning(response)
     return jsonify(response), 201
 
 

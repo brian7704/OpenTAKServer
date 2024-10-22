@@ -1,13 +1,18 @@
+import datetime
 import json
+import traceback
+import uuid
+
 import sqlalchemy.exc
 from flask import Blueprint, request, jsonify, current_app as app
-from flask_security import auth_required, current_user, roles_required
+from flask_security import auth_required, current_user, roles_required, hash_password
 from xml.etree.ElementTree import tostring
 import pika
 
-from opentakserver.blueprints.marti_api.mission_marti_api import invite, generate_mission_delete_cot
-from opentakserver.extensions import db
+from opentakserver.blueprints.marti_api.mission_marti_api import invite, generate_mission_delete_cot, generate_new_mission_cot
+from opentakserver.extensions import db, logger
 from opentakserver.blueprints.ots_api.api import search, paginate
+from opentakserver.models.EUD import EUD
 from opentakserver.models.Mission import Mission
 
 data_sync_api = Blueprint("data_sync_api", __name__)
@@ -28,30 +33,56 @@ def get_missions():
 @data_sync_api.route('/api/missions', methods=['PUT', 'POST'])
 @auth_required()
 def create_edit_mission():
-    mission_name = request.json.get('mission_name')
-    if not mission_name:
-        return jsonify({'success': False, 'error': 'Please provide a mission name'}), 400
+    mission_name = request.json.get('name')
+    creator_uid = request.json.get('creator_uid')
+    if not mission_name or not creator_uid:
+        return jsonify({'success': False, 'error': 'Please provide a mission name and creator UID'}), 400
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
 
     # Creates a new mission
     if not mission:
+        eud = db.session.execute(db.session.query(EUD).filter_by(uid=creator_uid)).first()
+        if not eud:
+            return jsonify({'success': False, 'error': f"Invalid UID: {creator_uid}"}), 400
+
         mission = Mission()
-        for key, value in request.json:
-            if hasattr(mission, key):
-                setattr(mission, key, value)
+        mission.group = "__ANON__"
+        mission.create_time = datetime.datetime.now()
+        mission.guid = str(uuid.uuid4())
+        mission.creator_uid = creator_uid
+
+        for key in request.json.keys():
+            if key == 'password' and request.json.get('password'):
+                mission.password = hash_password(request.json.get('password'))
+            elif hasattr(mission, key):
+                setattr(mission, key, request.json[key])
             else:
                 return jsonify({'success': False, 'error': f"Invalid property: {key}"}), 400
 
-        db.session.add(mission)
-        db.session.commit()
+        mission.password_protected = (mission.password != '' and mission.password is not None)
+
+        try:
+            db.session.add(mission)
+            db.session.commit()
+        except sqlalchemy.exc.IntegrityError as e:
+            logger.error(f"Failed to add mission: {e}")
+            logger.debug(mission.serialize())
+            return jsonify({'success': False, 'error': f"Failed to add mission: {e}"}), 400
+
+        rabbit_connection = pika.BlockingConnection(
+            pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+        channel = rabbit_connection.channel()
+        channel.basic_publish(exchange="missions", routing_key="missions",
+                              body=json.dumps({'uid': app.config.get("OTS_NODE_ID"),
+                                               'cot': tostring(generate_new_mission_cot(mission)).decode('utf-8')}))
 
         return jsonify({'success': True})
 
     mission = mission[0]
-    for key, value in request.json:
+    for key in request.json:
         if hasattr(mission, key):
-            setattr(mission, key, value)
+            setattr(mission, key, request.json.get(key))
         else:
             return jsonify({'success': False, 'error': f"Invalid property: {key}"}), 400
 
