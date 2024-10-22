@@ -887,9 +887,6 @@ def upload_content():
     if not file_name:
         return jsonify({'success': False, 'error': 'File name cannot be blank'}), 400
 
-    if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "missions", file_name)):
-        return jsonify({'success': True})
-
     filename, extension = os.path.splitext(secure_filename(file_name))
     if extension.replace('.', '').lower() not in app.config.get("ALLOWED_EXTENSIONS"):
         logger.error(f"{extension} is not an allowed file extension")
@@ -978,28 +975,30 @@ def mission_contents(mission_name: str):
 
         content: MissionContent = content[0]
 
-        mission_content_mission = MissionContentMission()
-        mission_content_mission.mission_name = mission_name
-        mission_content_mission.mission_content_id = content.id
+        mission_content_mission = db.session.execute(db.session.query(MissionContentMission).filter_by(mission_content_id=content.id, mission_name=mission_name)).first()
+        if not mission_content_mission:
+            mission_content_mission = MissionContentMission()
+            mission_content_mission.mission_name = mission_name
+            mission_content_mission.mission_content_id = content.id
 
-        db.session.add(mission_content_mission)
+            db.session.add(mission_content_mission)
 
-        mission_change = MissionChange()
-        mission_change.isFederatedChange = False
-        mission_change.change_type = MissionChange.ADD_CONTENT
-        mission_change.mission_name = mission_name
-        mission_change.timestamp = datetime.datetime.now()
-        mission_change.creator_uid = content.creator_uid
-        mission_change.server_time = datetime.datetime.now()
+            mission_change = MissionChange()
+            mission_change.isFederatedChange = False
+            mission_change.change_type = MissionChange.ADD_CONTENT
+            mission_change.mission_name = mission_name
+            mission_change.timestamp = datetime.datetime.now()
+            mission_change.creator_uid = content.creator_uid
+            mission_change.server_time = datetime.datetime.now()
 
-        db.session.add(mission_change)
+            db.session.add(mission_change)
 
-        event = generate_mission_change_cot(mission_name, mission, mission_change, content=content)
+            event = generate_mission_change_cot(mission_name, mission, mission_change, content=content)
 
-        body = json.dumps({'uid': mission_change.creator_uid, 'cot': tostring(event).decode('utf-8')})
-        rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
-        channel = rabbit_connection.channel()
-        channel.basic_publish("missions", routing_key=f"missions.{mission_name}", body=body)
+            body = json.dumps({'uid': mission_change.creator_uid, 'cot': tostring(event).decode('utf-8')})
+            rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+            channel = rabbit_connection.channel()
+            channel.basic_publish("missions", routing_key=f"missions.{mission_name}", body=body)
 
     db.session.commit()
 
@@ -1030,8 +1029,13 @@ def delete_content(mission_name: str):
         if not content:
             return jsonify({'success': False, 'error': f"No content found with hash {request.args.get('hash')}"}), 404
 
+        # Handles situations where the file is already deleted for some reason
         try:
             os.remove(os.path.join(app.config.get("OTS_DATA_FOLDER"), "missions", content[0].filename))
+        except FileNotFoundError:
+            pass
+
+        try:
             db.session.delete(content[0])
             db.session.commit()
         except BaseException as e:
@@ -1055,7 +1059,7 @@ def delete_content(mission_name: str):
     channel = rabbit_connection.channel()
     channel.basic_publish(exchange="missions", routing_key=f"missions.{mission_name}", body=json.dumps(body))
 
-    return jsonify({'success': True})
+    return jsonify({"version": "3", "type": "Mission", "data": [mission.to_json()], "nodeId": app.config.get("OTS_NODE_ID")})
 
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/contents/missionpackage', methods=['PUT'])
@@ -1066,6 +1070,14 @@ def add_content(mission_name):
     client_uid = request.args.get('clientUid')
     if 'Authorization' not in request.headers or not verify_token():
         return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+
+    return '', 200
+
+
+@mission_marti_api.route('/Marti/api/missions/test34/content/<content_hash>/keywords')
+def put_content_keywords(content_hash: str):
+    logger.info(request.headers)
+    logger.info(request.data)
 
     return '', 200
 
