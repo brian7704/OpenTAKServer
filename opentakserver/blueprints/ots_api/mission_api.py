@@ -5,7 +5,7 @@ import uuid
 
 import sqlalchemy.exc
 from flask import Blueprint, request, jsonify, current_app as app
-from flask_security import auth_required, current_user, roles_required, hash_password
+from flask_security import auth_required, current_user, roles_required, hash_password, verify_password
 from xml.etree.ElementTree import tostring
 import pika
 
@@ -158,8 +158,14 @@ def invite_eud():
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f"Mission not found: {mission_name}"}), 404
+    mission = mission[0]
 
-    if mission[0].password_protected and not current_user.has_role("administrator"):
-        return jsonify({'success': False, 'error': "Only administrators can send invitations to password protected missions"}), 403
+    # If the user isn't an admin an the mission is password protected, verify the password
+    if mission.password_protected and not current_user.has_role("administrator") and not request.json.get('password'):
+        return jsonify({'success': False, 'error': "Please provide the mission password"}), 403
+
+    elif (mission.password_protected and not current_user.has_role('administrator')
+          and not verify_password(request.json.get('password'), mission.password)):
+        return jsonify({'success': False, 'error': 'Invalid password'}), 401
 
     return invite(mission_name, 'clientuid', eud_uid)
