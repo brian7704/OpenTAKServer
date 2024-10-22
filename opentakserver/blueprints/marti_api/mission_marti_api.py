@@ -237,7 +237,7 @@ def put_mission(mission_name: str):
         if 'password' in request.args and request.args.get('password'):
             password = hash_password(request.args.get('password'))
 
-    mission.creator_uid = request.args.get('creatorUid') or mission.creator_uid or None
+    mission.creator_uid = mission.creator_uid or request.args.get('creatorUid') or mission.creator_uid or None
     mission.description = request.args.get('description') or mission.description or None
     mission.tool = request.args.get('tool') or mission.tool or "public"
     mission.group = request.args.get('group') or mission.group or "__ANON__"
@@ -272,13 +272,13 @@ def put_mission(mission_name: str):
             db.session.add(mission_change)
             db.session.commit()
 
-        event = generate_new_mission_cot(mission)
+            event = generate_new_mission_cot(mission)
 
-        rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
-        channel = rabbit_connection.channel()
-        channel.basic_publish(exchange="missions", routing_key="missions",
-                              body=json.dumps(
-                                  {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}))
+            rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+            channel = rabbit_connection.channel()
+            channel.basic_publish(exchange="missions", routing_key="missions",
+                                  body=json.dumps(
+                                      {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}))
     except sqlalchemy.exc.IntegrityError:
         # Mission exists, needs updating
         db.session.rollback()
@@ -293,10 +293,16 @@ def put_mission(mission_name: str):
     token = generate_token(mission, mission.creator_uid)
     mission_json = mission.to_json()
     mission_json['token'] = token
-    mission_json['ownerRole'] = MissionRole.OWNER_ROLE
+
+    if new_mission:
+        mission_json['ownerRole'] = MissionRole.OWNER_ROLE
 
     response = {'version': "3", 'type': 'Mission', 'data': [mission_json], 'nodeId': app.config.get("OTS_NODE_ID")}
-    return jsonify(response), 201
+
+    if new_mission:
+        return jsonify(response), 201
+    else:
+        return jsonify(response), 200
 
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>', methods=['GET'])
@@ -742,7 +748,6 @@ def mission_subscribe(mission_name: str):
     channel.queue_bind(queue=uid, exchange="missions", routing_key=f"missions.{mission_name}")
 
     # Delete any invitations to this mission for this EUD
-    logger.warning(f"Getting invitations for {uid} to {mission_name}")
     invitations = db.session.execute(db.session.query(MissionInvitation).filter_by(mission_name=mission_name, client_uid=uid)).all()
     for invitation in invitations:
         db.session.delete(invitation[0])
