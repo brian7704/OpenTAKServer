@@ -101,4 +101,11 @@ def delete_mission():
 def invite_eud():
     mission_name = request.json['mission_name']
     eud_uid = request.json['uid']
+    mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
+    if not mission:
+        return jsonify({'success': False, 'error': f"Mission not found: {mission_name}"}), 404
+
+    if mission[0].password_protected and not current_user.has_role("administrator"):
+        return jsonify({'success': False, 'error': "Only administrators can send invitations to password protected missions"}), 403
+
     return invite(mission_name, 'clientuid', eud_uid)
