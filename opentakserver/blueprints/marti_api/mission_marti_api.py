@@ -131,6 +131,19 @@ def generate_invitation_cot(mission: Mission, uid: str, cot_type: str = "t-x-m-i
     return event
 
 
+def generate_mission_delete_cot(mission: Mission):
+    event = Element("event", {"type": "t-x-m-d", "how": "h-g-i-g-o", "version": "2.0", "uid": str(uuid.uuid4()),
+                              "start": iso8601_string_from_datetime(datetime.datetime.now()),
+                              "time": iso8601_string_from_datetime(datetime.datetime.now()),
+                              "stale": iso8601_string_from_datetime(datetime.datetime.now() + datetime.timedelta(hours=1))})
+    SubElement(event, "point", {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0', 'lon': '0'})
+    detail = SubElement(event, "detail")
+    SubElement(detail, "mission", {'type': Mission.DELETE, 'tool': mission.tool, 'name': mission.name,
+                                             'guid': mission.guid, 'authorUid': mission.creator_uid})
+
+    return event
+
+
 @mission_marti_api.route('/Marti/api/missions')
 def get_missions():
     password_protected = request.args.get('passwordProtected', False)
@@ -162,7 +175,6 @@ def get_missions():
         logger.debug(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
 
-    logger.error(response)
     return jsonify(response)
 
 
@@ -184,12 +196,16 @@ def all_invitations():
     for invitation in invitations:
         response['data'].append(invitation[0].mission_name)
 
+    logger.warning(response)
+
     return jsonify(response)
 
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>', methods=['PUT', 'POST'])
 def put_mission(mission_name: str):
     """ Used by the Data Sync plugin to create or change a mission """
+    new_mission = True
+
     if not mission_name or not request.args.get('creatorUid'):
         return jsonify({'success': False, 'error': 'Please provide a mission name and creatorUid'}), 400
 
@@ -198,47 +214,52 @@ def put_mission(mission_name: str):
         return jsonify({'success': False, 'error': f"Invalid creatorUid: {request.args.get('creatorUid')}"}), 400
     eud = eud[0]
 
-    mission = Mission()
-    mission.name = bleach.clean(mission_name)
-    if 'password' in request.args and request.args.get('password'):
-        password = hash_password(request.args.get('password'))
+    password = None
+    mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
+    if mission:
+        mission = mission[0]
+        new_mission = False
     else:
-        password = None
+        mission = Mission()
+        mission.name = bleach.clean(mission_name)
+        if 'password' in request.args and request.args.get('password'):
+            password = hash_password(request.args.get('password'))
 
-    mission.creator_uid = bleach.clean(request.args.get('creatorUid')) if 'creatorUid' in request.args else None
-    mission.description = bleach.clean(request.args.get('description')) if 'description' in request.args else None
-    mission.tool = bleach.clean(request.args.get('tool')) if 'tool' in request.args else "public"
-    mission.group = bleach.clean(request.args.get('group')) if 'group' in request.args else "__ANON__"
-    mission.default_role = bleach.clean(request.args.get('defaultRole')) if 'defaultRole' in request.args else MissionRole.MISSION_SUBSCRIBER
-    mission.password = password
+    mission.creator_uid = request.args.get('creatorUid') or mission.creator_uid or None
+    mission.description = request.args.get('description') or mission.description or None
+    mission.tool = request.args.get('tool') or mission.tool or "public"
+    mission.group = request.args.get('group') or mission.group or "__ANON__"
+    mission.default_role = request.args.get('defaultRole') or mission.default_role or MissionRole.MISSION_SUBSCRIBER
+    mission.password = password or mission.password or None
     mission.password_protected = (mission.password is not None)
-    mission.guid = str(uuid.uuid4())
-    mission.uid = str(uuid.uuid4())
-    mission.create_time = datetime.datetime.now()
+    mission.guid = mission.guid or str(uuid.uuid4())
+    mission.create_time = mission.create_time or datetime.datetime.now()
 
     try:
         db.session.add(mission)
         # Will raise IntegrityError if the mission exists, meaning we should update it
         db.session.commit()
 
-        mission_role = MissionRole()
-        mission_role.clientUid = mission.creator_uid
-        mission_role.username = eud.user.username or "anonymous"
-        mission_role.createTime = datetime.datetime.now()
-        mission_role.role_type = MissionRole.MISSION_OWNER
-        mission_role.mission_name = mission_name
-        db.session.add(mission_role)
+        if new_mission:
+            logger.error(f"NEW MISSION {mission_name} {request.args}")
+            mission_role = MissionRole()
+            mission_role.clientUid = mission.creator_uid
+            mission_role.username = eud.user.username if eud.user else "anonymous"
+            mission_role.createTime = datetime.datetime.now()
+            mission_role.role_type = MissionRole.MISSION_OWNER
+            mission_role.mission_name = mission_name
+            db.session.add(mission_role)
 
-        mission_change = MissionChange()
-        mission_change.isFederatedChange = False
-        mission_change.change_type = MissionChange.CREATE_MISSION
-        mission_change.mission_name = mission_name
-        mission_change.timestamp = mission.create_time
-        mission_change.creator_uid = mission.creator_uid
-        mission_change.server_time = mission.create_time
+            mission_change = MissionChange()
+            mission_change.isFederatedChange = False
+            mission_change.change_type = MissionChange.CREATE_MISSION
+            mission_change.mission_name = mission_name
+            mission_change.timestamp = mission.create_time
+            mission_change.creator_uid = mission.creator_uid
+            mission_change.server_time = mission.create_time
 
-        db.session.add(mission_change)
-        db.session.commit()
+            db.session.add(mission_change)
+            db.session.commit()
 
         event = Element("event", {"type": "t-x-m-n", "how": "h-g-i-g-o", "version": "2.0", "uid": str(uuid.uuid4()),
                                   "start": iso8601_string_from_datetime(datetime.datetime.now()),
@@ -258,6 +279,7 @@ def put_mission(mission_name: str):
     except sqlalchemy.exc.IntegrityError:
         # Mission exists, needs updating
         db.session.rollback()
+        logger.error(mission.serialize())
         db.session.execute(update(Mission).where(Mission.name == mission_name).values(**mission.serialize()))
         db.session.commit()
         return jsonify({'version': "3", 'type': 'Mission', 'data': [mission.to_json()], 'nodeId': app.config.get("OTS_NODE_ID")})
@@ -272,7 +294,7 @@ def put_mission(mission_name: str):
     mission_json['ownerRole'] = MissionRole.OWNER_ROLE
 
     response = {'version': "3", 'type': 'Mission', 'data': [mission_json], 'nodeId': app.config.get("OTS_NODE_ID")}
-
+    logger.error(response)
     return jsonify(response), 201
 
 
@@ -325,19 +347,11 @@ def delete_mission(mission_name: str):
         db.session.delete(mission)
         db.session.commit()
 
-        event = Element("event", {"type": "t-x-m-d", "how": "h-g-i-g-o", "version": "2.0", "uid": str(uuid.uuid4()),
-                                  "start": iso8601_string_from_datetime(datetime.datetime.now()),
-                                  "time": iso8601_string_from_datetime(datetime.datetime.now()),
-                                  "stale": iso8601_string_from_datetime(datetime.datetime.now() + datetime.timedelta(hours=1))})
-        SubElement(event, "point", {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0', 'lon': '0'})
-        detail = SubElement(event, "detail")
-        SubElement(detail, "mission", {'type': Mission.DELETE, 'tool': mission.tool, 'name': mission.name,
-                                                 'guid': mission.guid, 'authorUid': mission.creator_uid})
-
         rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
         channel = rabbit_connection.channel()
         channel.basic_publish(exchange="missions", routing_key="missions",
-                              body=json.dumps({'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}))
+                              body=json.dumps({'uid': app.config.get("OTS_NODE_ID"),
+                                               'cot': tostring(generate_mission_delete_cot(mission)).decode('utf-8')}))
 
         return jsonify({'success': True})
     else:
@@ -639,6 +653,7 @@ def put_mission_keywords(mission_name):
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/subscription', methods=['PUT'])
 def mission_subscribe(mission_name: str):
+    logger.info(request.headers)
     """ Used by the Data Sync plugin to subscribe to a feed """
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
@@ -675,7 +690,7 @@ def mission_subscribe(mission_name: str):
             role = role[0]
 
         response['data'] = {
-            "token": token,
+            "token": request.headers.get('Authorization').replace('Bearer ', ''),
             "clientUid": token['sub'],
             "username": eud.user.username,
             "createTime": role.createTime,
@@ -726,8 +741,14 @@ def mission_subscribe(mission_name: str):
     channel = rabbit_connection.channel()
     channel.queue_bind(queue=uid, exchange="missions", routing_key=f"missions.{mission_name}")
 
-    logger.info(jsonify(response).json)
+    # Delete any invitations to this mission for this EUD
+    logger.warning(f"Getting invitations for {uid} to {mission_name}")
+    invitations = db.session.execute(db.session.query(MissionInvitation).filter_by(mission_name=mission_name, client_uid=uid)).all()
+    for invitation in invitations:
+        db.session.delete(invitation[0])
+    db.session.commit()
 
+    logger.warning(response)
     return jsonify(response), 201
 
 

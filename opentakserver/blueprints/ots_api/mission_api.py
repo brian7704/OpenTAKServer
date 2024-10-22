@@ -1,8 +1,11 @@
+import json
 import sqlalchemy.exc
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app as app
 from flask_security import auth_required, current_user, roles_required
+from xml.etree.ElementTree import tostring
+import pika
 
-from opentakserver.blueprints.marti_api.mission_marti_api import invite
+from opentakserver.blueprints.marti_api.mission_marti_api import invite, generate_mission_delete_cot
 from opentakserver.extensions import db
 from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.models.Mission import Mission
@@ -81,19 +84,17 @@ def delete_mission():
         return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
     mission = mission[0]
 
-    if current_user.has_role('administrator'):
-        db.session.delete(mission)
-        db.session.commit()
-        return jsonify({'success': True})
+    db.session.delete(mission)
+    db.session.commit()
 
-    elif mission.creator_uid:
-        for eud in current_user.euds:
-            if eud.uid == mission.creator_uid:
-                db.session.delete(mission)
-                db.session.commit()
-                return jsonify({'success': True})
+    rabbit_connection = pika.BlockingConnection(
+        pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    channel = rabbit_connection.channel()
+    channel.basic_publish(exchange="missions", routing_key="missions",
+                          body=json.dumps({'uid': app.config.get("OTS_NODE_ID"),
+                                           'cot': tostring(generate_mission_delete_cot(mission)).decode('utf-8')}))
 
-    return jsonify({'success': False, 'error': f"Only an admin or the mission creator can delete this mission"}), 403
+    return jsonify({'success': True})
 
 
 @data_sync_api.route('/api/missions/invite', methods=['POST'])
