@@ -29,7 +29,7 @@ class Mission(db.Model):
     group: Mapped[str] = mapped_column(String, ForeignKey("groups.group_name"), nullable=True)
     default_role: Mapped[str] = mapped_column(String, nullable=True)
     keywords: Mapped[JSON] = mapped_column(JSON, nullable=True)
-    creator_uid: Mapped[str] = mapped_column(String, nullable=True)
+    creator_uid: Mapped[str] = mapped_column(String, ForeignKey("euds.uid"), nullable=True)
     create_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     external_data: Mapped[JSON] = mapped_column(JSON, nullable=True)
     feeds: Mapped[JSON] = mapped_column(JSON, nullable=True)
@@ -46,6 +46,7 @@ class Mission(db.Model):
     cots = relationship("CoT", back_populates="mission", uselist=True)
     uids = relationship("MissionUID", cascade="all, delete-orphan", back_populates="mission")
     mission_logs = relationship("MissionLogEntry", back_populates="mission")
+    owner = relationship("EUD", back_populates="owned_missions")
 
     def serialize(self):
         return {
@@ -99,7 +100,8 @@ class Mission(db.Model):
             'contents': [content.to_json() for content in self.contents],
             'passwordProtected': self.password_protected if self.password_protected is not None else False,
             'missionChanges': [mission_change.to_json() for mission_change in self.mission_changes],
-            'qr_code': f"{url}:{app.config.get('OTS_SSL_STREAMING_PORT')}:ssl,{url}-{app.config.get('OTS_MARTI_HTTPS_PORT')}-ssl-{self.name},{self.name}"
+            'qr_code': f"{url}:{app.config.get('OTS_SSL_STREAMING_PORT')}:ssl,{url}-{app.config.get('OTS_MARTI_HTTPS_PORT')}-ssl-{self.name},{self.name}",
+            'owner': self.owner.to_json() if self.owner else None
         }
 
         if self.default_role == MissionRole.MISSION_SUBSCRIBER or not self.default_role:

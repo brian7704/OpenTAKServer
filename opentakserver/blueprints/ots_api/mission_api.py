@@ -9,11 +9,13 @@ from flask_security import auth_required, current_user, roles_required, hash_pas
 from xml.etree.ElementTree import tostring
 import pika
 
-from opentakserver.blueprints.marti_api.mission_marti_api import invite, generate_mission_delete_cot, generate_new_mission_cot
+from opentakserver.blueprints.marti_api.mission_marti_api import invite, generate_mission_delete_cot, generate_new_mission_cot, generate_invitation_cot
 from opentakserver.extensions import db, logger
 from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.models.EUD import EUD
 from opentakserver.models.Mission import Mission
+from opentakserver.models.MissionInvitation import MissionInvitation
+from opentakserver.models.MissionRole import MissionRole
 
 data_sync_api = Blueprint("data_sync_api", __name__)
 
@@ -62,8 +64,23 @@ def create_edit_mission():
 
         mission.password_protected = (mission.password != '' and mission.password is not None)
 
+        role = MissionRole()
+        role.clientUid = creator_uid
+        role.username = current_user.username
+        role.createTime = datetime.datetime.now()
+        role.role_type = MissionRole.MISSION_OWNER
+        role.mission_name = mission_name
+
+        invitation = MissionInvitation()
+        invitation.mission_name = mission_name
+        invitation.client_uid = creator_uid
+        invitation.creator_uid = creator_uid
+        invitation.role = MissionRole.MISSION_OWNER
+
         try:
             db.session.add(mission)
+            db.session.add(role)
+            db.session.add(invitation)
             db.session.commit()
         except sqlalchemy.exc.IntegrityError as e:
             logger.error(f"Failed to add mission: {e}")
@@ -73,9 +90,14 @@ def create_edit_mission():
         rabbit_connection = pika.BlockingConnection(
             pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
         channel = rabbit_connection.channel()
+
         channel.basic_publish(exchange="missions", routing_key="missions",
                               body=json.dumps({'uid': app.config.get("OTS_NODE_ID"),
                                                'cot': tostring(generate_new_mission_cot(mission)).decode('utf-8')}))
+
+        channel.basic_publish(exchange="dms", routing_key=creator_uid,
+                              body=json.dumps({'uid': creator_uid,
+                                               'cot': tostring(generate_invitation_cot(mission, creator_uid)).decode('utf-8')}))
 
         return jsonify({'success': True})
 
