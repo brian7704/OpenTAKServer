@@ -1,6 +1,6 @@
 import sqlalchemy.exc
 from flask import Blueprint, request, jsonify
-from flask_security import auth_required, current_user
+from flask_security import auth_required, current_user, roles_required
 
 from opentakserver.blueprints.marti_api.mission_marti_api import invite
 from opentakserver.extensions import db
@@ -70,7 +70,7 @@ def create_edit_mission():
 
 
 @data_sync_api.route('/api/missions', methods=['DELETE'])
-@auth_required()
+@roles_required("administrator")
 def delete_mission():
     mission_name = request.args.get('name')
     if not mission_name:
