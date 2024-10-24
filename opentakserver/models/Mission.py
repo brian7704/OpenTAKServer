@@ -45,7 +45,7 @@ class Mission(db.Model):
     contents = relationship("MissionContent", cascade="all",  secondary="mission_content_mission", back_populates="mission", uselist=True)
     cots = relationship("CoT", back_populates="mission", uselist=True)
     uids = relationship("MissionUID", cascade="all, delete-orphan", back_populates="mission")
-    mission_logs = relationship("MissionLogEntry", back_populates="mission")
+    mission_logs = relationship("MissionLogEntry", cascade="all, delete-orphan", back_populates="mission")
     owner = relationship("EUD", back_populates="owned_missions")
 
     def serialize(self):
