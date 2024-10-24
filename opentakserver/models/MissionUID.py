@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 class MissionUID(db.Model):
     __tablename__ = "mission_uids"
 
-    uid: Mapped[str] = mapped_column(String, primary_key=True)
+    uid: Mapped[str] = mapped_column(String, primary_key=True)  # Equals the original CoT's UID
     mission_name: Mapped[str] = mapped_column(String, ForeignKey("missions.name"))
     timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     creator_uid: Mapped[str] = mapped_column(String, nullable=True)

@@ -6,7 +6,7 @@ from xml.etree.ElementTree import Element, SubElement
 from bs4 import BeautifulSoup
 
 from opentakserver.functions import iso8601_string_from_datetime
-from opentakserver.extensions import db
+from opentakserver.extensions import db, logger
 from sqlalchemy import Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -105,6 +105,7 @@ def generate_mission_change_cot(author_uid: str, mission: Mission, mission_chang
         SubElement(content_resource, "submissionTime").text = iso8601_string_from_datetime(content.submission_time)
         SubElement(content_resource, "submitter").text = content.submitter
         SubElement(content_resource, "uid").text = content.uid
+        SubElement(mission_change_element, "contentUid").text = mission_change.content_uid
 
     if cot_event:
         details_tag = SubElement(mission_change_element, "details", {'type': cot_event.attrs['type']})
@@ -134,8 +135,8 @@ def generate_mission_change_cot(author_uid: str, mission: Mission, mission_chang
         details_tag.set('iconsetPath', mission_uid.iconset_path)
         SubElement(details_tag, "location", {'lon': str(mission_uid.longitude), 'lat': str(mission_uid.latitude)})
 
-    if mission_change.content_uid:
-        SubElement(mission_change_element, "contentUid").text = mission_change.content_uid
+    # if mission_change.content_uid:
+    #    SubElement(mission_change_element, "contentUid").text = mission_change.content_uid
 
     SubElement(mission_change_element, "creatorUid").text = mission_change.creator_uid
     SubElement(mission_change_element, "isFederatedChange").text = str(mission_change.isFederatedChange)

@@ -12,6 +12,7 @@ import jwt
 
 import bleach
 import sqlalchemy.exc
+from bs4 import BeautifulSoup
 from flask import Blueprint, request, current_app as app, jsonify
 from flask_security import current_user, hash_password, verify_password
 from sqlalchemy import update, insert
@@ -1023,7 +1024,16 @@ def delete_content(mission_name: str):
         return jsonify({'success': False, 'error': f'Mission {mission_name} not found'}), 404
     mission = mission[0]
 
+    mission_change = MissionChange()
+    mission_change.isFederatedChange = False
+    mission_change.change_type = MissionChange.REMOVE_CONTENT
+    mission_change.mission_name = mission_name
+    mission_change.timestamp = datetime.datetime.now()
+    mission_change.creator_uid = request.args.get('creatorUid')
+    mission_change.server_time = datetime.datetime.now()
+
     mission_uid = None
+    cot_event = None
     if 'uid' in request.args:
         mission_uid = db.session.execute(db.session.query(MissionUID).filter_by(uid=request.args.get('uid'))).first()
         if not mission_uid:
@@ -1032,6 +1042,9 @@ def delete_content(mission_name: str):
             mission_uid = mission_uid[0]
             db.session.delete(mission_uid)
             db.session.commit()
+        cot_event = db.session.execute(db.session.query(CoT).filter_by(uid=request.args.get("uid"))).first()
+        if cot_event:
+            cot_event = BeautifulSoup(cot_event[0].xml, 'xml').find('event')
 
     content = None
     if 'hash' in request.args:
@@ -1039,6 +1052,8 @@ def delete_content(mission_name: str):
         if not content:
             return jsonify({'success': False, 'error': f"No content found with hash {request.args.get('hash')}"}), 404
         content = content[0]
+
+        mission_change.content_uid = content.uid
 
         # Handles situations where the file is already deleted for some reason
         try:
@@ -1054,16 +1069,7 @@ def delete_content(mission_name: str):
             logger.debug(traceback.format_exc())
             return jsonify({'success': False, 'error': f"Failed to delete content with hash {request.args.get('hash')}: {e}"}), 500
 
-    mission_change = MissionChange()
-    mission_change.isFederatedChange = False
-    mission_change.change_type = MissionChange.REMOVE_CONTENT
-    mission_change.mission_name = mission_name
-    mission_change.timestamp = datetime.datetime.now()
-    mission_change.creator_uid = request.args.get('creatorUid')
-    mission_change.server_time = datetime.datetime.now()
-    mission_change.content_uid = content.uid
-
-    event = generate_mission_change_cot(token['sub'], mission, mission_change, content=content, mission_uid=mission_uid)
+    event = generate_mission_change_cot(token['sub'], mission, mission_change, content=content, mission_uid=mission_uid, cot_event=cot_event)
     body = {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}
 
     rabbit_connection = pika.BlockingConnection(
@@ -1113,48 +1119,3 @@ def get_mission_cots(mission_name: str):
         events.append(fromstring(cot[0].xml))
 
     return tostring(events).decode('utf-8'), 200
-
-
-#@datasync_api.route('/Marti/sync/upload', methods=['POST'])
-def content_upload():
-    if not request.content_length:
-        return jsonify({'success': False, 'error': 'no file'}), 400
-
-    filename, extension = os.path.splitext(secure_filename(request.args.get('name')))
-    if extension.replace('.', '').lower() not in app.config.get("ALLOWED_EXTENSIONS"):
-        logger.error(f"{extension} is not an allowed file extension")
-        return jsonify({'success': False, 'error': f'{extension} is not an allowed file extension'}), 415
-
-    file = request.data
-    sha256 = hashlib.sha256()
-    sha256.update(file)
-    file_hash = sha256.hexdigest()
-    hash_filename = secure_filename(f"{file_hash}{extension}")
-
-    with open(os.path.join(app.config.get("UPLOAD_FOLDER"), hash_filename), "wb") as f:
-        f.write(file)
-
-    try:
-        data_package = DataPackage()
-        data_package.filename = request.args.get('name')
-        data_package.hash = file_hash
-        data_package.creator_uid = request.args.get('CreatorUid') if request.args.get('CreatorUid') else str(
-            uuid.uuid4())
-        data_package.submission_user = current_user.id if current_user.is_authenticated else None
-        data_package.submission_time = datetime.now()
-        data_package.mime_type = request.content_type
-        data_package.size = os.path.getsize(os.path.join(app.config.get("UPLOAD_FOLDER"), hash_filename))
-        db.session.add(data_package)
-        db.session.commit()
-    except sqlalchemy.exc.IntegrityError as e:
-        db.session.rollback()
-        logger.error("Failed to save data package: {}".format(e))
-        return jsonify({'success': False, 'error': 'This data package has already been uploaded'}), 400
-
-    return_value = {"UID": data_package.hash, "SubmissionDateTime": data_package.submission_time,
-                    "Keywords": ["missionpackage"],
-                    "MIMEType": data_package.mime_type, "SubmissionUser": "anonymous", "PrimaryKey": "1",
-                    "Hash": data_package.hash, "CreatorUid": data_package.creator_uid, "Name": data_package.filename}
-
-    return jsonify(return_value)
-
