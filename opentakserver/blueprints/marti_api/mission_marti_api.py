@@ -365,24 +365,27 @@ def delete_mission(mission_name: str):
         return jsonify({'success': False, 'error': f'Mission {mission_name} not found'}), 404
 
 
-@mission_marti_api.route('/Marti/api/missions/<mission_name>/password', methods=['PUT'])
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/password', methods=['PUT', 'DELETE'])
 def set_password(mission_name: str):
     """ Used by the Data Sync plugin to add a password to a feed """
     token = verify_token()
     if not token or token['MISSION_NAME'] != mission_name:
         return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
 
-    if 'creatorUid' not in request.args or 'password' not in request.args:
-        return jsonify({'success': False, 'error': 'Please provide the creatorUid and password'}), 400
+    if request.method == 'PUT' and 'password' not in request.args:
+        return jsonify({'success': False, 'error': 'Please provide the password'}), 400
 
     role = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name, clientUid=token['sub'])).first()
     if not role or role[0].role_type != MissionRole.MISSION_OWNER:
         return jsonify({'success': False, 'error': "You do not have permission to change this mission's password"}), 403
 
     creator_uid = request.args.get('creatorUid')
-    password = hash_password(request.args.get('password'))
 
-    db.session.execute(update(Mission).where(Mission.name == mission_name).values(password=password, password_protected=True))
+    if request.method == 'PUT':
+        password = hash_password(request.args.get('password'))
+        db.session.execute(update(Mission).where(Mission.name == mission_name).values(password=password, password_protected=True))
+    elif request.method == 'DELETE':
+        db.session.execute(update(Mission).where(Mission.name == mission_name).values(password=None, password_protected=False))
     db.session.commit()
 
     return jsonify({'success': True})
