@@ -12,6 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionContent import MissionContent
+from opentakserver.models.MissionUID import MissionUID
 
 
 @dataclass
@@ -34,7 +35,7 @@ class MissionChange(db.Model):
     timestamp: Mapped[datetime] = mapped_column(DateTime)
     creator_uid: Mapped[str] = mapped_column(String)
     server_time: Mapped[datetime] = mapped_column(DateTime)
-    content_resource = relationship("MissionContent", secondary="mission_content_mission_changes", back_populates="mission_changes")
+    content_resource = relationship("MissionContent", back_populates="mission_changes")
     mission = relationship("Mission", back_populates="mission_changes")
     uid = relationship("MissionUID", back_populates="mission_change", uselist=False)
 
@@ -52,6 +53,7 @@ class MissionChange(db.Model):
         json = {
             "isFederatedChange": self.isFederatedChange,
             "type": self.change_type,
+            "contentUid": self.content_uid,
             "missionName": self.mission_name,
             "timestamp": iso8601_string_from_datetime(self.timestamp),
             "creatorUid": self.creator_uid if self.creator_uid else "",
@@ -59,7 +61,7 @@ class MissionChange(db.Model):
         }
 
         if self.content_resource:
-            json['contentResource'] = self.content_resource.mission_content.to_json()
+            json['contentResource'] = self.content_resource.to_json()['data']
 
         if self.uid:
             json['details'] = self.uid.to_details_json()
@@ -67,9 +69,9 @@ class MissionChange(db.Model):
         return json
 
 
-def generate_mission_change_cot(mission_name: str, mission: Mission, mission_change: MissionChange,
+def generate_mission_change_cot(author_uid: str, mission: Mission, mission_change: MissionChange,
                                 content: MissionContent | None = None, cot_event: BeautifulSoup | None = None,
-                                cot_type: str = "t-x-m-c") -> Element:
+                                mission_uid: MissionUID = None, cot_type: str = "t-x-m-c") -> Element:
     if content:
         uid = content.uid
     elif cot_event:
@@ -86,8 +88,8 @@ def generate_mission_change_cot(mission_name: str, mission: Mission, mission_cha
 
     detail = SubElement(event, "detail")
     mission_element = SubElement(detail, "mission",
-                                 {"type": mission_change.change_type, "tool": "public", "name": mission_name,
-                                  "guid": mission.guid, "authorUid": mission_change.creator_uid})
+                                 {"type": MissionChange.CHANGE, "tool": "public", "name": mission.name,
+                                  "guid": mission.guid, "authorUid": author_uid})
     mission_changes_element = SubElement(mission_element, "MissionChanges")
     mission_change_element = SubElement(mission_changes_element, "MissionChange")
 
@@ -124,12 +126,20 @@ def generate_mission_change_cot(mission_name: str, mission: Mission, mission_cha
         SubElement(details_tag, "location", {'lon': point.attrs['lon'], 'lat': point.attrs['lat']})
         SubElement(mission_change_element, "contentUid").text = cot_event.attrs['uid']
 
+    if mission_uid:
+        details_tag = SubElement(mission_change_element, "details")
+        details_tag.set('color', str(mission_uid.color))
+        details_tag.set('callsign', mission_uid.callsign)
+        details_tag.set('type', mission_uid.cot_type)
+        details_tag.set('iconsetPath', mission_uid.iconset_path)
+        SubElement(details_tag, "location", {'lon': str(mission_uid.longitude), 'lat': str(mission_uid.latitude)})
+
     if mission_change.content_uid:
         SubElement(mission_change_element, "contentUid").text = mission_change.content_uid
 
     SubElement(mission_change_element, "creatorUid").text = mission_change.creator_uid
     SubElement(mission_change_element, "isFederatedChange").text = str(mission_change.isFederatedChange)
-    SubElement(mission_change_element, "missionName").text = mission_name
+    SubElement(mission_change_element, "missionName").text = mission.name
     SubElement(mission_change_element, "timestamp").text = iso8601_string_from_datetime(mission_change.timestamp)
     SubElement(mission_change_element, "type").text = mission_change.change_type
 

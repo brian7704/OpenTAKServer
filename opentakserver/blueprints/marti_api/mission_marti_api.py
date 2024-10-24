@@ -380,9 +380,9 @@ def set_password(mission_name: str):
         return jsonify({'success': False, 'error': "You do not have permission to change this mission's password"}), 403
 
     creator_uid = request.args.get('creatorUid')
-    password = request.args.get('password')
+    password = hash_password(request.args.get('password'))
 
-    db.session.execute(update(Mission).where(Mission.name == mission_name).values(password=password))
+    db.session.execute(update(Mission).where(Mission.name == mission_name).values(password=password, password_protected=True))
     db.session.commit()
 
     return jsonify({'success': True})
@@ -647,7 +647,7 @@ def put_mission_keywords(mission_name):
     mission = mission[0]
 
     new_keywords = request.json
-    current_keywords = mission.keywords
+    current_keywords = mission.keywords or []
     for keyword in new_keywords:
         if keyword not in current_keywords:
             current_keywords.append(keyword)
@@ -986,6 +986,7 @@ def mission_contents(mission_name: str):
             mission_change = MissionChange()
             mission_change.isFederatedChange = False
             mission_change.change_type = MissionChange.ADD_CONTENT
+            mission_change.content_uid = content.uid
             mission_change.mission_name = mission_name
             mission_change.timestamp = datetime.datetime.now()
             mission_change.creator_uid = content.creator_uid
@@ -1016,27 +1017,31 @@ def delete_content(mission_name: str):
         return jsonify({'success': False, 'error': f'Mission {mission_name} not found'}), 404
     mission = mission[0]
 
+    mission_uid = None
     if 'uid' in request.args:
         mission_uid = db.session.execute(db.session.query(MissionUID).filter_by(uid=request.args.get('uid'))).first()
         if not mission_uid:
             return jsonify({'success': False, 'error': f"UID {request.args.get('uid')} not found"}), 404
         else:
-            db.session.delete(mission_uid[0])
+            mission_uid = mission_uid[0]
+            db.session.delete(mission_uid)
             db.session.commit()
 
+    content = None
     if 'hash' in request.args:
         content = db.session.execute(db.session.query(MissionContent).filter_by(hash=request.args.get('hash'))).first()
         if not content:
             return jsonify({'success': False, 'error': f"No content found with hash {request.args.get('hash')}"}), 404
+        content = content[0]
 
         # Handles situations where the file is already deleted for some reason
         try:
-            os.remove(os.path.join(app.config.get("OTS_DATA_FOLDER"), "missions", content[0].filename))
+            os.remove(os.path.join(app.config.get("OTS_DATA_FOLDER"), "missions", content.filename))
         except FileNotFoundError:
             pass
 
         try:
-            db.session.delete(content[0])
+            db.session.delete(content)
             db.session.commit()
         except BaseException as e:
             logger.error(f"Failed to delete content with hash {request.args.get('hash')}: {e}")
@@ -1050,9 +1055,10 @@ def delete_content(mission_name: str):
     mission_change.timestamp = datetime.datetime.now()
     mission_change.creator_uid = request.args.get('creatorUid')
     mission_change.server_time = datetime.datetime.now()
+    mission_change.content_uid = content.uid
 
-    cot = generate_mission_change_cot(mission_name, mission, mission_change)
-    body = {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(cot).decode('utf-8')}
+    event = generate_mission_change_cot(token['sub'], mission, mission_change, content=content, mission_uid=mission_uid)
+    body = {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}
 
     rabbit_connection = pika.BlockingConnection(
         pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
