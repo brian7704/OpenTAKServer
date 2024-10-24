@@ -104,12 +104,13 @@ def generate_new_mission_cot(mission: Mission) -> Element:
     return event
 
 
-def generate_invitation_cot(mission: Mission, uid: str, cot_type: str = "t-x-m-i") -> Element:
+def generate_invitation_cot(mission: Mission, uid: str, cot_type: str = "t-x-m-i", delete: bool = False) -> Element:
     """
     Generates an invitation (t-x-m-i) or role change (t-x-m-r) cot
     :param mission:
     :param uid:
     :param cot_type:
+    :param delete:
     :return:
     """
 
@@ -124,23 +125,25 @@ def generate_invitation_cot(mission: Mission, uid: str, cot_type: str = "t-x-m-i
     mission_tag = SubElement(detail, "mission", {"type": Mission.INVITE, "tool": mission.tool, "name": mission.name,
                                                  "guid": mission.guid, "authorUid": mission.creator_uid,
                                                  "token": generate_token(mission, uid)})
-    role = SubElement(mission_tag, "role", {"type": mission.default_role})
-    permissions = SubElement(role, "permissions")
 
-    if mission.default_role == MissionRole.MISSION_SUBSCRIBER:
-        SubElement(permissions, "permission", {"type": MissionRole.MISSION_READ})
-        SubElement(permissions, "permission", {"type": MissionRole.MISSION_WRITE})
-    elif mission.default_role == MissionRole.MISSION_OWNER:
-        SubElement(permissions, "permission", {"type": MissionRole.MISSION_MANAGE_FEEDS})
-        SubElement(permissions, "permission", {"type": MissionRole.MISSION_SET_PASSWORD})
-        SubElement(permissions, "permission", {"type": MissionRole.MISSION_WRITE})
-        SubElement(permissions, "permission", {"type": MissionRole.MISSION_MANAGE_LAYERS})
-        SubElement(permissions, "permission", {"type": MissionRole.MISSION_UPDATE_GROUPS})
-        SubElement(permissions, "permission", {"type": MissionRole.MISSION_DELETE})
-        SubElement(permissions, "permission", {"type": MissionRole.MISSION_SET_ROLE})
-        SubElement(permissions, "permission", {"type": MissionRole.MISSION_READ})
-    else:
-        SubElement(permissions, "permission", {"type": MissionRole.MISSION_READ})
+    if not delete:
+        role = SubElement(mission_tag, "role", {"type": mission.default_role})
+        permissions = SubElement(role, "permissions")
+
+        if mission.default_role == MissionRole.MISSION_SUBSCRIBER:
+            SubElement(permissions, "permission", {"type": MissionRole.MISSION_READ})
+            SubElement(permissions, "permission", {"type": MissionRole.MISSION_WRITE})
+        elif mission.default_role == MissionRole.MISSION_OWNER:
+            SubElement(permissions, "permission", {"type": MissionRole.MISSION_MANAGE_FEEDS})
+            SubElement(permissions, "permission", {"type": MissionRole.MISSION_SET_PASSWORD})
+            SubElement(permissions, "permission", {"type": MissionRole.MISSION_WRITE})
+            SubElement(permissions, "permission", {"type": MissionRole.MISSION_MANAGE_LAYERS})
+            SubElement(permissions, "permission", {"type": MissionRole.MISSION_UPDATE_GROUPS})
+            SubElement(permissions, "permission", {"type": MissionRole.MISSION_DELETE})
+            SubElement(permissions, "permission", {"type": MissionRole.MISSION_SET_ROLE})
+            SubElement(permissions, "permission", {"type": MissionRole.MISSION_READ})
+        else:
+            SubElement(permissions, "permission", {"type": MissionRole.MISSION_READ})
 
     return event
 
@@ -606,7 +609,7 @@ def change_eud_role(mission_name: str):
             db.session.delete(old_role[0])
             db.session.commit()
 
-        event = generate_invitation_cot(mission, client_uid, 't-x-m-r')
+        event = generate_invitation_cot(mission, client_uid, 't-x-m-r', delete=True)
         body = {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}
 
         rabbit_connection = pika.BlockingConnection(
