@@ -116,7 +116,7 @@ def init_extensions(app):
     channel.exchange_declare('cot', durable=True, exchange_type='fanout')
     channel.exchange_declare('dms', durable=True, exchange_type='direct')
     channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
-    channel.queue_declare(queue='cot_controller')
+    channel.queue_declare(queue='cot_controller', durable=True)
     channel.exchange_declare(exchange='cot_controller', exchange_type='fanout', durable=True)
     channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
 
