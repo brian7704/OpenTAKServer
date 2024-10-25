@@ -22,7 +22,7 @@ class MissionContent(db.Model):
     hash: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     size: Mapped[int] = mapped_column(Integer, nullable=True)
     expiration: Mapped[int] = mapped_column(Integer, nullable=True)
-    mission_changes = relationship("MissionChange", secondary="mission_content_mission_changes", back_populates="content_resource")
+    mission_changes = relationship("MissionChange", back_populates="content_resource")
     mission = relationship("Mission", secondary="mission_content_mission", back_populates="contents")
 
     def serialize(self):
