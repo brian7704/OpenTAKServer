@@ -48,8 +48,8 @@ class CoTController(RabbitMQClient):
 
     def on_channel_open(self, channel: Channel):
         self.rabbit_channel = channel
-        self.rabbit_channel.queue_declare(queue='cot_controller', durable=True)
-        self.rabbit_channel.exchange_declare(exchange='cot_controller', exchange_type='fanout', durable=True)
+        self.rabbit_channel.queue_declare(queue='cot_controller')
+        self.rabbit_channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
         self.rabbit_channel.queue_bind(exchange='cot_controller', queue='cot_controller')
         self.rabbit_channel.basic_consume(queue='cot_controller', on_message_callback=self.on_message, auto_ack=False)
         self.rabbit_channel.add_on_close_callback(self.on_close)
