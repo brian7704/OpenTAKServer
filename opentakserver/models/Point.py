@@ -13,8 +13,8 @@ class Point(db.Model):
     __tablename__ = "points"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    uid: Mapped[str] = mapped_column(String)
-    device_uid: Mapped[str] = mapped_column(String, ForeignKey("euds.uid"))
+    uid: Mapped[str] = mapped_column(String(255))
+    device_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"))
     latitude: Mapped[float] = mapped_column(Float, nullable=True)
     longitude: Mapped[float] = mapped_column(Float, nullable=True)
     ce: Mapped[float] = mapped_column(Float, nullable=True)
@@ -22,7 +22,7 @@ class Point(db.Model):
     le: Mapped[float] = mapped_column(Float, nullable=True)
     course: Mapped[float] = mapped_column(Float, nullable=True)
     speed: Mapped[float] = mapped_column(Float, nullable=True)
-    location_source: Mapped[str] = mapped_column(String, nullable=True)
+    location_source: Mapped[str] = mapped_column(String(255), nullable=True)
     battery: Mapped[float] = mapped_column(Float, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime)
     azimuth: Mapped[float] = mapped_column(Float, nullable=True)

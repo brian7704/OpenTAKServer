@@ -28,14 +28,14 @@ class MissionChange(db.Model):
     CHANGE = "CHANGE"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    content_uid: Mapped[str] = mapped_column(String, ForeignKey("mission_content.uid"), nullable=True)
+    content_uid: Mapped[str] = mapped_column(String(255), ForeignKey("mission_content.uid"), nullable=True)
     isFederatedChange: Mapped[bool] = mapped_column(Boolean)
-    change_type: Mapped[str] = mapped_column(String)
-    mission_name: Mapped[str] = mapped_column(String, ForeignKey('missions.name'))
+    change_type: Mapped[str] = mapped_column(String(255))
+    mission_name: Mapped[str] = mapped_column(String(255), ForeignKey('missions.name'))
     timestamp: Mapped[datetime] = mapped_column(DateTime)
-    creator_uid: Mapped[str] = mapped_column(String)
+    creator_uid: Mapped[str] = mapped_column(String(255))
     server_time: Mapped[datetime] = mapped_column(DateTime)
-    content_resource = relationship("MissionContent", back_populates="mission_changes")
+    content_resource = relationship("MissionContent", back_populates="mission_changes", uselist=False)
     mission = relationship("Mission", back_populates="mission_changes")
     uid = relationship("MissionUID", back_populates="mission_change", uselist=False)
 

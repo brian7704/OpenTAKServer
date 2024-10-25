@@ -11,14 +11,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 class MissionUID(db.Model):
     __tablename__ = "mission_uids"
 
-    uid: Mapped[str] = mapped_column(String, primary_key=True)  # Equals the original CoT's UID
-    mission_name: Mapped[str] = mapped_column(String, ForeignKey("missions.name"))
+    uid: Mapped[str] = mapped_column(String(255), primary_key=True)  # Equals the original CoT's UID
+    mission_name: Mapped[str] = mapped_column(String(255), ForeignKey("missions.name"))
     timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    creator_uid: Mapped[str] = mapped_column(String, nullable=True)
-    cot_type: Mapped[str] = mapped_column(String, nullable=True)
-    callsign: Mapped[str] = mapped_column(String, nullable=True)
-    iconset_path: Mapped[str] = mapped_column(String, nullable=True)
-    color: Mapped[str] = mapped_column(String, nullable=True)
+    creator_uid: Mapped[str] = mapped_column(String(255), nullable=True)
+    cot_type: Mapped[str] = mapped_column(String(255), nullable=True)
+    callsign: Mapped[str] = mapped_column(String(255), nullable=True)
+    iconset_path: Mapped[str] = mapped_column(String(255), nullable=True)
+    color: Mapped[str] = mapped_column(String(255), nullable=True)
     latitude: Mapped[float] = mapped_column(Float, nullable=True)
     longitude: Mapped[float] = mapped_column(Float, nullable=True)
     mission_change_id: Mapped[int] = mapped_column(Integer, ForeignKey("mission_changes.id"), nullable=True)

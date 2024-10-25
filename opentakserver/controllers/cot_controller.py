@@ -228,8 +228,13 @@ class CoTController(RabbitMQClient):
                 uid=event.attrs['uid']
             ))
 
-            self.db.session.commit()
-            return res.inserted_primary_key[0]
+            try:
+                self.db.session.commit()
+                return res.inserted_primary_key[0]
+            except sqlalchemy.exc.IntegrityError:
+                # When using MySQL it will raise IntegrityError when a new EUD connects and it doesn't exist yet in the EUDs table
+                # We'll ignore this error and not insert this CoT so the EUD table can be populated
+                return None
 
     def parse_point(self, event, uid, cot_id):
         # hae = Height above the WGS ellipsoid in meters

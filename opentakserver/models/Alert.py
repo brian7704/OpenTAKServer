@@ -14,11 +14,11 @@ class Alert(db.Model):
     # how = ^m-g | ^h-e
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    uid: Mapped[str] = mapped_column(String)
-    sender_uid: Mapped[str] = mapped_column(String, ForeignKey("euds.uid"))
+    uid: Mapped[str] = mapped_column(String(50))
+    sender_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"))
     start_time: Mapped[datetime] = mapped_column(DateTime)
     cancel_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    alert_type: Mapped[str] = mapped_column(String)
+    alert_type: Mapped[str] = mapped_column(String(255))
     point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id"), nullable=True)
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
     cot = relationship("CoT", back_populates="alert")

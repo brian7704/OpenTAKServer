@@ -1,4 +1,5 @@
 import datetime
+import uuid
 from dataclasses import dataclass
 
 from opentakserver.functions import iso8601_string_from_datetime
@@ -13,13 +14,13 @@ class MissionContent(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     keywords: Mapped[JSON] = mapped_column(JSON, nullable=True)
-    mime_type: Mapped[str] = mapped_column(String, nullable=True)
-    filename: Mapped[str] = mapped_column(String, nullable=True)
+    mime_type: Mapped[str] = mapped_column(String(255), nullable=True)
+    filename: Mapped[str] = mapped_column(String(255), nullable=True)
     submission_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    submitter: Mapped[str] = mapped_column(String, nullable=True)
-    uid: Mapped[str] = mapped_column(String, nullable=True)
-    creator_uid: Mapped[str] = mapped_column(String, nullable=True)
-    hash: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    submitter: Mapped[str] = mapped_column(String(255), nullable=True)
+    uid: Mapped[str] = mapped_column(String(255), unique=True, default=str(uuid.uuid4()))
+    creator_uid: Mapped[str] = mapped_column(String(255), nullable=True)
+    hash: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     size: Mapped[int] = mapped_column(Integer, nullable=True)
     expiration: Mapped[int] = mapped_column(Integer, nullable=True)
     mission_changes = relationship("MissionChange", back_populates="content_resource")

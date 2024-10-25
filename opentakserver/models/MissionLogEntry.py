@@ -13,14 +13,14 @@ class MissionLogEntry(db.Model):
     __tablename__ = "mission_logs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    content: Mapped[str] = mapped_column(String)
-    creator_uid: Mapped[str] = mapped_column(String)
-    entry_uid: Mapped[str] = mapped_column(String, default=str(uuid.uuid4()))
-    mission_name: Mapped[str] = mapped_column(String, ForeignKey("missions.name"))
+    content: Mapped[str] = mapped_column(String(255))
+    creator_uid: Mapped[str] = mapped_column(String(255))
+    entry_uid: Mapped[str] = mapped_column(String(255), default=str(uuid.uuid4()))
+    mission_name: Mapped[str] = mapped_column(String(255), ForeignKey("missions.name"))
     server_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.datetime.now())
     dtg: Mapped[datetime] = mapped_column(DateTime, default=datetime.datetime.now())
     created: Mapped[datetime] = mapped_column(DateTime, default=datetime.datetime.now())
-    content_hash: Mapped[str] = mapped_column(String, nullable=True)
+    content_hash: Mapped[str] = mapped_column(String(255), nullable=True)
     keywords: Mapped[JSON] = mapped_column(JSON, default=[])
     mission = relationship("Mission", back_populates="mission_logs")
 

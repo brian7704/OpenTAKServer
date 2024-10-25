@@ -80,6 +80,33 @@ def change_config_setting(setting, value):
         logger.error("Failed to change setting {} to {} in config.yml: {}".format(setting, value, e))
 
 
+@api_blueprint.route('/oauth/token', methods=['GET', 'POST'])
+def cloudtak():
+    import jwt
+    import time
+    payload = {'sub': request.args.get('username'), 'aud': urlparse(request.base_url).hostname, 'nbf': int(time.time()), 'exp': int(time.time()) + 360000, 'iat': int(time.time())}
+    logger.info(payload)
+    server_key = open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver",
+                                   "opentakserver.nopass.key"), "r")
+
+    token = jwt.encode(payload, server_key.read(), algorithm="RS256")
+    server_key.close()
+
+    response = {
+      "access_token":token,
+      "token_type":"Bearer",
+      "expires_in":36000,
+
+      "scope":"create"
+    }
+    return jsonify(response)
+
+
+@api_blueprint.route('/files/api/config')
+def cloudtak_config():
+    return jsonify({'uploadSizeLimit': 400})
+
+
 @api_blueprint.route('/api/health')
 def health():
     if not app.cot_thread.iothread.is_alive():
@@ -117,14 +144,14 @@ def status():
                 temps_dict[name][val.label] = {'current': val.current, 'high': val.high, 'critical': val.critical}
 
     fans_dict = {}
-    if hasattr(psutil, 'sensors_fans'):
-        for name, value in psutil.sensors_fans():
+    if hasattr(psutil, 'sensors_fans') and psutil:
+        for name, value in psutil.sensors_fans().items():
             for val in value:
                 fans_dict[name][val.label] = {val.current}
 
     battery_dict = {}
     if hasattr(psutil, "sensors_battery") and psutil.sensors_battery():
-        battery = psutil.sensors_battery()
+        battery = psutil.sensors_battery().items()
         battery_dict = {'percent': battery.percent, 'charging': battery.power_plugged, 'time_left': battery.secsleft}
 
     try:
@@ -236,7 +263,7 @@ def certificate():
                 data_package = DataPackage()
                 data_package.filename = filename
                 data_package.keywords = "public"
-                data_package.creator_uid = request.json['uid'] if 'uid' in request.json.keys() else str(uuid.uuid4())
+                data_package.creator_uid = request.json['uid'] if 'uid' in request.json.keys() else None
                 data_package.submission_time = datetime.datetime.now()
                 data_package.mime_type = "application/x-zip-compressed"
                 data_package.size = os.path.getsize(
@@ -289,6 +316,8 @@ def certificate():
 @api_blueprint.route('/api/me')
 @auth_required()
 def me():
+    logger.info(request.headers)
+    logger.info(request.accept_encodings)
     me = db.session.execute(db.session.query(User).where(User.id == current_user.id)).first()[0]
     return jsonify(me.serialize())
 

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from opentakserver.extensions import db
 from opentakserver.functions import iso8601_string_from_datetime
-from sqlalchemy import Integer, String, Boolean, DateTime
+from sqlalchemy import Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
@@ -17,14 +17,15 @@ class Group(db.Model):
     OUT = "OUT"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    group_name: Mapped[str] = mapped_column(String)
-    direction: Mapped[str] = mapped_column(String)  # IN, OUT
+    group_name: Mapped[str] = mapped_column(String(255))
+    direction: Mapped[str] = mapped_column(String(255))  # IN, OUT
     created: Mapped[datetime] = mapped_column(DateTime)
-    group_type: Mapped[str] = mapped_column(String, default=SYSTEM)  # SYSTEM, LDAP
+    group_type: Mapped[str] = mapped_column(String(255), default=SYSTEM)  # SYSTEM, LDAP
     bitpos: Mapped[int] = mapped_column(Integer)
     active: Mapped[bool] = mapped_column(Boolean)
-    description: Mapped[str] = mapped_column(String, nullable=True)
-    mission_invitations = relationship("MissionInvitation", back_populates="group")
+    description: Mapped[str] = mapped_column(String(255), nullable=True)
+    eud_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"))
+    eud = relationship("EUD", back_populates="groups")
 
     def serialize(self):
         return {

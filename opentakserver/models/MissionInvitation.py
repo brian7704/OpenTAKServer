@@ -11,19 +11,18 @@ class MissionInvitation(db.Model):
     __tablename__ = "mission_invitations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    mission_name: Mapped[str] = mapped_column(String, ForeignKey('missions.name'))
-    client_uid: Mapped[str] = mapped_column(String, ForeignKey("euds.uid"), nullable=True)
-    callsign: Mapped[str] = mapped_column(String, ForeignKey("euds.callsign"), nullable=True)
-    username: Mapped[str] = mapped_column(String, ForeignKey("user.username"), nullable=True)
-    group_name: Mapped[str] = mapped_column(String, ForeignKey("groups.group_name"), nullable=True)
-    team_name: Mapped[str] = mapped_column(String, ForeignKey("teams.name"), nullable=True)
-    creator_uid: Mapped[str] = mapped_column(String, nullable=True)
-    role: Mapped[str] = mapped_column(String, nullable=True)
+    mission_name: Mapped[str] = mapped_column(String(255), ForeignKey('missions.name'))
+    client_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"), nullable=True)
+    callsign: Mapped[str] = mapped_column(String(255), ForeignKey("euds.callsign"), nullable=True)
+    username: Mapped[str] = mapped_column(String(255), ForeignKey("user.username"), nullable=True)
+    group_name: Mapped[str] = mapped_column(String(255), nullable=True)
+    team_name: Mapped[str] = mapped_column(String(255), ForeignKey("teams.name"), nullable=True)
+    creator_uid: Mapped[str] = mapped_column(String(255), nullable=True)
+    role: Mapped[str] = mapped_column(String(255), nullable=True)
 
     eud_uid = relationship("EUD", foreign_keys=[client_uid], uselist=False)
     eud_callsign = relationship("EUD", foreign_keys=[callsign], uselist=False)
     user = relationship("User", back_populates="mission_invitations", uselist=False)
-    group = relationship("Group", back_populates="mission_invitations", uselist=False)
     team = relationship("Team", back_populates="mission_invitations", uselist=False)
     mission = relationship("Mission", back_populates="invitations", uselist=False)
 

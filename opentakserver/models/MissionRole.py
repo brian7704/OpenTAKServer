@@ -41,11 +41,11 @@ class MissionRole(db.Model):
     READ_ONLY_ROLE['permissions'].append(MISSION_READ)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    clientUid: Mapped[str] = mapped_column(String)
-    username: Mapped[str] = mapped_column(String)
+    clientUid: Mapped[str] = mapped_column(String(255))
+    username: Mapped[str] = mapped_column(String(255))
     createTime: Mapped[datetime] = mapped_column(DateTime)
-    role_type: Mapped[str] = mapped_column(String)
-    mission_name: Mapped[str] = mapped_column(String, ForeignKey("missions.name"))
+    role_type: Mapped[str] = mapped_column(String(255))
+    mission_name: Mapped[str] = mapped_column(String(255), ForeignKey("missions.name"))
     mission = relationship("Mission", back_populates="roles", uselist=False)
 
     def serialize(self):

@@ -4,7 +4,7 @@ import sqlalchemy.exc
 from sqlalchemy import update
 from flask import Blueprint, current_app as app, jsonify, request
 from opentakserver.functions import datetime_from_iso8601_string, iso8601_string_from_datetime
-from opentakserver.extensions import db
+from opentakserver.extensions import db, logger
 from opentakserver.models.Group import Group
 
 group_api = Blueprint('group_api', __name__)
@@ -100,15 +100,16 @@ def put_active_bits():
 
 @group_api.route('/Marti/api/groups/active', methods=['PUT'])
 def put_active_groups():
+    logger.debug(request.data)
     client_uid = request.args.get('clientUid')
     groups = request.json
 
     for group in groups:
         existing_group = db.session.execute(
-            db.session.query(Group).filter_by(group_name=group['group_name'], direction=group['direction'])).first()
+            db.session.query(Group).filter_by(group_name=group['name'], direction=group['direction'], eud_uid=client_uid)).first()
         if existing_group:
             existing_group = existing_group[0]
-            existing_group.created = datetime_from_iso8601_string(group['created'])
+            existing_group.created = datetime.datetime.fromtimestamp(group['created'])
             existing_group.group_type = group['type']
             existing_group.bitpos = group['bitpos']
             existing_group.active = group['active']
@@ -119,11 +120,12 @@ def put_active_groups():
             new_group = Group()
             new_group.group_name = group['name']
             new_group.direction = group['direction']
-            new_group.created = datetime_from_iso8601_string(group['created'])
+            new_group.created = datetime.datetime.fromtimestamp(group['created'])
             new_group.group_type = group['type']
             new_group.bitpos = group['bitpos']
             new_group.active = group['active']
             new_group.description = group['description']
+            new_group.eud_uid = client_uid
 
             db.session.add(new_group)
             db.session.commit()

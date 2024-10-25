@@ -2,7 +2,7 @@ import base64
 from dataclasses import dataclass
 
 from opentakserver.extensions import db
-from sqlalchemy import Integer, LargeBinary, TEXT, INTEGER
+from sqlalchemy import Integer, LargeBinary, String, INTEGER
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
@@ -11,10 +11,10 @@ class Icon(db.Model):
     __tablename__ = "icons"
 
     id: Mapped[int] = mapped_column(INTEGER, primary_key=True)
-    iconset_uid: Mapped[str] = mapped_column(TEXT, nullable=True)
-    filename: Mapped[str] = mapped_column(TEXT, nullable=True)
-    groupName: Mapped[str] = mapped_column(TEXT, nullable=True)
-    type2525b: Mapped[str] = mapped_column(TEXT, nullable=True)
+    iconset_uid: Mapped[str] = mapped_column(String(255), nullable=True)
+    filename: Mapped[str] = mapped_column(String(255), nullable=True)
+    groupName: Mapped[str] = mapped_column(String(255), nullable=True)
+    type2525b: Mapped[str] = mapped_column(String(255), nullable=True)
     useCnt: Mapped[int] = mapped_column(Integer, nullable=True)
     bitmap: Mapped[bytes] = mapped_column(LargeBinary, nullable=True)
     shadow: Mapped[bytes] = mapped_column(LargeBinary, nullable=True)
@@ -39,11 +39,11 @@ class IconSets(db.Model):
     __tablename__ = "iconsets"
 
     id: Mapped[int] = mapped_column(INTEGER, primary_key=True)
-    name: Mapped[str] = mapped_column(TEXT, nullable=True)
-    uid: Mapped[str] = mapped_column(TEXT, nullable=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=True)
+    uid: Mapped[str] = mapped_column(String(255), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=True)
-    defaultFriendly: Mapped[str] = mapped_column(TEXT, nullable=True)
-    defaultHostile: Mapped[str] = mapped_column(TEXT, nullable=True)
-    defaultNeutral: Mapped[str] = mapped_column(TEXT, nullable=True)
-    defaultUnknown: Mapped[str] = mapped_column(TEXT, nullable=True)
-    selectedGroup: Mapped[str] = mapped_column(TEXT, nullable=True)
+    defaultFriendly: Mapped[str] = mapped_column(String(255), nullable=True)
+    defaultHostile: Mapped[str] = mapped_column(String(255), nullable=True)
+    defaultNeutral: Mapped[str] = mapped_column(String(255), nullable=True)
+    defaultUnknown: Mapped[str] = mapped_column(String(255), nullable=True)
+    selectedGroup: Mapped[str] = mapped_column(String(255), nullable=True)

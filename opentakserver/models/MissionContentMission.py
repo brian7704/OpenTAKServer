@@ -11,7 +11,7 @@ class MissionContentMission(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     mission_content_id: Mapped[int] = mapped_column(Integer, ForeignKey("mission_content.id"))
-    mission_name: Mapped[str] = mapped_column(String, ForeignKey("missions.name"))
+    mission_name: Mapped[str] = mapped_column(String(255), ForeignKey("missions.name"))
 
     def serialize(self):
         return {

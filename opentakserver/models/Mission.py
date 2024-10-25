@@ -18,27 +18,27 @@ class Mission(db.Model):
     DELETE = "DELETE"
     CREATE = "CREATE"
 
-    name: Mapped[str] = mapped_column(String, primary_key=True)
-    description: Mapped[str] = mapped_column(String, nullable=True)
-    chat_room: Mapped[str] = mapped_column(String, nullable=True)
-    base_layer: Mapped[str] = mapped_column(String, nullable=True)
-    bbox: Mapped[str] = mapped_column(String, nullable=True)
-    path: Mapped[str] = mapped_column(String, nullable=True)
-    classification: Mapped[str] = mapped_column(String, nullable=True)
-    tool: Mapped[str] = mapped_column(String, nullable=True)
-    group: Mapped[str] = mapped_column(String, ForeignKey("groups.group_name"), nullable=True)
-    default_role: Mapped[str] = mapped_column(String, nullable=True)
+    name: Mapped[str] = mapped_column(String(255), primary_key=True)
+    description: Mapped[str] = mapped_column(String(255), nullable=True)
+    chat_room: Mapped[str] = mapped_column(String(255), nullable=True)
+    base_layer: Mapped[str] = mapped_column(String(255), nullable=True)
+    bbox: Mapped[str] = mapped_column(String(255), nullable=True)
+    path: Mapped[str] = mapped_column(String(255), nullable=True)
+    classification: Mapped[str] = mapped_column(String(255), nullable=True)
+    tool: Mapped[str] = mapped_column(String(255), nullable=True)
+    group: Mapped[str] = mapped_column(String(255), nullable=True)
+    default_role: Mapped[str] = mapped_column(String(255), nullable=True)
     keywords: Mapped[JSON] = mapped_column(JSON, nullable=True)
-    creator_uid: Mapped[str] = mapped_column(String, ForeignKey("euds.uid"), nullable=True)
+    creator_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"), nullable=True)
     create_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     external_data: Mapped[JSON] = mapped_column(JSON, nullable=True)
     feeds: Mapped[JSON] = mapped_column(JSON, nullable=True)
     map_layers: Mapped[JSON] = mapped_column(JSON, nullable=True)
     invite_only: Mapped[bool] = mapped_column(Boolean, nullable=True)
     expiration: Mapped[int] = mapped_column(Integer, nullable=False, default=-1)
-    guid: Mapped[str] = mapped_column(String, nullable=True)
+    guid: Mapped[str] = mapped_column(String(255), nullable=True)
     password_protected: Mapped[bool] = mapped_column(Boolean, nullable=True)
-    password: Mapped[str] = mapped_column(String, nullable=True)
+    password: Mapped[str] = mapped_column(String(255), nullable=True)
     invitations = relationship("MissionInvitation", cascade="all, delete-orphan",  back_populates="mission")
     roles = relationship("MissionRole", cascade="all, delete-orphan",  back_populates="mission")
     mission_changes = relationship("MissionChange", cascade="all, delete-orphan",  back_populates="mission", uselist=True)
@@ -57,7 +57,7 @@ class Mission(db.Model):
             'path': self.path,
             'classification': self.classification,
             'tool': self.tool,
-            'group': self.group,
+            'group': self.group or "__ANON__",
             'default_role': self.default_role,
             'keywords': self.keywords,
             'creator_uid': self.creator_uid,
@@ -85,7 +85,7 @@ class Mission(db.Model):
             'path': self.path or "",
             'classification': self.classification or "",
             'tool': self.tool or "",
-            'group': self.group or "",
+            'group': self.group or "__ANON__",
             'defaultRole': self.default_role or "",
             'keywords': self.keywords if self.keywords else [],
             'creatorUid': self.creator_uid or "",

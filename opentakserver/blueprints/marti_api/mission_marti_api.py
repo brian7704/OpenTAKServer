@@ -692,7 +692,7 @@ def mission_subscribe(mission_name: str):
         if not role:
             role = MissionRole()
             role.clientUid = token['sub']
-            role.username = eud.user.username
+            role.username = eud.user.username if eud.user else 'anonymous'
             role.createTime = datetime.datetime.now()
             role.role_type = mission.default_role
             role.mission_name = token['MISSION_NAME']
@@ -705,7 +705,7 @@ def mission_subscribe(mission_name: str):
         response['data'] = {
             "token": request.headers.get('Authorization').replace('Bearer ', ''),
             "clientUid": token['sub'],
-            "username": eud.user.username,
+            "username": role.username,
             "createTime": role.createTime,
             "role": role.to_json()['role'],
         }
@@ -729,7 +729,7 @@ def mission_subscribe(mission_name: str):
         if not role:
             role = MissionRole()
             role.clientUid = uid
-            role.username = eud.user.username
+            role.username = eud.user.username if eud.user else 'anonymous'
             role.createTime = datetime.datetime.now()
             role.role_type = mission.default_role
             role.mission_name = mission.name
@@ -745,7 +745,7 @@ def mission_subscribe(mission_name: str):
             "token": token,
             "clientUid": uid,
             "mission": mission.to_json(),
-            "username": eud.user.username,
+            "username": role.username,
             "createTime": role.createTime,
             "role": role.to_json()['role'],
         }

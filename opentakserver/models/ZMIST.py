@@ -9,13 +9,13 @@ class ZMIST(db.Model):
     __tablename__ = 'zmist'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    i: Mapped[str] = mapped_column(String, nullable=True)  # injury_sustained
-    m: Mapped[str] = mapped_column(String, nullable=True)  # mechanism_of_injury
-    s: Mapped[str] = mapped_column(String, nullable=True)  # symptoms_and_signs
-    t: Mapped[str] = mapped_column(String, nullable=True)  # treatment_given
-    title: Mapped[str] = mapped_column(String, nullable=True)
+    i: Mapped[str] = mapped_column(String(255), nullable=True)  # injury_sustained
+    m: Mapped[str] = mapped_column(String(255), nullable=True)  # mechanism_of_injury
+    s: Mapped[str] = mapped_column(String(255), nullable=True)  # symptoms_and_signs
+    t: Mapped[str] = mapped_column(String(255), nullable=True)  # treatment_given
+    title: Mapped[str] = mapped_column(String(255), nullable=True)
     z: Mapped[int] = mapped_column(Integer, nullable=True)  # zap_number
-    casevac_uid: Mapped[str] = mapped_column(String, ForeignKey("casevac.uid"))
+    casevac_uid: Mapped[str] = mapped_column(String(255), ForeignKey("casevac.uid"))
     casevac = relationship("CasEvac", back_populates="zmist")
     
     def from_wtform(self, form: ZmistForm):

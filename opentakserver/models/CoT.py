@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from opentakserver.extensions import db
-from sqlalchemy import Integer, String, JSON, ForeignKey, DateTime
+from sqlalchemy import Integer, String, JSON, ForeignKey, DateTime, TEXT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.functions import iso8601_string_from_datetime
@@ -11,18 +11,18 @@ class CoT(db.Model):
     __tablename__ = "cot"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    how: Mapped[str] = mapped_column(String, nullable=True)
-    type: Mapped[str] = mapped_column(String, nullable=True)
-    uid: Mapped[str] = mapped_column(String, nullable=True)
-    sender_callsign: Mapped[str] = mapped_column(String)
-    sender_device_name: Mapped[str] = mapped_column(String, nullable=True)
-    sender_uid: Mapped[str] = mapped_column(String, ForeignKey("euds.uid"), nullable=True)
+    how: Mapped[str] = mapped_column(String(255), nullable=True)
+    type: Mapped[str] = mapped_column(String(255), nullable=True)
+    uid: Mapped[str] = mapped_column(String(255), nullable=True)
+    sender_callsign: Mapped[str] = mapped_column(String(255))
+    sender_device_name: Mapped[str] = mapped_column(String(255), nullable=True)
+    sender_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"), nullable=True)
     recipients: Mapped[JSON] = mapped_column(JSON, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime)
     start: Mapped[datetime] = mapped_column(DateTime)
     stale: Mapped[datetime] = mapped_column(DateTime)
-    xml: Mapped[str] = mapped_column(String)
-    mission_name: Mapped[str] = mapped_column(String, ForeignKey("missions.name"), nullable=True)
+    xml: Mapped[str] = mapped_column(TEXT)
+    mission_name: Mapped[str] = mapped_column(String(255), ForeignKey("missions.name"), nullable=True)
     eud = relationship("EUD", back_populates="cots", uselist=False)
     alert = relationship("Alert", back_populates="cot", uselist=False)
     point = relationship("Point", back_populates="cot", uselist=False)
