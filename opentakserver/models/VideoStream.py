@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from opentakserver.extensions import db
-from sqlalchemy import Integer, String, ForeignKey, Boolean
+from sqlalchemy import Integer, String, ForeignKey, Boolean, TEXT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from flask import current_app as app, request
 
@@ -27,9 +27,9 @@ class VideoStream(db.Model):
     preferred_mac_address: Mapped[str] = mapped_column(String(255), nullable=True)
     preferred_interface_address: Mapped[str] = mapped_column(String(255), nullable=True)
     username: Mapped[str] = mapped_column(String(255), ForeignKey("user.username"), nullable=True)
-    xml: Mapped[str] = mapped_column(String(255), nullable=True)
+    xml: Mapped[str] = mapped_column(TEXT, nullable=True)
     ready: Mapped[bool] = mapped_column(Boolean, default=False)
-    mediamtx_settings: Mapped[str] = mapped_column(String(255), default="")
+    mediamtx_settings: Mapped[str] = mapped_column(TEXT, default="")
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
     cot = relationship("CoT", back_populates="video")
     user = relationship("User", back_populates="video_streams")

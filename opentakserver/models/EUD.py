@@ -40,7 +40,7 @@ class EUD(db.Model):
     rb_lines = relationship("RBLine", back_populates="eud")
     team = relationship("Team", back_populates="euds")
     owned_missions = relationship("Mission", back_populates="owner")
-    groups = relationship("Group", back_populates="eud")
+    groups = relationship("Group", secondary="groups_euds", back_populates="euds")
     #mission_invitations_uid = relationship("MissionInvitation", back_populates="eud_uid")
     #mission_invitations_callsign = relationship("MissionInvitation", back_populates="eud_callsign")
 

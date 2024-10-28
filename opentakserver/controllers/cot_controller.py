@@ -208,8 +208,10 @@ class CoTController(RabbitMQClient):
     def insert_cot(self, soup, event, uid):
         try:
             sender_callsign = self.online_euds[uid]['callsign']
+            sender_uid = uid
         except:
             sender_callsign = 'server'
+            sender_uid = None
 
         start = datetime_from_iso8601_string(event.attrs['start'])
         stale = datetime_from_iso8601_string(event.attrs['stale'])
@@ -224,7 +226,7 @@ class CoTController(RabbitMQClient):
         with self.context:
             res = self.db.session.execute(insert(CoT).values(
                 how=event.attrs['how'], type=event.attrs['type'], sender_callsign=sender_callsign,
-                sender_uid=uid, timestamp=timestamp, xml=str(soup), start=start, stale=stale, mission_name=mission_name,
+                sender_uid=sender_uid, timestamp=timestamp, xml=str(soup), start=start, stale=stale, mission_name=mission_name,
                 uid=event.attrs['uid']
             ))
 
@@ -904,6 +906,9 @@ class CoTController(RabbitMQClient):
             event: BeautifulSoup = soup.find('event')
 
             uid = body['uid'] or event.attrs['uid']
+            if uid == self.context.app.config['OTS_NODE_ID']:
+                uid = None
+
             if event:
                 self.parse_device_info(uid, soup, event)
                 cot_pk = self.insert_cot(soup, event, uid)

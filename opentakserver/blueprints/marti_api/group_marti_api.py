@@ -1,11 +1,11 @@
 import datetime
 
-import sqlalchemy.exc
-from sqlalchemy import update
 from flask import Blueprint, current_app as app, jsonify, request
-from opentakserver.functions import datetime_from_iso8601_string, iso8601_string_from_datetime
+
+from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.extensions import db, logger
 from opentakserver.models.Group import Group
+from opentakserver.models.GroupEud import GroupEud
 
 group_api = Blueprint('group_api', __name__)
 
@@ -19,36 +19,26 @@ def group_cache_enabled():
 
 @group_api.route('/Marti/api/groups/all')
 def get_all_groups():
-    response = {"version": "3", "type": "com.bbn.marti.remote.groups.Group", "data": [],
-                "nodeId": app.config.get("OTS_NODE_ID")}
-
-    groups = db.session.execute(db.session.query(Group)).all()
-    if not groups:
-        in_group = Group()
-        in_group.group_name = "__ANON__"
-        in_group.direction = Group.IN
-        in_group.created = datetime.datetime.now()
-        in_group.group_type = Group.SYSTEM
-        in_group.bitpos = 2
-        in_group.active = True
-
-        out_group = Group()
-        out_group.group_name = "__ANON__"
-        out_group.direction = Group.OUT
-        out_group.created = datetime.datetime.now()
-        out_group.group_type = Group.SYSTEM
-        out_group.bitpos = 2
-        out_group.active = True
-
-        db.session.add(in_group)
-        db.session.add(out_group)
-        db.session.commit()
-
-        response['data'].append(in_group.to_json())
-
-    for in_group in groups:
-        in_group = in_group[0]
-        response['data'].append(in_group.to_json())
+    # Only return the __ANON__ in and out groups until group support is fully implemented
+    response = {"version": "3", "type": "com.bbn.marti.remote.groups.Group", "nodeId": app.config.get("OTS_NODE_ID"), "data": [{
+            "name": "__ANON__",
+            "direction": "IN",
+            "created": iso8601_string_from_datetime(datetime.datetime.now()).split("T")[0],
+            "type": "SYSTEM",
+            "bitpos": 2,
+            "active": True,
+            "description": ""
+        },
+        {
+            "name": "__ANON__",
+            "direction": "OUT",
+            "created": iso8601_string_from_datetime(datetime.datetime.now()).split("T")[0],
+            "type": "SYSTEM",
+            "bitpos": 2,
+            "active": True,
+            "description": ""
+        }
+    ]}
 
     return jsonify(response)
 
@@ -100,35 +90,8 @@ def put_active_bits():
 
 @group_api.route('/Marti/api/groups/active', methods=['PUT'])
 def put_active_groups():
-    logger.debug(request.data)
-    client_uid = request.args.get('clientUid')
-    groups = request.json
-
-    for group in groups:
-        existing_group = db.session.execute(
-            db.session.query(Group).filter_by(group_name=group['name'], direction=group['direction'], eud_uid=client_uid)).first()
-        if existing_group:
-            existing_group = existing_group[0]
-            existing_group.created = datetime.datetime.fromtimestamp(group['created'])
-            existing_group.group_type = group['type']
-            existing_group.bitpos = group['bitpos']
-            existing_group.active = group['active']
-            existing_group.description = group['description']
-
-            db.session.commit()
-        else:
-            new_group = Group()
-            new_group.group_name = group['name']
-            new_group.direction = group['direction']
-            new_group.created = datetime.datetime.fromtimestamp(group['created'])
-            new_group.group_type = group['type']
-            new_group.bitpos = group['bitpos']
-            new_group.active = group['active']
-            new_group.description = group['description']
-            new_group.eud_uid = client_uid
-
-            db.session.add(new_group)
-            db.session.commit()
+    # [{"name":"__ANON__","direction":"OUT","created":1729814400000,"type":"SYSTEM","bitpos":2,"active":true},{"name":"__ANON__","direction":"IN","created":1729814400000,"type":"SYSTEM","bitpos":2,"active":true}]
+    # OTS only supports the __ANON__ group now so just return 200 until group support is fully implemented
 
     return '', 200
 

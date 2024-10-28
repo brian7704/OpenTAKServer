@@ -14,7 +14,7 @@ class Alert(db.Model):
     # how = ^m-g | ^h-e
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    uid: Mapped[str] = mapped_column(String(50))
+    uid: Mapped[str] = mapped_column(String(255))
     sender_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"))
     start_time: Mapped[datetime] = mapped_column(DateTime)
     cancel_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)

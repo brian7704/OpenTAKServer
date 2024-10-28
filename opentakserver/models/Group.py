@@ -13,29 +13,20 @@ class Group(db.Model):
 
     SYSTEM = "SYSTEM"
     LDAP = "LDAP"
-    IN = "IN"
-    OUT = "OUT"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     group_name: Mapped[str] = mapped_column(String(255))
-    direction: Mapped[str] = mapped_column(String(255))  # IN, OUT
     created: Mapped[datetime] = mapped_column(DateTime)
     group_type: Mapped[str] = mapped_column(String(255), default=SYSTEM)  # SYSTEM, LDAP
     bitpos: Mapped[int] = mapped_column(Integer)
-    active: Mapped[bool] = mapped_column(Boolean)
-    description: Mapped[str] = mapped_column(String(255), nullable=True)
-    eud_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"))
-    eud = relationship("EUD", back_populates="groups")
+    euds = relationship("EUD", secondary="groups_euds", back_populates="groups")
 
     def serialize(self):
         return {
             'group_name': self.group_name,
-            'direction': self.direction,
             'created': self.created,
             'group_type': self.group_type,
             'bitpos': self.bitpos,
-            'active': self.active,
-            'description': self.description
         }
 
     def to_json(self):

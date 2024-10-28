@@ -76,13 +76,4 @@ def downgrade():
         batch_op.drop_constraint(None, type_='foreignkey')
         batch_op.drop_column('content_uid')
 
-    op.create_table('apscheduler_jobs',
-    sa.Column('id', sa.VARCHAR(length=191), nullable=False),
-    sa.Column('next_run_time', sa.FLOAT(), nullable=True),
-    sa.Column('job_state', sa.LargeBinary(), nullable=False),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('apscheduler_jobs', schema=None) as batch_op:
-        batch_op.create_index('ix_apscheduler_jobs_next_run_time', ['next_run_time'], unique=False)
-
     # ### end Alembic commands ###

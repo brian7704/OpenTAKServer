@@ -14,7 +14,7 @@ class Point(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     uid: Mapped[str] = mapped_column(String(255))
-    device_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"))
+    device_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"), nullable=True)
     latitude: Mapped[float] = mapped_column(Float, nullable=True)
     longitude: Mapped[float] = mapped_column(Float, nullable=True)
     ce: Mapped[float] = mapped_column(Float, nullable=True)

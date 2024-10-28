@@ -7,7 +7,6 @@ Create Date: 2024-10-25 15:44:27.370608
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
 revision = '8787888a028f'
@@ -29,6 +28,11 @@ def upgrade():
                existing_type=sa.INTEGER(),
                type_=sa.BigInteger(),
                existing_nullable=True)
+
+    with op.batch_alter_table('points', schema=None) as batch_op:
+        batch_op.alter_column('device_uid',
+              existing_type=sa.String(length=255),
+              nullable=True)
 
     with op.batch_alter_table('missions', schema=None) as batch_op:
         batch_op.create_foreign_key('mission_creator', 'euds', ['creator_uid'], ['uid'])
@@ -60,5 +64,10 @@ def downgrade():
     with op.batch_alter_table('groups', schema=None) as batch_op:
         batch_op.drop_constraint('eud', type_='foreignkey')
         batch_op.drop_column('eud_uid')
+
+    with op.batch_alter_table('points', schema=None) as batch_op:
+        batch_op.alter_column('device_uid',
+              existing_type=sa.String(length=255),
+              nullable=False)
 
     # ### end Alembic commands ###
