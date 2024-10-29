@@ -357,8 +357,8 @@ class CoTController(RabbitMQClient):
                             tak_packet.is_compressed = True
                             tak_packet.contact.device_callsign, size = unishox2.compress(eud.uid)
                             tak_packet.contact.callsign, size = unishox2.compress(eud.callsign)
-                            tak_packet.group.team = eud.team.name.replace(" ", "_") if eud.team else ""
-                            tak_packet.group.role = eud.team_role.replace(" ", "") if eud.team_role else ""
+                            tak_packet.group.team = eud.team.name.replace(" ", "_") if eud.team else "Cyan"
+                            tak_packet.group.role = eud.team_role.replace(" ", "") if eud.team_role else "TeamMember"
                             tak_packet.status.battery = int(p.battery) if p.battery else 0
                             tak_packet.pli.latitude_i = int(p.latitude / .0000001)
                             tak_packet.pli.longitude_i = int(p.longitude / .0000001)
