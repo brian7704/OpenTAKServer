@@ -162,6 +162,25 @@ def generate_mission_delete_cot(mission: Mission) -> Element:
     return event
 
 
+@mission_marti_api.route('/Marti/api/missions/guid/<mission_guid>')
+def get_mission_by_guid(mission_guid: str):
+    token = verify_token()
+    if not token or token['MISSION_GUID'] != mission_guid:
+        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+
+    password = request.args.get('password')
+    mission = db.session.execute(db.session.query(Mission).filter_by(guid=mission_guid)).first()
+    if not mission:
+        return jsonify({'success': False, 'error': f'No mission found with guid: {mission_guid}'}), 404
+    mission = mission[0]
+
+    if mission.password_protected and not verify_password(password, mission.password):
+        return jsonify({'success': False, 'error': 'Invalid password'}), 401
+
+    logger.info({'version': "3", 'type': 'Mission', 'data': [mission.to_json()], 'nodeId': app.config.get("OTS_NODE_ID")})
+    return jsonify({'version': "3", 'type': 'Mission', 'data': [mission.to_json()], 'nodeId': app.config.get("OTS_NODE_ID")})
+
+
 @mission_marti_api.route('/Marti/api/missions')
 def get_missions():
     password_protected = request.args.get('passwordProtected', False)
@@ -619,6 +638,23 @@ def change_eud_role(mission_name: str):
         channel.basic_publish(exchange="dms", routing_key=client_uid, body=json.dumps(body))
 
     return '', 200
+
+
+@mission_marti_api.route('/Marti/api/missions/guid/<mission_guid>/role')
+def get_role_by_guid(mission_guid: str):
+    token = verify_token()
+    if not token or token['MISSION_GUID'] != mission_guid:
+        logger.error(f"token: {token}")
+        return jsonify({'success': False, 'error': "Missing or invalid token"}), 401
+
+    mission = db.session.execute(db.session.query(Mission).filter_by(guid=mission_guid)).first()
+    if not mission:
+        return jsonify({'success': False, 'error': f'No mission found with guid: {mission_guid}'}), 404
+    mission = mission[0]
+
+    response = {"version": "3", "type": "com.bbn.marti.sync.model.MissionRole", "data": [mission.roles[0].to_json()['role']], "nodeId": app.config.get("OTS_NODE_ID")}
+    logger.error(response)
+    return jsonify(response)
 
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/subscriptions')

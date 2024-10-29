@@ -80,28 +80,6 @@ def change_config_setting(setting, value):
         logger.error("Failed to change setting {} to {} in config.yml: {}".format(setting, value, e))
 
 
-@api_blueprint.route('/oauth/token', methods=['GET', 'POST'])
-def cloudtak():
-    import jwt
-    import time
-    payload = {'sub': request.args.get('username'), 'aud': urlparse(request.base_url).hostname, 'nbf': int(time.time()), 'exp': int(time.time()) + 360000, 'iat': int(time.time())}
-    logger.info(payload)
-    server_key = open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver",
-                                   "opentakserver.nopass.key"), "r")
-
-    token = jwt.encode(payload, server_key.read(), algorithm="RS256")
-    server_key.close()
-
-    response = {
-      "access_token":token,
-      "token_type":"Bearer",
-      "expires_in":36000,
-
-      "scope":"create"
-    }
-    return jsonify(response)
-
-
 @api_blueprint.route('/files/api/config')
 def cloudtak_config():
     return jsonify({'uploadSizeLimit': 400})

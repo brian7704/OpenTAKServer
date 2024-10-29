@@ -20,7 +20,7 @@ def upgrade():
     with op.batch_alter_table('euds', schema=None) as batch_op:
         batch_op.alter_column('callsign',
                existing_type=sa.String(length=255),
-               nullable=False)
+               nullable=True)
         batch_op.alter_column('phone_number',
                existing_type=sa.INTEGER(),
                type_=sa.BigInteger(),
