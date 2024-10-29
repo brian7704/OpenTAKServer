@@ -92,6 +92,7 @@ class VideoStream(db.Model):
                 'rtsp_link': "rtsp://{}:{}/{}".format(hostname, self.port, self.path),
                 'webrtc_link': "{}://{}:{}/webrtc/{}/".format(protocol, hostname, port, self.path),
                 'hls_link': "{}://{}:{}/hls/{}/".format(protocol, hostname, port, self.path),
+                'thumbnail': f"{protocol}://{hostname}:{port}/api/videos/thumbnail?path={self.path}"
             }
 
     def generate_xml(self, hostname):

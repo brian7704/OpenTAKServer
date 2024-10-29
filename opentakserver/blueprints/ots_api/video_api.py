@@ -24,10 +24,7 @@ def thumbnail():
     if not path:
         return jsonify({"success": False, "error": "Please specify a path"}), 400
 
-    if recording and os.path.exists(
-            os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "recordings", path, recording + ".png")):
-        logger.warning(
-            os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "recordings", path, recording + ".png"))
+    if recording and os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "recordings", path, recording + ".png")):
         return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "recordings", path),
                                    recording + ".png")
 

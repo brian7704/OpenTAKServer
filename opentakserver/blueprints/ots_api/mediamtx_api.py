@@ -5,7 +5,7 @@ import traceback
 import uuid
 from urllib.parse import urlparse
 
-import ffmpeg
+from ffmpeg import FFmpeg
 from sqlalchemy import update
 from werkzeug.datastructures import ImmutableMultiDict
 
@@ -160,11 +160,15 @@ def mediamtx_webhook():
             os.makedirs(os.path.join(app.config.get('OTS_DATA_FOLDER'), "mediamtx", "recordings", video_stream.path),
                         exist_ok=True)
 
-            (ffmpeg.input(
-                video_stream.to_json()['rtsp_link'] + "?token={}".format(app.config.get("OTS_MEDIAMTX_TOKEN")))
-             .output(os.path.join(app.config.get('OTS_DATA_FOLDER'), "mediamtx", "recordings", video_stream.path,
-                                  "thumbnail.png"), vframes=1)
-             .overwrite_output().run(capture_stdout=True, capture_stderr=True, quiet=True))
+            try:
+                (FFmpeg().input(
+                    video_stream.to_json()['rtsp_link'] + "?token={}".format(token))
+                 .option("y")
+                 .output(os.path.join(app.config.get('OTS_DATA_FOLDER'), "mediamtx", "recordings", video_stream.path,
+                                      "thumbnail.png"), {"frames:v": 1}).execute())
+            except BaseException as e:
+                logger.error(f"Failed to create thumbnail: {e}")
+                logger.debug(traceback.format_exc())
 
     elif event == 'read':
         rtsp_port = bleach.clean(request.args.get("rtsp_port"))
@@ -210,17 +214,15 @@ def mediamtx_webhook():
                 recording.stop_time = datetime.datetime.now()
 
             try:
-                probe = ffmpeg.probe(recording.segment_path)
+                probe = json.loads(FFmpeg(executable="ffprobe").input(recording.segment_path, print_format="json", show_streams=None, show_format=None).execute())
                 for stream in probe['streams']:
                     if stream['codec_type'].lower() == 'video':
                         recording.width = stream['width']
                         recording.height = stream['height']
                         recording.video_bitrate = stream['bit_rate']
                         recording.video_codec = stream['codec_name']
-                        ffmpeg.input(recording.segment_path, ss="00:00:01").filter('scale', stream['width'], -1).output(
-                            recording.segment_path + ".png", vframes=1).overwrite_output().run(capture_stdout=True,
-                                                                                               capture_stderr=True,
-                                                                                               quiet=True)
+                        FFmpeg().input(recording.segment_path, ss="00:00:01").option("y").output(
+                            recording.segment_path + ".png", {"frames:v": 1}).execute()
                     elif stream['codec_type'].lower() == 'audio':
                         recording.audio_codec = stream['codec_name']
                         recording.audio_samplerate = stream['sample_rate']
@@ -228,8 +230,9 @@ def mediamtx_webhook():
                         recording.audio_bitrate = stream['bit_rate']
                 if 'format' in probe and 'size' in probe['format']:
                     recording.file_size = probe['format']['size']
-            except:
-                pass
+            except BaseException as e:
+                logger.error(f"Failed to run ffprobe: {e}")
+                logger.debug(traceback.format_exc())
 
             db.session.add(recording)
             db.session.commit()
@@ -344,26 +347,29 @@ def external_auth():
     action = bleach.clean(request.json.get('action'))
     query = bleach.clean(request.json.get('query'))
 
-    user = app.security.datastore.find_user(username=username)
-    if not user:
-        return '', 401
-
     # Token auth to prevent high CPU usage when reading HLS streams
-    if 'jwt' in query:
+    if 'jwt' in query or 'token' in query:
         query = query.split("&")
         for q in query:
             if "=" not in q:
                 continue
             key, value = q.split("=")
             if key == 'jwt':
-                logger.debug("Validating token...")
                 try:
                     parse_auth_token(value)
-                    logger.debug("Token is valid")
                     return '', 200
                 except BaseException as e:
                     logger.error(f"Invalid token: {e}")
                     return '', 401
+            elif key == 'token':
+                if value == app.config.get("OTS_MEDIAMTX_TOKEN"):
+                    return '', 200
+                else:
+                    return '', 401
+
+    user = app.security.datastore.find_user(username=username)
+    if not user:
+        return '', 401
 
     if user and verify_password(password, user.password):
         if action == 'publish':
