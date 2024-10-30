@@ -99,7 +99,7 @@ class CoTController(RabbitMQClient):
                                                                    'uid': None}),
                                                               properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
 
-                if 'phone' in contact.attrs:
+                if 'phone' in contact.attrs and contact.attrs['phone']:
                     phone_number = contact.attrs['phone']
 
             with self.context:
@@ -669,7 +669,7 @@ class CoTController(RabbitMQClient):
                 icon = None
 
                 if detail:
-                    for tag in detail:
+                    for tag in detail.find_all():
                         if 'readiness' in tag.attrs:
                             marker.readiness = tag.attrs['readiness'] == "true"
                         if 'argb' in tag.attrs:
