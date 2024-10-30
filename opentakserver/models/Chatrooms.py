@@ -10,8 +10,8 @@ class Chatroom(db.Model):
     name: Mapped[str] = mapped_column(String(255))
     group_owner: Mapped[str] = mapped_column(String(255), nullable=True)
     parent: Mapped[str] = mapped_column(String(255), nullable=True)
-    geochats = relationship("GeoChat", back_populates="chatroom")
-    chatroom_uid = relationship("ChatroomsUids", back_populates="chatroom")
+    geochats = relationship("GeoChat", cascade="all, delete-orphan", back_populates="chatroom")
+    chatroom_uid = relationship("ChatroomsUids", cascade="all, delete-orphan", back_populates="chatroom")
     team = relationship("Team", back_populates="chatroom")
 
     def serialize(self):

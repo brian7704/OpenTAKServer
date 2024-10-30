@@ -34,7 +34,7 @@ class Point(db.Model):
     # Only populate this field of the CoT type matches ^a- and how matches either ^m-g or ^h-e
     eud = relationship("EUD", back_populates="points")
     casevac = relationship("CasEvac", back_populates="point")
-    geochat = relationship("GeoChat", back_populates="point")
+    geochat = relationship("GeoChat", back_populates="point", uselist=False)
     alert = relationship("Alert", back_populates="point")
     marker: Mapped["Marker"] = relationship(back_populates="point")
     rb_line = relationship("RBLine", back_populates="point")

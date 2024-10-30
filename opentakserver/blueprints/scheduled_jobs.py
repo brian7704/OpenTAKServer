@@ -21,6 +21,11 @@ from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.EUD import EUD
 from opentakserver.models.GeoChat import GeoChat
 from opentakserver.models.Marker import Marker
+from opentakserver.models.Mission import Mission
+from opentakserver.models.MissionChange import MissionChange
+from opentakserver.models.MissionContentMission import MissionContentMission
+from opentakserver.models.MissionRole import MissionRole
+from opentakserver.models.MissionUID import MissionUID
 from opentakserver.models.Point import Point
 from opentakserver.models.RBLine import RBLine
 from opentakserver.models.Team import Team
@@ -90,22 +95,28 @@ def delete_video_recordings():
 
 @apscheduler.task("cron", id="purge_data", name="Purge Data", day="*", hour=0, minute=0, next_run_time=None)
 def purge_data():
+    # These are in a specific order to properly handle foreign key relationships
     delete_video_recordings()
+    ZMIST.query.delete()
+    VideoStream.query.delete()
     Alert.query.delete()
     CasEvac.query.delete()
     Certificate.query.delete()
-    Chatroom.query.delete()
     ChatroomsUids.query.delete()
-    CoT.query.delete()
     DataPackage.query.delete()
-    EUD.query.delete()
-    GeoChat.query.delete()
     Marker.query.delete()
     Point.query.delete()
+    GeoChat.query.delete()
     RBLine.query.delete()
+    Chatroom.query.delete()
+    CoT.query.delete()
+    MissionRole.query.delete()
+    MissionContentMission.query.delete()
+    MissionUID.query.delete()
+    MissionChange.query.delete()
+    Mission.query.delete()
+    EUD.query.delete()
     Team.query.delete()
-    VideoStream.query.delete()
-    ZMIST.query.delete()
     db.session.commit()
     logger.info("Purged all data")
 

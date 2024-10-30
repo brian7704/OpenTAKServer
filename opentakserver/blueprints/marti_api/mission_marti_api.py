@@ -997,6 +997,8 @@ def add_content_keywords(content_hash: str):
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/contents', methods=['PUT'])
 def mission_contents(mission_name: str):
     """ Associates content/files with a mission """
+    logger.info(request.headers)
+    logger.info(request.data)
     token = verify_token()
     if not token or token['MISSION_NAME'] != mission_name:
         return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
