@@ -485,10 +485,6 @@ def set_password(mission_name: str):
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/invite/<invitation_type>/<invitee>', methods=['PUT'])
 def invite(mission_name: str, invitation_type: str, invitee: str):
-    logger.info(request.headers)
-    logger.info(request.args)
-    logger.info(request.data)
-
     permission_granted = check_permission(mission_name)
     if isinstance(permission_granted, flask.Response):
         return permission_granted
@@ -1011,8 +1007,15 @@ def upload_content():
     """
 
     file_name = bleach.clean(request.args.get('name')) if 'name' in request.args else None
-    creator_uid = bleach.clean(request.args.get('creatorUid')) if 'creatorUid' in request.args else None
     keywords = request.args.getlist('keywords')
+
+    if 'creatorUid' in request.args:
+        creator_uid = request.args.get('creatorUid')
+    # iTAK uses CreatorUid instead of creatorUid
+    elif 'CreatorUid' in request.args:
+        creator_uid = request.args.get('CreatorUid')
+    else:
+        creator_uid = None
 
     if not file_name:
         return jsonify({'success': False, 'error': 'File name cannot be blank'}), 400
@@ -1022,37 +1025,38 @@ def upload_content():
         logger.error(f"{extension} is not an allowed file extension")
         return jsonify({'success': False, 'error': f'{extension} is not an allowed file extension'}), 400
 
-    content = MissionContent()
-    content.mime_type = request.content_type
-    content.filename = file_name
-    content.submission_time = datetime.datetime.now()
-    content.submitter = current_user.username if current_user.is_authenticated else "anonymous"
-    content.uid = str(uuid.uuid4())
-    content.creator_uid = creator_uid
-    content.size = request.content_length
-    content.expiration = -1
-    content.keywords = keywords if keywords else []
-
     file = request.data
     sha256 = hashlib.sha256()
     sha256.update(file)
-    content.hash = sha256.hexdigest()
 
-    try:
+    content = db.session.execute(db.session.query(MissionContent).filter_by(hash=sha256.hexdigest())).first()
+    if not content:
+        content = MissionContent()
+        content.mime_type = request.content_type
+        content.filename = file_name
+        content.submission_time = datetime.datetime.now()
+        content.submitter = current_user.username if current_user.is_authenticated else "anonymous"
+        content.uid = str(uuid.uuid4())
+        content.creator_uid = creator_uid
+        content.size = request.content_length
+        content.expiration = -1
+        content.keywords = keywords if keywords else []
+        content.hash = sha256.hexdigest()
         content_pk = db.session.execute(insert(MissionContent).values(**content.serialize()))
+        content_pk = content_pk.inserted_primary_key[0]
         db.session.commit()
-    except sqlalchemy.exc.IntegrityError as e:
-        logger.error(f"Failed to save content to database: {e}")
-        logger.debug(traceback.format_exc())
-        return jsonify({'success': False, 'error': f"Failed to save content to database: {e}"}), 400
+    else:
+        content = content[0]
+        content_pk = content.id
 
+    # Save the content even if it exists in the database in case it was deleted from disk
     os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'missions'), exist_ok=True)
     with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'missions', file_name), 'wb') as f:
         f.write(file)
 
     response = {
         "UID": content.uid, "SubmissionDateTime": iso8601_string_from_datetime(content.submission_time), "MIMEType": content.mime_type,
-        "SubmissionUser": content.submitter, "PrimaryKey": content_pk.inserted_primary_key[0], "Hash": content.hash, "CreatorUid": creator_uid,
+        "SubmissionUser": content.submitter, "PrimaryKey": content_pk, "Hash": content.hash, "CreatorUid": creator_uid,
         "Name": file_name
     }
 
@@ -1096,39 +1100,115 @@ def mission_contents(mission_name: str):
 
     mission = mission[0]
 
-    for content_hash in body['hashes']:
-        content = db.session.execute(db.session.query(MissionContent).filter_by(hash=content_hash)).first()
-        if not content:
-            logger.error(f"No such file with hash {content_hash}")
-            return jsonify({'success': False, 'error': f"No such file with hash {content_hash}"}), 404
+    if 'hashes' in body:
+        for content_hash in body['hashes']:
+            content = db.session.execute(db.session.query(MissionContent).filter_by(hash=content_hash)).first()
+            if not content:
+                logger.error(f"No such file with hash {content_hash}")
+                return jsonify({'success': False, 'error': f"No such file with hash {content_hash}"}), 404
 
-        content: MissionContent = content[0]
+            content: MissionContent = content[0]
 
-        mission_content_mission = db.session.execute(db.session.query(MissionContentMission).filter_by(mission_content_id=content.id, mission_name=mission_name)).first()
-        if not mission_content_mission:
-            mission_content_mission = MissionContentMission()
-            mission_content_mission.mission_name = mission_name
-            mission_content_mission.mission_content_id = content.id
+            mission_content_mission = db.session.execute(db.session.query(MissionContentMission).filter_by(mission_content_id=content.id, mission_name=mission_name)).first()
+            if not mission_content_mission:
+                mission_content_mission = MissionContentMission()
+                mission_content_mission.mission_name = mission_name
+                mission_content_mission.mission_content_id = content.id
 
-            db.session.add(mission_content_mission)
+                db.session.add(mission_content_mission)
 
-            mission_change = MissionChange()
-            mission_change.isFederatedChange = False
-            mission_change.change_type = MissionChange.ADD_CONTENT
-            mission_change.content_uid = content.uid
-            mission_change.mission_name = mission_name
-            mission_change.timestamp = datetime.datetime.now()
-            mission_change.creator_uid = content.creator_uid
-            mission_change.server_time = datetime.datetime.now()
+                mission_change = MissionChange()
+                mission_change.isFederatedChange = False
+                mission_change.change_type = MissionChange.ADD_CONTENT
+                mission_change.content_uid = content.uid
+                mission_change.mission_name = mission_name
+                mission_change.timestamp = datetime.datetime.now()
+                mission_change.creator_uid = content.creator_uid
+                mission_change.server_time = datetime.datetime.now()
 
-            db.session.add(mission_change)
+                db.session.add(mission_change)
 
-            event = generate_mission_change_cot(mission_name, mission, mission_change, content=content)
+                event = generate_mission_change_cot(mission_name, mission, mission_change, content=content)
 
-            body = json.dumps({'uid': mission_change.creator_uid, 'cot': tostring(event).decode('utf-8')})
-            rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
-            channel = rabbit_connection.channel()
-            channel.basic_publish("missions", routing_key=f"missions.{mission_name}", body=body)
+                body = json.dumps({'uid': mission_change.creator_uid, 'cot': tostring(event).decode('utf-8')})
+                rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+                channel = rabbit_connection.channel()
+                channel.basic_publish("missions", routing_key=f"missions.{mission_name}", body=body)
+
+    if 'uids' in body:
+        for uid in body['uids']:
+            mission_uid = db.session.execute(db.session.query(MissionUID).filter_by(uid=uid)).first()
+            if mission_uid:
+                mission_uid = mission_uid[0]
+                change_pk = mission_uid.mission_change_id
+                mission_change = None
+            else:
+                mission_uid = MissionUID()
+
+                mission_change = MissionChange()
+                mission_change.isFederatedChange = False
+                mission_change.change_type = MissionChange.ADD_CONTENT
+                mission_change.mission_name = mission_name
+                mission_change.timestamp = datetime.datetime.now()
+                mission_change.creator_uid = request.args.get('creatorUid')
+                mission_change.server_time = datetime.datetime.now()
+                mission_change.content_uid = uid
+
+                change_pk = db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
+                db.session.commit()
+                change_pk = change_pk.inserted_primary_key[0]
+
+            mission_uid.uid = uid
+            mission_uid.timestamp = datetime.datetime.now()
+            mission_uid.creator_uid = request.args.get('creatorUid')
+            mission_uid.mission_change_id = change_pk
+
+            # iTAK sucks. It sends a CoT and makes a POST to this endpoint rather than including a <dest mission="mission_name">
+            # tag in the CoT. This endpoint finishes before the CoT can be parsed and inserted into the database. In that case
+            # we insert a row in the mission_uids table with the CoT data missing, and the parse_point method in
+            # cot_controller will fill it in
+            cot = db.session.execute(db.session.query(CoT).filter_by(uid=uid)).first()
+            if cot:
+                cot = cot[0]
+
+                mission_uid.cot_type = cot.type
+                mission_uid.latitude = cot.point.latitude
+                mission_uid.longitude = cot.point.longitude
+
+                event = BeautifulSoup(cot.xml, 'xml')
+                usericon = event.find('usericon')
+                color = event.find('color')
+                contact = event.find('contact')
+
+                if usericon and 'iconsetpath' in usericon.attrs:
+                    mission_uid.iconset_path = usericon.attrs['iconsetpath']
+                elif usericon and 'iconsetPath' in usericon.attrs:
+                    mission_uid.iconset_path = usericon.attrs['iconsetPath']
+
+                if color and 'argb' in color.attrs:
+                    mission_uid.color = color.attrs['argb']
+                if color and 'value' in color.attrs:
+                    mission_uid.color = color.attrs['value']
+
+                if contact and 'callsign' in contact.attrs:
+                    mission_uid.callsign = contact.attrs['callsign']
+
+            try:
+                db.session.add(mission_uid)
+                db.session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                db.session.rollback()
+                db.session.execute(update(MissionUID).where(MissionUID.uid == mission_uid.uid).values(**mission_uid.serialize()))
+                db.session.commit()
+
+            if mission_change:
+                event = generate_mission_change_cot(mission_name, mission, mission_change, mission_uid=mission_uid)
+
+                body = json.dumps({'uid': mission_change.creator_uid, 'cot': tostring(event).decode('utf-8')})
+                rabbit_connection = pika.BlockingConnection(
+                    pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+                channel = rabbit_connection.channel()
+                channel.basic_publish("missions", routing_key=f"missions.{mission_name}", body=body)
 
     db.session.commit()
 
@@ -1171,7 +1251,7 @@ def delete_content(mission_name: str):
         else:
             mission_uid = mission_uid[0]
             mission_uid.mission_name = None
-            db.session.add(mission_uid)
+            db.session.delete(mission_uid)
             db.session.commit()
         cot_event = db.session.execute(db.session.query(CoT).filter_by(uid=request.args.get("uid"))).first()
         if cot_event:
@@ -1205,6 +1285,9 @@ def delete_content(mission_name: str):
         pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
     channel = rabbit_connection.channel()
     channel.basic_publish(exchange="missions", routing_key=f"missions.{mission_name}", body=json.dumps(body))
+
+    db.session.add(mission_change)
+    db.session.commit()
 
     return jsonify({"version": "3", "type": "Mission", "data": [mission.to_json()], "nodeId": app.config.get("OTS_NODE_ID")})
 

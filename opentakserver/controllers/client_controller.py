@@ -215,7 +215,7 @@ class ClientController(Thread):
                     if self.pong(event):
                         continue
 
-                    if self.user and not self.uid:
+                    if event and not self.uid:
                         self.parse_device_info(event)
 
                     message = {'uid': self.uid, 'cot': str(soup)}

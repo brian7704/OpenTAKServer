@@ -305,6 +305,35 @@ class CoTController(RabbitMQClient):
                     course=p.course, speed=p.speed, battery=p.battery, fov=p.fov, azimuth=p.azimuth)
                 )
 
+                # iTAK sucks. Instead of sending mission CoTs with a <dest mission="mission_name"> tag, it sends a normal CoT and
+                # makes a POST to /Marti/api/missions/mission_name/contents. The POST happens faster than the CoT can be received and parsed,
+                # so we're left with a row in the mission_uids table without most of the details that come from the CoT. Fortunately
+                # the mission_uids.uid field corresponds to the CoT's event UID, so the row in mission_uids can be updated here.
+                usericon = event.find('usericon')
+                color = event.find('color')
+                contact = event.find('contact')
+
+                iconset_path = None
+                if usericon and 'iconsetpath' in usericon.attrs:
+                    iconset_path = usericon.attrs['iconsetpath']
+                elif usericon and 'iconsetPath' in usericon.attrs:
+                    iconset_path = usericon.attrs['iconsetPath']
+
+                cot_color = None
+                if color and 'argb' in color.attrs:
+                    cot_color = color.attrs['argb']
+                if color and 'value' in color.attrs:
+                    cot_color = color.attrs['value']
+
+                callsign = None
+                if contact and 'callsign' in contact.attrs:
+                    callsign = contact.attrs['callsign']
+
+                self.db.session.execute(update(MissionUID).where(MissionUID.uid == event.attrs['uid']).values(
+                    cot_type=event.attrs['type'], latitude=p.latitude, longitude=p.longitude, iconset_path=iconset_path,
+                    color=cot_color, callsign=callsign
+                ))
+
                 self.db.session.commit()
                 # Get the point from the DB with its related CoT
                 p = self.db.session.execute(

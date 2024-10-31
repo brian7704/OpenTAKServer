@@ -129,11 +129,16 @@ def generate_mission_change_cot(author_uid: str, mission: Mission, mission_chang
 
     if mission_uid:
         details_tag = SubElement(mission_change_element, "details")
-        details_tag.set('color', str(mission_uid.color))
-        details_tag.set('callsign', mission_uid.callsign)
-        details_tag.set('type', mission_uid.cot_type)
-        details_tag.set('iconsetPath', mission_uid.iconset_path)
-        SubElement(details_tag, "location", {'lon': str(mission_uid.longitude), 'lat': str(mission_uid.latitude)})
+        if mission_uid.color:
+            details_tag.set('color', str(mission_uid.color))
+        if mission_uid.callsign:
+            details_tag.set('callsign', mission_uid.callsign)
+        if mission_uid.cot_type:
+            details_tag.set('type', mission_uid.cot_type)
+        if mission_uid.iconset_path:
+            details_tag.set('iconsetPath', mission_uid.iconset_path)
+        if mission_uid.longitude:
+            SubElement(details_tag, "location", {'lon': str(mission_uid.longitude), 'lat': str(mission_uid.latitude)})
 
     # if mission_change.content_uid:
     #    SubElement(mission_change_element, "contentUid").text = mission_change.content_uid
