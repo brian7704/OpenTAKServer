@@ -66,6 +66,59 @@ def verify_token() -> dict | bool:
             return False
 
 
+# iTAK sucks and doesn't send a token for some reason...
+def verify_itak_certificate(mission_name: str = None, mission_guid: str = None) -> MissionRole | flask.Response:
+    # Get the username from the client cert forwarded by nginx
+    cert = verify_client_cert()
+    username = cert.get_subject().commonName
+
+    # Check that the user exists
+    user = db.session.execute(db.session.query(User).filter_by(username=username)).first()
+    if not user:
+        return jsonify({'success': False, 'error': f'User {username} not found'}), 401
+    user = user[0]
+
+    # Check that the user owns this EUD
+    eud_uid = request.args.get('creatorUid')
+    if not eud_uid:
+        return jsonify({'success': False, 'error': 'Invalid creatorUid'}), 400
+
+    eud = db.session.execute(db.session.query(EUD).filter_by(uid=eud_uid, user_id=user.id)).first()
+    if not eud:
+        return jsonify({'success': False, 'error': f'User {username} does not own EUD {eud_uid}'}), 401
+    eud = eud[0]
+
+    if not mission_name and mission_guid:
+        mission = db.session.execute(db.session.query(Mission).filter_by(guid=mission_guid)).first()
+        if not mission:
+            return jsonify({'success': False, 'error': f'Invalid mission GUID: {mission_guid}'}), 404
+        mission_name = mission[0].name
+
+    # Check that the EUD is subscribed to this mission
+    mission_role = db.session.execute(db.session.query(MissionRole).filter_by(clientUid=eud.uid, username=username,
+                                                                              mission_name=mission_name)).first()
+    if not mission_role:
+        logger.error(f"Access denied {username} {mission_name} {eud_uid}")
+        return jsonify({'success': False, 'error': 'Access Denied'}), 403
+
+    return mission_role
+
+
+def check_permission(mission_name: str = None, mission_guid: str = None):
+    if "iTAK" not in request.user_agent.string:
+        token = verify_token()
+        if mission_name and (not token or token['MISSION_NAME'] != mission_name):
+            return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+        elif mission_guid and (not token or token['MISSION_GUID'] != mission_guid):
+            return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+    else:
+        cert_is_valid = verify_itak_certificate(mission_name, mission_guid)
+        if isinstance(cert_is_valid, flask.Response):
+            return cert_is_valid
+
+    return True
+
+
 def generate_token(mission: Mission, eud_uid: str):
     """
     jti: Unique UUID for the token
@@ -164,9 +217,9 @@ def generate_mission_delete_cot(mission: Mission) -> Element:
 
 @mission_marti_api.route('/Marti/api/missions/guid/<mission_guid>')
 def get_mission_by_guid(mission_guid: str):
-    token = verify_token()
-    if not token or token['MISSION_GUID'] != mission_guid:
-        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+    permission_granted = check_permission(mission_guid=mission_guid)
+    if isinstance(permission_granted, flask.Response):
+        return permission_granted
 
     password = request.args.get('password')
     mission = db.session.execute(db.session.query(Mission).filter_by(guid=mission_guid)).first()
@@ -355,9 +408,17 @@ def delete_mission(mission_name: str):
     # ATAK sends a creatorUid param, but we ignore it in favor of the UID in the signed JWT token that ATAK also sends.
     creator_uid = request.args.get('creatorUid')
 
-    token = verify_token()
-    if not token or token['MISSION_NAME'] != mission_name:
-        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+    if "iTAK" not in request.user_agent.string:
+        token = verify_token()
+        if not token or token['MISSION_NAME'] != mission_name:
+            return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+        eud_uid = token['sub']
+    else:
+        # cert_is_valid will either be True or flask.Response. If it's flask.Response it indicates an error
+        role = verify_itak_certificate(mission_name)
+        if isinstance(role, flask.Response):
+            return role
+        eud_uid = role.clientUid
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if mission:
@@ -367,7 +428,7 @@ def delete_mission(mission_name: str):
 
         # Check if the UID in the token has the MISSION_OWNER role for this mission. If not, it can't delete the mission
         for role in mission.roles:
-            if role.clientUid == token['sub'] and role.role_type == MissionRole.MISSION_OWNER:
+            if role.clientUid == eud_uid and role.role_type == MissionRole.MISSION_OWNER:
                 can_delete = True
                 break
 
@@ -391,14 +452,22 @@ def delete_mission(mission_name: str):
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/password', methods=['PUT', 'DELETE'])
 def set_password(mission_name: str):
     """ Used by the Data Sync plugin to add a password to a feed """
-    token = verify_token()
-    if not token or token['MISSION_NAME'] != mission_name:
-        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+    if "iTAK" not in request.user_agent.string:
+        token = verify_token()
+        if not token or token['MISSION_NAME'] != mission_name:
+            return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+        eud_uid = token['sub']
+    else:
+        # cert_is_valid will either be True or flask.Response. If it's flask.Response it indicates an error
+        role = verify_itak_certificate(mission_name)
+        if isinstance(role, flask.Response):
+            return role
+        eud_uid = role.clientUid
 
     if request.method == 'PUT' and 'password' not in request.args:
         return jsonify({'success': False, 'error': 'Please provide the password'}), 400
 
-    role = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name, clientUid=token['sub'])).first()
+    role = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name, clientUid=eud_uid)).first()
     if not role or role[0].role_type != MissionRole.MISSION_OWNER:
         return jsonify({'success': False, 'error': "You do not have permission to change this mission's password"}), 403
 
@@ -419,6 +488,11 @@ def invite(mission_name: str, invitation_type: str, invitee: str):
     logger.info(request.headers)
     logger.info(request.args)
     logger.info(request.data)
+
+    permission_granted = check_permission(mission_name)
+    if isinstance(permission_granted, flask.Response):
+        return permission_granted
+
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
@@ -472,9 +546,10 @@ def invite(mission_name: str, invitation_type: str, invitee: str):
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/invite/<invitation_type>/<invitee>', methods=['DELETE'])
 def delete_invitation(mission_name: str, invitation_type: str, invitee: str):
-    logger.info(request.headers)
-    logger.info(request.args)
-    logger.info(request.data)
+    permission_granted = check_permission(mission_name)
+    if isinstance(permission_granted, flask.Response):
+        return permission_granted
+
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
@@ -508,9 +583,9 @@ def delete_invitation(mission_name: str, invitation_type: str, invitee: str):
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/invite', methods=['POST'])
 def invite_json(mission_name: str):
-    logger.info(request.headers)
-    logger.info(request.args)
-    logger.info(request.data)
+    permission_granted = check_permission(mission_name)
+    if isinstance(permission_granted, flask.Response):
+        return permission_granted
 
     creator_uid = request.args.get("creatorUid")
     invitees = request.json
@@ -555,9 +630,9 @@ def invite_json(mission_name: str):
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/subscriptions/roles')
 def mission_roles(mission_name: str):
-    token = verify_token()
-    if not token or token['MISSION_NAME'] != mission_name:
-        return jsonify({'success': False, 'error': "Missing or invalid token"}), 401
+    permission_granted = check_permission(mission_name)
+    if isinstance(permission_granted, flask.Response):
+        return permission_granted
 
     response = {"version": "3", "type": "MissionSubscription", "data": [], "nodeId": app.config.get("OTS_NODE_ID")}
     roles = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name))
@@ -570,16 +645,24 @@ def mission_roles(mission_name: str):
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/role', methods=['PUT'])
 def change_eud_role(mission_name: str):
     """ Used by Data Sync to change EUD mission roles or kick an EUD off of a mission """
-    token = verify_token()
-    if not token or token['MISSION_NAME'] != mission_name:
-        return jsonify({'success': False, 'error': "Missing or invalid token"}), 401
+    if "iTAK" not in request.user_agent.string:
+        token = verify_token()
+        if not token or token['MISSION_NAME'] != mission_name:
+            return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+        eud_uid = token['sub']
+    else:
+        # cert_is_valid will either be True or flask.Response. If it's flask.Response it indicates an error
+        role = verify_itak_certificate(mission_name)
+        if isinstance(role, flask.Response):
+            return role
+        eud_uid = role.clientUid
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f"No such mission found: {mission_name}"}), 404
     mission = mission[0]
 
-    role = db.session.execute(db.session.query(MissionRole).filter_by(clientUid=token['sub'], role_type=MissionRole.MISSION_OWNER)).first()
+    role = db.session.execute(db.session.query(MissionRole).filter_by(clientUid=eud_uid, role_type=MissionRole.MISSION_OWNER)).first()
     if not role:
         return jsonify({'success': False, 'error': 'Only mission owners can change EUD roles'}), 403
 
@@ -642,10 +725,9 @@ def change_eud_role(mission_name: str):
 
 @mission_marti_api.route('/Marti/api/missions/guid/<mission_guid>/role')
 def get_role_by_guid(mission_guid: str):
-    token = verify_token()
-    if not token or token['MISSION_GUID'] != mission_guid:
-        logger.error(f"token: {token}")
-        return jsonify({'success': False, 'error': "Missing or invalid token"}), 401
+    permission_granted = check_permission(mission_guid=mission_guid)
+    if isinstance(permission_granted, flask.Response):
+        return permission_granted
 
     mission = db.session.execute(db.session.query(Mission).filter_by(guid=mission_guid)).first()
     if not mission:
@@ -659,10 +741,10 @@ def get_role_by_guid(mission_guid: str):
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/subscriptions')
 def get_subscriptions(mission_name: str):
-    # TODO: ADD TOKEN
-    logger.info(request.headers)
-    logger.info(request.args)
-    logger.info(request.data)
+    permission_granted = check_permission(mission_name)
+    if isinstance(permission_granted, flask.Response):
+        return permission_granted
+
     subscriptions = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name)).all()
     response = {
         "version": "3", "type": "MissionSubscription", "data": [], "nodeId": app.config.get("OTS_NODE_ID")
@@ -676,13 +758,9 @@ def get_subscriptions(mission_name: str):
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/keywords', methods=['PUT'])
 def put_mission_keywords(mission_name):
-    token = verify_token()
-    if not token or token['MISSION_NAME'] != mission_name:
-        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
-
-    role = db.session.execute(db.session.query(MissionRole).filter_by(clientUid=token['sub'], mission_name=mission_name)).first()
-    if not role or role[0].role_type != MissionRole.MISSION_OWNER:
-        return jsonify({'success': False, 'error': 'Only mission owners can change keywords'})
+    permission_granted = check_permission(mission_name)
+    if isinstance(permission_granted, flask.Response):
+        return permission_granted
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
@@ -720,6 +798,7 @@ def mission_subscribe(mission_name: str):
         token = verify_token()
         if not token or token['MISSION_NAME'] != mission_name:
             return jsonify({'success': False, 'error': 'Invalid token'}), 400
+
         eud = db.session.execute(db.session.query(EUD).filter_by(uid=token['sub'])).first()[0]
         uid = token['sub']
         role = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name, clientUid=uid)).first()
@@ -765,7 +844,7 @@ def mission_subscribe(mission_name: str):
         if not role:
             role = MissionRole()
             role.clientUid = uid
-            role.username = eud.user.username if eud.user else 'anonymous'
+            role.username = eud.user.username
             role.createTime = datetime.datetime.now()
             role.role_type = mission.default_role
             role.mission_name = mission.name
@@ -802,15 +881,23 @@ def mission_subscribe(mission_name: str):
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/subscription', methods=['DELETE'])
 def mission_unsubscribe(mission_name: str):
     """ Used by the Data Sync plugin to unsubscribe to a feed """
-    token = verify_token()
-    if not token or token['MISSION_NAME'] != mission_name:
-        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+    if "iTAK" not in request.user_agent.string:
+        token = verify_token()
+        if not token or token['MISSION_NAME'] != mission_name:
+            return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+        eud_uid = token['sub']
+    else:
+        # cert_is_valid will either be True or flask.Response. If it's flask.Response it indicates an error
+        role = verify_itak_certificate(mission_name)
+        if isinstance(role, flask.Response):
+            return role
+        eud_uid = role.clientUid
 
-    if "uid" not in request.args:
-        return jsonify({'success': False, 'error': 'Missing UID'}), 400
+    #if "uid" not in request.args:
+    #    return jsonify({'success': False, 'error': 'Missing UID'}), 400
 
-    uid = bleach.clean(request.args.get("uid"))
-    role = db.session.execute(db.session.query(MissionRole).filter_by(clientUid=uid, mission_name=mission_name)).first()
+    #uid = bleach.clean(request.args.get("uid"))
+    role = db.session.execute(db.session.query(MissionRole).filter_by(clientUid=eud_uid, mission_name=mission_name)).first()
 
     if role:
         db.session.delete(role[0])
@@ -818,16 +905,16 @@ def mission_unsubscribe(mission_name: str):
 
     rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
     channel = rabbit_connection.channel()
-    channel.queue_unbind(queue=uid, exchange="missions", routing_key=f"missions.{mission_name}")
+    channel.queue_unbind(queue=eud_uid, exchange="missions", routing_key=f"missions.{mission_name}")
 
     return '', 200
 
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/changes', methods=['GET'])
 def mission_changes(mission_name):
-    token = verify_token()
-    if not token or token['MISSION_NAME'] != mission_name:
-        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+    permission_granted = check_permission(mission_name)
+    if isinstance(permission_granted, flask.Response):
+        return permission_granted
 
     squashed = request.args.get('squashed')
     if squashed:
@@ -846,9 +933,9 @@ def mission_changes(mission_name):
 
 @mission_marti_api.route('/Marti/api/missions/logs/entries', methods=['POST'])
 def create_log_entry():
-    token = verify_token()
-    if not token or token['MISSION_NAME'] != request.json['missionNames'][0]:
-        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+    permission_granted = check_permission(request.json['missionNames'][0])
+    if isinstance(permission_granted, flask.Response):
+        return permission_granted
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=request.json['missionNames'][0])).first()
     if not mission:
@@ -894,9 +981,9 @@ def create_log_entry():
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/log', methods=['GET'])
 def mission_log(mission_name):
-    token = verify_token()
-    if not token or token['MISSION_NAME'] != mission_name:
-        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+    permission_granted = check_permission(mission_name)
+    if isinstance(permission_granted, flask.Response):
+        return permission_granted
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
@@ -974,9 +1061,8 @@ def upload_content():
 
 @mission_marti_api.route('/Marti/api/sync/metadata/<content_hash>/keywords', methods=['PUT'])
 def add_content_keywords(content_hash: str):
-    token = verify_token()
-    if not token:
-        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+    # Not validating if the EUD is subscribed to the mission since we're not given the mission name or GUID
+    # Instead, assume this EUD isn't malicious since we require a valid cert in order to get here
 
     keywords = request.json
     content = db.session.execute(db.session.query(MissionContent).filter_by(hash=content_hash)).first()
@@ -997,11 +1083,9 @@ def add_content_keywords(content_hash: str):
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/contents', methods=['PUT'])
 def mission_contents(mission_name: str):
     """ Associates content/files with a mission """
-    logger.info(request.headers)
-    logger.info(request.data)
-    token = verify_token()
-    if not token or token['MISSION_NAME'] != mission_name:
-        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+    permission_granted = check_permission(mission_name)
+    if isinstance(permission_granted, flask.Response):
+        return permission_granted
 
     body = request.json
 
@@ -1053,9 +1137,17 @@ def mission_contents(mission_name: str):
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/contents', methods=['DELETE'])
 def delete_content(mission_name: str):
-    token = verify_token()
-    if not token or token['MISSION_NAME'] != mission_name:
-        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+    if "iTAK" not in request.user_agent.string:
+        token = verify_token()
+        if not token or token['MISSION_NAME'] != mission_name:
+            return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+        eud_uid = token['sub']
+    else:
+        # cert_is_valid will either be True or flask.Response. If it's flask.Response it indicates an error
+        role = verify_itak_certificate(mission_name)
+        if isinstance(role, flask.Response):
+            return role
+        eud_uid = role.clientUid
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
@@ -1078,12 +1170,14 @@ def delete_content(mission_name: str):
             return jsonify({'success': False, 'error': f"UID {request.args.get('uid')} not found"}), 404
         else:
             mission_uid = mission_uid[0]
-            db.session.delete(mission_uid)
+            mission_uid.mission_name = None
+            db.session.add(mission_uid)
             db.session.commit()
         cot_event = db.session.execute(db.session.query(CoT).filter_by(uid=request.args.get("uid"))).first()
         if cot_event:
             cot_event = BeautifulSoup(cot_event[0].xml, 'xml').find('event')
 
+    # Files will be kept in the DB so the mission log is correct and on disk in case it gets added back to a mission
     content = None
     if 'hash' in request.args:
         content = db.session.execute(db.session.query(MissionContent).filter_by(hash=request.args.get('hash'))).first()
@@ -1093,21 +1187,18 @@ def delete_content(mission_name: str):
 
         mission_change.content_uid = content.uid
 
-        # Handles situations where the file is already deleted for some reason
         try:
-            os.remove(os.path.join(app.config.get("OTS_DATA_FOLDER"), "missions", content.filename))
-        except FileNotFoundError:
-            pass
-
-        try:
-            db.session.delete(content)
-            db.session.commit()
+            mission_content_mission = db.session.execute(db.session.query(MissionContentMission)
+                                                         .filter_by(mission_name=mission_name, mission_content_id=content.uid)).first()
+            if mission_content_mission:
+                db.session.delete(mission_content_mission[0])
+                db.session.commit()
         except BaseException as e:
             logger.error(f"Failed to delete content with hash {request.args.get('hash')}: {e}")
             logger.debug(traceback.format_exc())
             return jsonify({'success': False, 'error': f"Failed to delete content with hash {request.args.get('hash')}: {e}"}), 500
 
-    event = generate_mission_change_cot(token['sub'], mission, mission_change, content=content, mission_uid=mission_uid, cot_event=cot_event)
+    event = generate_mission_change_cot(eud_uid, mission, mission_change, content=content, mission_uid=mission_uid, cot_event=cot_event)
     body = {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}
 
     rabbit_connection = pika.BlockingConnection(
@@ -1130,14 +1221,6 @@ def add_content(mission_name):
     return '', 200
 
 
-@mission_marti_api.route('/Marti/api/missions/test34/content/<content_hash>/keywords')
-def put_content_keywords(content_hash: str):
-    logger.info(request.headers)
-    logger.info(request.data)
-
-    return '', 200
-
-
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/cot')
 def get_mission_cots(mission_name: str):
     """
@@ -1145,9 +1228,9 @@ def get_mission_cots(mission_name: str):
     <events> tag
     """
 
-    token = verify_token()
-    if not token or token['MISSION_NAME'] != mission_name:
-        return jsonify({'success': False, 'error': 'Invalid token'}), 401
+    permission_granted = check_permission(mission_name)
+    if isinstance(permission_granted, flask.Response):
+        return permission_granted
 
     cots = db.session.execute(db.session.query(CoT).filter_by(mission_name=mission_name)).all()
 

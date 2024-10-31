@@ -30,6 +30,8 @@ class ClientController(Thread):
         self.db = db
         self.is_ssl = is_ssl
 
+        self.user = None
+
         # Device attributes
         self.uid = None
         self.device = None
@@ -157,7 +159,7 @@ class ClientController(Thread):
                 event = soup.find('event')
                 auth = soup.find('auth')
 
-                if not self.is_authenticated and (auth or self.common_name):
+                if self.is_ssl and not self.is_authenticated and (auth or self.common_name):
                     with self.app.app_context():
                         if auth:
                             cot = auth.find('cot')
@@ -180,9 +182,11 @@ class ClientController(Thread):
                         elif self.common_name:
                             self.logger.info("{} is ID'ed by cert".format(user.username))
                             self.is_authenticated = True
+                            self.user = user
                         elif verify_password(password, user.password):
                             self.logger.info("Successful login from {}".format(username))
                             self.is_authenticated = True
+                            self.user = user
                             try:
                                 eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
                                 self.logger.debug("Associating EUD uid {} to user {}".format(eud.uid, user.username))
@@ -208,10 +212,10 @@ class ClientController(Thread):
                         self.logger.warning("EUD isn't authenticated, ignoring")
                         continue
 
-                    if event and self.pong(event):
+                    if self.pong(event):
                         continue
 
-                    if event and not self.uid:
+                    if self.user and not self.uid:
                         self.parse_device_info(event)
 
                     message = {'uid': self.uid, 'cot': str(soup)}
@@ -260,8 +264,8 @@ class ClientController(Thread):
         contact = event.find('contact')
         takv = event.find('takv')
         if contact and takv:
-            self.uid = event.attrs['uid']
             if 'callsign' in contact.attrs:
+                self.uid = event.attrs['uid']
                 self.callsign = contact.attrs['callsign']
 
                 self.logger.debug("Declaring queue {}".format(self.uid))
@@ -270,6 +274,18 @@ class ClientController(Thread):
                 self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.uid)
                 self.rabbit_channel.basic_consume(queue=self.uid, on_message_callback=self.on_message, auto_ack=True)
                 self.logger.debug("{} is consuming".format(self.callsign))
+
+                # Add the EUD if it doesn't exist and associate it with a user
+                with self.app.app_context():
+                    eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=self.uid)).first()
+                    if not eud:
+                        eud = EUD()
+                        eud.uid = self.uid
+                        eud.callsign = self.callsign
+                        eud.user_id = self.user.id
+
+                        self.db.session.add(eud)
+                        self.db.session.commit()
 
     def unbind_rabbitmq_queues(self):
         if self.uid:

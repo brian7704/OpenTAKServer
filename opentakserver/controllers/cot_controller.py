@@ -178,8 +178,13 @@ class CoTController(RabbitMQClient):
                     eud.team_id = team.id
                     eud.team_role = bleach.clean(group.attrs['role'])
 
-                self.db.session.add(eud)
-                self.db.session.commit()
+                try:
+                    self.db.session.add(eud)
+                    self.db.session.commit()
+                except sqlalchemy.exc.IntegrityError:
+                    self.db.session.rollback()
+                    self.db.session.execute(update(EUD).where(EUD.uid == eud.uid).values(**eud.serialize()))
+                    self.db.session.commit()
 
                 if self.context.app.config.get("OTS_ENABLE_MESHTASTIC") and eud.platform != "Meshtastic":
                     user_info = mesh_pb2.User()
