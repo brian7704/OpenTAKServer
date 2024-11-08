@@ -29,7 +29,7 @@ class Mission(db.Model):
     group: Mapped[str] = mapped_column(String(255), nullable=True)
     default_role: Mapped[str] = mapped_column(String(255), nullable=True)
     keywords: Mapped[JSON] = mapped_column(JSON, nullable=True)
-    creator_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"), nullable=True)
+    creator_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True)
     create_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     external_data: Mapped[JSON] = mapped_column(JSON, nullable=True)
     feeds: Mapped[JSON] = mapped_column(JSON, nullable=True)

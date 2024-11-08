@@ -14,7 +14,7 @@ class Certificate(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     common_name: Mapped[str] = mapped_column(String(255))
-    eud_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"), nullable=True)
+    eud_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True)
     data_package_id: Mapped[int] = mapped_column(Integer, ForeignKey("data_packages.id"), nullable=True)
     callsign: Mapped[str] = mapped_column(String(255), nullable=True)
     username: Mapped[str] = mapped_column(String(255), ForeignKey("user.username"), nullable=True)
@@ -26,7 +26,7 @@ class Certificate(db.Model):
     csr: Mapped[str] = mapped_column(String(255), nullable=True)
     cert_password: Mapped[str] = mapped_column(String(255))
     user = relationship("User", back_populates="certificate", uselist=False)
-    eud = relationship("EUD", back_populates="certificate", uselist=False)
+    eud = relationship("EUD", cascade="all, delete", back_populates="certificate", uselist=False)
     data_package = relationship("DataPackage", back_populates="certificate", uselist=False)
 
     def serialize(self):

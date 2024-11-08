@@ -29,7 +29,7 @@ def upgrade():
     sa.Column('created', sa.DateTime(), nullable=False),
     sa.Column('content_hash', sa.String(length=255), nullable=True),
     sa.Column('keywords', sa.JSON(), nullable=False),
-    sa.ForeignKeyConstraint(['mission_name'], ['missions.name'], ),
+    sa.ForeignKeyConstraint(['mission_name'], ['missions.name'], name="mission_logs"),
     sa.PrimaryKeyConstraint('id')
     )
     with op.batch_alter_table('mission_invitations', schema=None) as batch_op:

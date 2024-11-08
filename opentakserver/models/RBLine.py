@@ -18,7 +18,7 @@ class RBLine(db.Model):
     # how = h-e
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    sender_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"))
+    sender_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"))
     uid: Mapped[str] = mapped_column(String(255), unique=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime)
 
@@ -36,8 +36,8 @@ class RBLine(db.Model):
     stroke_weight: Mapped[float] = mapped_column(Float, nullable=True)
     stroke_style: Mapped[str] = mapped_column(String(255), nullable=True)
     labels_on: Mapped[bool] = mapped_column(Boolean, nullable=True)
-    point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id"), nullable=True)
-    cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
+    point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id", ondelete="CASCADE"), nullable=True)
+    cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id", ondelete="CASCADE"), nullable=True)
     end_latitude: Mapped[float] = mapped_column(Float, nullable=True)
     end_longitude: Mapped[float] = mapped_column(Float, nullable=True)
     point = relationship("Point", back_populates="rb_line")

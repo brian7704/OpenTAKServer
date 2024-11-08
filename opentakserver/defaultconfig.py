@@ -97,6 +97,12 @@ class DefaultConfig:
     MAIL_USERNAME = None
     MAIL_PASSWORD = None
 
+    OTS_DELETE_OLD_DATA_SECONDS = 0
+    OTS_DELETE_OLD_DATA_MINUTES = 0
+    OTS_DELETE_OLD_DATA_HOURS = 0
+    OTS_DELETE_OLD_DATA_DAYS = 0
+    OTS_DELETE_OLD_DATA_WEEKS = 1
+
     # flask-sqlalchemy
     SQLALCHEMY_DATABASE_URI = "sqlite:////{}".format(os.path.join(OTS_DATA_FOLDER, 'ots.db'))
     SQLALCHEMY_ECHO = False

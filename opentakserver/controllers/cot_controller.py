@@ -739,10 +739,12 @@ class CoTController(RabbitMQClient):
                 link = event.find('link')
                 if link:
                     marker.parent_callsign = link.attrs['parent_callsign'] if 'parent_callsign' in link.attrs else None
-                    marker.production_time = link.attrs['production_time'] if 'production_time' in link.attrs else None
+                    marker.production_time = link.attrs['production_time'] if 'production_time' in link.attrs else iso8601_string_from_datetime(datetime.now())
                     marker.relation = link.attrs['relation'] if 'relation' in link.attrs else None
                     marker.relation_type = link.attrs['relation_type'] if 'relation_type' in link.attrs else None
                     marker.parent_uid = link.attrs['uid'] if 'uid' in link.attrs else None
+                else:
+                    marker.production_time = iso8601_string_from_datetime(datetime.now())
 
                 marker.point_id = point_pk
                 marker.cot_id = cot_pk

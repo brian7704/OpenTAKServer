@@ -1,5 +1,10 @@
+import json
 import re
 from datetime import datetime
+from xml.etree.ElementTree import Element, SubElement, tostring
+
+from flask import current_app as app
+import pika.channel
 
 ISO8601_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 ISO8601_FORMAT_NO_MICROSECONDS = "%Y-%m-%dT%H:%M:%SZ"
@@ -108,6 +113,8 @@ def cot_type_to_2525c(cot_type):
 
 
 def datetime_from_iso8601_string(datetime_string):
+    if not datetime_string:
+        return datetime.now()
     try:
         return datetime.strptime(datetime_string, ISO8601_FORMAT)
     except ValueError:
@@ -126,3 +133,26 @@ def iso8601_string_from_datetime_no_ms(datetime_object):
         return datetime_object.strftime("%Y-%m-%dT%H:%M:%SZ")
     else:
         return None
+
+
+def generate_delete_cot(uid: str, cot_type: str) -> Element:
+    now = datetime.now()
+
+    event = Element('event', {'how': 'h-g-i-g-o', 'type': 't-x-d-d', 'version': '2.0',
+                              'uid': uid, 'start': iso8601_string_from_datetime(now),
+                              'time': iso8601_string_from_datetime(now),
+                              'stale': iso8601_string_from_datetime(now)})
+    SubElement(event, 'point', {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0',
+                                'lon': '0'})
+    detail = SubElement(event, 'detail')
+    SubElement(detail, 'link', {'relation': 'p-p', 'uid': uid, 'type': cot_type})
+    SubElement(detail, '_flow-tags_',
+               {'TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0': iso8601_string_from_datetime(now)})
+
+    return event
+
+
+def publish_cot(cot: Element, channel: pika.channel.Channel):
+    channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
+        {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
+                          properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))

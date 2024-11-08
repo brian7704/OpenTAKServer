@@ -24,8 +24,8 @@ def upgrade():
     sa.Column('active', sa.Boolean(), nullable=False),
     sa.Column('description', sa.String(length=255), nullable=True),
     sa.Column('eud_uid', sa.String(length=255), nullable=False),
-    sa.ForeignKeyConstraint(['eud_uid'], ['euds.uid'], ),
-    sa.ForeignKeyConstraint(['group_id'], ['groups.id'], ),
+    sa.ForeignKeyConstraint(['eud_uid'], ['euds.uid'], name="group_eud"),
+    sa.ForeignKeyConstraint(['group_id'], ['groups.id'], name="group"),
     sa.PrimaryKeyConstraint('id')
     )
 

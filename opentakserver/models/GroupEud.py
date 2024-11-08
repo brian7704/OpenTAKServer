@@ -19,7 +19,7 @@ class GroupEud(db.Model):
     direction: Mapped[str] = mapped_column(String(255))  # IN, OUT
     active: Mapped[bool] = mapped_column(Boolean)
     description: Mapped[str] = mapped_column(String(255), nullable=True)
-    eud_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"))
+    eud_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"))
 
     def serialize(self):
         return {

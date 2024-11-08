@@ -15,7 +15,7 @@ class ZMIST(db.Model):
     t: Mapped[str] = mapped_column(String(255), nullable=True)  # treatment_given
     title: Mapped[str] = mapped_column(String(255), nullable=True)
     z: Mapped[int] = mapped_column(Integer, nullable=True)  # zap_number
-    casevac_uid: Mapped[str] = mapped_column(String(255), ForeignKey("casevac.uid"))
+    casevac_uid: Mapped[str] = mapped_column(String(255), ForeignKey("casevac.uid", ondelete="CASCADE"))
     casevac = relationship("CasEvac", back_populates="zmist")
     
     def from_wtform(self, form: ZmistForm):

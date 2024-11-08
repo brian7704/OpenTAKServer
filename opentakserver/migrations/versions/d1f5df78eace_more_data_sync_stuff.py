@@ -34,11 +34,11 @@ def upgrade():
         batch_op.alter_column('client_uid',
                existing_type=sa.String(length=255),
                nullable=True)
-        batch_op.create_foreign_key('user', 'user', ['username'], ['username'])
+        batch_op.create_foreign_key('mission_invitation_user', 'user', ['username'], ['username'])
         # batch_op.create_foreign_key('groups', 'groups', ['group_name'], ['group_name'])
-        batch_op.create_foreign_key('eud_callsign', 'euds', ['callsign'], ['callsign'])
-        batch_op.create_foreign_key('teams', 'teams', ['team_name'], ['name'])
-        batch_op.create_foreign_key('eud_uid', 'euds', ['client_uid'], ['uid'])
+        batch_op.create_foreign_key('mission_invitation_callsign', 'euds', ['callsign'], ['callsign'])
+        batch_op.create_foreign_key('mission_invitation_team', 'teams', ['team_name'], ['name'])
+        batch_op.create_foreign_key('mission_invitation_eud', 'euds', ['client_uid'], ['uid'])
 
     with op.batch_alter_table('missions', schema=None) as batch_op:
         batch_op.add_column(sa.Column('group', sa.String(length=255), nullable=True))

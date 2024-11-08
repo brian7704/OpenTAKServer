@@ -12,8 +12,8 @@ class MissionInvitation(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     mission_name: Mapped[str] = mapped_column(String(255), ForeignKey('missions.name'))
-    client_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"), nullable=True)
-    callsign: Mapped[str] = mapped_column(String(255), ForeignKey("euds.callsign"), nullable=True)
+    client_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True)
+    callsign: Mapped[str] = mapped_column(String(255), ForeignKey("euds.callsign", ondelete="CASCADE"), nullable=True)
     username: Mapped[str] = mapped_column(String(255), ForeignKey("user.username"), nullable=True)
     group_name: Mapped[str] = mapped_column(String(255), nullable=True)
     team_name: Mapped[str] = mapped_column(String(255), ForeignKey("teams.name"), nullable=True)

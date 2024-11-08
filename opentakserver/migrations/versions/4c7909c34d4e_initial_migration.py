@@ -84,15 +84,15 @@ def upgrade():
     op.create_table('roles_users',
     sa.Column('user_id', sa.Integer(), nullable=True),
     sa.Column('role_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['role_id'], ['role.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['user.id'], )
+    sa.ForeignKeyConstraint(['role_id'], ['role.id'], name="role"),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], name="user")
     )
 
     op.create_table('teams',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=255), nullable=False),
     sa.Column('chatroom_id', sa.String(length=255), nullable=True),
-    sa.ForeignKeyConstraint(['chatroom_id'], ['chatrooms.id'], ),
+    sa.ForeignKeyConstraint(['chatroom_id'], ['chatrooms.id'], name="team_chatroom"),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
     )
@@ -111,7 +111,7 @@ def upgrade():
     sa.Column('name', sa.String(length=64), nullable=False),
     sa.Column('usage', sa.String(length=64), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
-    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], name="web_authn_user", ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     with op.batch_alter_table('web_authn', schema=None) as batch_op:
@@ -131,8 +131,8 @@ def upgrade():
     sa.Column('user_id', sa.Integer(), nullable=True),
     sa.Column('team_id', sa.Integer(), nullable=True),
     sa.Column('team_role', sa.String(length=255), nullable=True),
-    sa.ForeignKeyConstraint(['team_id'], ['teams.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.ForeignKeyConstraint(['team_id'], ['teams.id'], name="eud_team"),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], name="eud_user"),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('uid')
     )
@@ -140,8 +140,8 @@ def upgrade():
     op.create_table('chatrooms_uids',
     sa.Column('chatroom_id', sa.String(length=255), nullable=False),
     sa.Column('uid', sa.String(length=255), nullable=False),
-    sa.ForeignKeyConstraint(['chatroom_id'], ['chatrooms.id'], ),
-    sa.ForeignKeyConstraint(['uid'], ['euds.uid'], ),
+    sa.ForeignKeyConstraint(['chatroom_id'], ['chatrooms.id'], name="chatroom_uids"),
+    sa.ForeignKeyConstraint(['uid'], ['euds.uid'], name="chatroom_eud"),
     sa.PrimaryKeyConstraint('chatroom_id', 'uid')
     )
 
@@ -157,7 +157,7 @@ def upgrade():
     sa.Column('start', sa.DateTime(), nullable=False),
     sa.Column('stale', sa.DateTime(), nullable=False),
     sa.Column('xml', sa.TEXT, nullable=False),
-    sa.ForeignKeyConstraint(['sender_uid'], ['euds.uid'], ),
+    sa.ForeignKeyConstraint(['sender_uid'], ['euds.uid'], name="cot_eud"),
     sa.PrimaryKeyConstraint('id')
     )
 
@@ -173,8 +173,8 @@ def upgrade():
     sa.Column('size', sa.Integer(), nullable=False),
     sa.Column('tool', sa.String(length=255), nullable=True),
     sa.Column('expiration', sa.String(length=255), nullable=True),
-    sa.ForeignKeyConstraint(['creator_uid'], ['euds.uid'], ),
-    sa.ForeignKeyConstraint(['submission_user'], ['user.id'], ),
+    sa.ForeignKeyConstraint(['creator_uid'], ['euds.uid'], name="data_packages_eud"),
+    sa.ForeignKeyConstraint(['submission_user'], ['user.id'], name="data_packages_user"),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('filename'),
     sa.UniqueConstraint('hash')
@@ -194,9 +194,9 @@ def upgrade():
     sa.Column('user_cert_filename', sa.String(length=255), nullable=False),
     sa.Column('csr', sa.String(length=255), nullable=True),
     sa.Column('cert_password', sa.String(length=255), nullable=False),
-    sa.ForeignKeyConstraint(['data_package_id'], ['data_packages.id'], ),
-    sa.ForeignKeyConstraint(['eud_uid'], ['euds.uid'], ),
-    sa.ForeignKeyConstraint(['username'], ['user.username'], ),
+    sa.ForeignKeyConstraint(['data_package_id'], ['data_packages.id'], name="certificate_data_package"),
+    sa.ForeignKeyConstraint(['eud_uid'], ['euds.uid'], name="certificate_eud"),
+    sa.ForeignKeyConstraint(['username'], ['user.username'], name="certificate_user"),
     sa.PrimaryKeyConstraint('id')
     )
 
@@ -217,8 +217,8 @@ def upgrade():
     sa.Column('azimuth', sa.Float(), nullable=True),
     sa.Column('fov', sa.Float(), nullable=True),
     sa.Column('cot_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['cot_id'], ['cot.id'], ),
-    sa.ForeignKeyConstraint(['device_uid'], ['euds.uid'], ),
+    sa.ForeignKeyConstraint(['cot_id'], ['cot.id'], name="point_cot"),
+    sa.ForeignKeyConstraint(['device_uid'], ['euds.uid'], name="point_eud"),
     sa.PrimaryKeyConstraint('id')
     )
 
@@ -240,8 +240,8 @@ def upgrade():
     sa.Column('ready', sa.Boolean(), nullable=False),
     sa.Column('mediamtx_settings', sa.String(length=255), nullable=False),
     sa.Column('cot_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['cot_id'], ['cot.id'], ),
-    sa.ForeignKeyConstraint(['username'], ['user.username'], ),
+    sa.ForeignKeyConstraint(['cot_id'], ['cot.id'], name="video_stream_cot"),
+    sa.ForeignKeyConstraint(['username'], ['user.username'], name="video_stream_user"),
     sa.PrimaryKeyConstraint('path')
     )
 
@@ -254,9 +254,9 @@ def upgrade():
     sa.Column('alert_type', sa.String(length=255), nullable=False),
     sa.Column('point_id', sa.Integer(), nullable=True),
     sa.Column('cot_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['cot_id'], ['cot.id'], ),
-    sa.ForeignKeyConstraint(['point_id'], ['points.id'], ),
-    sa.ForeignKeyConstraint(['sender_uid'], ['euds.uid'], ),
+    sa.ForeignKeyConstraint(['cot_id'], ['cot.id'], name="alert_cot"),
+    sa.ForeignKeyConstraint(['point_id'], ['points.id'], name="alert_point"),
+    sa.ForeignKeyConstraint(['sender_uid'], ['euds.uid'], name="alert_eud"),
     sa.PrimaryKeyConstraint('id')
     )
 
@@ -305,9 +305,9 @@ def upgrade():
     sa.Column('zone_prot_selection', sa.Integer(), nullable=True),
     sa.Column('point_id', sa.Integer(), nullable=True),
     sa.Column('cot_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['cot_id'], ['cot.id'], ),
-    sa.ForeignKeyConstraint(['point_id'], ['points.id'], ),
-    sa.ForeignKeyConstraint(['sender_uid'], ['euds.uid'], ),
+    sa.ForeignKeyConstraint(['cot_id'], ['cot.id'], name="casevac_cot"),
+    sa.ForeignKeyConstraint(['point_id'], ['points.id'], name="casevac_point"),
+    sa.ForeignKeyConstraint(['sender_uid'], ['euds.uid'], name="casevac_eud"),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('uid')
     )
@@ -320,10 +320,10 @@ def upgrade():
     sa.Column('timestamp', sa.DateTime(), nullable=False),
     sa.Column('point_id', sa.Integer(), nullable=False),
     sa.Column('cot_id', sa.Integer(), nullable=False),
-    sa.ForeignKeyConstraint(['chatroom_id'], ['chatrooms.id'], ),
-    sa.ForeignKeyConstraint(['cot_id'], ['cot.id'], ),
-    sa.ForeignKeyConstraint(['point_id'], ['points.id'], ),
-    sa.ForeignKeyConstraint(['sender_uid'], ['euds.uid'], ),
+    sa.ForeignKeyConstraint(['chatroom_id'], ['chatrooms.id'], name="geochat_chatroom"),
+    sa.ForeignKeyConstraint(['cot_id'], ['cot.id'], name="geochat_cot"),
+    sa.ForeignKeyConstraint(['point_id'], ['points.id'], name="geochat_point"),
+    sa.ForeignKeyConstraint(['sender_uid'], ['euds.uid'], name="geochat_eud"),
     sa.PrimaryKeyConstraint('uid')
     )
 
@@ -348,10 +348,10 @@ def upgrade():
     sa.Column('remarks', sa.String(length=255), nullable=True),
     sa.Column('cot_id', sa.Integer(), nullable=True),
     sa.Column('mil_std_2525c', sa.String(length=255), nullable=True),
-    sa.ForeignKeyConstraint(['cot_id'], ['cot.id'], ),
-    sa.ForeignKeyConstraint(['icon_id'], ['icons.id'], ),
-    sa.ForeignKeyConstraint(['parent_uid'], ['euds.uid'], ),
-    sa.ForeignKeyConstraint(['point_id'], ['points.id'], ),
+    sa.ForeignKeyConstraint(['cot_id'], ['cot.id'], name="marker_cot"),
+    sa.ForeignKeyConstraint(['icon_id'], ['icons.id'], name="marker_icon"),
+    sa.ForeignKeyConstraint(['parent_uid'], ['euds.uid'], name="marker_eud"),
+    sa.ForeignKeyConstraint(['point_id'], ['points.id'], name="marker_point"),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('uid')
     )
@@ -379,9 +379,9 @@ def upgrade():
     sa.Column('cot_id', sa.Integer(), nullable=True),
     sa.Column('end_latitude', sa.Float(), nullable=True),
     sa.Column('end_longitude', sa.Float(), nullable=True),
-    sa.ForeignKeyConstraint(['cot_id'], ['cot.id'], ),
-    sa.ForeignKeyConstraint(['point_id'], ['points.id'], ),
-    sa.ForeignKeyConstraint(['sender_uid'], ['euds.uid'], ),
+    sa.ForeignKeyConstraint(['cot_id'], ['cot.id'], name="rb_line_cot"),
+    sa.ForeignKeyConstraint(['point_id'], ['points.id'], name="rb_line_point"),
+    sa.ForeignKeyConstraint(['sender_uid'], ['euds.uid'], name="rb_line_eud"),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('uid')
     )
@@ -403,7 +403,7 @@ def upgrade():
     sa.Column('audio_samplerate', sa.Integer(), nullable=True),
     sa.Column('audio_channels', sa.Integer(), nullable=True),
     sa.Column('file_size', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['path'], ['video_streams.path'], ),
+    sa.ForeignKeyConstraint(['path'], ['video_streams.path'], name="video_recording_video_stream"),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('segment_path')
     )
@@ -417,7 +417,7 @@ def upgrade():
     sa.Column('title', sa.String(length=255), nullable=True),
     sa.Column('z', sa.Integer(), nullable=True),
     sa.Column('casevac_uid', sa.String(length=255), nullable=False),
-    sa.ForeignKeyConstraint(['casevac_uid'], ['casevac.uid'], ),
+    sa.ForeignKeyConstraint(['casevac_uid'], ['casevac.uid'], name="zmist_casevac"),
     sa.PrimaryKeyConstraint('id')
     )
 

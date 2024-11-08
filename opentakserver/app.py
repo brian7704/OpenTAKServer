@@ -1,7 +1,7 @@
-import random
-
 import eventlet
 eventlet.monkey_patch()
+
+import random
 
 import sys
 import traceback

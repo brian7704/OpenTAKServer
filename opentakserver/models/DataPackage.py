@@ -17,7 +17,7 @@ class DataPackage(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     filename: Mapped[str] = mapped_column(String(255), unique=True)
     hash: Mapped[str] = mapped_column(String(255), unique=True)
-    creator_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"), nullable=True)
+    creator_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True)
     submission_time: Mapped[datetime] = mapped_column(DateTime)
     submission_user: Mapped[int] = mapped_column(Integer, ForeignKey("user.id"), nullable=True)
     keywords: Mapped[str] = mapped_column(String(255), nullable=True)

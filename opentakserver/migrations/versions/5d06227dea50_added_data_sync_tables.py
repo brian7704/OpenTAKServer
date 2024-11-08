@@ -67,22 +67,22 @@ def upgrade():
     sa.Column('timestamp', sa.DateTime(), nullable=False),
     sa.Column('creator_uid', sa.String(length=255), nullable=False),
     sa.Column('server_time', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['mission_name'], ['missions.name'], ),
+    sa.ForeignKeyConstraint(['mission_name'], ['missions.name'], name="mission_changes"),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('mission_content_mission',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('mission_content_id', sa.Integer(), nullable=False),
     sa.Column('mission_name', sa.String(length=255), nullable=False),
-    sa.ForeignKeyConstraint(['mission_content_id'], ['mission_content.id'], ),
-    sa.ForeignKeyConstraint(['mission_name'], ['missions.name'], ),
+    sa.ForeignKeyConstraint(['mission_content_id'], ['mission_content.id'], name="mission_content"),
+    sa.ForeignKeyConstraint(['mission_name'], ['missions.name'], name="mission"),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('mission_invitations',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('mission_name', sa.String(length=255), nullable=False),
     sa.Column('client_uid', sa.String(length=255), nullable=False),
-    sa.ForeignKeyConstraint(['mission_name'], ['missions.name'], ),
+    sa.ForeignKeyConstraint(['mission_name'], ['missions.name'], name="mission_invitations"),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('mission_roles',
@@ -92,7 +92,7 @@ def upgrade():
     sa.Column('createTime', sa.DateTime(), nullable=False),
     sa.Column('role_type', sa.String(length=255), nullable=False),
     sa.Column('mission_name', sa.String(length=255), nullable=False),
-    sa.ForeignKeyConstraint(['mission_name'], ['missions.name'], ),
+    sa.ForeignKeyConstraint(['mission_name'], ['missions.name'], name="mission_role_names"),
     sa.PrimaryKeyConstraint('id')
     )
     # ### end Alembic commands ###

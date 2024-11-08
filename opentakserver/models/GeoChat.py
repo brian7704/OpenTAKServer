@@ -10,7 +10,7 @@ class GeoChat(db.Model):
 
     uid: Mapped[str] = mapped_column(String(255), primary_key=True)
     chatroom_id: Mapped[str] = mapped_column(String(255), ForeignKey("chatrooms.id"))
-    sender_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"))
+    sender_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"))
     remarks: Mapped[str] = mapped_column(String(255))
     timestamp: Mapped[datetime] = mapped_column(DateTime)
     point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id"))

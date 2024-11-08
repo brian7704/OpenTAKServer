@@ -16,7 +16,7 @@ class CasEvac(db.Model):
     __tablename__ = 'casevac'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    sender_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid"))
+    sender_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"))
     uid: Mapped[str] = mapped_column(String(255), unique=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime)
 
@@ -59,8 +59,8 @@ class CasEvac(db.Model):
     ventilator: Mapped[bool] = mapped_column(Boolean, nullable=True)
     winds_are_from: Mapped[str] = mapped_column(String(255), nullable=True)
     zone_prot_selection: Mapped[int] = mapped_column(Integer, nullable=True)
-    point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id"), nullable=True)
-    cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
+    point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id", ondelete="CASCADE"), nullable=True)
+    cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id", ondelete="CASCADE"), nullable=True)
     point = relationship("Point", back_populates="casevac")
     cot = relationship("CoT", back_populates="casevac")
     zmist = relationship("ZMIST", back_populates="casevac", uselist=False, cascade="all, delete")
