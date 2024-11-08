@@ -1152,7 +1152,7 @@ def mission_contents(mission_name: str):
                 mission_change.timestamp = datetime.datetime.now()
                 mission_change.creator_uid = request.args.get('creatorUid')
                 mission_change.server_time = datetime.datetime.now()
-                mission_change.content_uid = uid
+                mission_change.mission_uid = uid
 
                 change_pk = db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
                 db.session.commit()
@@ -1161,9 +1161,9 @@ def mission_contents(mission_name: str):
             mission_uid.uid = uid
             mission_uid.timestamp = datetime.datetime.now()
             mission_uid.creator_uid = request.args.get('creatorUid')
-            mission_uid.mission_change_id = change_pk
+            mission_uid.mission_name = mission_name
 
-            # iTAK sucks. It sends a CoT and makes a POST to this endpoint rather than including a <dest mission="mission_name">
+            # iTAK sucks. It sends a CoT and makes a PUT to this endpoint rather than including a <dest mission="mission_name">
             # tag in the CoT. This endpoint finishes before the CoT can be parsed and inserted into the database. In that case
             # we insert a row in the mission_uids table with the CoT data missing, and the parse_point method in
             # cot_controller will fill it in
