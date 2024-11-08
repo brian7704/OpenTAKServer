@@ -35,6 +35,7 @@ class MissionChange(db.Model):
     timestamp: Mapped[datetime] = mapped_column(DateTime)
     creator_uid: Mapped[str] = mapped_column(String(255))
     server_time: Mapped[datetime] = mapped_column(DateTime)
+    mission_uid: Mapped[str] = mapped_column(String(255), ForeignKey('mission_uids.uid', ondelete="CASCADE"), nullable=True)
     content_resource = relationship("MissionContent", back_populates="mission_changes", uselist=False)
     mission = relationship("Mission", back_populates="mission_changes")
     uid = relationship("MissionUID", back_populates="mission_change", uselist=False)
@@ -47,6 +48,7 @@ class MissionChange(db.Model):
             "timestamp": self.timestamp,
             "creator_uid": self.creator_uid,
             "server_time": self.server_time,
+            "mission_uid": self.mission_uid
         }
 
     def to_json(self):

@@ -21,7 +21,6 @@ class MissionUID(db.Model):
     color: Mapped[str] = mapped_column(String(255), nullable=True)
     latitude: Mapped[float] = mapped_column(Float, nullable=True)
     longitude: Mapped[float] = mapped_column(Float, nullable=True)
-    mission_change_id: Mapped[int] = mapped_column(Integer, ForeignKey("mission_changes.id"), nullable=True)
     mission = relationship("Mission", back_populates="uids")
     mission_change = relationship("MissionChange", back_populates="uid", uselist=False)
 

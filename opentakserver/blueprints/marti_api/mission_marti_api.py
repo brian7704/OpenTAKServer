@@ -44,10 +44,10 @@ mission_marti_api = Blueprint('mission_marti_api', __name__)
 # Only allow access to the mission/data sync API over SSL/port 8443 with a valid client cert.
 # nginx will proxy the cert in a header called X-Ssl-Cert by default. This is configurable in ots_https and with the
 # OTS_SSL_CERT_HEADER option in config.yml
-@mission_marti_api.before_request
-def verify_client_cert_before_request():
-    if not verify_client_cert():
-        return jsonify({'success': False, 'error': 'Missing or invalid client certificate'}), 400
+#@mission_marti_api.before_request
+#def verify_client_cert_before_request():
+#    if not verify_client_cert():
+#        return jsonify({'success': False, 'error': 'Missing or invalid client certificate'}), 400
 
 
 def verify_token() -> dict | bool:
@@ -1251,11 +1251,13 @@ def delete_content(mission_name: str):
         else:
             mission_uid = mission_uid[0]
             mission_uid.mission_name = None
-            db.session.delete(mission_uid)
-            db.session.commit()
+            mission_change.mission_uid = mission_uid.uid
         cot_event = db.session.execute(db.session.query(CoT).filter_by(uid=request.args.get("uid"))).first()
         if cot_event:
-            cot_event = BeautifulSoup(cot_event[0].xml, 'xml').find('event')
+            cot_event = cot_event[0]
+            cot_event.mission_name = None
+            db.session.add(cot_event)
+            cot_event = BeautifulSoup(cot_event.xml, 'xml').find('event')
 
     # Files will be kept in the DB so the mission log is correct and on disk in case it gets added back to a mission
     content = None
