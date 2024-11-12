@@ -114,6 +114,14 @@ class ClientController(Thread):
         while not self.shutdown:
             try:
                 data = self.sock.recv(1)
+                if not data:
+                    self.shutdown = True
+                    self.logger.warning("Closing connection to {}".format(self.address))
+                    self.unbind_rabbitmq_queues()
+                    self.send_disconnect_cot()
+                    self.sock.shutdown(socket.SHUT_RDWR)
+                    self.sock.close()
+                    break
             except (ConnectionError, ConnectionResetError) as e:
                 self.unbind_rabbitmq_queues()
                 self.send_disconnect_cot()
@@ -139,13 +147,31 @@ class ClientController(Thread):
                             break
                         else:
                             try:
-                                data += self.sock.recv(1)
+                                received_byte = self.sock.recv(1)
+                                if not received_byte:
+                                    self.shutdown = True
+                                    self.logger.info(f"{self.address} disconnected")
+                                    self.unbind_rabbitmq_queues()
+                                    self.send_disconnect_cot()
+                                    self.sock.shutdown(socket.SHUT_RDWR)
+                                    self.sock.close()
+                                    break
+                                data += received_byte
                                 continue
                             except (ConnectionError, TimeoutError, ConnectionResetError) as e:
                                 break
                     except ParseError as e:
                         try:
-                            data += self.sock.recv(1)
+                            received_byte = self.sock.recv(1)
+                            if not received_byte:
+                                self.shutdown = True
+                                self.logger.info(f"{self.address} disconnected")
+                                self.unbind_rabbitmq_queues()
+                                self.send_disconnect_cot()
+                                self.sock.shutdown(socket.SHUT_RDWR)
+                                self.sock.close()
+                                break
+                            data += received_byte
                             continue
                         except (ConnectionError, TimeoutError, ConnectionResetError) as e:
                             break
