@@ -3,7 +3,7 @@ import os
 import traceback
 
 import sqlalchemy
-from meshtastic import channel_pb2, apponly_pb2, config_pb2
+from meshtastic import channel_pb2, apponly_pb2
 
 import bleach
 from flask import Blueprint, request, jsonify, current_app as app
@@ -11,7 +11,7 @@ from flask_security import auth_required
 
 from opentakserver.extensions import logger, db
 from opentakserver.models.Meshtastic import MeshtasticChannel
-from opentakserver.blueprints.api import paginate, search
+from opentakserver.blueprints.ots_api.api import paginate, search
 
 meshtastic_api_blueprint = Blueprint("meshtastic_api_blueprint", __name__)
 

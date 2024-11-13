@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from opentakserver.extensions import db
-from sqlalchemy import Integer, String, ForeignKey, Boolean
+from sqlalchemy import Integer, String, ForeignKey, Boolean, TEXT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from flask import current_app as app, request
 
@@ -14,22 +14,22 @@ from flask import current_app as app, request
 class VideoStream(db.Model):
     __tablename__ = 'video_streams'
 
-    path: Mapped[str] = mapped_column(String, primary_key=True)
-    protocol: Mapped[str] = mapped_column(String, default='rtsp')
+    path: Mapped[str] = mapped_column(String(255), primary_key=True)
+    protocol: Mapped[str] = mapped_column(String(255), default='rtsp')
     port: Mapped[int] = mapped_column(Integer, default=8554)
     network_timeout: Mapped[int] = mapped_column(Integer, default=10000)
-    uid: Mapped[str] = mapped_column(String, nullable=True)
+    uid: Mapped[str] = mapped_column(String(255), nullable=True)
     buffer_time: Mapped[int] = mapped_column(Integer, nullable=True)
     rover_port: Mapped[int] = mapped_column(Integer, nullable=True)
     rtsp_reliable: Mapped[int] = mapped_column(Integer, nullable=True, default=1)
     ignore_embedded_klv: Mapped[bool] = mapped_column(Boolean, nullable=True)
-    alias: Mapped[str] = mapped_column(String, nullable=True)
-    preferred_mac_address: Mapped[str] = mapped_column(String, nullable=True)
-    preferred_interface_address: Mapped[str] = mapped_column(String, nullable=True)
-    username: Mapped[str] = mapped_column(String, ForeignKey("user.username"), nullable=True)
-    xml: Mapped[str] = mapped_column(String, nullable=True)
+    alias: Mapped[str] = mapped_column(String(255), nullable=True)
+    preferred_mac_address: Mapped[str] = mapped_column(String(255), nullable=True)
+    preferred_interface_address: Mapped[str] = mapped_column(String(255), nullable=True)
+    username: Mapped[str] = mapped_column(String(255), ForeignKey("user.username"), nullable=True)
+    xml: Mapped[str] = mapped_column(TEXT, nullable=True)
     ready: Mapped[bool] = mapped_column(Boolean, default=False)
-    mediamtx_settings: Mapped[str] = mapped_column(String, default="")
+    mediamtx_settings: Mapped[str] = mapped_column(TEXT, default="")
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
     cot = relationship("CoT", back_populates="video")
     user = relationship("User", back_populates="video_streams")
@@ -92,6 +92,7 @@ class VideoStream(db.Model):
                 'rtsp_link': "rtsp://{}:{}/{}".format(hostname, self.port, self.path),
                 'webrtc_link': "{}://{}:{}/webrtc/{}/".format(protocol, hostname, port, self.path),
                 'hls_link': "{}://{}:{}/hls/{}/".format(protocol, hostname, port, self.path),
+                'thumbnail': f"{protocol}://{hostname}:{port}/api/videos/thumbnail?path={self.path}"
             }
 
     def generate_xml(self, hostname):

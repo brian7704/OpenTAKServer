@@ -1,5 +1,6 @@
 import logging
 from threading import Thread
+from pika.channel import Channel
 
 import flask_sqlalchemy
 import pika
@@ -19,7 +20,7 @@ class RabbitMQClient:
         try:
             self.rabbit_connection = pika.SelectConnection(pika.ConnectionParameters(self.context.app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")),
                                                            self.on_connection_open)
-            self.rabbit_channel = None
+            self.rabbit_channel: Channel = None
             self.iothread = Thread(target=self.rabbit_connection.ioloop.start)
             self.iothread.daemon = True
             self.iothread.start()

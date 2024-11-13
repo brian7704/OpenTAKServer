@@ -10,9 +10,11 @@ from flask_security import verify_password
 
 from bs4 import BeautifulSoup
 import pika
+from pika.channel import Channel
 
 from opentakserver.extensions import db
 from opentakserver.models.EUD import EUD
+from opentakserver.models.Mission import Mission
 
 
 class ClientController(Thread):
@@ -27,6 +29,8 @@ class ClientController(Thread):
         self.app = app
         self.db = db
         self.is_ssl = is_ssl
+
+        self.user = None
 
         # Device attributes
         self.uid = None
@@ -61,6 +65,7 @@ class ClientController(Thread):
                         self.logger.debug("Got common name {}".format(self.common_name))
             except BaseException as e:
                 logger.warning("Failed to do handshake: {}".format(e))
+                self.unbind_rabbitmq_queues()
                 self.send_disconnect_cot()
                 self.sock.shutdown(socket.SHUT_RDWR)
                 self.sock.close()
@@ -71,7 +76,7 @@ class ClientController(Thread):
         try:
             self.rabbit_connection = pika.SelectConnection(pika.ConnectionParameters(self.app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")),
                                                            self.on_connection_open)
-            self.rabbit_channel = None
+            self.rabbit_channel: Channel | None = None
             self.iothread = Thread(target=self.rabbit_connection.ioloop.start)
             self.iothread.daemon = True
             self.iothread.start()
@@ -98,6 +103,7 @@ class ClientController(Thread):
                 self.sock.send(body['cot'].encode())
         except BaseException as e:
             self.logger.error(f"{self.callsign}: {e}, closing socket")
+            self.unbind_rabbitmq_queues()
             self.send_disconnect_cot()
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
@@ -108,13 +114,23 @@ class ClientController(Thread):
         while not self.shutdown:
             try:
                 data = self.sock.recv(1)
+                if not data:
+                    self.shutdown = True
+                    self.logger.warning("Closing connection to {}".format(self.address))
+                    self.unbind_rabbitmq_queues()
+                    self.send_disconnect_cot()
+                    self.sock.shutdown(socket.SHUT_RDWR)
+                    self.sock.close()
+                    break
             except (ConnectionError, ConnectionResetError) as e:
+                self.unbind_rabbitmq_queues()
                 self.send_disconnect_cot()
                 self.sock.close()
                 break
             except TimeoutError:
                 if self.shutdown:
                     self.logger.warning("Closing connection to {}".format(self.address))
+                    self.unbind_rabbitmq_queues()
                     self.send_disconnect_cot()
                     self.sock.shutdown(socket.SHUT_RDWR)
                     self.sock.close()
@@ -131,13 +147,31 @@ class ClientController(Thread):
                             break
                         else:
                             try:
-                                data += self.sock.recv(1)
+                                received_byte = self.sock.recv(1)
+                                if not received_byte:
+                                    self.shutdown = True
+                                    self.logger.info(f"{self.address} disconnected")
+                                    self.unbind_rabbitmq_queues()
+                                    self.send_disconnect_cot()
+                                    self.sock.shutdown(socket.SHUT_RDWR)
+                                    self.sock.close()
+                                    break
+                                data += received_byte
                                 continue
                             except (ConnectionError, TimeoutError, ConnectionResetError) as e:
                                 break
                     except ParseError as e:
                         try:
-                            data += self.sock.recv(1)
+                            received_byte = self.sock.recv(1)
+                            if not received_byte:
+                                self.shutdown = True
+                                self.logger.info(f"{self.address} disconnected")
+                                self.unbind_rabbitmq_queues()
+                                self.send_disconnect_cot()
+                                self.sock.shutdown(socket.SHUT_RDWR)
+                                self.sock.close()
+                                break
+                            data += received_byte
                             continue
                         except (ConnectionError, TimeoutError, ConnectionResetError) as e:
                             break
@@ -151,7 +185,7 @@ class ClientController(Thread):
                 event = soup.find('event')
                 auth = soup.find('auth')
 
-                if not self.is_authenticated and (auth or self.common_name):
+                if self.is_ssl and not self.is_authenticated and (auth or self.common_name):
                     with self.app.app_context():
                         if auth:
                             cot = auth.find('cot')
@@ -174,9 +208,11 @@ class ClientController(Thread):
                         elif self.common_name:
                             self.logger.info("{} is ID'ed by cert".format(user.username))
                             self.is_authenticated = True
+                            self.user = user
                         elif verify_password(password, user.password):
                             self.logger.info("Successful login from {}".format(username))
                             self.is_authenticated = True
+                            self.user = user
                             try:
                                 eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
                                 self.logger.debug("Associating EUD uid {} to user {}".format(eud.uid, user.username))
@@ -202,7 +238,7 @@ class ClientController(Thread):
                         self.logger.warning("EUD isn't authenticated, ignoring")
                         continue
 
-                    if event and self.pong(event):
+                    if self.pong(event):
                         continue
 
                     if event and not self.uid:
@@ -215,10 +251,12 @@ class ClientController(Thread):
                                                           properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
             else:
+                self.unbind_rabbitmq_queues()
                 self.send_disconnect_cot()
                 break
 
     def close_connection(self):
+        self.unbind_rabbitmq_queues()
         self.send_disconnect_cot()
         self.sock.shutdown(socket.SHUT_RDWR)
         self.sock.close()
@@ -236,7 +274,11 @@ class ClientController(Thread):
             SubElement(cot, 'point', {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0',
                                                 'lon': '0'})
 
-            self.sock.send(event.encode())
+            try:
+                self.sock.send(event.encode())
+            except BaseException as e:
+                self.logger.error(e)
+                self.logger.debug(traceback.format_exc())
             return True
 
         return False
@@ -248,15 +290,38 @@ class ClientController(Thread):
         contact = event.find('contact')
         takv = event.find('takv')
         if contact and takv:
-            self.uid = event.attrs['uid']
             if 'callsign' in contact.attrs:
+                self.uid = event.attrs['uid']
                 self.callsign = contact.attrs['callsign']
 
                 self.logger.debug("Declaring queue {}".format(self.uid))
                 self.rabbit_channel.queue_declare(queue=self.uid)
                 self.rabbit_channel.queue_bind(exchange='cot', queue=self.uid)
+                self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.uid)
                 self.rabbit_channel.basic_consume(queue=self.uid, on_message_callback=self.on_message, auto_ack=True)
                 self.logger.debug("{} is consuming".format(self.callsign))
+
+                # Add the EUD if it doesn't exist and associate it with a user
+                with self.app.app_context():
+                    eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=self.uid)).first()
+                    if not eud:
+                        eud = EUD()
+                        eud.uid = self.uid
+                        eud.callsign = self.callsign
+                        eud.user_id = self.user.id
+
+                        self.db.session.add(eud)
+                        self.db.session.commit()
+
+    def unbind_rabbitmq_queues(self):
+        if self.uid:
+            self.rabbit_channel.queue_unbind(queue=self.uid, exchange="missions", routing_key="missions")
+            self.rabbit_channel.queue_unbind(queue=self.uid, exchange="cot")
+            with self.app.app_context():
+                missions = db.session.execute(db.session.query(Mission)).all()
+                for mission in missions:
+                    self.rabbit_channel.queue_unbind(queue=self.uid, exchange="missions", routing_key=f"missions.{mission[0].name}")
+                    self.logger.debug(f"Unbound {self.uid} from mission.{mission[0].name}")
 
     def send_disconnect_cot(self):
         if self.uid:

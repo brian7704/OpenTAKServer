@@ -1,0 +1,28 @@
+from flask import request, Blueprint, jsonify, current_app as app
+from opentakserver.blueprints.ots_api.api import api_blueprint
+from opentakserver.blueprints.ots_api.casevac_api import casevac_api_blueprint
+from opentakserver.blueprints.ots_api.data_package_api import data_package_api
+from opentakserver.blueprints.ots_api.device_profile_api import device_profile_api_blueprint
+from opentakserver.blueprints.ots_api.marker_api import marker_api_blueprint
+from opentakserver.blueprints.ots_api.mediamtx_api import mediamtx_api_blueprint
+from opentakserver.blueprints.ots_api.meshtastic_api import meshtastic_api_blueprint
+from opentakserver.blueprints.ots_api.package_api import packages_blueprint
+from opentakserver.blueprints.ots_api.scheduler_api import scheduler_api_blueprint
+from opentakserver.blueprints.ots_api.user_api import user_api_blueprint
+from opentakserver.blueprints.ots_api.video_api import video_api_blueprint
+from opentakserver.blueprints.ots_api.mission_api import data_sync_api
+from opentakserver.blueprints.ots_api.group_api import group_api
+
+ots_api = Blueprint("ots_api", __name__)
+ots_api.register_blueprint(api_blueprint)
+ots_api.register_blueprint(casevac_api_blueprint)
+ots_api.register_blueprint(data_package_api)
+ots_api.register_blueprint(device_profile_api_blueprint)
+ots_api.register_blueprint(mediamtx_api_blueprint)
+ots_api.register_blueprint(meshtastic_api_blueprint)
+ots_api.register_blueprint(packages_blueprint)
+ots_api.register_blueprint(scheduler_api_blueprint)
+ots_api.register_blueprint(user_api_blueprint)
+ots_api.register_blueprint(video_api_blueprint)
+ots_api.register_blueprint(data_sync_api)
+ots_api.register_blueprint(group_api)

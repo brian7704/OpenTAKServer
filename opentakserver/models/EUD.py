@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from opentakserver.extensions import db
-from sqlalchemy import Integer, String, ForeignKey, DateTime
+from sqlalchemy import Integer, String, ForeignKey, DateTime, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.functions import iso8601_string_from_datetime
@@ -13,32 +13,36 @@ class EUD(db.Model):
     __tablename__ = "euds"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    uid: Mapped[str] = mapped_column(String, nullable=False, unique=True)
-    callsign: Mapped[str] = mapped_column(String, nullable=True)
-    device: Mapped[str] = mapped_column(String, nullable=True)
-    os: Mapped[str] = mapped_column(String, nullable=True)
-    platform: Mapped[str] = mapped_column(String, nullable=True)
-    version: Mapped[str] = mapped_column(String, nullable=True)
-    phone_number: Mapped[int] = mapped_column(Integer, nullable=True)
+    uid: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    callsign: Mapped[str] = mapped_column(String(255), nullable=True)
+    device: Mapped[str] = mapped_column(String(255), nullable=True)
+    os: Mapped[str] = mapped_column(String(255), nullable=True)
+    platform: Mapped[str] = mapped_column(String(255), nullable=True)
+    version: Mapped[str] = mapped_column(String(255), nullable=True)
+    phone_number: Mapped[int] = mapped_column(BigInteger, nullable=True)
     last_event_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    last_status: Mapped[str] = mapped_column(String, nullable=True)
+    last_status: Mapped[str] = mapped_column(String(255), nullable=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("user.id"), nullable=True)
     team_id: Mapped[int] = mapped_column(Integer, ForeignKey("teams.id"), nullable=True)
-    team_role: Mapped[str] = mapped_column(String, nullable=True)
-    meshtastic_id: Mapped[int] = mapped_column(Integer, nullable=True)
-    meshtastic_macaddr: Mapped[String] = mapped_column(String, nullable=True)
-    points = relationship("Point", back_populates="eud")
-    cots = relationship("CoT", back_populates="eud")
-    casevacs = relationship("CasEvac", back_populates="eud")
-    geochats = relationship("GeoChat", back_populates="eud")
-    chatroom_uid = relationship("ChatroomsUids", back_populates="eud")
-    user: Mapped["User"] = relationship(back_populates="euds")
-    alert = relationship("Alert", back_populates="eud")
-    data_packages = relationship("DataPackage", back_populates="eud", uselist=False)
-    certificate = relationship("Certificate", back_populates="eud", uselist=False)
-    markers = relationship("Marker", back_populates="eud")
-    rb_lines = relationship("RBLine", back_populates="eud")
+    team_role: Mapped[str] = mapped_column(String(255), nullable=True)
+    meshtastic_id: Mapped[int] = mapped_column(BigInteger, nullable=True)
+    meshtastic_macaddr: Mapped[String] = mapped_column(String(255), nullable=True)
+    points = relationship("Point", cascade="all, delete-orphan", back_populates="eud")
+    cots = relationship("CoT", cascade="all, delete-orphan", back_populates="eud")
+    casevacs = relationship("CasEvac", cascade="all, delete-orphan", back_populates="eud")
+    geochats = relationship("GeoChat", cascade="all, delete-orphan", back_populates="eud")
+    chatroom_uid = relationship("ChatroomsUids", cascade="all, delete-orphan", back_populates="eud")
+    user = relationship("User", back_populates="euds")
+    alert = relationship("Alert", cascade="all, delete-orphan", back_populates="eud")
+    data_packages = relationship("DataPackage", cascade="all, delete-orphan", back_populates="eud", uselist=False)
+    certificate = relationship("Certificate", cascade="all, delete, delete-orphan", back_populates="eud", uselist=False)
+    markers = relationship("Marker", cascade="all, delete, delete-orphan", back_populates="eud")
+    rb_lines = relationship("RBLine", cascade="all, delete-orphan", back_populates="eud")
     team = relationship("Team", back_populates="euds")
+    owned_missions = relationship("Mission", back_populates="owner")
+    groups = relationship("Group", secondary="groups_euds", back_populates="euds")
+    #mission_invitations_uid = relationship("MissionInvitation", back_populates="eud_uid")
+    #mission_invitations_callsign = relationship("MissionInvitation", back_populates="eud_callsign")
 
     def serialize(self):
         return {

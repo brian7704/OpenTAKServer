@@ -8,11 +8,12 @@ from sqlalchemy.orm import relationship
 
 @dataclass
 class User(db.Model, fsqla.FsUserMixin):
-    email = db.Column(String, nullable=True)
+    email = db.Column(String(255), nullable=True)
     video_streams = relationship("VideoStream", back_populates="user")
     euds = relationship("EUD", back_populates="user")
     data_packages = relationship("DataPackage", back_populates="user")
     certificate = relationship("Certificate", back_populates="user")
+    mission_invitations = relationship("MissionInvitation", back_populates="user")
 
     def serialize(self):
         return {

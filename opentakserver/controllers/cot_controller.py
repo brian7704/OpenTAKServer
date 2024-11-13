@@ -6,8 +6,11 @@ import time
 import traceback
 
 import random
+from xml.etree.ElementTree import Element, tostring
+
 import bleach
 import pika
+from pika.channel import Channel
 import sqlalchemy.exc
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -17,6 +20,9 @@ from meshtastic import mqtt_pb2, mesh_pb2, portnums_pb2, BROADCAST_NUM
 import unishox2
 
 from opentakserver.functions import *
+from opentakserver.models.Mission import Mission
+from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
+from opentakserver.models.MissionUID import MissionUID
 
 from opentakserver.proto import atak_pb2
 from opentakserver.controllers.rabbitmq_client import RabbitMQClient
@@ -40,7 +46,7 @@ from opentakserver.models.Marker import Marker
 
 class CoTController(RabbitMQClient):
 
-    def on_channel_open(self, channel):
+    def on_channel_open(self, channel: Channel):
         self.rabbit_channel = channel
         self.rabbit_channel.queue_declare(queue='cot_controller')
         self.rabbit_channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
@@ -93,7 +99,7 @@ class CoTController(RabbitMQClient):
                                                                    'uid': None}),
                                                               properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
 
-                if 'phone' in contact.attrs:
+                if 'phone' in contact.attrs and contact.attrs['phone']:
                     phone_number = contact.attrs['phone']
 
             with self.context:
@@ -172,8 +178,13 @@ class CoTController(RabbitMQClient):
                     eud.team_id = team.id
                     eud.team_role = bleach.clean(group.attrs['role'])
 
-                self.db.session.add(eud)
-                self.db.session.commit()
+                try:
+                    self.db.session.add(eud)
+                    self.db.session.commit()
+                except sqlalchemy.exc.IntegrityError:
+                    self.db.session.rollback()
+                    self.db.session.execute(update(EUD).where(EUD.uid == eud.uid).values(**eud.serialize()))
+                    self.db.session.commit()
 
                 if self.context.app.config.get("OTS_ENABLE_MESHTASTIC") and eud.platform != "Meshtastic":
                     user_info = mesh_pb2.User()
@@ -202,21 +213,35 @@ class CoTController(RabbitMQClient):
     def insert_cot(self, soup, event, uid):
         try:
             sender_callsign = self.online_euds[uid]['callsign']
+            sender_uid = uid
         except:
             sender_callsign = 'server'
+            sender_uid = None
 
         start = datetime_from_iso8601_string(event.attrs['start'])
         stale = datetime_from_iso8601_string(event.attrs['stale'])
         timestamp = datetime_from_iso8601_string(event.attrs['time'])
 
+        # Assign CoT to a data sync mission
+        dest = event.find("dest")
+        mission_name = None
+        if dest and 'mission' in dest.attrs:
+            mission_name = dest.attrs['mission']
+
         with self.context:
             res = self.db.session.execute(insert(CoT).values(
                 how=event.attrs['how'], type=event.attrs['type'], sender_callsign=sender_callsign,
-                sender_uid=uid, timestamp=timestamp, xml=str(soup), start=start, stale=stale
+                sender_uid=sender_uid, timestamp=timestamp, xml=str(soup), start=start, stale=stale, mission_name=mission_name,
+                uid=event.attrs['uid']
             ))
 
-            self.db.session.commit()
-            return res.inserted_primary_key[0]
+            try:
+                self.db.session.commit()
+                return res.inserted_primary_key[0]
+            except sqlalchemy.exc.IntegrityError:
+                # When using MySQL it will raise IntegrityError when a new EUD connects and it doesn't exist yet in the EUDs table
+                # We'll ignore this error and not insert this CoT so the EUD table can be populated
+                return None
 
     def parse_point(self, event, uid, cot_id):
         # hae = Height above the WGS ellipsoid in meters
@@ -280,6 +305,35 @@ class CoTController(RabbitMQClient):
                     course=p.course, speed=p.speed, battery=p.battery, fov=p.fov, azimuth=p.azimuth)
                 )
 
+                # iTAK sucks. Instead of sending mission CoTs with a <dest mission="mission_name"> tag, it sends a normal CoT and
+                # makes a POST to /Marti/api/missions/mission_name/contents. The POST happens faster than the CoT can be received and parsed,
+                # so we're left with a row in the mission_uids table without most of the details that come from the CoT. Fortunately
+                # the mission_uids.uid field corresponds to the CoT's event UID, so the row in mission_uids can be updated here.
+                usericon = event.find('usericon')
+                color = event.find('color')
+                contact = event.find('contact')
+
+                iconset_path = None
+                if usericon and 'iconsetpath' in usericon.attrs:
+                    iconset_path = usericon.attrs['iconsetpath']
+                elif usericon and 'iconsetPath' in usericon.attrs:
+                    iconset_path = usericon.attrs['iconsetPath']
+
+                cot_color = None
+                if color and 'argb' in color.attrs:
+                    cot_color = color.attrs['argb']
+                if color and 'value' in color.attrs:
+                    cot_color = color.attrs['value']
+
+                callsign = None
+                if contact and 'callsign' in contact.attrs:
+                    callsign = contact.attrs['callsign']
+
+                self.db.session.execute(update(MissionUID).where(MissionUID.uid == event.attrs['uid']).values(
+                    cot_type=event.attrs['type'], latitude=p.latitude, longitude=p.longitude, iconset_path=iconset_path,
+                    color=cot_color, callsign=callsign
+                ))
+
                 self.db.session.commit()
                 # Get the point from the DB with its related CoT
                 p = self.db.session.execute(
@@ -337,8 +391,8 @@ class CoTController(RabbitMQClient):
                             tak_packet.is_compressed = True
                             tak_packet.contact.device_callsign, size = unishox2.compress(eud.uid)
                             tak_packet.contact.callsign, size = unishox2.compress(eud.callsign)
-                            tak_packet.group.team = eud.team.name.replace(" ", "_") if eud.team else ""
-                            tak_packet.group.role = eud.team_role.replace(" ", "") if eud.team_role else ""
+                            tak_packet.group.team = eud.team.name.replace(" ", "_") if eud.team else "Cyan"
+                            tak_packet.group.role = eud.team_role.replace(" ", "") if eud.team_role else "TeamMember"
                             tak_packet.status.battery = int(p.battery) if p.battery else 0
                             tak_packet.pli.latitude_i = int(p.latitude / .0000001)
                             tak_packet.pli.longitude_i = int(p.longitude / .0000001)
@@ -351,8 +405,9 @@ class CoTController(RabbitMQClient):
                             encoded_message.payload = tak_packet.SerializeToString()
 
                             self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=eud.uid))
-                    except:
-                        self.logger.error(traceback.format_exc())
+                    except BaseException as e:
+                        self.logger.error(f"Failed to send publish message to mesh: {e}")
+                        self.logger.debug(traceback.format_exc())
 
                 return res.inserted_primary_key[0]
 
@@ -362,8 +417,8 @@ class CoTController(RabbitMQClient):
                 eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
                 from_id = eud.meshtastic_id
             except:
-                self.logger.error(traceback.format_exc())
                 self.logger.error("Failed to find EUD {}, using random Meshtastic ID".format(uid))
+                self.logger.debug(traceback.format_exc())
                 from_id = random.getrandbits(32)
 
         message_id = random.getrandbits(32)
@@ -480,7 +535,7 @@ class CoTController(RabbitMQClient):
 
                 except BaseException as e:
                     self.logger.error("Failed to publish MQTT message: {}".format(e))
-                    self.logger.error(traceback.format_exc())
+                    self.logger.debug(traceback.format_exc())
 
             with self.context:
                 try:
@@ -550,7 +605,7 @@ class CoTController(RabbitMQClient):
                                             .values(network_timeout=connection_entry.attrs['networkTimeout'],
                                                     protocol=connection_entry.attrs['protocol'],
                                                     buffer_time=connection_entry.attrs['bufferTime'],
-                                                    address=connection_entry.attrs['address'],
+                                                    # address=connection_entry.attrs['address'],
                                                     port=connection_entry.attrs['port'],
                                                     rover_port=connection_entry.attrs['roverPort'],
                                                     rtsp_reliable=connection_entry.attrs['rtspReliable'],
@@ -589,6 +644,7 @@ class CoTController(RabbitMQClient):
                         socketio.emit('alert', alert.to_json(), namespace='/socket.io')
                     except BaseException as e:
                         self.logger.error("Failed to set alert cancel time: {}".format(e))
+                        self.logger.debug(traceback.format_exc())
 
     def parse_casevac(self, event, uid, point_pk, cot_pk):
         medevac = event.find('_medevac_')
@@ -625,6 +681,7 @@ class CoTController(RabbitMQClient):
                     socketio.emit('casevac', casevac.to_json(), namespace='/socket.io')
                 except BaseException as e:
                     self.logger.error(f"Failed to emit CasEvac: {e}")
+                    self.logger.debug(traceback.format_exc())
 
     def parse_marker(self, event, uid, point_pk, cot_pk):
         if ((re.match("^a-[f|h|u|p|a|n|s|j|k]-[Z|P|A|G|S|U|F]", event.attrs['type']) or
@@ -646,7 +703,7 @@ class CoTController(RabbitMQClient):
                 icon = None
 
                 if detail:
-                    for tag in detail:
+                    for tag in detail.find_all():
                         if 'readiness' in tag.attrs:
                             marker.readiness = tag.attrs['readiness'] == "true"
                         if 'argb' in tag.attrs:
@@ -682,10 +739,12 @@ class CoTController(RabbitMQClient):
                 link = event.find('link')
                 if link:
                     marker.parent_callsign = link.attrs['parent_callsign'] if 'parent_callsign' in link.attrs else None
-                    marker.production_time = link.attrs['production_time'] if 'production_time' in link.attrs else None
+                    marker.production_time = link.attrs['production_time'] if 'production_time' in link.attrs else iso8601_string_from_datetime(datetime.now())
                     marker.relation = link.attrs['relation'] if 'relation' in link.attrs else None
                     marker.relation_type = link.attrs['relation_type'] if 'relation_type' in link.attrs else None
                     marker.parent_uid = link.attrs['uid'] if 'uid' in link.attrs else None
+                else:
+                    marker.production_time = iso8601_string_from_datetime(datetime.now())
 
                 marker.point_id = point_pk
                 marker.cot_id = cot_pk
@@ -710,7 +769,7 @@ class CoTController(RabbitMQClient):
 
             except BaseException as e:
                 self.logger.error("Failed to parse marker: {}".format(e))
-                self.logger.error(traceback.format_exc())
+                self.logger.debug(traceback.format_exc())
 
     def parse_rbline(self, event, uid, point_pk, cot_pk):
         if re.match("^u-rb", event.attrs['type']):
@@ -784,17 +843,80 @@ class CoTController(RabbitMQClient):
 
         elif destinations:
             for destination in destinations:
+                uid = None
                 # ATAK and WinTAK use callsign, iTAK uses uid
                 if 'callsign' in destination.attrs and destination.attrs['callsign'] in self.online_callsigns:
                     uid = self.online_callsigns[destination.attrs['callsign']]['uid']
                 elif 'uid' in destination.attrs:
                     uid = destination.attrs['uid']
-                else:
-                    continue
 
-                self.rabbit_channel.basic_publish(exchange='dms',
-                                                  routing_key=uid,
-                                                  body=json.dumps(data))
+                if uid:
+                    self.rabbit_channel.basic_publish(exchange='dms',
+                                                      routing_key=uid,
+                                                      body=json.dumps(data))
+
+                # For data sync missions
+                if 'mission' in destination.attrs:
+                    with self.context:
+                        mission = self.db.session.execute(
+                            self.db.session.query(Mission).filter_by(name=destination.attrs['mission'])).first()
+
+                        if not mission:
+                            self.logger.error(f"No such mission found: {destination.attrs['mission']}")
+                            return
+
+                        mission = mission[0]
+                        self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{destination.attrs['mission']}", body=json.dumps(data))
+
+                        mission_uid = self.db.session.execute(self.db.session.query(MissionUID).filter_by(uid=event.attrs['uid'])).first()
+
+                        if not mission_uid:
+                            mission_change = MissionChange()
+                            mission_change.isFederatedChange = False
+                            mission_change.change_type = MissionChange.ADD_CONTENT
+                            mission_change.mission_name = destination.attrs['mission']
+                            mission_change.timestamp = datetime_from_iso8601_string(event.attrs['start'])
+                            mission_change.creator_uid = data['uid']
+                            mission_change.server_time = datetime_from_iso8601_string(event.attrs['start'])
+                            mission_change.mission_uid = event.attrs['uid']
+
+                            change_pk = self.db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
+                            self.db.session.commit()
+
+                            body = {'uid': uid, 'cot': tostring(generate_mission_change_cot(destination.attrs['mission'], mission, mission_change, cot_event=event)).decode('utf-8')}
+                            self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{mission.name}", body=json.dumps(body))
+
+                            mission_uid = MissionUID()
+                            mission_uid.uid = event.attrs['uid']
+                            mission_uid.mission_name = destination.attrs['mission']
+                            mission_uid.timestamp = datetime_from_iso8601_string(event.attrs['start'])
+                            mission_uid.creator_uid = uid
+                            mission_uid.cot_type = event.attrs['type']
+                            mission_uid.mission_change_id = change_pk.inserted_primary_key[0]
+
+                            color = event.find('color')
+                            icon = event.find('usericon')
+                            point = event.find('point')
+                            contact = event.find('contact')
+
+                            if color and 'argb' in color.attrs:
+                                mission_uid.color = color.attrs['argb']
+                            elif color and 'value' in color.attrs:
+                                mission_uid.color = color.attrs['value']
+                            if icon:
+                                mission_uid.iconset_path = icon['iconsetpath']
+                            if point:
+                                mission_uid.latitude = float(point.attrs['lat'])
+                                mission_uid.longitude = float(point.attrs['lon'])
+                            if contact:
+                                mission_uid.callsign = contact.attrs['callsign']
+
+                            try:
+                                self.db.session.add(mission_uid)
+                                self.db.session.commit()
+                            except sqlalchemy.exc.IntegrityError:
+                                self.db.session.rollback()
+                                self.db.session.execute(update(MissionUID).values(**mission_uid.serialize()))
 
         # If no destination or callsign is specified, broadcast to all TAK clients
         elif self.rabbit_channel and self.rabbit_channel.is_open:
@@ -817,9 +939,12 @@ class CoTController(RabbitMQClient):
         try:
             body = json.loads(body)
             soup = BeautifulSoup(body['cot'], 'xml')
-            event = soup.find('event')
+            event: BeautifulSoup = soup.find('event')
 
             uid = body['uid'] or event.attrs['uid']
+            if uid == self.context.app.config['OTS_NODE_ID']:
+                uid = None
+
             if event:
                 self.parse_device_info(uid, soup, event)
                 cot_pk = self.insert_cot(soup, event, uid)

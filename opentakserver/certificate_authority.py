@@ -185,6 +185,17 @@ class CertificateAuthority:
 
         if not server:
             return self.generate_zip(common_name)
+        else:
+            # Generate public key for PyJWT to validate tokens
+            command = "openssl x509 -pubkey -in {} -out {}".format(
+                os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".pem"),
+                os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".pub"))
+
+            self.logger.debug(command)
+
+            exit_code = subprocess.call(command, shell=True)
+            if exit_code:
+                raise Exception("Failed to generate server's public key. Exit code {}".format(exit_code))
 
     def sign_csr(self, csr_bytes, common_name, server=False):
         os.makedirs(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name), exist_ok=True)

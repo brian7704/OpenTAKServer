@@ -13,8 +13,8 @@ class Point(db.Model):
     __tablename__ = "points"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    uid: Mapped[str] = mapped_column(String)
-    device_uid: Mapped[str] = mapped_column(String, ForeignKey("euds.uid"))
+    uid: Mapped[str] = mapped_column(String(255))
+    device_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True)
     latitude: Mapped[float] = mapped_column(Float, nullable=True)
     longitude: Mapped[float] = mapped_column(Float, nullable=True)
     ce: Mapped[float] = mapped_column(Float, nullable=True)
@@ -22,22 +22,22 @@ class Point(db.Model):
     le: Mapped[float] = mapped_column(Float, nullable=True)
     course: Mapped[float] = mapped_column(Float, nullable=True)
     speed: Mapped[float] = mapped_column(Float, nullable=True)
-    location_source: Mapped[str] = mapped_column(String, nullable=True)
+    location_source: Mapped[str] = mapped_column(String(255), nullable=True)
     battery: Mapped[float] = mapped_column(Float, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime)
     azimuth: Mapped[float] = mapped_column(Float, nullable=True)
     # Camera field of view from TAK ICU and OpenTAK ICU
     fov: Mapped[float] = mapped_column(Float, nullable=True)
-    cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
+    cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id", ondelete="CASCADE"), nullable=True)
     cot = relationship("CoT", back_populates="point")
 
     # Only populate this field of the CoT type matches ^a- and how matches either ^m-g or ^h-e
     eud = relationship("EUD", back_populates="points")
-    casevac = relationship("CasEvac", back_populates="point")
-    geochat = relationship("GeoChat", back_populates="point")
-    alert = relationship("Alert", back_populates="point")
-    marker: Mapped["Marker"] = relationship(back_populates="point")
-    rb_line = relationship("RBLine", back_populates="point")
+    casevac = relationship("CasEvac", cascade="all", back_populates="point")
+    geochat = relationship("GeoChat", back_populates="point", uselist=False)
+    alert = relationship("Alert", cascade="all", back_populates="point")
+    marker: Mapped["Marker"] = relationship(cascade="all, delete", back_populates="point")
+    rb_line = relationship("RBLine", cascade="all", back_populates="point")
 
     def from_wtform(self, form: PointForm):
         self.uid = str(uuid.uuid4())

@@ -1,7 +1,8 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 from opentakserver.extensions import db
-from sqlalchemy import Integer, String, ForeignKey, Boolean
+from sqlalchemy import Integer, String, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.functions import iso8601_string_from_datetime
@@ -15,29 +16,29 @@ class Marker(db.Model):
     # how = h-g-i-g-o
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    uid: Mapped[str] = mapped_column(String, unique=True)
-    affiliation: Mapped[str] = mapped_column(String, nullable=True)
-    battle_dimension: Mapped[str] = mapped_column(String, nullable=True)
-    point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id"))
-    callsign: Mapped[str] = mapped_column(String, nullable=True)
+    uid: Mapped[str] = mapped_column(String(255), unique=True)
+    affiliation: Mapped[str] = mapped_column(String(255), nullable=True)
+    battle_dimension: Mapped[str] = mapped_column(String(255), nullable=True)
+    point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id", ondelete="CASCADE"))
+    callsign: Mapped[str] = mapped_column(String(255), nullable=True)
     readiness: Mapped[bool] = mapped_column(Boolean, nullable=True)
     argb: Mapped[int] = mapped_column(Integer, nullable=True)
-    color_hex: Mapped[str] = mapped_column(String, nullable=True)
-    iconset_path: Mapped[str] = mapped_column(String, nullable=True)
-    parent_callsign: Mapped[str] = mapped_column(String, nullable=True)
-    production_time: Mapped[str] = mapped_column(String, nullable=True)
-    relation: Mapped[str] = mapped_column(String, nullable=True)
-    relation_type: Mapped[str] = mapped_column(String, nullable=True)
-    location_source: Mapped[str] = mapped_column(String, nullable=True)
+    color_hex: Mapped[str] = mapped_column(String(255), nullable=True)
+    iconset_path: Mapped[str] = mapped_column(String(255), nullable=True)
+    parent_callsign: Mapped[str] = mapped_column(String(255), nullable=True)
+    production_time: Mapped[str] = mapped_column(String(255), nullable=True)
+    relation: Mapped[str] = mapped_column(String(255), nullable=True)
+    relation_type: Mapped[str] = mapped_column(String(255), nullable=True)
+    location_source: Mapped[str] = mapped_column(String(255), nullable=True)
     icon_id: Mapped[int] = mapped_column(Integer, ForeignKey("icons.id"), nullable=True)
 
     # Will either be the uid attribute in the <Link> tag or
     # if there's no <Link> tag it's assumed that the sender is the parent
-    parent_uid: Mapped[str] = mapped_column(String, ForeignKey("euds.uid"), nullable=True)
-    remarks: Mapped[str] = mapped_column(String, nullable=True)
-    cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id"), nullable=True)
-    mil_std_2525c: Mapped[str] = mapped_column(String, nullable=True)
-    point = relationship("Point", back_populates="marker")
+    parent_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True)
+    remarks: Mapped[str] = mapped_column(String(255), nullable=True)
+    cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id", ondelete="CASCADE"), nullable=True)
+    mil_std_2525c: Mapped[str] = mapped_column(String(255), nullable=True)
+    point = relationship("Point", cascade="all, delete", back_populates="marker")
     cot = relationship("CoT", back_populates="marker")
     eud = relationship("EUD", back_populates="markers")
     icon = relationship("Icon", back_populates="markers")

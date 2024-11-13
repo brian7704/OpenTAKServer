@@ -6,12 +6,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 class Chatroom(db.Model):
     __tablename__ = 'chatrooms'
 
-    id: Mapped[str] = mapped_column(String, primary_key=True)
-    name: Mapped[str] = mapped_column(String)
-    group_owner: Mapped[str] = mapped_column(String, nullable=True)
-    parent: Mapped[str] = mapped_column(String, nullable=True)
-    geochats = relationship("GeoChat", back_populates="chatroom")
-    chatroom_uid = relationship("ChatroomsUids", back_populates="chatroom")
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    group_owner: Mapped[str] = mapped_column(String(255), nullable=True)
+    parent: Mapped[str] = mapped_column(String(255), nullable=True)
+    geochats = relationship("GeoChat", cascade="all, delete-orphan", back_populates="chatroom")
+    chatroom_uid = relationship("ChatroomsUids", cascade="all, delete-orphan", back_populates="chatroom")
     team = relationship("Team", back_populates="chatroom")
 
     def serialize(self):

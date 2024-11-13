@@ -10,8 +10,8 @@ class MeshtasticChannel(db.Model):
     __tablename__ = "meshtastic_channels"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    psk: Mapped[str] = mapped_column(String, nullable=True)
-    name: Mapped[str] = mapped_column(String, nullable=True)
+    psk: Mapped[str] = mapped_column(String(255), nullable=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=True)
     uplink_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     downlink_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     position_precision: Mapped[int] = mapped_column(Integer, default=32)  # LOW = 11, MED = 16, HIGH = 32, DISABLED = 0
@@ -21,7 +21,7 @@ class MeshtasticChannel(db.Model):
     lora_tx_power: Mapped[int] = mapped_column(Integer, default=30)
     lora_sx126x_rx_boosted_gain: Mapped[bool] = mapped_column(Boolean, default=True)
     modem_preset: Mapped[int] = mapped_column(Integer, default=0)
-    url: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    url: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
 
     def serialize(self):
         return {

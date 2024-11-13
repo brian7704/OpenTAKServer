@@ -23,12 +23,14 @@ class DefaultConfig:
     OTS_TCP_STREAMING_PORT = 8088
     OTS_SSL_STREAMING_PORT = 8089
     OTS_BACKUP_COUNT = 7
+    OTS_ENABLE_CHANNELS = True
     OTS_RABBITMQ_SERVER_ADDRESS = "127.0.0.1"
     OTS_MEDIAMTX_ENABLE = True
     OTS_MEDIAMTX_API_ADDRESS = "http://localhost:9997"
     OTS_MEDIAMTX_TOKEN = secrets.token_urlsafe(30 * 3 // 4)
     OTS_SSL_VERIFICATION_MODE = 2  # Equivalent to ssl.CERT_REQUIRED. https://docs.python.org/3/library/ssl.html#ssl.SSLContext.verify_mode
-    OTS_NODE_ID = ''.join(random.choices(string.ascii_lowercase + string.digits, k=64))
+    OTS_SSL_CERT_HEADER = 'X-Ssl-Cert'
+    OTS_NODE_ID = ''.join(random.choices(string.ascii_lowercase + string.digits, k=32))
     OTS_CA_NAME = 'OpenTAKServer-CA'
     OTS_CA_FOLDER = os.path.join(OTS_DATA_FOLDER, 'ca')
     OTS_CA_PASSWORD = 'atakatak'
@@ -94,6 +96,12 @@ class DefaultConfig:
     MAIL_ASCII_ATTACHMENTS = False
     MAIL_USERNAME = None
     MAIL_PASSWORD = None
+
+    OTS_DELETE_OLD_DATA_SECONDS = 0
+    OTS_DELETE_OLD_DATA_MINUTES = 0
+    OTS_DELETE_OLD_DATA_HOURS = 0
+    OTS_DELETE_OLD_DATA_DAYS = 0
+    OTS_DELETE_OLD_DATA_WEEKS = 1
 
     # flask-sqlalchemy
     SQLALCHEMY_DATABASE_URI = "sqlite:////{}".format(os.path.join(OTS_DATA_FOLDER, 'ots.db'))

@@ -1,13 +1,13 @@
-import random
-
 import eventlet
 eventlet.monkey_patch()
+
+import random
 
 import sys
 import traceback
 import logging
 
-from flask_migrate import Migrate, upgrade, stamp
+from flask_migrate import Migrate, upgrade
 from opentakserver.PasswordValidator import PasswordValidator
 
 import platform
@@ -15,8 +15,6 @@ import requests
 from sqlalchemy import insert
 import sqlite3
 from opentakserver.models.Icon import Icon
-from opentakserver.models.Meshtastic import MeshtasticChannel
-from opentakserver.models.Packages import Packages
 
 import yaml
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
@@ -62,8 +60,11 @@ def init_extensions(app):
     db.init_app(app)
     Migrate(app, db)
 
+    from opentakserver.logo import ots_logo
+
     f = Figlet(font=random.choice(app.config.get("OTS_FIGLET_FONTS")), justify="center", width=app.config.get("OTS_FIGLET_WIDTH"))
-    logger.info(f.renderText(f"\nOpenTAKServer {opentakserver.__version__}\n"))
+    print(ots_logo)
+    #logger.info(f.renderText(f"\nOpenTAKServer {opentakserver.__version__}\n"))
     logger.info(f"OpenTAKServer {opentakserver.__version__}")
     logger.info("Loading the database...")
     with app.app_context():
@@ -117,6 +118,7 @@ def init_extensions(app):
     channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
     channel.queue_declare(queue='cot_controller')
     channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
+    channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
 
     cot_thread = CoTController(app.app_context(), logger, db, socketio)
     app.cot_thread = cot_thread
@@ -197,41 +199,20 @@ def create_app():
 
     init_extensions(app)
 
-    from opentakserver.blueprints.marti import marti_blueprint
+    from opentakserver.blueprints.marti_api import marti_blueprint
     app.register_blueprint(marti_blueprint)
 
-    from opentakserver.blueprints.api import api_blueprint
-    app.register_blueprint(api_blueprint)
+    from opentakserver.blueprints.ots_api import ots_api
+    app.register_blueprint(ots_api)
 
     from opentakserver.blueprints.ots_socketio import ots_socketio_blueprint
     app.register_blueprint(ots_socketio_blueprint)
 
-    from opentakserver.blueprints.scheduled_jobs import scheduler_blueprint
-    app.register_blueprint(scheduler_blueprint)
-
-    from opentakserver.blueprints.scheduler_api import scheduler_api_blueprint
-    app.register_blueprint(scheduler_api_blueprint)
-
-    from opentakserver.blueprints.meshtastic_api import meshtastic_api_blueprint
-    app.register_blueprint(meshtastic_api_blueprint)
-
-    from opentakserver.blueprints.marker_api import marker_api_blueprint
-    app.register_blueprint(marker_api_blueprint)
-
-    from opentakserver.blueprints.casevac_api import casevac_api_blueprint
-    app.register_blueprint(casevac_api_blueprint)
-
-    from opentakserver.blueprints.package_api import packages_blueprint
-    app.register_blueprint(packages_blueprint)
-
-    from opentakserver.blueprints.device_profile_api import device_profile_api_blueprint
-    app.register_blueprint(device_profile_api_blueprint)
-
-    from opentakserver.blueprints.data_package_api import data_package_api
-    app.register_blueprint(data_package_api)
-
     from opentakserver.blueprints.cli import ots
     app.cli.add_command(ots, name="ots")
+
+    from opentakserver.blueprints.scheduled_jobs import scheduler_blueprint
+    app.register_blueprint(scheduler_blueprint)
 
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 

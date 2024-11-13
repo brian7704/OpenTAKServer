@@ -11,12 +11,12 @@ from opentakserver.functions import iso8601_string_from_datetime
 class DeviceProfiles(db.Model):
     __tablename__ = "device_profiles"
 
-    preference_key: Mapped[str] = mapped_column(String, primary_key=True)
-    preference_value: Mapped[str] = mapped_column(String, nullable=True)
-    value_class: Mapped[str] = mapped_column(String, nullable=True)
+    preference_key: Mapped[str] = mapped_column(String(255), primary_key=True, nullable=False)
+    preference_value: Mapped[str] = mapped_column(String(255), nullable=True)
+    value_class: Mapped[str] = mapped_column(String(255), nullable=True)
     enrollment: Mapped[bool] = mapped_column(Boolean, default=True, nullable=True)
     connection: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
-    tool: Mapped[str] = mapped_column(String, nullable=True)
+    tool: Mapped[str] = mapped_column(String(255), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     publish_time: Mapped[datetime] = mapped_column(DateTime)
 
