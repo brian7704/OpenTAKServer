@@ -308,7 +308,7 @@ class ClientController(Thread):
                         eud = EUD()
                         eud.uid = self.uid
                         eud.callsign = self.callsign
-                        eud.user_id = self.user.id
+                        eud.user_id = self.user.id if self.user else None
 
                         self.db.session.add(eud)
                         self.db.session.commit()
