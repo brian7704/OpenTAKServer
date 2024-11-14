@@ -55,6 +55,8 @@ class MeshtasticChannel(db.Model):
             preset = "SHORT_FAST"
         elif self.modem_preset == 7:
             preset = "LONG_MODERATE"
+        elif self.modem_preset == 8:
+            preset = "SHORT_TURBO"
 
         region = "UNSET"
         if self.lora_region == 1:
@@ -93,7 +95,6 @@ class MeshtasticChannel(db.Model):
             region = "MY_919"
         elif self.lora_region == 18:
             region = "SG_923"
-
 
         return {
             'psk': self.psk if self.psk else None,
