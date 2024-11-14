@@ -294,10 +294,7 @@ def certificate():
 @api_blueprint.route('/api/me')
 @auth_required()
 def me():
-    logger.info(request.headers)
-    logger.info(request.accept_encodings)
-    me = db.session.execute(db.session.query(User).where(User.id == current_user.id)).first()[0]
-    return jsonify(me.serialize())
+    return jsonify(current_user.to_json())
 
 
 @api_blueprint.route('/api/cot', methods=['GET'])
