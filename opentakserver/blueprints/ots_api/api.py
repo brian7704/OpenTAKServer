@@ -113,25 +113,6 @@ def status():
     disk_usage_dict = {'total': disk_usage.total, 'used': disk_usage.used, 'free': disk_usage.free,
                        'percent': disk_usage.percent}
 
-    temps_dict = {}
-
-    if hasattr(psutil, "sensors_temperatures"):
-        for name, value in psutil.sensors_temperatures().items():
-            temps_dict[name] = {}
-            for val in value:
-                temps_dict[name][val.label] = {'current': val.current, 'high': val.high, 'critical': val.critical}
-
-    fans_dict = {}
-    if hasattr(psutil, 'sensors_fans') and psutil:
-        for name, value in psutil.sensors_fans().items():
-            for val in value:
-                fans_dict[name][val.label] = {val.current}
-
-    battery_dict = {}
-    if hasattr(psutil, "sensors_battery") and psutil.sensors_battery():
-        battery = psutil.sensors_battery().items()
-        battery_dict = {'percent': battery.percent, 'charging': battery.power_plugged, 'time_left': battery.secsleft}
-
     try:
         os_release = platform.freedesktop_os_release()
     except:
@@ -146,9 +127,8 @@ def status():
         'online_euds': app.cot_thread.online_euds, 'system_boot_time': system_boot_time.strftime("%Y-%m-%d %H:%M:%SZ"),
         'system_uptime': system_uptime.total_seconds(), 'ots_start_time': app.start_time.strftime("%Y-%m-%d %H:%M:%SZ"),
         'ots_uptime': ots_uptime.total_seconds(), 'cpu_time': cpu_time_dict, 'cpu_percent': p.cpu_percent(),
-        'load_avg': psutil.getloadavg(), 'memory': vmem_dict, 'disk_usage': disk_usage_dict, 'temps': temps_dict,
-        'fans': fans_dict, 'battery': battery_dict, 'ots_version': version, 'uname': uname,
-        'os_release': os_release, 'python_version': platform.python_version()
+        'load_avg': psutil.getloadavg(), 'memory': vmem_dict, 'disk_usage': disk_usage_dict, 'ots_version': version,
+        'uname': uname, 'os_release': os_release, 'python_version': platform.python_version()
     }
 
     return jsonify(response)
