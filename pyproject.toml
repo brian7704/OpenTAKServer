@@ -10,7 +10,6 @@ documentation = "https://docs.opentakserver.io"
 
 [tool.poetry.dependencies]
 adsbxcot = "6.0.4"
-androguard = "4.1.2"
 aiscot = "5.2.1"
 beautifulsoup4 = "4.12.3"
 colorlog = "6.9.0"
@@ -47,6 +46,9 @@ sqlalchemy = "2.0.36"
 sqlalchemy-utils = "0.41.2"
 tldextract = "5.1.2"
 unishox2-py3 = "1.0.0"
+
+[project.optional-dependencies]
+update_server = ["androguard=4.1.2"]
 
 [tool.poetry-dynamic-versioning]
 enable = true
