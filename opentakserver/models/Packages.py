@@ -5,7 +5,11 @@ from datetime import datetime
 from pathlib import Path
 
 from bs4 import BeautifulSoup
-from androguard.core.apk import APK
+try:
+    from androguard.core.apk import APK
+    have_androguard = True
+except:
+    have_androguard = False
 
 from werkzeug.utils import secure_filename
 
@@ -47,36 +51,38 @@ class Packages(db.Model):
         self.platform = form.platform.data
         self.plugin_type = form.plugin_type.data
         self.file_name = secure_filename(form.apk.data.filename)
-        apk = APK(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", self.file_name))
-        self.package_name = apk.get_package()
-        self.version = apk.get_androidversion_name()
-        self.revision_code = apk.get_androidversion_code()
-        self.os_requirement = apk.get_min_sdk_version()
-        self.name = apk.get_app_name()
+        if have_androguard:
+            apk = APK(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", self.file_name))
+            self.package_name = apk.get_package()
+            self.version = apk.get_androidversion_name()
+            self.revision_code = apk.get_androidversion_code()
+            self.os_requirement = apk.get_min_sdk_version()
+            self.name = apk.get_app_name()
+            self.apk_hash = hashlib.sha256(form.apk.data.stream.read()).hexdigest()
+
+            manifest = BeautifulSoup(tostring(apk.get_android_manifest_xml()).decode('utf-8'))
+            meta_data = manifest.find_all("meta-data", "lxml")
+            for meta in meta_data:
+                if 'ns0:value' not in meta.attrs or 'ns0:name' not in meta.attrs:
+                    continue
+
+                if meta.attrs['ns0:name'] == "plugin-api":
+                    self.tak_prereq = meta.attrs['ns0:value']
+                    break
+
+            if not self.icon:
+                icon_filename, icon_extension = os.path.splitext(apk.get_app_icon())
+                if icon_extension == '.png':
+                    self.icon = apk.get_file(apk.get_app_icon())
+                    self.icon_filename = f"{self.package_name}.png"
+
         self.description = form.description.data
-        self.apk_hash = hashlib.sha256(form.apk.data.stream.read()).hexdigest()
         self.file_size = Path(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", self.file_name)).stat().st_size
         self.icon = request.files['icon'].stream.read() if 'icon' in request.files else None
         self.icon_filename = secure_filename(request.files['icon'].filename) if 'icon' in request.files else None
         self.install_on_enrollment = form.install_on_enrollment.data
         self.install_on_connection = form.install_on_connection.data
         self.publish_time = datetime.now()
-
-        manifest = BeautifulSoup(tostring(apk.get_android_manifest_xml()).decode('utf-8'))
-        meta_data = manifest.find_all("meta-data", "lxml")
-        for meta in meta_data:
-            if 'ns0:value' not in meta.attrs or 'ns0:name' not in meta.attrs:
-                continue
-
-            if meta.attrs['ns0:name'] == "plugin-api":
-                self.tak_prereq = meta.attrs['ns0:value']
-                break
-
-        if not self.icon:
-            icon_filename, icon_extension = os.path.splitext(apk.get_app_icon())
-            if icon_extension == '.png':
-                self.icon = apk.get_file(apk.get_app_icon())
-                self.icon_filename = f"{self.package_name}.png"
 
     def serialize(self):
         return {
