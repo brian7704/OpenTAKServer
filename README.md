@@ -28,10 +28,13 @@ Join us on our [Discord server](https://discord.gg/6uaVHjtfXN)
 - Optional Mumble server authentication
   - Use your OpenTAKServer username and password to log into your Mumble server
 - Video Streaming
+- Mission API
+  - Data Sync plugin
+  - Fire Area Survey plugin
 
 ## Planned Features
 - Federation
-- DataSync plugin
+- Groups/Channels
 
 ## Requirements
 - RabbitMQ
@@ -43,11 +46,15 @@ Join us on our [Discord server](https://discord.gg/6uaVHjtfXN)
 
 ### Ubuntu
 
-`curl https://i.opentakserver.io/ubuntu_installer -L | bash -`
+`curl https://i.opentakserver.io/ubuntu_installer -Ls | bash -`
 
 ### Raspberry Pi
 
-`curl https://i.opentakserver.io/raspberry_pi_installer -L | bash -`
+`curl https://i.opentakserver.io/raspberry_pi_installer -Ls | bash -`
+
+### Rocky 9
+
+`curl -s -L https://i.opentakserver.io/rocky_linux_installer | bash -`
 
 ### Windows
 
@@ -57,7 +64,7 @@ Open PowerShell as an administrator and run the following command
 
 ### MacOS
 
-Coming soon
+`curl -Ls https://i.opentakserver.io/macos_installer | bash -`
 
 ## Documentation
 
