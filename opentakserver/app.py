@@ -60,10 +60,10 @@ def init_extensions(app):
     db.init_app(app)
     Migrate(app, db)
 
-    from opentakserver.logo import ots_logo
+    #from opentakserver.logo import ots_logo
 
-    f = Figlet(font=random.choice(app.config.get("OTS_FIGLET_FONTS")), justify="center", width=app.config.get("OTS_FIGLET_WIDTH"))
-    print(ots_logo)
+    #f = Figlet(font=random.choice(app.config.get("OTS_FIGLET_FONTS")), justify="center", width=app.config.get("OTS_FIGLET_WIDTH"))
+    #print(ots_logo)
     #logger.info(f.renderText(f"\nOpenTAKServer {opentakserver.__version__}\n"))
     logger.info(f"OpenTAKServer {opentakserver.__version__}")
     logger.info("Loading the database...")
