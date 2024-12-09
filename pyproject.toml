@@ -45,6 +45,7 @@ PyYAML = "6.0.2"
 sqlalchemy = "2.0.36"
 sqlalchemy-utils = "0.41.2"
 tldextract = "5.1.2"
+tzdata = "*"
 unishox2-py3 = "1.0.0"
 
 [project.optional-dependencies]
