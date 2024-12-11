@@ -747,8 +747,8 @@ def get_role_by_guid(mission_guid: str):
         return jsonify({'success': False, 'error': f'No mission found with guid: {mission_guid}'}), 404
     mission = mission[0]
 
-    response = {"version": "3", "type": "com.bbn.marti.sync.model.MissionRole", "data": [mission.roles[0].to_json()['role']], "nodeId": app.config.get("OTS_NODE_ID")}
-    logger.error(response)
+    response = {"version": "3", "type": "com.bbn.marti.sync.model.MissionRole", "data": mission.roles[0].to_json()['role'], "nodeId": app.config.get("OTS_NODE_ID")}
+
     return jsonify(response)
 
 
@@ -1335,17 +1335,28 @@ def add_content(mission_name):
 
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/cot')
-def get_mission_cots(mission_name: str):
+@mission_marti_api.route('/Marti/api/missions/guid/<mission_guid>/cot')
+def get_mission_cots(mission_name: str = None, mission_guid: str = None):
     """
     Used by the Data Sync plugin to get all CoTs associated with a feed. Returns the CoTs encapsulated by an
     <events> tag
     """
 
-    permission_granted = check_permission(mission_name)
+    permission_granted = check_permission(mission_name, mission_guid)
     if isinstance(permission_granted, flask.Response):
         return permission_granted
 
-    cots = db.session.execute(db.session.query(CoT).filter_by(mission_name=mission_name)).all()
+    if mission_name:
+        cots = db.session.execute(db.session.query(CoT).filter_by(mission_name=mission_name)).all()
+    elif mission_guid:
+        mission = db.session.execute(db.session.query(Mission).filter_by(guid=mission_guid)).first()
+        if mission:
+            mission_name = mission[0].name
+            cots = db.session.execute(db.session.query(CoT).filter_by(mission_name=mission_name)).all()
+        else:
+            cots = []
+    else:
+        cots = []
 
     events = Element("events")
 
