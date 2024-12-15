@@ -638,6 +638,23 @@ def mission_roles(mission_name: str):
     return jsonify(response)
 
 
+@mission_marti_api.route('/Marti/api/missions/guid/<mission_guid>/subscriptions/roles')
+def mission_roles_by_guid(mission_guid: str):
+    permission_granted = check_permission(mission_guid=mission_guid)
+    if isinstance(permission_granted, flask.Response):
+        return permission_granted
+
+    response = {"version": "3", "type": "MissionSubscription", "data": [], "nodeId": app.config.get("OTS_NODE_ID")}
+    mission = db.session.execute(db.session.query(Mission).filter_by(guid=mission_guid)).first()
+    if mission:
+        mission = mission[0]
+        roles = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission.name))
+        for role in roles:
+            response['data'].append(role[0].to_json())
+
+    return jsonify(response)
+
+
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/role', methods=['PUT'])
 def change_eud_role(mission_name: str):
     """ Used by Data Sync to change EUD mission roles or kick an EUD off of a mission """
@@ -730,8 +747,8 @@ def get_role_by_guid(mission_guid: str):
         return jsonify({'success': False, 'error': f'No mission found with guid: {mission_guid}'}), 404
     mission = mission[0]
 
-    response = {"version": "3", "type": "com.bbn.marti.sync.model.MissionRole", "data": [mission.roles[0].to_json()['role']], "nodeId": app.config.get("OTS_NODE_ID")}
-    logger.error(response)
+    response = {"version": "3", "type": "com.bbn.marti.sync.model.MissionRole", "data": mission.roles[0].to_json()['role'], "nodeId": app.config.get("OTS_NODE_ID")}
+
     return jsonify(response)
 
 
@@ -776,12 +793,23 @@ def put_mission_keywords(mission_name):
 
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/subscription', methods=['PUT'])
-def mission_subscribe(mission_name: str):
+@mission_marti_api.route('/Marti/api/missions/guid/<mission_guid>/subscription', methods=['PUT'])
+def mission_subscribe(mission_name: str = None, mission_guid: str = None):
     """ Used by the Data Sync plugin to subscribe to a feed """
 
-    mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
-    if not mission:
+    # ?uid=ANDROID-CloudTAK-administrator
+
+    if mission_name:
+        mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
+    elif mission_guid:
+        mission = db.session.execute(db.session.query(Mission).filter_by(guid=mission_guid)).first()
+    else:
+        mission = None
+
+    if not mission and mission_name:
         return jsonify({'success': False, 'error': f"Cannot find mission {mission_name}"}), 404
+    if not mission and mission_guid:
+        return jsonify({'success': False, 'error': f"Cannot find mission {mission_guid}"}), 404
 
     mission = mission[0]
 
@@ -1307,17 +1335,28 @@ def add_content(mission_name):
 
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/cot')
-def get_mission_cots(mission_name: str):
+@mission_marti_api.route('/Marti/api/missions/guid/<mission_guid>/cot')
+def get_mission_cots(mission_name: str = None, mission_guid: str = None):
     """
     Used by the Data Sync plugin to get all CoTs associated with a feed. Returns the CoTs encapsulated by an
     <events> tag
     """
 
-    permission_granted = check_permission(mission_name)
+    permission_granted = check_permission(mission_name, mission_guid)
     if isinstance(permission_granted, flask.Response):
         return permission_granted
 
-    cots = db.session.execute(db.session.query(CoT).filter_by(mission_name=mission_name)).all()
+    if mission_name:
+        cots = db.session.execute(db.session.query(CoT).filter_by(mission_name=mission_name)).all()
+    elif mission_guid:
+        mission = db.session.execute(db.session.query(Mission).filter_by(guid=mission_guid)).first()
+        if mission:
+            mission_name = mission[0].name
+            cots = db.session.execute(db.session.query(CoT).filter_by(mission_name=mission_name)).all()
+        else:
+            cots = []
+    else:
+        cots = []
 
     events = Element("events")
 

@@ -95,6 +95,48 @@ class VideoStream(db.Model):
                 'thumbnail': f"{protocol}://{hostname}:{port}/api/videos/thumbnail?path={self.path}"
             }
 
+    def to_marti_json(self):
+        url = urlparse(request.url_root)
+        protocol = url.scheme
+        hostname = url.hostname
+        port = url.port
+        if not port and protocol == 'https':
+            port = 443
+        elif not port and protocol == 'http':
+            port = 80
+
+        video_uuid = str(uuid.uuid4())
+
+        return {
+            "active": True,
+            "alias": self.path,
+            "thumbnail": "",
+            "classification": "",
+            "feeds": [{"uuid": video_uuid,
+                      "active": True,
+                       "alias": self.path,
+                       "url": f"{protocol}://{hostname}:{port}/hls/{self.path}/index.m3u8",
+                       "order": 0,
+                       "macAddress": self.preferred_mac_address,
+                       "roverPort": str(self.rover_port),
+                       "ignoreEmbeddedKLV": str(self.ignore_embedded_klv),
+                       "source": f"{protocol}://{hostname}:{port}/hls/{self.path}/index.m3u8",
+                       "networkTimeout": str(self.network_timeout),
+                       "bufferTime": str(self.buffer_time),
+                       "rtspReliable": str(self.rtsp_reliable),
+                       "thumbnail": "",
+                       "classification": "",
+                       "latitude": "",
+                       "longitude": "",
+                       "fov": "",
+                       "heading": "",
+                       "range": "",
+                       "width": 0,
+                       "height": 0,
+                       "bitrate": 0}],
+            "uuid": video_uuid
+        }
+
     def generate_xml(self, hostname):
 
         feed = Element('feed')

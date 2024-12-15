@@ -1,3 +1,4 @@
+import jwt
 import datetime
 import hashlib
 import os
@@ -356,7 +357,8 @@ def get_euds():
 @api_blueprint.route('/api/truststore')
 def get_truststore():
     filename = f"truststore_root_{urlparse(request.url_root).hostname}.p12"
-    return send_from_directory(app.config.get("OTS_CA_FOLDER"), 'truststore-root.p12', download_name=filename, as_attachment=True)
+    return send_from_directory(app.config.get("OTS_CA_FOLDER"), 'truststore-root.p12', download_name=filename,
+                               as_attachment=True)
 
 
 @api_blueprint.route('/api/map_state')
@@ -407,3 +409,28 @@ def get_icon():
 def get_settings():
     url = urlparse(request.url_root).hostname
     return "OpenTAKServer_{},{},{},SSL".format(url, url, app.config.get("OTS_SSL_STREAMING_PORT"))
+
+
+@api_blueprint.route('/files/api/config', methods=['GET', 'POST', 'PATCH'])
+def config():
+    logger.debug("files/api/config")
+    return ''
+
+
+@api_blueprint.route("/oauth/token", methods=['GET', 'POST'])
+def cloudtak_oauth_token():
+    user = app.security.datastore.find_user(username=request.args.get("username"))
+    if not user or not verify_password(request.args.get("password"), user.password):
+        return jsonify({'success': False, 'error': 'Invalid username or password'}), 400
+
+    with open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.nopass.key"), "rb") as key:
+        token = jwt.encode({
+            "exp": datetime.datetime.now() + datetime.timedelta(days=365),
+            "nbf": datetime.datetime.now(),
+            "iss": "OpenTAKServer",
+            "aud": "OpenTAKServer",
+            "iat": datetime.datetime.now(),
+            "sub": user.username
+        }, key.read(), algorithm="RS256")
+
+        return jsonify({"access_token": token})

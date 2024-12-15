@@ -173,3 +173,13 @@ def video():
             logger.error(traceback.format_exc())
             return '', 500
 
+
+@marti_api.route('/Marti/api/video')
+def get_videos():
+    videos = db.session.execute(db.select(VideoStream)).scalars()
+
+    video_connections = {'videoConnections': []}
+    for video in videos:
+        video_connections['videoConnections'].append(video.to_marti_json())
+
+    return jsonify(video_connections)
