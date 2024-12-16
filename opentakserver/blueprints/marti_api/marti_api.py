@@ -176,10 +176,21 @@ def video():
 
 @marti_api.route('/Marti/api/video')
 def get_videos():
+    cert = verify_client_cert()
+    if not cert:
+        # Shouldn't ever get here since nginx already verifies the cert
+        return jsonify({'success': False, 'error': 'Invalid Certificate'}), 400
+    username = None
+    for a in cert.get_subject().get_components():
+        if a[0].decode('UTF-8') == 'CN':
+            username = a[1].decode('UTF-8')
+            break
+
+    user = app.security.datastore.find_user(username=username)
     videos = db.session.execute(db.select(VideoStream)).scalars()
 
     video_connections = {'videoConnections': []}
     for video in videos:
-        video_connections['videoConnections'].append(video.to_marti_json())
+        video_connections['videoConnections'].append(video.to_marti_json(user))
 
     return jsonify(video_connections)

@@ -95,7 +95,7 @@ class VideoStream(db.Model):
                 'thumbnail': f"{protocol}://{hostname}:{port}/api/videos/thumbnail?path={self.path}"
             }
 
-    def to_marti_json(self):
+    def to_marti_json(self, user):
         url = urlparse(request.url_root)
         protocol = url.scheme
         hostname = url.hostname
@@ -115,7 +115,7 @@ class VideoStream(db.Model):
             "feeds": [{"uuid": video_uuid,
                       "active": True,
                        "alias": self.path,
-                       "url": f"{protocol}://{hostname}:{port}/hls/{self.path}/index.m3u8",
+                       "url": f"{protocol}://{hostname}:{port}/hls/{self.path}/index.m3u8?jwt={user.get_auth_token()}",
                        "order": 0,
                        "macAddress": self.preferred_mac_address,
                        "roverPort": str(self.rover_port),
