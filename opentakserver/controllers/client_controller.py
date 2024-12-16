@@ -265,7 +265,7 @@ class ClientController(Thread):
         self.shutdown = True
 
     def pong(self, event):
-        if 'uid' in event.attrs and event.attrs['uid'].endswith('ping'):
+        if event.attrs.get('type') == 't-x-c-t':
             now = datetime.datetime.now()
             stale = now + datetime.timedelta(seconds=10)
 
