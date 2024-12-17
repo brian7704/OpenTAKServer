@@ -1,4 +1,5 @@
 import json
+import math
 import re
 from datetime import datetime
 from xml.etree.ElementTree import Element, SubElement, tostring
@@ -156,3 +157,25 @@ def publish_cot(cot: Element, channel: pika.channel.Channel):
     channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
         {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
                           properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+
+
+def format_bytes(size_bytes: int | None):
+    if size_bytes == None or size_bytes == 0:
+        return "0B"
+    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    return f"{s} {size_name[i]}"
+
+
+def bytes_to_megabytes(size_bytes: int | None):
+    if not size_bytes:
+        return 0
+    return round(size_bytes / 1024**2, 2)
+
+
+def bytes_to_gigabytes(size_bytes: int | None):
+    if not size_bytes:
+        return 0
+    return round(size_bytes / 1024**3, 2)

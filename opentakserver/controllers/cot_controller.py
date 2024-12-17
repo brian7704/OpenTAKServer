@@ -1,4 +1,5 @@
 import base64
+import datetime
 import json
 import os
 import re
@@ -20,6 +21,7 @@ from meshtastic import mqtt_pb2, mesh_pb2, portnums_pb2, BROADCAST_NUM
 import unishox2
 
 from opentakserver.functions import *
+from opentakserver.models.EUDStats import EUDStats
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
 from opentakserver.models.MissionUID import MissionUID
@@ -51,6 +53,7 @@ class CoTController(RabbitMQClient):
         self.rabbit_channel.queue_declare(queue='cot_controller')
         self.rabbit_channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
         self.rabbit_channel.queue_bind(exchange='cot_controller', queue='cot_controller')
+        self.rabbit_channel.basic_qos(prefetch_count=10)
         self.rabbit_channel.basic_consume(queue='cot_controller', on_message_callback=self.on_message, auto_ack=False)
         self.rabbit_channel.add_on_close_callback(self.on_close)
 
@@ -833,6 +836,39 @@ class CoTController(RabbitMQClient):
                     rb_line.point = start_point
                     socketio.emit("rb_line", rb_line.to_json(), namespace='/socket.io')
 
+    def parse_stats(self, event, uid):
+        stats = event.find('stats')
+        eud_stats = EUDStats()
+        if stats:
+            eud_stats.timestamp = datetime_from_iso8601_string(event.attrs.get('time'))
+            eud_stats.eud_uid = uid
+            eud_stats.battery_status = stats.attrs.get('battery_status')
+            eud_stats.ip_address = stats.attrs.get('ip_address')
+            if stats.attrs.get('app_framerate'):
+                eud_stats.app_framerate = int(stats.attrs.get('app_framerate'))
+            if stats.attrs.get('deviceDataRx'):
+                eud_stats.deviceDataRx = int(stats.attrs.get('deviceDataRx'))
+            if stats.attrs.get('deviceDataTx'):
+                eud_stats.deviceDataTx = int(stats.attrs.get('deviceDataTx'))
+            if stats.attrs.get('heap_current_size'):
+                eud_stats.heap_current_size = int(stats.attrs.get('heap_current_size'))
+            if stats.attrs.get('heap_free_size'):
+                eud_stats.heap_free_size = int(stats.attrs.get('heap_free_size'))
+            if stats.attrs.get('heap_max_size'):
+                eud_stats.heap_max_size = int(stats.attrs.get('heap_max_size'))
+            if stats.attrs.get('storage_available'):
+                eud_stats.storage_available = int(stats.attrs.get('storage_available'))
+            if stats.attrs.get('storage_total'):
+                eud_stats.storage_total = int(stats.attrs.get('storage_total'))
+            if stats.attrs.get('battery_temp'):
+                eud_stats.battery_temp = int(stats.attrs.get('battery_temp'))
+            if stats.attrs.get('battery'):
+                eud_stats.battery = int(stats.attrs.get('battery').replace('%', ''))
+
+            with self.context:
+                self.db.session.add(eud_stats)
+                self.db.session.commit()
+
     def rabbitmq_routing(self, event, data):
         # RabbitMQ Routing
         chat = event.find("__chat")
@@ -941,6 +977,8 @@ class CoTController(RabbitMQClient):
             soup = BeautifulSoup(body['cot'], 'xml')
             event: BeautifulSoup = soup.find('event')
 
+            self.logger.warning("Got message : " + iso8601_string_from_datetime(datetime.now()) + " " + event.attrs["time"])
+
             uid = body['uid'] or event.attrs['uid']
             if uid == self.context.app.config['OTS_NODE_ID']:
                 uid = None
@@ -955,8 +993,11 @@ class CoTController(RabbitMQClient):
                 self.parse_casevac(event, uid, point_pk, cot_pk)
                 self.parse_marker(event, uid, point_pk, cot_pk)
                 self.parse_rbline(event, uid, point_pk, cot_pk)
+                self.parse_stats(event, uid)
                 self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
                 self.rabbitmq_routing(event, body)
+
+                self.logger.info("Finished parsing " + iso8601_string_from_datetime(datetime.now()) + " " + event.attrs.get('time'))
 
                 # EUD went offline
                 if event.attrs['type'] == 't-x-d-d':
