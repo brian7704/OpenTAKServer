@@ -113,3 +113,15 @@ def get_group(group_name: str, direction: str):
 
     return jsonify({"version": "3", "type": "com.bbn.marti.remote.groups.Group", "data": group[0].to_json(),
                     "nodeId": app.config.get("OTS_NODE_ID")})
+
+
+@group_api.route('/Marti/api/subscriptions/all')
+def get_all_subscriptions():
+    sortBy = request.args.get("sortBy")
+    direction = request.args.get("direction")
+    page = request.args.get("page")
+    limit = request.args.get("limit")
+
+    response = {"version": "3", "type": "SubscriptionInfo", "data": [], "messages": [], "nodeId": app.config.get("OTS_NODE_ID")}
+
+    return jsonify(response)
