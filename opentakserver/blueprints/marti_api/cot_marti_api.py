@@ -1,7 +1,6 @@
 import datetime
 from xml.etree.ElementTree import Element, fromstring, tostring
 
-import sqlalchemy.orm
 from flask import Blueprint, request, jsonify
 
 from opentakserver.functions import datetime_from_iso8601_string
@@ -18,16 +17,16 @@ based on the API docs until I find an example of them actually being used by a T
 
 @cot_marti_api.route('/Marti/api/cot')
 def get_cots():
-    logger.info(request.headers)
-    logger.info(request.args)
+    logger.debug(request.headers)
+    logger.debug(request.args)
 
     return '', 200
 
 
 @cot_marti_api.route('/Marti/api/cot/xml/<uid>')
 def get_cot(uid):
-    logger.info(request.headers)
-    logger.info(request.args)
+    logger.debug(request.headers)
+    logger.debug(request.args)
 
     cot = db.session.execute(db.session.query(CoT).filter_by(uid=uid)).first()
     if not cot:
@@ -38,8 +37,8 @@ def get_cot(uid):
 
 @cot_marti_api.route('/Marti/api/cot/xml/<uid>/all')
 def get_all_cot(uid):
-    logger.info(request.headers)
-    logger.info(request.args)
+    logger.debug(request.headers)
+    logger.debug(request.args)
 
     sec_ago = request.args.get('secago')
     start = request.args.get('start')
@@ -47,7 +46,10 @@ def get_all_cot(uid):
 
     query = db.session.query(CoT).filter_by(uid=uid)
     if sec_ago:
-        query = query.filter(CoT.start >= datetime.timedelta(seconds=sec_ago))
+        try:
+            query = query.filter(CoT.start >= datetime.timedelta(seconds=int(sec_ago)))
+        except ValueError:
+            return jsonify({'success': False, 'error': f'Invalid secago value: {sec_ago}'}), 400
     if start:
         query = query.filter(CoT.start >= datetime_from_iso8601_string(start))
     if end:
@@ -64,8 +66,8 @@ def get_all_cot(uid):
 
 @cot_marti_api.route('/Marti/api/cot/sa')
 def get_cot_by_time_and_bbox():
-    logger.info(request.headers)
-    logger.info(request.args)
+    logger.debug(request.headers)
+    logger.debug(request.args)
 
     start = request.args.get('start')
     end = request.args.get('end')
