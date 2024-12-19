@@ -230,7 +230,6 @@ def get_mission_by_guid(mission_guid: str):
     if mission.password_protected and not verify_password(password, mission.password):
         return jsonify({'success': False, 'error': 'Invalid password'}), 401
 
-    logger.info({'version': "3", 'type': 'Mission', 'data': [mission.to_json()], 'nodeId': app.config.get("OTS_NODE_ID")})
     return jsonify({'version': "3", 'type': 'Mission', 'data': [mission.to_json()], 'nodeId': app.config.get("OTS_NODE_ID")})
 
 
@@ -1364,3 +1363,8 @@ def get_mission_cots(mission_name: str = None, mission_guid: str = None):
         events.append(fromstring(cot[0].xml))
 
     return tostring(events).decode('utf-8'), 200
+
+
+@mission_marti_api.route('/Marti/api/missions/<mission_name>/layers')
+def get_mission_layers():
+    return ''
