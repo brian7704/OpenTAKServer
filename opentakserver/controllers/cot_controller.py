@@ -977,8 +977,6 @@ class CoTController(RabbitMQClient):
             soup = BeautifulSoup(body['cot'], 'xml')
             event: BeautifulSoup = soup.find('event')
 
-            self.logger.warning("Got message : " + iso8601_string_from_datetime(datetime.now()) + " " + event.attrs["time"])
-
             uid = body['uid'] or event.attrs['uid']
             if uid == self.context.app.config['OTS_NODE_ID']:
                 uid = None
@@ -996,8 +994,6 @@ class CoTController(RabbitMQClient):
                 self.parse_stats(event, uid)
                 self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
                 self.rabbitmq_routing(event, body)
-
-                self.logger.info("Finished parsing " + iso8601_string_from_datetime(datetime.now()) + " " + event.attrs.get('time'))
 
                 # EUD went offline
                 if event.attrs['type'] == 't-x-d-d':
