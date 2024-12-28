@@ -1,6 +1,8 @@
 import datetime
 import json
+import time
 import traceback
+import uuid
 from xml.etree.ElementTree import tostring
 
 import pika
@@ -10,6 +12,7 @@ import adsbxcot
 import aiscot
 from flask import current_app as app
 from sqlalchemy import delete
+import csv
 
 from opentakserver.extensions import apscheduler, logger, db
 import requests
@@ -35,7 +38,8 @@ from opentakserver.models.Team import Team
 from opentakserver.models.VideoRecording import VideoRecording
 from opentakserver.models.VideoStream import VideoStream
 from opentakserver.models.ZMIST import ZMIST
-from opentakserver.functions import iso8601_string_from_datetime, datetime_from_iso8601_string, generate_delete_cot, publish_cot
+from opentakserver.functions import iso8601_string_from_datetime, datetime_from_iso8601_string, generate_delete_cot, \
+    publish_cot
 
 scheduler_blueprint = Blueprint('scheduler_blueprint', __name__)
 
@@ -49,7 +53,8 @@ def get_airplanes_live_data():
                                      app.config["OTS_AIRPLANES_LIVE_LON"],
                                      app.config["OTS_AIRPLANES_LIVE_RADIUS"]))
             if r.status_code == 200:
-                rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+                rabbit_connection = pika.BlockingConnection(
+                    pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
                 channel = rabbit_connection.channel()
 
                 for craft in r.json()['ac']:
@@ -61,11 +66,13 @@ def get_airplanes_live_data():
                     # noinspection PyTypeChecker
                     channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
                         {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
-                                          properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+                                          properties=pika.BasicProperties(
+                                              expiration=app.config.get("OTS_RABBITMQ_TTL")))
                     # noinspection PyTypeChecker
                     channel.basic_publish(exchange='cot_controller', routing_key='', body=json.dumps(
                         {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
-                                          properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+                                          properties=pika.BasicProperties(
+                                              expiration=app.config.get("OTS_RABBITMQ_TTL")))
 
                 channel.close()
                 rabbit_connection.close()
@@ -88,8 +95,9 @@ def delete_video_recordings():
                 recordings = r.json()
                 for path in recordings['items']:
                     for recording in path['segments']:
-                        r = requests.delete('{}/v3/recordings/deletesegment'.format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"),),
-                                            params={'start': recording['start'], 'path': path['name']})
+                        r = requests.delete(
+                            '{}/v3/recordings/deletesegment'.format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"), ),
+                            params={'start': recording['start'], 'path': path['name']})
                         if r.status_code != 200:
                             logger.error(
                                 "Failed to delete {} from {}: {}".format(recording['start'], path['name'], r.text))
@@ -152,7 +160,8 @@ def get_aishub_data():
                 logger.error(f"Failed to get AIS data: {r.text}")
                 return
 
-            rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+            rabbit_connection = pika.BlockingConnection(
+                pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
             channel = rabbit_connection.channel()
             for vessel in r.json()[1]:
                 event = aiscot.ais_to_cot(vessel, None, None)
@@ -217,3 +226,97 @@ def delete_old_data():
     rabbit_connection.close()
 
     logger.info(f"Deleted data older than {iso8601_string_from_datetime(timestamp)}")
+
+    def create_cot_xml_payload_line(latitude: float, longitude: float, bearing: float, timestamp: int) -> str:
+        timestamp = iso8601_string_from_datetime(datetime.datetime.fromtimestamp(timestamp))
+        return f"""<?xml version='1.0' encoding='utf-8' standalone='yes'?>
+            <event version='2.0' uid='{uuid.uuid4()}' type='u-d-f' time='{timestamp}'
+            start='{timestamp}'
+            stale='{iso8601_string_from_datetime(timestamp + datetime.timedelta(seconds=75))}' how='h-e'>
+                <point lat='{latitude}' lon='{longitude}' hae='999999' ce='35.0' le='999999'/>
+                <detail>
+                    <range value="1000"/>
+                    <bearing value="{bearing}"/>
+                    <inclination value="0"/>
+                    <rangeUnits value="1"/>
+                    <bearingUnits value="0"/>
+                    <northRef value="1"/>
+                    <contact callsign="KrakenSDR"/>
+                    <strokeColor value="-65536"/>
+                    <strokeWeight value="3.0"/>
+                    <strokeStyle value="solid"/>
+                    <remarks/>
+                    <archive/>
+                    <color value="-65536"/>
+                    <labels_on value="false"/>
+                </detail>
+            </event>
+        """
+
+    def create_cot_xml_payload_point(latitude: float, longitude: float, callsign: str, timestamp: int) -> str:
+        timestamp = iso8601_string_from_datetime(datetime.datetime.fromtimestamp(timestamp))
+        return f"""<?xml version="1.0"?>
+        <event version="2.0" uid="{str(uuid.uuid4())}" type="a-f-G-U-C"
+        time="{timestamp}"
+        start="{timestamp}"
+        stale="{iso8601_string_from_datetime(timestamp + datetime.timedelta(seconds=75))}"
+        how="m-g">
+            <point lat="{latitude}" lon="{longitude}" hae="999999" ce="35.0" le="999999" />
+            <detail>
+                <status readiness="true"/>
+                <archive/>
+                <usericon iconsetpath="COT_MAPPING_2525C/a-f/a-f-G-U-C"/>
+                <remarks/>
+                <precisionlocation geopointsrc="GPS" altsrc="DTED0"/>
+                <contact callsign="{callsign}" />
+                <color argb="-1"/>
+            </detail>
+        </event>"""
+
+    @apscheduler.task('interval', name="KrakenSDR", id='kraken_sdr', next_run_time=None)
+    def kraken_sdr():
+        with apscheduler.app.app_context():
+            url = f"{app.config.get('OTS_KRAKENSDR_ADDRESS')}/DOA_value.html"
+            r = requests.get(url)
+            if r.status_code != 200:
+                return
+
+            data = list(csv.reader(r.text))
+            latest_data = data[-1]
+            try:
+                timestamp = int(latest_data[0])
+            except:
+                timestamp = int(time.time())
+            doa = int(latest_data[1])
+            confidence = int(latest_data[2])
+            rssi = int(latest_data[3])
+            freq = int(latest_data[4])
+            antenna_arrangement = latest_data[5]
+            latency = int(latest_data[6])
+            station_id = latest_data[7]
+            lat = float(latest_data[8])
+            lon = float(latest_data[9])
+            try:
+                gps_heading = int(latest_data[10])
+            except:
+                gps_heading = 0
+            try:
+                compass_heading = int(latest_data[11])
+            except:
+                compass_heading = 0
+
+            heading_sensor = latest_data[12]
+
+            rabbit_connection = pika.BlockingConnection(
+                pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+            channel = rabbit_connection.channel()
+
+            point_cot = create_cot_xml_payload_point(lat, lon, station_id, timestamp)
+            line_cot = create_cot_xml_payload_line(lat, lon, doa, timestamp)
+
+            channel.basic_publish(exchange='cot', routing_key='',
+                                  body=json.dumps({'cot': point_cot, 'uid': app.config['OTS_NODE_ID']}),
+                                  properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+            channel.basic_publish(exchange='cot', routing_key='',
+                                  body=json.dumps({'cot': line_cot, 'uid': app.config['OTS_NODE_ID']}),
+                                  properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
