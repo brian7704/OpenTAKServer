@@ -70,3 +70,6 @@ Open PowerShell as an administrator and run the following command
 
 https://docs.opentakserver.io
 
+## Supporting the project
+
+If you would like to support the project you can do so [here](https://buymeacoffee.com/opentakserver)
