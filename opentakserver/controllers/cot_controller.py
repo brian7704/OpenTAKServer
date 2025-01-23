@@ -68,10 +68,16 @@ class CoTController(RabbitMQClient):
 
         callsign = None
         phone_number = None
+
+        # EUDs running the Meshtastic and dmrcot plugins can relay messages from their RF networks to the server
+        # so we want to use the UID of the "off grid" EUD, not the relay EUD
         takv = event.find('takv')
+        if takv:
+            uid = event.attrs.get('uid')
 
         # Only assume it's an EUD if it's got a <takv> tag
         if takv and uid and uid not in self.online_euds and not uid.endswith('ping'):
+            self.logger.info("Got PLI " + uid)
             device = takv.attrs['device'] if 'device' in takv.attrs else ""
             operating_system = takv.attrs['os'] if 'os' in takv.attrs else ""
             platform = takv.attrs['platform'] if 'platform' in takv.attrs else ""
@@ -89,7 +95,7 @@ class CoTController(RabbitMQClient):
                         self.online_callsigns[callsign] = {'uid': uid, 'cot': soup, 'last_meshtastic_publish': 0}
 
                     # Declare a RabbitMQ Queue for this uid and join the 'dms' and 'cot' exchanges
-                    if self.rabbit_channel and self.rabbit_channel.is_open and platform != "OpenTAK ICU" and platform != "Meshtastic":
+                    if self.rabbit_channel and self.rabbit_channel.is_open and platform != "OpenTAK ICU" and platform != "Meshtastic" and platform != "DMRCOT":
                         self.rabbit_channel.queue_bind(exchange='dms', queue=uid, routing_key=uid)
                         self.rabbit_channel.queue_bind(exchange='chatrooms', queue=uid,
                                                        routing_key='All Chat Rooms')
@@ -111,7 +117,7 @@ class CoTController(RabbitMQClient):
 
                 if group:
                     # Declare an exchange for each group and bind the callsign's queue
-                    if self.rabbit_channel.is_open and group.attrs['name'] not in self.exchanges and platform != "Meshtastic":
+                    if self.rabbit_channel.is_open and group.attrs['name'] not in self.exchanges and platform != "Meshtastic" and platform != "DMRCOT":
                         self.logger.debug("Declaring exchange {}".format(group.attrs['name']))
                         self.rabbit_channel.exchange_declare(exchange=group.attrs['name'])
                         self.rabbit_channel.queue_bind(queue=uid, exchange='chatrooms',
@@ -185,6 +191,8 @@ class CoTController(RabbitMQClient):
                     self.db.session.add(eud)
                     self.db.session.commit()
                 except sqlalchemy.exc.IntegrityError:
+                    self.logger.info("Already have this eud: " + eud.callsign)
+                    self.logger.info(traceback.format_exc())
                     self.db.session.rollback()
                     self.db.session.execute(update(EUD).where(EUD.uid == eud.uid).values(**eud.serialize()))
                     self.db.session.commit()
@@ -211,7 +219,10 @@ class CoTController(RabbitMQClient):
 
         # Update the CoT stored in memory which contains the new stale time
         elif takv:
+            self.logger.warning(f"This EUD is already online: {uid} {callsign}")
             self.online_euds[uid]['cot'] = str(soup)
+        else:
+            self.logger.error(f"Not pli takv: {takv}, uid: {uid}, online: {self.online_euds}")
 
     def insert_cot(self, soup, event, uid):
         try:
@@ -552,7 +563,7 @@ class CoTController(RabbitMQClient):
             for attr in chat_group.attrs:
                 if attr.startswith("uid") and attr != 'uid':
 
-                    if chat.attrs['groupOwner'].lower() == 'true' and attr == 'uid0':
+                    if 'groupOwner' in chat.attrs and chat.attrs['groupOwner'].lower() == 'true' and attr == 'uid0':
                         with self.context:
                             self.db.session.execute(update(Chatroom).where(Chatroom.id == chat.attrs['id'])
                                                     .values(group_owner=chat_group.attrs[attr]))
@@ -721,14 +732,15 @@ class CoTController(RabbitMQClient):
                                     filename = marker.iconset_path.split("/")[-1]
 
                                     try:
-                                        icon = self.db.session.execute(self.db.session.query(Icon)
-                                                                       .filter(Icon.filename == filename)).first()[0]
+                                        icon = self.db.session.execute(self.db.session.query(Icon).filter(Icon.filename == filename)).first()[0]
                                         marker.icon_id = icon.id
                                     except:
-                                        icon = self.db.session.execute(self.db.session.query(Icon)
-                                        .filter(
-                                            Icon.filename == 'marker-icon.png')).first()[0]
-                                        marker.icon_id = icon.id
+                                        icon = self.db.session.execute(self.db.session.query(Icon).filter(
+                                            Icon.filename == 'marker-icon.png')).first()
+                                        if icon is None:
+                                            marker.icon_id = None
+                                        else:
+                                            marker.icon_id = icon.id
                             elif not marker.mil_std_2525c:
                                 with self.context:
                                     icon = self.db.session.execute(self.db.session.query(Icon)

@@ -1,8 +1,7 @@
 from dataclasses import dataclass
-from datetime import datetime
 
 from opentakserver.extensions import db
-from sqlalchemy import Integer, String, ForeignKey, Boolean, DateTime
+from sqlalchemy import Integer, String, ForeignKey, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.functions import iso8601_string_from_datetime
