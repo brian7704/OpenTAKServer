@@ -46,8 +46,7 @@ import argparse
 def args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ssl", help="Enable SSL", default=False, action=argparse.BooleanOptionalAction)
-    args = parser.parse_args()
-    return args.opts
+    return parser.parse_args()
 
 
 def setup_logging(app):
@@ -59,7 +58,7 @@ def setup_logging(app):
     if sys.stdout.isatty():
         color_log_handler = colorlog.StreamHandler()
         color_log_formatter = colorlog.ColoredFormatter(
-            '%(log_color)s[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s',
+            '%(log_color)s[%(asctime)s] - eud_handler[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s',
             datefmt="%Y-%m-%d %H:%M:%S")
         color_log_handler.setFormatter(color_log_formatter)
         logger.addHandler(color_log_handler)
@@ -70,14 +69,15 @@ def setup_logging(app):
                                   interval=app.config.get("OTS_LOG_ROTATE_INTERVAL"),
                                   backupCount=app.config.get("OTS_BACKUP_COUNT"))
     fh.setFormatter(logging.Formatter(
-        "[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))
+        "[%(asctime)s] - eud_handler[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))
     logger.addHandler(fh)
+
+    logger.info(f"Debug: {app.config.get('DEBUG')}")
 
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(DefaultConfig)
-    setup_logging(app)
 
     # Load config.yml if it exists
     if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
@@ -95,6 +95,7 @@ def create_app():
                     conf[option] = DefaultConfig.__dict__[option]
             config.write(yaml.safe_dump(conf))
 
+    setup_logging(app)
     db.init_app(app)
 
     # The rest is required by flask, leave it in
@@ -118,8 +119,10 @@ def main():
     opts = args()
     if opts.ssl:
         socket_server = SocketServer(logger, app.app_context(), app.config.get("OTS_SSL_STREAMING_PORT"), True)
+        logger.info(f"Started SSL server on port {app.config.get('OTS_SSL_STREAMING_PORT')}")
     else:
         socket_server = SocketServer(logger, app.app_context(), app.config.get("OTS_TCP_STREAMING_PORT"))
+        logger.info(f"Started TCP server on port {app.config.get('OTS_TCP_STREAMING_PORT')}")
     socket_server.run()
 
 

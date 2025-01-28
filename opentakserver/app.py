@@ -104,7 +104,7 @@ def init_extensions(app):
     socketio_logger = False
     if app.config.get("DEBUG"):
         socketio_logger = logger
-    socketio.init_app(app, logger=socketio_logger)
+    socketio.init_app(app, logger=socketio_logger, ping_timeout=1)
 
     rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
     channel = rabbit_connection.channel()
