@@ -40,14 +40,15 @@ from opentakserver.functions import iso8601_string_from_datetime, datetime_from_
 scheduler_blueprint = Blueprint('scheduler_blueprint', __name__)
 
 
-@apscheduler.task("interval", name="Airplanes.live", id='get_airplanes_live_data', next_run_time=None)
 def get_airplanes_live_data():
     with apscheduler.app.app_context():
+        logger.info("Running job")
         try:
             r = requests.get('https://api.airplanes.live/v2/point/{}/{}/{}'
                              .format(app.config["OTS_AIRPLANES_LIVE_LAT"],
                                      app.config["OTS_AIRPLANES_LIVE_LON"],
                                      app.config["OTS_AIRPLANES_LIVE_RADIUS"]))
+            logger.info(r.text)
             if r.status_code == 200:
                 rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
                 channel = rabbit_connection.channel()
@@ -76,7 +77,6 @@ def get_airplanes_live_data():
             logger.error(traceback.format_exc())
 
 
-@apscheduler.task("interval", name="Delete Video Recordings", id="delete_video_recordings", next_run_time=None)
 def delete_video_recordings():
     with apscheduler.app.app_context():
         VideoRecording.query.delete()
@@ -97,7 +97,6 @@ def delete_video_recordings():
             logger.error("Failed to delete recordings: {}".format(e))
 
 
-@apscheduler.task("cron", id="purge_data", name="Purge Data", day="*", hour=0, minute=0, next_run_time=None)
 def purge_data():
     # These are in a specific order to properly handle foreign key relationships
     delete_video_recordings()
@@ -125,7 +124,6 @@ def purge_data():
     logger.info("Purged all data")
 
 
-@apscheduler.task("interval", id="ais", name="AISHub.net", next_run_time=None)
 def get_aishub_data():
     if not app.config.get("OTS_AISHUB_USERNAME"):
         logger.error("Please set your AISHub username")
@@ -172,7 +170,6 @@ def get_aishub_data():
             logger.debug(traceback.format_exc())
 
 
-@apscheduler.task('interval', name="Delete Old Data", id='delete_old_data', next_run_time=None)
 def delete_old_data():
     timestamp = datetime.datetime.now() - datetime.timedelta(
         seconds=app.config.get("OTS_DELETE_OLD_DATA_SECONDS"),
