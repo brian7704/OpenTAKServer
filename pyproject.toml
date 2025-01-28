@@ -69,3 +69,4 @@ build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.poetry.scripts]
 opentakserver = "opentakserver.app:main"
+eud_handler = "opentakserver.eud_handler.eud_handler:main"

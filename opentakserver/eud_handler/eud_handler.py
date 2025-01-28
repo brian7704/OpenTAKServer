@@ -1,7 +1,6 @@
 import os
 import platform
 import sys
-import traceback
 from logging.handlers import TimedRotatingFileHandler
 
 import sqlalchemy
@@ -9,8 +8,8 @@ import yaml
 from flask_security import SQLAlchemyUserDatastore
 from flask_security.models import fsqla
 
+# These unused imports are required by SQLAlchemy, don't remove them
 from opentakserver.eud_handler.SocketServer import SocketServer
-from opentakserver.controllers.client_controller import ClientController
 from opentakserver.models.EUD import EUD
 from opentakserver.models.CoT import CoT
 from opentakserver.models.Point import Point
@@ -41,27 +40,37 @@ from opentakserver.defaultconfig import DefaultConfig
 import colorlog
 from flask import Flask
 import logging
+import argparse
+
+
+def args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ssl", help="Enable SSL", default=False, action=argparse.BooleanOptionalAction)
+    args = parser.parse_args()
+    return args.opts
 
 
 def setup_logging(app):
-    level = logging.DEBUG
-    #if app.config.get("DEBUG"):
-    #    level = logging.DEBUG
+    level = logging.INFO
+    if app.config.get("DEBUG"):
+        level = logging.DEBUG
     logger.setLevel(level)
 
     if sys.stdout.isatty():
         color_log_handler = colorlog.StreamHandler()
         color_log_formatter = colorlog.ColoredFormatter(
-            '%(log_color)s[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
+            '%(log_color)s[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s',
+            datefmt="%Y-%m-%d %H:%M:%S")
         color_log_handler.setFormatter(color_log_formatter)
         logger.addHandler(color_log_handler)
-        logger.info("Added color logger")
 
     os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs"), exist_ok=True)
     fh = TimedRotatingFileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'opentakserver.log'),
-                                  when=app.config.get("OTS_LOG_ROTATE_WHEN"), interval=app.config.get("OTS_LOG_ROTATE_INTERVAL"),
+                                  when=app.config.get("OTS_LOG_ROTATE_WHEN"),
+                                  interval=app.config.get("OTS_LOG_ROTATE_INTERVAL"),
                                   backupCount=app.config.get("OTS_BACKUP_COUNT"))
-    fh.setFormatter(logging.Formatter("[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))
+    fh.setFormatter(logging.Formatter(
+        "[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))
     logger.addHandler(fh)
 
 
@@ -88,6 +97,7 @@ def create_app():
 
     db.init_app(app)
 
+    # The rest is required by flask, leave it in
     try:
         fsqla.FsModels.set_db_info(db)
     except sqlalchemy.exc.InvalidRequestError:
@@ -102,6 +112,16 @@ def create_app():
 
 
 app = create_app()
-logger = colorlog.getLogger('OpenTAKServer')
-socket_server = SocketServer(logger, app.app_context(), 9999)
-socket_server.run()
+
+
+def main():
+    opts = args()
+    if opts.ssl:
+        socket_server = SocketServer(logger, app.app_context(), app.config.get("OTS_SSL_STREAMING_PORT"), True)
+    else:
+        socket_server = SocketServer(logger, app.app_context(), app.config.get("OTS_TCP_STREAMING_PORT"))
+    socket_server.run()
+
+
+if __name__ == "__main__":
+    main()
