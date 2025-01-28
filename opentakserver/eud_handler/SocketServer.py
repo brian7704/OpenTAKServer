@@ -6,10 +6,8 @@ from threading import Thread
 from opentakserver.controllers.client_controller import ClientController
 
 
-class SocketServer(Thread):
+class SocketServer:
     def __init__(self, logger, app_context=None, port=8088, ssl_server=False):
-        super().__init__()
-
         self.logger = logger
         self.port = port
         self.ssl = ssl_server
@@ -38,11 +36,10 @@ class SocketServer(Thread):
                 else:
                     self.logger.info("New TCP connection from {}".format(addr[0]))
 
-                self.clients.append(ClientController(addr[0], addr[1], sock, self.logger, self.app_context.app, self.ssl))
-                #new_thread = ClientController(addr[0], addr[1], sock, self.logger, self.app_context.app, self.ssl)
-                #new_thread.daemon = True
-                #new_thread.start()
-                #self.clients.append(new_thread)
+                new_thread = ClientController(addr[0], addr[1], sock, self.logger, self.app_context.app, self.ssl)
+                new_thread.daemon = True
+                new_thread.start()
+                self.clients.append(new_thread)
             except KeyboardInterrupt:
                 self.socket.close()
                 break

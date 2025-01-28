@@ -24,10 +24,10 @@ def authenticated_only(f):
 @socketio.on('connect', namespace="/socket.io")
 @authenticated_only
 def connect(data):
-    logger.info('got a socketio connection from {}'.format(current_user.username))
+    logger.debug('got a socketio connection from {}'.format(current_user.username))
 
 
 @socketio.on('message', namespace="/socket.io")
 @authenticated_only
 def message(message):
-    logger.info("Got a message".format(message))
+    logger.debug("Got a message".format(message))

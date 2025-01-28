@@ -1,35 +1,48 @@
 import base64
+import logging
+import platform
+from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
+
+import colorlog
 import datetime
-import json
 import os
-import re
 import time
 import traceback
-
+import sys
+import argparse
 import random
-from xml.etree.ElementTree import Element, tostring
-
-import bleach
 import flask_sqlalchemy
+
+import socketio
+import bleach
 import pika
-from pika.channel import Channel
 import sqlalchemy.exc
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from flask_security import SQLAlchemyUserDatastore
+from flask_security.models import fsqla
+from pika.channel import Channel
 from sqlalchemy import exc, insert, update
 from bs4 import BeautifulSoup
 from meshtastic import mqtt_pb2, mesh_pb2, portnums_pb2, BROADCAST_NUM
 import unishox2
+import yaml
+from flask import Flask
 
+from opentakserver.controllers.rabbitmq_client import RabbitMQClient
+from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.functions import *
 from opentakserver.models.EUDStats import EUDStats
 from opentakserver.models.Mission import Mission
+from opentakserver.models.MissionInvitation import MissionInvitation
+from opentakserver.models.MissionContentMission import MissionContentMission
+from opentakserver.models.MissionLogEntry import MissionLogEntry
 from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
 from opentakserver.models.MissionUID import MissionUID
+from opentakserver.models.WebAuthn import WebAuthn
 
 from opentakserver.proto import atak_pb2
-from opentakserver.controllers.rabbitmq_client import RabbitMQClient
-from opentakserver.extensions import socketio
+from opentakserver.extensions import logger, db
+from opentakserver.functions import datetime_from_iso8601_string
 from opentakserver.models.Chatrooms import Chatroom
 from opentakserver.models.Alert import Alert
 from opentakserver.models.CasEvac import CasEvac
@@ -41,17 +54,23 @@ from opentakserver.models.Icon import Icon
 from opentakserver.models.RBLine import RBLine
 from opentakserver.models.Team import Team
 from opentakserver.models.VideoStream import VideoStream
+from opentakserver.models.VideoRecording import VideoRecording
 from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.Point import Point
 from opentakserver.models.Marker import Marker
+from opentakserver.models.DataPackage import DataPackage
+from opentakserver.models.Certificate import Certificate
+from opentakserver.models.GroupEud import GroupEud
+from opentakserver.models.Group import Group
 
 
 class CoTController:
-    def __init__(self, context, logger, db, socketio):
+
+    def __init__(self, context, log, database, socket_io):
         self.context = context
-        self.logger = logger
-        self.db: flask_sqlalchemy.SQLAlchemy = db
-        self.socketio = socketio
+        self.logger = log
+        self.db: flask_sqlalchemy.SQLAlchemy = database
+        self.socketio = socket_io
 
         self.online_euds = {}
         self.online_callsigns = {}
@@ -70,7 +89,7 @@ class CoTController:
         self.rabbit_channel.basic_qos(prefetch_count=50)
         self.rabbit_channel.basic_consume(queue='cot_controller', on_message_callback=self.on_message, auto_ack=True)
         self.rabbit_channel.start_consuming()
-        #self.rabbit_channel.add_on_close_callback(self.on_close)
+        # self.rabbit_channel.add_on_close_callback(self.on_close)
 
     def on_channel_open(self, channel: Channel):
         self.rabbit_channel = channel
@@ -129,7 +148,9 @@ class CoTController:
                                                               body=json.dumps(
                                                                   {'cot': str(self.online_euds[eud]['cot']),
                                                                    'uid': None}),
-                                                              properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
+                                                              properties=pika.BasicProperties(
+                                                                  expiration=self.context.app.config.get(
+                                                                      "OTS_RABBITMQ_TTL")))
 
                 if 'phone' in contact.attrs and contact.attrs['phone']:
                     phone_number = contact.attrs['phone']
@@ -140,7 +161,8 @@ class CoTController:
 
                 if group:
                     # Declare an exchange for each group and bind the callsign's queue
-                    if self.rabbit_channel.is_open and group.attrs['name'] not in self.exchanges and platform != "Meshtastic" and platform != "DMRCOT":
+                    if self.rabbit_channel.is_open and group.attrs[
+                        'name'] not in self.exchanges and platform != "Meshtastic" and platform != "DMRCOT":
                         self.logger.debug("Declaring exchange {}".format(group.attrs['name']))
                         self.rabbit_channel.exchange_declare(exchange=group.attrs['name'])
                         self.rabbit_channel.queue_bind(queue=uid, exchange='chatrooms',
@@ -237,7 +259,7 @@ class CoTController:
 
                     self.publish_to_meshtastic(self.get_protobuf(encoded_message, from_id=eud.meshtastic_id))
 
-                socketio.emit('eud', eud.to_json(), namespace='/socket.io')
+                #self.socketio.emit('eud', eud.to_json(), namespace='/socket.io')
 
         # Update the CoT stored in memory which contains the new stale time
         elif takv:
@@ -264,7 +286,8 @@ class CoTController:
         with self.context:
             res = self.db.session.execute(insert(CoT).values(
                 how=event.attrs['how'], type=event.attrs['type'], sender_callsign=sender_callsign,
-                sender_uid=sender_uid, timestamp=timestamp, xml=str(soup), start=start, stale=stale, mission_name=mission_name,
+                sender_uid=sender_uid, timestamp=timestamp, xml=str(soup), start=start, stale=stale,
+                mission_name=mission_name,
                 uid=event.attrs['uid']
             ))
 
@@ -375,12 +398,14 @@ class CoTController:
                 # This CoT is a position update for an EUD. Send it to socketio clients so it can be seen on the UI map
                 # OpenTAK ICU position updates don't include the <takv> tag, but we still want to send the updated position
                 # to the UI's map
-                if event.find('takv') or event.find("__video"):
-                    socketio.emit('point', p.to_json(), namespace='/socket.io')
+                #if event.find('takv') or event.find("__video"):
+                    #self.socketio.emit('point', p.to_json(), namespace='/socket.io')
 
                 now = time.time()
                 if uid in self.online_euds:
-                    can_transmit = (now - self.online_euds[uid]['last_meshtastic_publish'] >= self.context.app.config.get("OTS_MESHTASTIC_PUBLISH_INTERVAL"))
+                    can_transmit = (
+                                now - self.online_euds[uid]['last_meshtastic_publish'] >= self.context.app.config.get(
+                            "OTS_MESHTASTIC_PUBLISH_INTERVAL"))
                 else:
                     can_transmit = False
 
@@ -486,9 +511,11 @@ class CoTController:
 
             sender_callsign = chat.attrs['senderCallsign']
             if sender_callsign not in self.online_callsigns:
-                self.online_callsigns[sender_callsign] = {'uid': chat_group.attrs['uid0'], 'cot': "", 'last_meshtastic_publish': 0}
+                self.online_callsigns[sender_callsign] = {'uid': chat_group.attrs['uid0'], 'cot': "",
+                                                          'last_meshtastic_publish': 0}
             if chat_group.attrs['uid0'] not in self.online_euds:
-                self.online_euds[chat_group.attrs['uid0']] = {'cot': "", 'callsign': sender_callsign, 'last_meshtastic_publish': 0}
+                self.online_euds[chat_group.attrs['uid0']] = {'cot': "", 'callsign': sender_callsign,
+                                                              'last_meshtastic_publish': 0}
 
             chatroom = Chatroom()
 
@@ -516,12 +543,14 @@ class CoTController:
             if self.context.app.config.get("OTS_ENABLE_MESHTASTIC"):
                 try:
                     with self.context:
-                        from_eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=geochat.sender_uid)).first()[0]
+                        from_eud = \
+                        self.db.session.execute(self.db.session.query(EUD).filter_by(uid=geochat.sender_uid)).first()[0]
 
                         tak_packet = atak_pb2.TAKPacket()
                         tak_packet.contact.device_callsign, size = unishox2.compress(geochat.sender_uid)
                         if geochat.sender_uid in self.online_euds:
-                            tak_packet.contact.callsign, size = unishox2.compress(self.online_euds[geochat.sender_uid]['callsign'])
+                            tak_packet.contact.callsign, size = unishox2.compress(
+                                self.online_euds[geochat.sender_uid]['callsign'])
                         tak_packet.chat.message, size = unishox2.compress(remarks.text)
                         tak_packet.group.team = from_eud.team.name.replace(" ", "_")
                         tak_packet.group.role = from_eud.team_role.replace(" ", "")
@@ -556,7 +585,8 @@ class CoTController:
                             encoded_message = mesh_pb2.Data()
                             encoded_message.portnum = portnums_pb2.TEXT_MESSAGE_APP
                             encoded_message.payload = remarks.text.encode("utf-8")
-                            self.publish_to_meshtastic(self.get_protobuf(encoded_message, to_id=to_id, from_id=from_eud.meshtastic_id))
+                            self.publish_to_meshtastic(
+                                self.get_protobuf(encoded_message, to_id=to_id, from_id=from_eud.meshtastic_id))
                         else:
                             # Publish once for EUDs using the Meshtastic ATAK Plugin
                             encoded_message = mesh_pb2.Data()
@@ -665,7 +695,7 @@ class CoTController:
                 with self.context:
                     self.db.session.add(alert)
                     self.db.session.commit()
-                    socketio.emit('alert', alert.to_json(), namespace='/socket.io')
+                    #self.socketio.emit('alert', alert.to_json(), namespace='/socket.io')
             elif 'cancel' in emergency.attrs:
                 with self.context:
                     try:
@@ -674,7 +704,7 @@ class CoTController:
                                 Alert.start_time.desc())).first()[0]
                         alert.cancel_time = datetime_from_iso8601_string(event.attrs['start'])
                         self.db.session.commit()
-                        socketio.emit('alert', alert.to_json(), namespace='/socket.io')
+                        #self.socketio.emit('alert', alert.to_json(), namespace='/socket.io')
                     except BaseException as e:
                         self.logger.error("Failed to set alert cancel time: {}".format(e))
                         self.logger.debug(traceback.format_exc())
@@ -710,8 +740,9 @@ class CoTController:
                 self.db.session.commit()
 
                 try:
-                    casevac: CasEvac = self.db.session.execute(self.db.session.query(CasEvac).filter_by(uid=event.attrs['uid'])).first()[0]
-                    socketio.emit('casevac', casevac.to_json(), namespace='/socket.io')
+                    casevac: CasEvac = \
+                    self.db.session.execute(self.db.session.query(CasEvac).filter_by(uid=event.attrs['uid'])).first()[0]
+                    #self.socketio.emit('casevac', casevac.to_json(), namespace='/socket.io')
                 except BaseException as e:
                     self.logger.error(f"Failed to emit CasEvac: {e}")
                     self.logger.debug(traceback.format_exc())
@@ -751,7 +782,8 @@ class CoTController:
                                     filename = marker.iconset_path.split("/")[-1]
 
                                     try:
-                                        icon = self.db.session.execute(self.db.session.query(Icon).filter(Icon.filename == filename)).first()[0]
+                                        icon = self.db.session.execute(
+                                            self.db.session.query(Icon).filter(Icon.filename == filename)).first()[0]
                                         marker.icon_id = icon.id
                                     except:
                                         icon = self.db.session.execute(self.db.session.query(Icon).filter(
@@ -773,7 +805,9 @@ class CoTController:
                 link = event.find('link')
                 if link:
                     marker.parent_callsign = link.attrs['parent_callsign'] if 'parent_callsign' in link.attrs else None
-                    marker.production_time = link.attrs['production_time'] if 'production_time' in link.attrs else iso8601_string_from_datetime(datetime.now())
+                    marker.production_time = link.attrs[
+                        'production_time'] if 'production_time' in link.attrs else iso8601_string_from_datetime(
+                        datetime.now())
                     marker.relation = link.attrs['relation'] if 'relation' in link.attrs else None
                     marker.relation_type = link.attrs['relation_type'] if 'relation_type' in link.attrs else None
                     marker.parent_uid = link.attrs['uid'] if 'uid' in link.attrs else None
@@ -796,10 +830,10 @@ class CoTController:
                                                                                   **marker.serialize()))
                         self.db.session.commit()
                         self.logger.debug('updated marker')
-                        marker = self.db.session.execute(self.db.session.query(Marker)
-                                                         .filter(Marker.uid == marker.uid)).first()[0]
+                        #marker = self.db.session.execute(self.db.session.query(Marker)
+                        #                                 .filter(Marker.uid == marker.uid)).first()[0]
 
-                    socketio.emit('marker', marker.to_json(), namespace='/socket.io')
+                    #self.socketio.emit('marker', marker.to_json(), namespace='/socket.io')
 
             except BaseException as e:
                 self.logger.error("Failed to parse marker: {}".format(e))
@@ -865,7 +899,7 @@ class CoTController:
                         self.logger.debug('Updated R&B line: {}'.format(rb_line.uid))
 
                     rb_line.point = start_point
-                    socketio.emit("rb_line", rb_line.to_json(), namespace='/socket.io')
+                    #self.socketio.emit("rb_line", rb_line.to_json(), namespace='/socket.io')
 
     def parse_stats(self, event, uid):
         stats = event.find('stats')
@@ -933,9 +967,12 @@ class CoTController:
                             return
 
                         mission = mission[0]
-                        self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{destination.attrs['mission']}", body=json.dumps(data))
+                        self.rabbit_channel.basic_publish("missions",
+                                                          routing_key=f"missions.{destination.attrs['mission']}",
+                                                          body=json.dumps(data))
 
-                        mission_uid = self.db.session.execute(self.db.session.query(MissionUID).filter_by(uid=event.attrs['uid'])).first()
+                        mission_uid = self.db.session.execute(
+                            self.db.session.query(MissionUID).filter_by(uid=event.attrs['uid'])).first()
 
                         if not mission_uid:
                             mission_change = MissionChange()
@@ -947,11 +984,15 @@ class CoTController:
                             mission_change.server_time = datetime_from_iso8601_string(event.attrs['start'])
                             mission_change.mission_uid = event.attrs['uid']
 
-                            change_pk = self.db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
+                            change_pk = self.db.session.execute(
+                                insert(MissionChange).values(**mission_change.serialize()))
                             self.db.session.commit()
 
-                            body = {'uid': uid, 'cot': tostring(generate_mission_change_cot(destination.attrs['mission'], mission, mission_change, cot_event=event)).decode('utf-8')}
-                            self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{mission.name}", body=json.dumps(body))
+                            body = {'uid': uid, 'cot': tostring(
+                                generate_mission_change_cot(destination.attrs['mission'], mission, mission_change,
+                                                            cot_event=event)).decode('utf-8')}
+                            self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{mission.name}",
+                                                              body=json.dumps(body))
 
                             mission_uid = MissionUID()
                             mission_uid.uid = event.attrs['uid']
@@ -988,7 +1029,8 @@ class CoTController:
         # If no destination or callsign is specified, broadcast to all TAK clients
         elif self.rabbit_channel and self.rabbit_channel.is_open:
             self.rabbit_channel.basic_publish(exchange='cot', routing_key="", body=json.dumps(data),
-                                              properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
+                                              properties=pika.BasicProperties(
+                                                  expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
 
         # Do nothing because the RabbitMQ channel hasn't opened yet or has closed
         else:
@@ -998,8 +1040,10 @@ class CoTController:
         for channel in self.context.app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"):
             body.channel_id = channel
             routing_key = "{}.2.e.{}.outgoing".format(self.context.app.config.get("OTS_MESHTASTIC_TOPIC"), channel)
-            self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key, body=body.SerializeToString(),
-                                              properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
+            self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key,
+                                              body=body.SerializeToString(),
+                                              properties=pika.BasicProperties(
+                                                  expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
             self.logger.debug("Published message to " + routing_key)
 
     def on_message(self, unused_channel, basic_deliver, properties, body):
@@ -1007,6 +1051,7 @@ class CoTController:
             start = time.time()
             body = json.loads(body)
             soup = BeautifulSoup(body['cot'], 'xml')
+            self.logger.warning(soup)
             event: BeautifulSoup = soup.find('event')
 
             uid = body['uid'] or event.attrs['uid']
@@ -1024,7 +1069,7 @@ class CoTController:
                 self.parse_marker(event, uid, point_pk, cot_pk)
                 self.parse_rbline(event, uid, point_pk, cot_pk)
                 self.parse_stats(event, uid)
-                #self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
+                # self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
                 self.rabbitmq_routing(event, body)
                 self.logger.warning(f"Took {time.time() - start} seconds to process cot")
 
@@ -1045,7 +1090,7 @@ class CoTController:
                                 # Tells the UI what kind of EUD this is, ie ATAK/WinTAK/iTAK or OpenTAK ICU
                                 if not eud_json['last_point']:
                                     eud_json['type'] = event.attrs['type']
-                                socketio.emit('eud', eud.to_json(), namespace='/socket.io')
+                                #self.socketio.emit('eud', eud.to_json(), namespace='/socket.io')
                     except BaseException as e:
                         self.logger.error("Failed to update EUD: {}".format(e))
                         self.logger.debug(traceback.format_exc())
@@ -1056,3 +1101,92 @@ class CoTController:
             self.logger.error(f"Failed to parse CoT: {e}")
             self.logger.debug(traceback.format_exc())
             self.rabbit_channel.basic_nack(delivery_tag=basic_deliver.delivery_tag, requeue=False)
+
+
+def setup_logging(app):
+    level = logging.INFO
+    if app.config.get("DEBUG"):
+        level = logging.DEBUG
+    logger.setLevel(level)
+
+    if sys.stdout.isatty():
+        color_log_handler = colorlog.StreamHandler()
+        color_log_formatter = colorlog.ColoredFormatter(
+            '%(log_color)s[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
+        color_log_handler.setFormatter(color_log_formatter)
+        logger.addHandler(color_log_handler)
+        logger.info("Added color logger")
+
+    os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs"), exist_ok=True)
+    fh = TimedRotatingFileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'cot_parser.log'),
+                                  when=app.config.get("OTS_LOG_ROTATE_WHEN"), interval=app.config.get("OTS_LOG_ROTATE_INTERVAL"),
+                                  backupCount=app.config.get("OTS_BACKUP_COUNT"))
+    fh.setFormatter(logging.Formatter("[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))
+    logger.addHandler(fh)
+
+
+def arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--config", help="Path to config.yml", dest='config', default=os.path.join(Path.home(), "ots", "config.yml"))
+    parser.add_argument("-d", "--daemon", help="Daemonize", dest='daemonize', default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument("-v", "--debug", help="Set logging to debug", dest='debug', default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument("-V", "--version", help="Print version and exit", dest='version', default=False, action=argparse.BooleanOptionalAction)
+    args = parser.parse_args()
+    return args
+
+
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(DefaultConfig)
+    setup_logging(app)
+
+    # Load config.yml if it exists
+    if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
+        app.config.from_file(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), load=yaml.safe_load)
+    else:
+        # First run, created config.yml based on default settings
+        logger.info("Creating config.yml")
+        with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), "w") as config:
+            conf = {}
+            for option in DefaultConfig.__dict__:
+                # Fix the sqlite DB path on Windows
+                if option == "SQLALCHEMY_DATABASE_URI" and platform.system() == "Windows" and DefaultConfig.__dict__[option].startswith("sqlite"):
+                    conf[option] = DefaultConfig.__dict__[option].replace("////", "///").replace("\\", "/")
+                elif option.isupper():
+                    conf[option] = DefaultConfig.__dict__[option]
+            config.write(yaml.safe_dump(conf))
+
+    db.init_app(app)
+
+    try:
+        fsqla.FsModels.set_db_info(db)
+    except sqlalchemy.exc.InvalidRequestError:
+        pass
+
+    from opentakserver.models.user import User
+    from opentakserver.models.role import Role
+
+    user_datastore = SQLAlchemyUserDatastore(db, User, Role, WebAuthn)
+
+    return app
+
+
+if __name__ == "__main__":
+    app = create_app()
+    opts = arguments()
+
+    if opts.version:
+        import opentakserver
+        print(opentakserver.__version__)
+        sys.exit()
+
+    #sio = socketio.Client()
+    #sio.connect("http://127.0.0.1:8081", namespaces="/socket.io")
+
+    try:
+        cot_parser = CoTController(app.app_context(), logger, db, None)
+        cot_parser.run()
+    except KeyboardInterrupt:
+        logger.info("Got CTRL+C, Exiting...")
+        #sio.disconnect()
+        sys.exit()

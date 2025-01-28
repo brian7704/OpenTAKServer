@@ -1,8 +1,6 @@
 import eventlet
 eventlet.monkey_patch()
 
-import random
-
 import sys
 import traceback
 import logging
@@ -45,7 +43,7 @@ from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.models.WebAuthn import WebAuthn
 
 from opentakserver.controllers.meshtastic_controller import MeshtasticController
-from opentakserver.controllers.cot_controller import CoTController
+#from opentakserver.controllers.cot_controller import CoTController
 from opentakserver.certificate_authority import CertificateAuthority
 from opentakserver.SocketServer import SocketServer
 from pyfiglet import Figlet
@@ -120,8 +118,8 @@ def init_extensions(app):
     channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
     channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
 
-    cot_thread = CoTController(app.app_context(), logger, db, socketio)
-    app.cot_thread = cot_thread
+    #cot_thread = CoTController(app.app_context(), logger, db, socketio)
+    #app.cot_thread = cot_thread
 
     if not apscheduler.running:
         apscheduler.init_app(app)
@@ -293,13 +291,13 @@ def main():
     else:
         app.meshtastic_thread = None
 
-    tcp_thread = SocketServer(logger, app.app_context(), app.config.get("OTS_TCP_STREAMING_PORT"))
-    tcp_thread.start()
-    app.tcp_thread = tcp_thread
+    #tcp_thread = SocketServer(logger, app.app_context(), app.config.get("OTS_TCP_STREAMING_PORT"))
+    #tcp_thread.start()
+    #app.tcp_thread = tcp_thread
 
-    ssl_thread = SocketServer(logger, app.app_context(), app.config.get("OTS_SSL_STREAMING_PORT"), True)
-    ssl_thread.start()
-    app.ssl_thread = ssl_thread
+    #ssl_thread = SocketServer(logger, app.app_context(), app.config.get("OTS_SSL_STREAMING_PORT"), True)
+    #ssl_thread.start()
+    #app.ssl_thread = ssl_thread
 
     if app.config.get("OTS_ENABLE_MUMBLE_AUTHENTICATION"):
         try:

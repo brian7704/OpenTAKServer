@@ -15,6 +15,9 @@ from pika.channel import Channel
 from opentakserver.extensions import db
 from opentakserver.models.EUD import EUD
 from opentakserver.models.Mission import Mission
+from opentakserver.models.CasEvac import CasEvac
+from opentakserver.models.GeoChat import GeoChat
+from opentakserver.models.ChatroomsUids import ChatroomsUids
 
 
 class ClientController(Thread):
@@ -246,11 +249,13 @@ class ClientController(Thread):
 
                     message = {'uid': self.uid, 'cot': str(soup)}
                     if self.rabbit_channel:
+                        self.logger.info("publishing")
                         from opentakserver.functions import iso8601_string_from_datetime_no_ms
                         self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='',
                                                           body=json.dumps(message),
                                                           properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
-
+                    else:
+                        self.logger.error("Fuck you, not publishing")
             else:
                 self.unbind_rabbitmq_queues()
                 self.send_disconnect_cot()
