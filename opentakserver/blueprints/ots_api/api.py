@@ -30,7 +30,6 @@ from opentakserver.models.user import User
 from opentakserver.models.Certificate import Certificate
 from opentakserver.models.APSchedulerJobs import APSchedulerJobs
 
-from opentakserver.SocketServer import SocketServer
 from opentakserver.certificate_authority import CertificateAuthority
 from opentakserver.models.Icon import Icon
 from opentakserver.models.Marker import Marker
@@ -133,65 +132,6 @@ def status():
     }
 
     return jsonify(response)
-
-
-@api_blueprint.route('/api/tcp/<action>')
-@roles_accepted('administrator')
-def control_tcp_socket(action):
-    action = bleach.clean(action).lower()
-
-    if action == 'start':
-        if app.tcp_thread.is_alive():
-            return jsonify({'success': False, 'error': 'TCP thread is already active'}), 400
-
-        change_config_setting("OTS_ENABLE_TCP_STREAMING_PORT", True)
-        app.config.update(OTS_ENABLE_TCP_STREAMING_PORT=True)
-
-        tcp_thread = SocketServer(logger, app.app_context(), app.config.get("OTS_TCP_STREAMING_PORT"))
-        tcp_thread.start()
-        app.tcp_thread = tcp_thread
-
-        return jsonify({'success': True})
-
-    elif action == 'stop':
-        if not app.tcp_thread.is_alive():
-            return jsonify({'success': False, 'error': 'TCP thread is not active'}), 400
-
-        change_config_setting("OTS_ENABLE_TCP_STREAMING_PORT", False)
-        app.config.update(OTS_ENABLE_TCP_STREAMING_PORT=False)
-
-        app.tcp_thread.stop()
-        return jsonify({'success': True})
-
-    else:
-        return jsonify({'success': False, 'error': 'Valid actions are start and stop'}), 400
-
-
-@api_blueprint.route('/api/ssl/<action>')
-@roles_accepted('administrator')
-def control_ssl_socket(action):
-    action = bleach.clean(action).lower()
-
-    if action == 'start':
-        if app.ssl_thread.is_alive():
-            return jsonify({'success': False, 'error': 'ssl thread is already active'}), 400
-
-        with app.app_context():
-            ssl_thread = SocketServer(logger, app.app_context(), app.config.get("OTS_SSL_STREAMING_PORT"), True)
-            ssl_thread.start()
-            app.ssl_thread = ssl_thread
-
-            return jsonify({'success': True})
-
-    elif action == 'stop':
-        if not app.ssl_thread.is_alive():
-            return jsonify({'success': False, 'error': 'SSL thread is not active'}), 400
-
-        app.ssl_thread.stop()
-        return jsonify({'success': True})
-
-    else:
-        return jsonify({'success': False, 'error': 'Valid actions are start and stop'}), 400
 
 
 @api_blueprint.route("/api/certificate", methods=['GET', 'POST'])

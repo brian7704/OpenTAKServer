@@ -1,9 +1,8 @@
 import os
 import socket
 import ssl
-from threading import Thread
 
-from opentakserver.controllers.client_controller import ClientController
+from opentakserver.eud_handler.client_controller import ClientController
 
 
 class SocketServer:
