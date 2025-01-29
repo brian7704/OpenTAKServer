@@ -1,6 +1,3 @@
-import eventlet
-eventlet.monkey_patch()
-
 import sys
 import traceback
 import logging
