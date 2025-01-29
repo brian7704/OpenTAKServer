@@ -1063,7 +1063,6 @@ class CoTController:
                 self.parse_stats(event, uid)
                 # self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
                 self.rabbitmq_routing(event, body)
-                self.logger.warning(f"Took {time.time() - start} seconds to process cot")
 
                 # EUD went offline
                 if event.attrs['type'] == 't-x-d-d':
