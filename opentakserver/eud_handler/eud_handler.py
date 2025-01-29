@@ -3,11 +3,14 @@ import platform
 import sys
 from logging.handlers import TimedRotatingFileHandler
 
+import flask_wtf
 import sqlalchemy
 import yaml
-from flask_security import SQLAlchemyUserDatastore
+from flask_security import SQLAlchemyUserDatastore, Security
 from flask_security.models import fsqla
 
+from opentakserver.EmailValidator import EmailValidator
+from opentakserver.PasswordValidator import PasswordValidator
 # These unused imports are required by SQLAlchemy, don't remove them
 from opentakserver.eud_handler.SocketServer import SocketServer
 from opentakserver.models.EUD import EUD
@@ -105,7 +108,9 @@ def create_app():
     from opentakserver.models.user import User
     from opentakserver.models.role import Role
 
+    flask_wtf.CSRFProtect(app)
     user_datastore = SQLAlchemyUserDatastore(db, User, Role)
+    app.security = Security(app, user_datastore, mail_util_cls=EmailValidator, password_util_cls=PasswordValidator)
 
     return app
 
