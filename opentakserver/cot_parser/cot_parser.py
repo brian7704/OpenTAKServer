@@ -1164,7 +1164,6 @@ def main():
         cot_parser.run()
     except KeyboardInterrupt:
         logger.info("Got CTRL+C, Exiting...")
-        sio.disconnect()
         sys.exit()
 
 
