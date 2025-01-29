@@ -120,14 +120,11 @@ class CoTController:
                     if uid not in self.online_euds:
                         self.online_euds[uid] = {'cot': str(soup), 'callsign': callsign, 'last_meshtastic_publish': 0}
 
-                    if callsign not in self.online_callsigns:
-                        self.online_callsigns[callsign] = {'uid': uid, 'cot': soup, 'last_meshtastic_publish': 0}
-
                     # Declare a RabbitMQ Queue for this uid and join the 'dms' and 'cot' exchanges
                     if self.rabbit_channel and self.rabbit_channel.is_open and platform != "OpenTAK ICU" and platform != "Meshtastic" and platform != "DMRCOT":
                         self.rabbit_channel.queue_bind(exchange='dms', queue=uid, routing_key=uid)
-                        self.rabbit_channel.queue_bind(exchange='chatrooms', queue=uid,
-                                                       routing_key='All Chat Rooms')
+                        self.rabbit_channel.queue_bind(exchange='dms', queue=callsign, routing_key=callsign)
+                        self.rabbit_channel.queue_bind(exchange='chatrooms', queue=uid, routing_key='All Chat Rooms')
 
                         for eud in self.online_euds:
                             self.rabbit_channel.basic_publish(exchange='dms',
@@ -171,7 +168,7 @@ class CoTController:
                         team = self.db.session.execute(select(Team).filter(Team.name == group.attrs['name'])).first()[0]
                         if not team.chatroom_id and chatroom:
                             team.chatroom_id = chatroom.id
-                            self.db.session.execute(update(Team).filter(Team.name).values(chatroom_id=chatroom.id))
+                            self.db.session.execute(update(Team).filter(Team.name == chatroom.id).values(chatroom_id=chatroom.id))
 
                 try:
                     eud = self.db.session.execute(select(EUD).filter_by(uid=uid)).first()[0]
@@ -929,18 +926,14 @@ class CoTController:
             for destination in destinations:
                 uid = None
                 # ATAK and WinTAK use callsign, iTAK uses uid
-                if 'callsign' in destination.attrs and destination.attrs['callsign'] in self.online_callsigns:
-                    uid = self.online_callsigns[destination.attrs['callsign']]['uid']
+                if 'callsign' in destination.attrs and destination.attrs['callsign']:
+                    self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['callsign'], body=json.dumps(data))
+                    self.logger.warning(f"Routing cot to {destination.attrs['callsign']}")
                 elif 'uid' in destination.attrs:
-                    uid = destination.attrs['uid']
-
-                if uid:
-                    self.rabbit_channel.basic_publish(exchange='dms',
-                                                      routing_key=uid,
-                                                      body=json.dumps(data))
-
+                    self.logger.warning(f"Routing cot to {destination.attrs['uid']}")
+                    self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['uid'], body=json.dumps(data))
                 # For data sync missions
-                if 'mission' in destination.attrs:
+                elif 'mission' in destination.attrs:
                     with self.context:
                         mission = self.db.session.execute(
                             self.db.session.query(Mission).filter_by(name=destination.attrs['mission'])).first()
@@ -1099,7 +1092,7 @@ def setup_logging(app):
         logger.info("Added color logger")
 
     os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs"), exist_ok=True)
-    fh = TimedRotatingFileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'cot_parser.log'),
+    fh = TimedRotatingFileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'opentakserver.log'),
                                   when=app.config.get("OTS_LOG_ROTATE_WHEN"), interval=app.config.get("OTS_LOG_ROTATE_INTERVAL"),
                                   backupCount=app.config.get("OTS_BACKUP_COUNT"))
     fh.setFormatter(logging.Formatter("[%(asctime)s] - ccot_parser[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))

@@ -296,6 +296,11 @@ class ClientController(Thread):
             if 'callsign' in contact.attrs:
                 self.uid = event.attrs['uid']
                 self.callsign = contact.attrs['callsign']
+                self.logger.debug(f"Declaring queue for {self.callsign}")
+                self.rabbit_channel.queue_declare(queue=self.callsign)
+                self.rabbit_channel.queue_bind(exchange='cot', queue=self.callsign)
+                self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.callsign)
+                self.rabbit_channel.basic_consume(queue=self.callsign, on_message_callback=self.on_message, auto_ack=True)
 
                 self.logger.debug("Declaring queue {}".format(self.uid))
                 self.rabbit_channel.queue_declare(queue=self.uid)
