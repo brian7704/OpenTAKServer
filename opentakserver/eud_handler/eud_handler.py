@@ -72,8 +72,6 @@ def setup_logging(app):
         "[%(asctime)s] - eud_handler[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))
     logger.addHandler(fh)
 
-    logger.info(f"Debug: {app.config.get('DEBUG')}")
-
 
 def create_app():
     app = Flask(__name__)

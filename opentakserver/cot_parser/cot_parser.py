@@ -2,7 +2,6 @@ import base64
 import logging
 import platform
 from logging.handlers import TimedRotatingFileHandler
-from pathlib import Path
 
 import colorlog
 import datetime
@@ -10,25 +9,23 @@ import os
 import time
 import traceback
 import sys
-import argparse
 import random
 import flask_sqlalchemy
+from flask_socketio import SocketIO
 
-import socketio
 import bleach
 import pika
 import sqlalchemy.exc
 from flask_security import SQLAlchemyUserDatastore
 from flask_security.models import fsqla
 from pika.channel import Channel
-from sqlalchemy import exc, insert, update
+from sqlalchemy import exc, insert, update, select
 from bs4 import BeautifulSoup
 from meshtastic import mqtt_pb2, mesh_pb2, portnums_pb2, BROADCAST_NUM
 import unishox2
 import yaml
 from flask import Flask
 
-from opentakserver.controllers.rabbitmq_client import RabbitMQClient
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.functions import *
 from opentakserver.models.EUDStats import EUDStats
@@ -161,8 +158,7 @@ class CoTController:
 
                 if group:
                     # Declare an exchange for each group and bind the callsign's queue
-                    if self.rabbit_channel.is_open and group.attrs[
-                        'name'] not in self.exchanges and platform != "Meshtastic" and platform != "DMRCOT":
+                    if self.rabbit_channel.is_open and group.attrs['name'] not in self.exchanges and platform != "Meshtastic" and platform != "DMRCOT":
                         self.logger.debug("Declaring exchange {}".format(group.attrs['name']))
                         self.rabbit_channel.exchange_declare(exchange=group.attrs['name'])
                         self.rabbit_channel.queue_bind(queue=uid, exchange='chatrooms',
@@ -172,8 +168,7 @@ class CoTController:
                     team.name = bleach.clean(group.attrs['name'])
 
                     try:
-                        chatroom = self.db.session.execute(self.db.session.query(Chatroom)
-                                                           .filter(Chatroom.name == team.name)).first()[0]
+                        chatroom = self.db.session.execute(select(Chatroom).filter(Chatroom.name == team.name)).first()[0]
                         team.chatroom_id = chatroom.id
                     except TypeError:
                         chatroom = None
@@ -183,14 +178,13 @@ class CoTController:
                         self.db.session.commit()
                     except sqlalchemy.exc.IntegrityError:
                         self.db.session.rollback()
-                        team = self.db.session.execute(self.db.session.query(Team)
-                                                       .filter(Team.name == group.attrs['name'])).first()[0]
+                        team = self.db.session.execute(select(Team).filter(Team.name == group.attrs['name'])).first()[0]
                         if not team.chatroom_id and chatroom:
                             team.chatroom_id = chatroom.id
                             self.db.session.execute(update(Team).filter(Team.name).values(chatroom_id=chatroom.id))
 
                 try:
-                    eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
+                    eud = self.db.session.execute(select(EUD).filter_by(uid=uid)).first()[0]
                 except:
                     eud = EUD()
 
@@ -259,7 +253,7 @@ class CoTController:
 
                     self.publish_to_meshtastic(self.get_protobuf(encoded_message, from_id=eud.meshtastic_id))
 
-                #self.socketio.emit('eud', eud.to_json(), namespace='/socket.io')
+                self.socketio.emit('eud', eud.to_json(), namespace='/socket.io')
 
         # Update the CoT stored in memory which contains the new stale time
         elif takv:
@@ -392,14 +386,13 @@ class CoTController:
 
                 self.db.session.commit()
                 # Get the point from the DB with its related CoT
-                p = self.db.session.execute(
-                    self.db.session.query(Point).filter(Point.id == res.inserted_primary_key[0])).first()[0]
+                p = self.db.session.execute(select(Point).filter(Point.id == res.inserted_primary_key[0])).first()[0]
 
                 # This CoT is a position update for an EUD. Send it to socketio clients so it can be seen on the UI map
                 # OpenTAK ICU position updates don't include the <takv> tag, but we still want to send the updated position
                 # to the UI's map
-                #if event.find('takv') or event.find("__video"):
-                    #self.socketio.emit('point', p.to_json(), namespace='/socket.io')
+                if event.find('takv') or event.find("__video"):
+                    self.socketio.emit('point', p.to_json(), namespace='/socket.io')
 
                 now = time.time()
                 if uid in self.online_euds:
@@ -695,7 +688,7 @@ class CoTController:
                 with self.context:
                     self.db.session.add(alert)
                     self.db.session.commit()
-                    #self.socketio.emit('alert', alert.to_json(), namespace='/socket.io')
+                    self.socketio.emit('alert', alert.to_json(), namespace='/socket.io')
             elif 'cancel' in emergency.attrs:
                 with self.context:
                     try:
@@ -704,7 +697,7 @@ class CoTController:
                                 Alert.start_time.desc())).first()[0]
                         alert.cancel_time = datetime_from_iso8601_string(event.attrs['start'])
                         self.db.session.commit()
-                        #self.socketio.emit('alert', alert.to_json(), namespace='/socket.io')
+                        self.socketio.emit('alert', alert.to_json(), namespace='/socket.io')
                     except BaseException as e:
                         self.logger.error("Failed to set alert cancel time: {}".format(e))
                         self.logger.debug(traceback.format_exc())
@@ -742,7 +735,7 @@ class CoTController:
                 try:
                     casevac: CasEvac = \
                     self.db.session.execute(self.db.session.query(CasEvac).filter_by(uid=event.attrs['uid'])).first()[0]
-                    #self.socketio.emit('casevac', casevac.to_json(), namespace='/socket.io')
+                    self.socketio.emit('casevac', casevac.to_json(), namespace='/socket.io')
                 except BaseException as e:
                     self.logger.error(f"Failed to emit CasEvac: {e}")
                     self.logger.debug(traceback.format_exc())
@@ -830,10 +823,10 @@ class CoTController:
                                                                                   **marker.serialize()))
                         self.db.session.commit()
                         self.logger.debug('updated marker')
-                        #marker = self.db.session.execute(self.db.session.query(Marker)
-                        #                                 .filter(Marker.uid == marker.uid)).first()[0]
+                        marker = self.db.session.execute(self.db.session.query(Marker)
+                                                         .filter(Marker.uid == marker.uid)).first()[0]
 
-                    #self.socketio.emit('marker', marker.to_json(), namespace='/socket.io')
+                    self.socketio.emit('marker', marker.to_json(), namespace='/socket.io')
 
             except BaseException as e:
                 self.logger.error("Failed to parse marker: {}".format(e))
@@ -899,7 +892,7 @@ class CoTController:
                         self.logger.debug('Updated R&B line: {}'.format(rb_line.uid))
 
                     rb_line.point = start_point
-                    #self.socketio.emit("rb_line", rb_line.to_json(), namespace='/socket.io')
+                    self.socketio.emit("rb_line", rb_line.to_json(), namespace='/socket.io')
 
     def parse_stats(self, event, uid):
         stats = event.find('stats')
@@ -1051,7 +1044,6 @@ class CoTController:
             start = time.time()
             body = json.loads(body)
             soup = BeautifulSoup(body['cot'], 'xml')
-            self.logger.warning(soup)
             event: BeautifulSoup = soup.find('event')
 
             uid = body['uid'] or event.attrs['uid']
@@ -1090,7 +1082,7 @@ class CoTController:
                                 # Tells the UI what kind of EUD this is, ie ATAK/WinTAK/iTAK or OpenTAK ICU
                                 if not eud_json['last_point']:
                                     eud_json['type'] = event.attrs['type']
-                                #self.socketio.emit('eud', eud.to_json(), namespace='/socket.io')
+                                self.socketio.emit('eud', eud.to_json(), namespace='/socket.io')
                     except BaseException as e:
                         self.logger.error("Failed to update EUD: {}".format(e))
                         self.logger.debug(traceback.format_exc())
@@ -1112,7 +1104,7 @@ def setup_logging(app):
     if sys.stdout.isatty():
         color_log_handler = colorlog.StreamHandler()
         color_log_formatter = colorlog.ColoredFormatter(
-            '%(log_color)s[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
+            '%(log_color)s[%(asctime)s] - cot_parser[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
         color_log_handler.setFormatter(color_log_formatter)
         logger.addHandler(color_log_handler)
         logger.info("Added color logger")
@@ -1121,24 +1113,13 @@ def setup_logging(app):
     fh = TimedRotatingFileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'cot_parser.log'),
                                   when=app.config.get("OTS_LOG_ROTATE_WHEN"), interval=app.config.get("OTS_LOG_ROTATE_INTERVAL"),
                                   backupCount=app.config.get("OTS_BACKUP_COUNT"))
-    fh.setFormatter(logging.Formatter("[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))
+    fh.setFormatter(logging.Formatter("[%(asctime)s] - ccot_parser[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))
     logger.addHandler(fh)
-
-
-def arguments():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", help="Path to config.yml", dest='config', default=os.path.join(Path.home(), "ots", "config.yml"))
-    parser.add_argument("-d", "--daemon", help="Daemonize", dest='daemonize', default=False, action=argparse.BooleanOptionalAction)
-    parser.add_argument("-v", "--debug", help="Set logging to debug", dest='debug', default=False, action=argparse.BooleanOptionalAction)
-    parser.add_argument("-V", "--version", help="Print version and exit", dest='version', default=False, action=argparse.BooleanOptionalAction)
-    args = parser.parse_args()
-    return args
 
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(DefaultConfig)
-    setup_logging(app)
 
     # Load config.yml if it exists
     if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
@@ -1156,6 +1137,7 @@ def create_app():
                     conf[option] = DefaultConfig.__dict__[option]
             config.write(yaml.safe_dump(conf))
 
+    setup_logging(app)
     db.init_app(app)
 
     try:
@@ -1171,22 +1153,20 @@ def create_app():
     return app
 
 
-if __name__ == "__main__":
-    app = create_app()
-    opts = arguments()
+app = create_app()
 
-    if opts.version:
-        import opentakserver
-        print(opentakserver.__version__)
-        sys.exit()
 
-    #sio = socketio.Client()
-    #sio.connect("http://127.0.0.1:8081", namespaces="/socket.io")
+def main():
+    sio = SocketIO(message_queue="amqp://" + app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"))
 
     try:
-        cot_parser = CoTController(app.app_context(), logger, db, None)
+        cot_parser = CoTController(app.app_context(), logger, db, sio)
         cot_parser.run()
     except KeyboardInterrupt:
         logger.info("Got CTRL+C, Exiting...")
-        #sio.disconnect()
+        sio.disconnect()
         sys.exit()
+
+
+if __name__ == "__main__":
+    main()
