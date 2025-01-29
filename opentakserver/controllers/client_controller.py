@@ -187,6 +187,7 @@ class ClientController(Thread):
 
                 if self.is_ssl and not self.is_authenticated and (auth or self.common_name):
                     with self.app.app_context():
+                        username = None
                         if auth:
                             cot = auth.find('cot')
                             if cot:
@@ -198,11 +199,11 @@ class ClientController(Thread):
                             user = self.app.security.datastore.find_user(username=self.common_name)
 
                         if not user:
-                            self.logger.warning("User {} does not exist".format(username))
+                            self.logger.warning("User {} does not exist".format(username or self.common_name))
                             self.close_connection()
                             break
                         elif not user.active:
-                            self.logger.warning("User {} is deactivated, disconnecting".format(username))
+                            self.logger.warning("User {} is deactivated, disconnecting".format(username or self.common_name))
                             self.close_connection()
                             break
                         elif self.common_name:
