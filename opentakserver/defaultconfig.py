@@ -50,6 +50,8 @@ class DefaultConfig:
     # Messages queued in RabbitMQ will auto-delete after 1 day if not consumed https://www.rabbitmq.com/docs/ttl
     # Set to '0' to disable auto-deletion
     OTS_RABBITMQ_TTL = '86400000'
+    # How many CoT messages that cot_parser processes should prefetch. https://www.rabbitmq.com/docs/consumer-prefetch
+    OTS_RABBITMQ_PREFETCH = 2
 
     # See https://docs.python.org/3/library/logging.handlers.html#logging.handlers.TimedRotatingFileHandler
     OTS_LOG_ROTATE_WHEN = 'midnight'
