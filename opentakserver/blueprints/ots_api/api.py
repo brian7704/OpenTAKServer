@@ -4,7 +4,6 @@ import hashlib
 import os
 import platform
 import traceback
-import uuid
 from shutil import copyfile
 
 from urllib.parse import urlparse
@@ -15,7 +14,8 @@ import bleach
 import psutil
 import sqlalchemy.exc
 from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
-from flask_security import auth_required, roles_accepted, current_user, verify_password
+from flask_security import auth_required, current_user, verify_password
+from sqlalchemy import select
 
 from opentakserver.extensions import logger, db
 
@@ -85,11 +85,9 @@ def cloudtak_config():
     return jsonify({'uploadSizeLimit': 400})
 
 
+# Simple health check for docker
 @api_blueprint.route('/api/health')
 def health():
-    if not app.cot_thread.iothread.is_alive():
-        return jsonify({'status': 'down', 'error': 'cot thread is dead'}), 503
-
     return jsonify({'status': 'healthy'})
 
 
@@ -121,10 +119,10 @@ def status():
     uname = {'system': platform.system(), 'node': platform.node(), 'release': platform.release(),
              'version': platform.version(), 'machine': platform.machine()}
 
+    online_euds = db.session.execute(select(EUD).filter(EUD.last_status == 'Connected')).all()
+
     response = {
-        'tcp': app.tcp_thread.is_alive(), 'ssl': app.ssl_thread.is_alive(),
-        'cot_router': app.cot_thread.iothread.is_alive(),
-        'online_euds': app.cot_thread.online_euds, 'system_boot_time': system_boot_time.strftime("%Y-%m-%d %H:%M:%SZ"),
+        'online_euds': len(online_euds), 'system_boot_time': system_boot_time.strftime("%Y-%m-%d %H:%M:%SZ"),
         'system_uptime': system_uptime.total_seconds(), 'ots_start_time': app.start_time.strftime("%Y-%m-%d %H:%M:%SZ"),
         'ots_uptime': ots_uptime.total_seconds(), 'cpu_time': cpu_time_dict, 'cpu_percent': p.cpu_percent(),
         'load_avg': psutil.getloadavg(), 'memory': vmem_dict, 'disk_usage': disk_usage_dict, 'ots_version': version,
