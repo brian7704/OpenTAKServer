@@ -84,167 +84,8 @@ class CoTController:
         self.rabbit_channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
         self.rabbit_channel.queue_bind(exchange='cot_controller', queue='cot_controller')
         self.rabbit_channel.basic_qos(prefetch_count=self.context.app.config.get("OTS_RABBITMQ_PREFETCH"))
-        self.rabbit_channel.basic_consume(queue='cot_controller', on_message_callback=self.on_message, auto_ack=True)
+        self.rabbit_channel.basic_consume(queue='cot_controller', on_message_callback=self.on_message, auto_ack=False)
         self.rabbit_channel.start_consuming()
-
-    def parse_device_info(self, uid, soup, event):
-        link = event.find('link')
-        fileshare = event.find('fileshare')
-
-        # Don't parse server generated messages
-        with self.context:
-            if uid == self.context.app.config.get("OTS_NODE_ID"):
-                return
-
-        callsign = None
-        phone_number = None
-
-        # EUDs running the Meshtastic and dmrcot plugins can relay messages from their RF networks to the server
-        # so we want to use the UID of the "off grid" EUD, not the relay EUD
-        takv = event.find('takv')
-        if takv:
-            uid = event.attrs.get('uid')
-
-        # Only assume it's an EUD if it's got a <takv> tag
-        if takv and uid and uid not in self.online_euds and not uid.endswith('ping'):
-            device = takv.attrs['device'] if 'device' in takv.attrs else ""
-            operating_system = takv.attrs['os'] if 'os' in takv.attrs else ""
-            platform = takv.attrs['platform'] if 'platform' in takv.attrs else ""
-            version = takv.attrs['version'] if 'version' in takv.attrs else ""
-
-            contact = event.find('contact')
-            if contact:
-                if 'callsign' in contact.attrs:
-                    callsign = contact.attrs['callsign']
-
-                    if uid not in self.online_euds:
-                        self.online_euds[uid] = {'cot': str(soup), 'callsign': callsign, 'last_meshtastic_publish': 0}
-
-                    # Declare a RabbitMQ Queue for this uid and join the 'dms' and 'cot' exchanges
-                    if self.rabbit_channel and self.rabbit_channel.is_open and platform != "OpenTAK ICU" and platform != "Meshtastic" and platform != "DMRCOT":
-                        self.rabbit_channel.queue_bind(exchange='dms', queue=uid, routing_key=uid)
-                        self.rabbit_channel.queue_bind(exchange='dms', queue=callsign, routing_key=callsign)
-                        self.rabbit_channel.queue_bind(exchange='chatrooms', queue=uid, routing_key='All Chat Rooms')
-
-                        for eud in self.online_euds:
-                            self.rabbit_channel.basic_publish(exchange='dms',
-                                                              routing_key=uid,
-                                                              body=json.dumps(
-                                                                  {'cot': str(self.online_euds[eud]['cot']),
-                                                                   'uid': None}),
-                                                              properties=pika.BasicProperties(
-                                                                  expiration=self.context.app.config.get(
-                                                                      "OTS_RABBITMQ_TTL")))
-
-                if 'phone' in contact.attrs and contact.attrs['phone']:
-                    phone_number = contact.attrs['phone']
-
-            with self.context:
-                group = event.find('__group')
-                team = Team()
-
-                if group:
-                    # Declare an exchange for each group and bind the callsign's queue
-                    if self.rabbit_channel.is_open and group.attrs['name'] not in self.exchanges and platform != "Meshtastic" and platform != "DMRCOT":
-                        self.logger.debug("Declaring exchange {}".format(group.attrs['name']))
-                        self.rabbit_channel.exchange_declare(exchange=group.attrs['name'])
-                        self.rabbit_channel.queue_bind(queue=uid, exchange='chatrooms',
-                                                       routing_key=group.attrs['name'])
-                        self.exchanges.append(group.attrs['name'])
-
-                    team.name = bleach.clean(group.attrs['name'])
-
-                    try:
-                        chatroom = self.db.session.execute(select(Chatroom).filter(Chatroom.name == team.name)).first()[0]
-                        team.chatroom_id = chatroom.id
-                    except TypeError:
-                        chatroom = None
-
-                    try:
-                        self.db.session.add(team)
-                        self.db.session.commit()
-                    except sqlalchemy.exc.IntegrityError:
-                        self.db.session.rollback()
-                        team = self.db.session.execute(select(Team).filter(Team.name == group.attrs['name'])).first()[0]
-                        if not team.chatroom_id and chatroom:
-                            team.chatroom_id = chatroom.id
-                            self.db.session.execute(update(Team).filter(Team.name == chatroom.id).values(chatroom_id=chatroom.id))
-
-                try:
-                    eud = self.db.session.execute(select(EUD).filter_by(uid=uid)).first()[0]
-                except:
-                    eud = EUD()
-
-                eud.uid = uid
-                if callsign:
-                    eud.callsign = callsign
-                if device:
-                    eud.device = device
-
-                eud.os = operating_system
-                eud.platform = platform
-                eud.version = version
-                eud.phone_number = phone_number
-                eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
-                eud.last_status = 'Connected'
-
-                # Set a Meshtastic ID for TAK EUDs to be identified by in the Meshtastic network
-                if not eud.meshtastic_id and eud.platform != "Meshtastic":
-                    meshtastic_id = '{:x}'.format(int.from_bytes(os.urandom(4), 'big'))
-                    while len(meshtastic_id) < 8:
-                        meshtastic_id = "0" + meshtastic_id
-                    eud.meshtastic_id = int(meshtastic_id, 16)
-                elif not eud.meshtastic_id and eud.platform == "Meshtastic":
-                    try:
-                        eud.meshtastic_id = int(takv.attrs['meshtastic_id'], 16)
-                    except:
-                        meshtastic_id = '{:x}'.format(int.from_bytes(os.urandom(4), 'big'))
-                        while len(meshtastic_id) < 8:
-                            meshtastic_id = "0" + meshtastic_id
-                        eud.meshtastic_id = int(meshtastic_id, 16)
-
-                # Get the Meshtastic device's mac address or generate a random one for TAK EUDs
-                if takv and 'macaddr' in takv.attrs:
-                    eud.meshtastic_macaddr = takv.attrs['macaddr']
-                else:
-                    eud.meshtastic_macaddr = base64.b64encode(os.urandom(6)).decode('ascii')
-
-                if group:
-                    eud.team_id = team.id
-                    eud.team_role = bleach.clean(group.attrs['role'])
-
-                try:
-                    self.db.session.add(eud)
-                    self.db.session.commit()
-                except sqlalchemy.exc.IntegrityError:
-                    self.logger.info(traceback.format_exc())
-                    self.db.session.rollback()
-                    self.db.session.execute(update(EUD).where(EUD.uid == eud.uid).values(**eud.serialize()))
-                    self.db.session.commit()
-
-                if self.context.app.config.get("OTS_ENABLE_MESHTASTIC") and eud.platform != "Meshtastic":
-                    user_info = mesh_pb2.User()
-                    setattr(user_info, "id", "!{:x}".format(eud.meshtastic_id))
-                    user_info.long_name = eud.callsign
-                    # Use the last 4 characters of the UID as the short name
-                    user_info.short_name = eud.uid[-4:]
-                    user_info.hw_model = mesh_pb2.HardwareModel.PRIVATE_HW
-
-                    node_info = mesh_pb2.NodeInfo()
-                    node_info.user.CopyFrom(user_info)
-
-                    encoded_message = mesh_pb2.Data()
-                    encoded_message.portnum = portnums_pb2.NODEINFO_APP
-                    user_info_bytes = user_info.SerializeToString()
-                    encoded_message.payload = user_info_bytes
-
-                    self.publish_to_meshtastic(self.get_protobuf(encoded_message, from_id=eud.meshtastic_id))
-
-                self.socketio.emit('eud', eud.to_json(), namespace='/socket.io')
-
-        # Update the CoT stored in memory which contains the new stale time
-        elif takv:
-            self.online_euds[uid]['cot'] = str(soup)
 
     def insert_cot(self, soup, event, uid):
         try:
@@ -1034,7 +875,6 @@ class CoTController:
                 uid = None
 
             if event:
-                self.parse_device_info(uid, soup, event)
                 cot_pk = self.insert_cot(soup, event, uid)
                 point_pk = self.parse_point(event, uid, cot_pk)
                 self.parse_geochat(event, cot_pk, point_pk)
@@ -1044,7 +884,7 @@ class CoTController:
                 self.parse_marker(event, uid, point_pk, cot_pk)
                 self.parse_rbline(event, uid, point_pk, cot_pk)
                 self.parse_stats(event, uid)
-                # self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
+                self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
                 self.rabbitmq_routing(event, body)
 
                 # EUD went offline
@@ -1095,7 +935,7 @@ def setup_logging(app):
     fh = TimedRotatingFileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'opentakserver.log'),
                                   when=app.config.get("OTS_LOG_ROTATE_WHEN"), interval=app.config.get("OTS_LOG_ROTATE_INTERVAL"),
                                   backupCount=app.config.get("OTS_BACKUP_COUNT"))
-    fh.setFormatter(logging.Formatter("[%(asctime)s] - ccot_parser[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))
+    fh.setFormatter(logging.Formatter("[%(asctime)s] - cot_parser[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))
     logger.addHandler(fh)
 
 

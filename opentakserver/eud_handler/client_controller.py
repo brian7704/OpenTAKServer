@@ -1,4 +1,7 @@
+import base64
 import json
+import os
+import random
 import socket
 import traceback
 import uuid
@@ -6,18 +9,27 @@ from xml.etree.ElementTree import Element, SubElement, tostring, fromstring, Par
 import datetime
 from threading import Thread
 
+import bleach
+import sqlalchemy
 from flask_security import verify_password
+from flask_socketio import SocketIO
 
 from bs4 import BeautifulSoup
 import pika
+from meshtastic import mesh_pb2, portnums_pb2, BROADCAST_NUM, mqtt_pb2
 from pika.channel import Channel
+from sqlalchemy import select, update
 
 from opentakserver.extensions import db
+from opentakserver.functions import datetime_from_iso8601_string, iso8601_string_from_datetime
+from opentakserver.models.Chatrooms import Chatroom
 from opentakserver.models.EUD import EUD
+from opentakserver.models.Meshtastic import MeshtasticChannel
 from opentakserver.models.Mission import Mission
 from opentakserver.models.CasEvac import CasEvac
 from opentakserver.models.GeoChat import GeoChat
 from opentakserver.models.ChatroomsUids import ChatroomsUids
+from opentakserver.models.Team import Team
 
 
 class ClientController(Thread):
@@ -32,6 +44,7 @@ class ClientController(Thread):
         self.app = app
         self.db = db
         self.is_ssl = is_ssl
+        self.socketio = SocketIO(message_queue="amqp://" + app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"))
 
         self.user = None
 
@@ -126,6 +139,9 @@ class ClientController(Thread):
                     self.sock.shutdown(socket.SHUT_RDWR)
                     self.sock.close()
                     break
+            except OSError:
+                # Client disconnected abruptly, either ATAK crashed, lost network connectivity, or the battery died
+                return
             except (ConnectionError, ConnectionResetError) as e:
                 self.unbind_rabbitmq_queues()
                 self.send_disconnect_cot()
@@ -287,39 +303,190 @@ class ClientController(Thread):
         return False
 
     def parse_device_info(self, event):
-        if not self.rabbit_channel:
+        link = event.find('link')
+        fileshare = event.find('fileshare')
+
+        callsign = None
+        phone_number = None
+
+        # EUDs running the Meshtastic and dmrcot plugins can relay messages from their RF networks to the server
+        # so we want to use the UID of the "off grid" EUD, not the relay EUD
+        takv = event.find('takv')
+        if takv:
+            uid = event.attrs.get('uid')
+        else:
             return
 
         contact = event.find('contact')
-        takv = event.find('takv')
-        if contact and takv:
+
+        # Only assume it's an EUD if it's got a <takv> tag
+        if takv and contact and uid and not uid.endswith('ping'):
+            self.uid = uid
+            device = takv.attrs['device'] if 'device' in takv.attrs else ""
+            operating_system = takv.attrs['os'] if 'os' in takv.attrs else ""
+            platform = takv.attrs['platform'] if 'platform' in takv.attrs else ""
+            version = takv.attrs['version'] if 'version' in takv.attrs else ""
+
             if 'callsign' in contact.attrs:
-                self.uid = event.attrs['uid']
                 self.callsign = contact.attrs['callsign']
-                self.logger.debug(f"Declaring queue for {self.callsign}")
-                self.rabbit_channel.queue_declare(queue=self.callsign)
-                self.rabbit_channel.queue_bind(exchange='cot', queue=self.callsign)
-                self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.callsign)
-                self.rabbit_channel.basic_consume(queue=self.callsign, on_message_callback=self.on_message, auto_ack=True)
 
-                self.logger.debug("Declaring queue {}".format(self.uid))
-                self.rabbit_channel.queue_declare(queue=self.uid)
-                self.rabbit_channel.queue_bind(exchange='cot', queue=self.uid)
-                self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.uid)
-                self.rabbit_channel.basic_consume(queue=self.uid, on_message_callback=self.on_message, auto_ack=True)
-                self.logger.debug("{} is consuming".format(self.callsign))
+                # Declare a RabbitMQ Queue for this uid and join the 'dms' and 'cot' exchanges
+                if self.rabbit_channel and self.rabbit_channel.is_open and platform != "OpenTAK ICU" and platform != "Meshtastic" and platform != "DMRCOT":
+                    self.rabbit_channel.queue_bind(exchange='dms', queue=self.uid, routing_key=self.uid)
+                    self.rabbit_channel.queue_bind(exchange='dms', queue=self.callsign, routing_key=self.callsign)
+                    self.rabbit_channel.queue_bind(exchange='chatrooms', queue=self.uid, routing_key='All Chat Rooms')
 
-                # Add the EUD if it doesn't exist and associate it with a user
-                with self.app.app_context():
-                    eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=self.uid)).first()
-                    if not eud:
-                        eud = EUD()
-                        eud.uid = self.uid
-                        eud.callsign = self.callsign
-                        eud.user_id = self.user.id if self.user else None
+                    self.logger.debug(f"Declaring queue for {self.callsign}")
+                    self.rabbit_channel.queue_declare(queue=self.callsign)
+                    self.rabbit_channel.queue_bind(exchange='cot', queue=self.callsign)
+                    self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.callsign)
+                    self.rabbit_channel.basic_consume(queue=self.callsign, on_message_callback=self.on_message, auto_ack=True)
 
-                        self.db.session.add(eud)
+                    self.logger.debug("Declaring queue {}".format(self.uid))
+                    self.rabbit_channel.queue_declare(queue=self.uid)
+                    self.rabbit_channel.queue_bind(exchange='cot', queue=self.uid)
+                    self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.uid)
+                    self.rabbit_channel.basic_consume(queue=self.uid, on_message_callback=self.on_message, auto_ack=True)
+
+                    with self.app.app_context():
+                        online_euds = self.db.session.execute(select(EUD).filter(EUD.last_status == 'Connected'))
+                        for eud in online_euds:
+                            eud = eud[0]
+                            self.sock.send(eud.cots[-1].xml.encode())
+
+            if 'phone' in contact.attrs and contact.attrs['phone']:
+                phone_number = contact.attrs['phone']
+
+            with self.app.app_context():
+                group = event.find('__group')
+                team = Team()
+
+                if group:
+                    # Declare an exchange for each group and bind the callsign's queue
+                    if self.rabbit_channel.is_open and platform != "Meshtastic" and platform != "DMRCOT":
+                        self.logger.debug("Declaring exchange {}".format(group.attrs['name']))
+                        self.rabbit_channel.exchange_declare(exchange=group.attrs['name'])
+                        self.rabbit_channel.queue_bind(queue=self.uid, exchange='chatrooms', routing_key=group.attrs['name'])
+
+                    team.name = bleach.clean(group.attrs['name'])
+
+                    try:
+                        chatroom = self.db.session.execute(select(Chatroom).filter(Chatroom.name == team.name)).first()[0]
+                        team.chatroom_id = chatroom.id
+                    except TypeError:
+                        chatroom = None
+
+                    try:
+                        self.db.session.add(team)
                         self.db.session.commit()
+                    except sqlalchemy.exc.IntegrityError:
+                        self.db.session.rollback()
+                        team = self.db.session.execute(select(Team).filter(Team.name == group.attrs['name'])).first()[0]
+                        if not team.chatroom_id and chatroom:
+                            team.chatroom_id = chatroom.id
+                            self.db.session.execute(update(Team).filter(Team.name == chatroom.id).values(chatroom_id=chatroom.id))
+
+                try:
+                    eud = self.db.session.execute(select(EUD).filter_by(uid=uid)).first()[0]
+                except:
+                    eud = EUD()
+
+                eud.uid = uid
+                if callsign:
+                    eud.callsign = callsign
+                if device:
+                    eud.device = device
+
+                eud.os = operating_system
+                eud.platform = platform
+                eud.version = version
+                eud.phone_number = phone_number
+                eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
+                eud.last_status = 'Connected'
+                eud.user_id = self.user.id if self.user else None
+
+                # Set a Meshtastic ID for TAK EUDs to be identified by in the Meshtastic network
+                if not eud.meshtastic_id and eud.platform != "Meshtastic":
+                    meshtastic_id = '{:x}'.format(int.from_bytes(os.urandom(4), 'big'))
+                    while len(meshtastic_id) < 8:
+                        meshtastic_id = "0" + meshtastic_id
+                    eud.meshtastic_id = int(meshtastic_id, 16)
+                elif not eud.meshtastic_id and eud.platform == "Meshtastic":
+                    try:
+                        eud.meshtastic_id = int(takv.attrs['meshtastic_id'], 16)
+                    except:
+                        meshtastic_id = '{:x}'.format(int.from_bytes(os.urandom(4), 'big'))
+                        while len(meshtastic_id) < 8:
+                            meshtastic_id = "0" + meshtastic_id
+                        eud.meshtastic_id = int(meshtastic_id, 16)
+
+                # Get the Meshtastic device's mac address or generate a random one for TAK EUDs
+                if takv and 'macaddr' in takv.attrs:
+                    eud.meshtastic_macaddr = takv.attrs['macaddr']
+                else:
+                    eud.meshtastic_macaddr = base64.b64encode(os.urandom(6)).decode('ascii')
+
+                if group:
+                    eud.team_id = team.id
+                    eud.team_role = bleach.clean(group.attrs['role'])
+
+                try:
+                    self.db.session.add(eud)
+                    self.db.session.commit()
+                except sqlalchemy.exc.IntegrityError:
+                    self.logger.info(traceback.format_exc())
+                    self.db.session.rollback()
+                    self.db.session.execute(update(EUD).where(EUD.uid == eud.uid).values(**eud.serialize()))
+                    self.db.session.commit()
+
+                self.send_meshtastic_node_info(eud)
+
+                self.socketio.emit('eud', eud.to_json(), namespace='/socket.io')
+
+    def send_meshtastic_node_info(self, eud):
+        if self.app.config.get("OTS_ENABLE_MESHTASTIC") and eud.platform != "Meshtastic":
+            user_info = mesh_pb2.User()
+            setattr(user_info, "id", "!{:x}".format(eud.meshtastic_id))
+            user_info.long_name = eud.callsign
+            # Use the last 4 characters of the UID as the short name
+            user_info.short_name = eud.uid[-4:]
+            user_info.hw_model = mesh_pb2.HardwareModel.PRIVATE_HW
+
+            node_info = mesh_pb2.NodeInfo()
+            node_info.user.CopyFrom(user_info)
+
+            encoded_message = mesh_pb2.Data()
+            encoded_message.portnum = portnums_pb2.NODEINFO_APP
+            user_info_bytes = user_info.SerializeToString()
+            encoded_message.payload = user_info_bytes
+
+            message_id = random.getrandbits(32)
+            mesh_packet = mesh_pb2.MeshPacket()
+            mesh_packet.id = message_id
+
+            try:
+                setattr(mesh_packet, "from", int(eud.meshtastic_id, 16))
+            except BaseException as e:
+                setattr(mesh_packet, "from", eud.meshtastic_id)
+            mesh_packet.to = BROADCAST_NUM
+            mesh_packet.want_ack = False
+            mesh_packet.hop_limit = 3
+            mesh_packet.decoded.CopyFrom(encoded_message)
+
+            service_envelope = mqtt_pb2.ServiceEnvelope()
+            service_envelope.packet.CopyFrom(mesh_packet)
+            service_envelope.gateway_id = "OpenTAKServer"
+
+            channels = self.db.session.execute(select(MeshtasticChannel).filter(MeshtasticChannel.uplink_enabled == True))
+            for channel in channels:
+                channel = channel[0]
+                service_envelope.channel_id = channel
+                routing_key = f"{self.app.config.get("OTS_MESHTASTIC_TOPIC")}.2.e.{channel.name}.outgoing"
+                self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key,
+                                                  body=service_envelope.SerializeToString(),
+                                                  properties=pika.BasicProperties(
+                                                      expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
+                self.logger.debug("Published message to " + routing_key)
 
     def unbind_rabbitmq_queues(self):
         if self.uid:
@@ -347,6 +514,13 @@ class ClientController(Thread):
             message = json.dumps({'uid': self.uid, 'cot': tostring(event).decode('utf-8')})
             self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='', body=message,
                                               properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
+
+            with self.app.app_context():
+                self.logger.info(traceback.print_exc())
+                now = iso8601_string_from_datetime(datetime.datetime.now())
+                self.db.session.execute(update(EUD).filter(EUD.uid == self.uid).values(last_status='Disconnected', last_event_time=now))
+                self.db.session.commit()
+
         self.logger.info('{} disconnected'.format(self.address))
         if self.rabbit_connection:
             self.rabbit_connection.close()
