@@ -69,8 +69,6 @@ class CoTController:
         self.db: flask_sqlalchemy.SQLAlchemy = database
         self.socketio = socket_io
 
-        self.online_euds = {}
-        self.online_callsigns = {}
         self.exchanges = []
 
         self.rabbit_connection: pika.BlockingConnection = None
@@ -88,13 +86,6 @@ class CoTController:
         self.rabbit_channel.start_consuming()
 
     def insert_cot(self, soup, event, uid):
-        try:
-            sender_callsign = self.online_euds[uid]['callsign']
-            sender_uid = uid
-        except:
-            sender_callsign = 'server'
-            sender_uid = None
-
         start = datetime_from_iso8601_string(event.attrs['start'])
         stale = datetime_from_iso8601_string(event.attrs['stale'])
         timestamp = datetime_from_iso8601_string(event.attrs['time'])
@@ -107,10 +98,8 @@ class CoTController:
 
         with self.context:
             res = self.db.session.execute(insert(CoT).values(
-                how=event.attrs['how'], type=event.attrs['type'], sender_callsign=sender_callsign,
-                sender_uid=sender_uid, timestamp=timestamp, xml=str(soup), start=start, stale=stale,
-                mission_name=mission_name,
-                uid=event.attrs['uid']
+                how=event.attrs['how'], type=event.attrs['type'], sender_uid=uid, timestamp=timestamp, xml=str(soup),
+                start=start, stale=stale, mission_name=mission_name, uid=event.attrs['uid']
             ))
 
             try:
@@ -222,71 +211,73 @@ class CoTController:
                 if event.find('takv') or event.find("__video"):
                     self.socketio.emit('point', p.to_json(), namespace='/socket.io')
 
-                now = time.time()
-                if uid in self.online_euds:
-                    can_transmit = (
-                                now - self.online_euds[uid]['last_meshtastic_publish'] >= self.context.app.config.get(
-                            "OTS_MESHTASTIC_PUBLISH_INTERVAL"))
-                else:
-                    can_transmit = False
-
-                if self.context.app.config.get("OTS_ENABLE_MESHTASTIC") and can_transmit:
-                    self.logger.debug("publishing position to mesh")
+                if self.context.app.config.get("OTS_ENABLE_MESHTASTIC"):
                     try:
-                        self.online_euds[uid]['last_meshtastic_publish'] = now
-                        eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
+                        eud = self.db.session.execute(select(EUD).filter(uid=uid)).first()[0]
 
-                        if eud.platform != "Meshtastic":
-                            mesh_user = mesh_pb2.User()
-                            setattr(mesh_user, "id", eud.uid)
-                            mesh_user.hw_model = mesh_pb2.HardwareModel.PRIVATE_HW
-                            mesh_user.short_name = p.device_uid[-4:]
+                        now = time.time()
+                        if now - eud.last_meshtastic_publish >= self.context.app.config.get("OTS_MESHTASTIC_PUBLISH_INTERVAL"):
 
-                            contact = event.find('contact')
-                            if contact:
-                                mesh_user.long_name = contact.attrs['callsign']
+                            self.logger.debug("publishing position to mesh")
+                            try:
+                                eud.last_meshtastic_publish = now
+                                self.db.session.execute(update(EUD).filter(uid=eud.uid).values(last_meshtastic_publish=now))
+                                self.db.session.commit()
 
-                            position = mesh_pb2.Position()
-                            position.latitude_i = int(p.latitude / .0000001)
-                            position.longitude_i = int(p.longitude / .0000001)
-                            position.altitude = int(p.hae)
-                            position.time = int(time.mktime(p.timestamp.timetuple()))
-                            position.ground_track = int(p.course) if p.course else 0
-                            position.ground_speed = int(p.speed) if p.speed and p.speed >= 0 else 0
-                            position.seq_number = 1
-                            position.precision_bits = 32
+                                if eud.platform != "Meshtastic":
+                                    mesh_user = mesh_pb2.User()
+                                    setattr(mesh_user, "id", eud.uid)
+                                    mesh_user.hw_model = mesh_pb2.HardwareModel.PRIVATE_HW
+                                    mesh_user.short_name = p.device_uid[-4:]
 
-                            node_info = mesh_pb2.NodeInfo()
-                            node_info.user.CopyFrom(mesh_user)
-                            node_info.position.CopyFrom(position)
+                                    contact = event.find('contact')
+                                    if contact:
+                                        mesh_user.long_name = contact.attrs['callsign']
 
-                            encoded_message = mesh_pb2.Data()
-                            encoded_message.portnum = portnums_pb2.POSITION_APP
-                            encoded_message.payload = position.SerializeToString()
+                                    position = mesh_pb2.Position()
+                                    position.latitude_i = int(p.latitude / .0000001)
+                                    position.longitude_i = int(p.longitude / .0000001)
+                                    position.altitude = int(p.hae)
+                                    position.time = int(time.mktime(p.timestamp.timetuple()))
+                                    position.ground_track = int(p.course) if p.course else 0
+                                    position.ground_speed = int(p.speed) if p.speed and p.speed >= 0 else 0
+                                    position.seq_number = 1
+                                    position.precision_bits = 32
 
-                            self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=p.device_uid))
+                                    node_info = mesh_pb2.NodeInfo()
+                                    node_info.user.CopyFrom(mesh_user)
+                                    node_info.position.CopyFrom(position)
 
-                            tak_packet = atak_pb2.TAKPacket()
-                            tak_packet.is_compressed = True
-                            tak_packet.contact.device_callsign, size = unishox2.compress(eud.uid)
-                            tak_packet.contact.callsign, size = unishox2.compress(eud.callsign)
-                            tak_packet.group.team = eud.team.name.replace(" ", "_") if eud.team else "Cyan"
-                            tak_packet.group.role = eud.team_role.replace(" ", "") if eud.team_role else "TeamMember"
-                            tak_packet.status.battery = int(p.battery) if p.battery else 0
-                            tak_packet.pli.latitude_i = int(p.latitude / .0000001)
-                            tak_packet.pli.longitude_i = int(p.longitude / .0000001)
-                            tak_packet.pli.altitude = int(p.hae) if p.hae else 0
-                            tak_packet.pli.speed = int(p.speed) if p.speed else 0
-                            tak_packet.pli.course = int(p.course) if p.course else 0
+                                    encoded_message = mesh_pb2.Data()
+                                    encoded_message.portnum = portnums_pb2.POSITION_APP
+                                    encoded_message.payload = position.SerializeToString()
 
-                            encoded_message = mesh_pb2.Data()
-                            encoded_message.portnum = portnums_pb2.ATAK_PLUGIN
-                            encoded_message.payload = tak_packet.SerializeToString()
+                                    self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=p.device_uid))
 
-                            self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=eud.uid))
+                                    tak_packet = atak_pb2.TAKPacket()
+                                    tak_packet.is_compressed = True
+                                    tak_packet.contact.device_callsign, size = unishox2.compress(eud.uid)
+                                    tak_packet.contact.callsign, size = unishox2.compress(eud.callsign)
+                                    tak_packet.group.team = eud.team.name.replace(" ", "_") if eud.team else "Cyan"
+                                    tak_packet.group.role = eud.team_role.replace(" ", "") if eud.team_role else "TeamMember"
+                                    tak_packet.status.battery = int(p.battery) if p.battery else 0
+                                    tak_packet.pli.latitude_i = int(p.latitude / .0000001)
+                                    tak_packet.pli.longitude_i = int(p.longitude / .0000001)
+                                    tak_packet.pli.altitude = int(p.hae) if p.hae else 0
+                                    tak_packet.pli.speed = int(p.speed) if p.speed else 0
+                                    tak_packet.pli.course = int(p.course) if p.course else 0
+
+                                    encoded_message = mesh_pb2.Data()
+                                    encoded_message.portnum = portnums_pb2.ATAK_PLUGIN
+                                    encoded_message.payload = tak_packet.SerializeToString()
+
+                                    self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=eud.uid))
+                            except BaseException as e:
+                                self.logger.error(f"Failed to send publish message to mesh: {e}")
+                                self.logger.debug(traceback.format_exc())
                     except BaseException as e:
-                        self.logger.error(f"Failed to send publish message to mesh: {e}")
-                        self.logger.debug(traceback.format_exc())
+                        logger.warning(f"Failed to publish Meshtastic message: {e}")
+                        logger.debug(traceback.format_exc())
 
                 return res.inserted_primary_key[0]
 
@@ -330,14 +321,6 @@ class CoTController:
             if not remarks:
                 return
 
-            sender_callsign = chat.attrs['senderCallsign']
-            if sender_callsign not in self.online_callsigns:
-                self.online_callsigns[sender_callsign] = {'uid': chat_group.attrs['uid0'], 'cot': "",
-                                                          'last_meshtastic_publish': 0}
-            if chat_group.attrs['uid0'] not in self.online_euds:
-                self.online_euds[chat_group.attrs['uid0']] = {'cot': "", 'callsign': sender_callsign,
-                                                              'last_meshtastic_publish': 0}
-
             chatroom = Chatroom()
 
             chatroom.name = chat.attrs['chatroom']
@@ -364,23 +347,21 @@ class CoTController:
             if self.context.app.config.get("OTS_ENABLE_MESHTASTIC"):
                 try:
                     with self.context:
-                        from_eud = \
-                        self.db.session.execute(self.db.session.query(EUD).filter_by(uid=geochat.sender_uid)).first()[0]
+                        from_eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=geochat.sender_uid)).first()[0]
 
                         tak_packet = atak_pb2.TAKPacket()
                         tak_packet.contact.device_callsign, size = unishox2.compress(geochat.sender_uid)
-                        if geochat.sender_uid in self.online_euds:
-                            tak_packet.contact.callsign, size = unishox2.compress(
-                                self.online_euds[geochat.sender_uid]['callsign'])
+                        tak_packet.contact.callsign, size = unishox2.compress(from_eud.callsign)
                         tak_packet.chat.message, size = unishox2.compress(remarks.text)
                         tak_packet.group.team = from_eud.team.name.replace(" ", "_")
                         tak_packet.group.role = from_eud.team_role.replace(" ", "")
                         tak_packet.is_compressed = True
 
                         send_meshtastic_text = False
-                        if chat.attrs['chatroom'] in self.online_callsigns:
+                        dest = event.find("dest")
+                        if dest and 'callsign' in dest.attrs and dest.attrs['callsign'] == chat.attrs['chatroom']:
                             # This is a DM
-                            to = self.online_callsigns[chat.attrs['chatroom']]['uid']
+                            to = chat.attrs['chatroom']
                             try:
                                 # DM to a Meshtastic device
                                 to_id = int(to, 16)
@@ -909,8 +890,6 @@ class CoTController:
                         self.logger.error("Failed to update EUD: {}".format(e))
                         self.logger.debug(traceback.format_exc())
 
-                    if uid in self.online_euds.keys():
-                        self.online_euds.pop(uid)
         except BaseException as e:
             self.logger.error(f"Failed to parse CoT: {e}")
             self.logger.debug(traceback.format_exc())

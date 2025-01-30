@@ -27,6 +27,7 @@ class EUD(db.Model):
     team_role: Mapped[str] = mapped_column(String(255), nullable=True)
     meshtastic_id: Mapped[int] = mapped_column(BigInteger, nullable=True)
     meshtastic_macaddr: Mapped[String] = mapped_column(String(255), nullable=True)
+    last_meshtastic_publish: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     points = relationship("Point", cascade="all, delete-orphan", back_populates="eud")
     cots = relationship("CoT", cascade="all, delete-orphan", back_populates="eud")
     casevacs = relationship("CasEvac", cascade="all, delete-orphan", back_populates="eud")

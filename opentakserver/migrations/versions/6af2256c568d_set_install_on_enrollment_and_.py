@@ -33,7 +33,11 @@ def upgrade():
         batch_op.alter_column('connection',
                existing_type=sa.BOOLEAN(),
                nullable=True)
-        # batch_op.drop_column('id')
+        try:
+            batch_op.drop_column('id')
+        except BaseException as e:
+            print(f"Failed to drop euds.id column: {e}")
+            pass
 
     with op.batch_alter_table('packages', schema=None) as batch_op:
         batch_op.alter_column('install_on_enrollment',
