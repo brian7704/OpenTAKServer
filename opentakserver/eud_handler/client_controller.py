@@ -127,6 +127,7 @@ class ClientController(Thread):
             self.shutdown = True
             self.logger.error(traceback.format_exc())
 
+    # Yes this is super janky
     def run(self):
         while not self.shutdown:
             try:
@@ -139,14 +140,6 @@ class ClientController(Thread):
                     self.sock.shutdown(socket.SHUT_RDWR)
                     self.sock.close()
                     break
-            except OSError:
-                # Client disconnected abruptly, either ATAK crashed, lost network connectivity, or the battery died
-                return
-            except (ConnectionError, ConnectionResetError) as e:
-                self.unbind_rabbitmq_queues()
-                self.send_disconnect_cot()
-                self.sock.close()
-                break
             except TimeoutError:
                 if self.shutdown:
                     self.logger.warning("Closing connection to {}".format(self.address))
@@ -157,6 +150,14 @@ class ClientController(Thread):
                     break
                 else:
                     continue
+            except OSError:
+                # Client disconnected abruptly, either ATAK crashed, lost network connectivity, the battery died, etc
+                return
+            except (ConnectionError, ConnectionResetError) as e:
+                self.unbind_rabbitmq_queues()
+                self.send_disconnect_cot()
+                self.sock.close()
+                break
 
             if data:
                 while True:
@@ -195,9 +196,21 @@ class ClientController(Thread):
                             continue
                         except (ConnectionError, TimeoutError, ConnectionResetError) as e:
                             break
-                    except UnicodeDecodeError:
-                        self.sock.close()
-                        break
+                    except UnicodeDecodeError as e:
+                        try:
+                            received_byte = self.sock.recv(1)
+                            if not received_byte:
+                                self.shutdown = True
+                                self.logger.info(f"{self.address} disconnected")
+                                self.unbind_rabbitmq_queues()
+                                self.send_disconnect_cot()
+                                self.sock.shutdown(socket.SHUT_RDWR)
+                                self.sock.close()
+                                break
+                            data += received_byte
+                            continue
+                        except (ConnectionError, TimeoutError, ConnectionResetError) as e:
+                            break
 
                 self.logger.debug(data)
                 soup = BeautifulSoup(data, 'xml')
@@ -332,10 +345,6 @@ class ClientController(Thread):
 
                 # Declare a RabbitMQ Queue for this uid and join the 'dms' and 'cot' exchanges
                 if self.rabbit_channel and self.rabbit_channel.is_open and platform != "OpenTAK ICU" and platform != "Meshtastic" and platform != "DMRCOT":
-                    self.rabbit_channel.queue_bind(exchange='dms', queue=self.uid, routing_key=self.uid)
-                    self.rabbit_channel.queue_bind(exchange='dms', queue=self.callsign, routing_key=self.callsign)
-                    self.rabbit_channel.queue_bind(exchange='chatrooms', queue=self.uid, routing_key='All Chat Rooms')
-
                     self.logger.debug(f"Declaring queue for {self.callsign}")
                     self.rabbit_channel.queue_declare(queue=self.callsign)
                     self.rabbit_channel.queue_bind(exchange='cot', queue=self.callsign)
@@ -348,11 +357,16 @@ class ClientController(Thread):
                     self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.uid)
                     self.rabbit_channel.basic_consume(queue=self.uid, on_message_callback=self.on_message, auto_ack=True)
 
+                    self.rabbit_channel.queue_bind(exchange='dms', queue=self.uid, routing_key=self.uid)
+                    self.rabbit_channel.queue_bind(exchange='dms', queue=self.callsign, routing_key=self.callsign)
+                    self.rabbit_channel.queue_bind(exchange='chatrooms', queue=self.uid, routing_key='All Chat Rooms')
+
                     with self.app.app_context():
-                        online_euds = self.db.session.execute(select(EUD).filter(EUD.last_status == 'Connected'))
+                        online_euds = self.db.session.execute(select(EUD).filter(EUD.last_status == 'Connected')).all()
                         for eud in online_euds:
                             eud = eud[0]
-                            self.sock.send(eud.cots[-1].xml.encode())
+                            if len(eud.cots) > 0:
+                                self.sock.send(eud.cots[-1].xml.encode())
 
             if 'phone' in contact.attrs and contact.attrs['phone']:
                 phone_number = contact.attrs['phone']
@@ -440,7 +454,6 @@ class ClientController(Thread):
                     self.db.session.commit()
 
                 self.send_meshtastic_node_info(eud)
-
                 self.socketio.emit('eud', eud.to_json(), namespace='/socket.io')
 
     def send_meshtastic_node_info(self, eud):
