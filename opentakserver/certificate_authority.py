@@ -241,6 +241,12 @@ class CertificateAuthority:
         if exit_code:
             raise Exception("Failed to sign csr. Exit code {}".format(exit_code))
 
+        if server:
+            with open(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca.pem"), 'r') as ca_file:
+                f = open(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".pem"), 'a')
+                f.write(ca_file.read())
+                f.close()
+
         f = open(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".pem"), 'r')
         cert_bytes = f.read().encode()
         f.close()
