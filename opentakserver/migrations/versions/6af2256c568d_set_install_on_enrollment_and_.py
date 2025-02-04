@@ -33,7 +33,7 @@ def upgrade():
         batch_op.alter_column('connection',
                existing_type=sa.BOOLEAN(),
                nullable=True)
-        # batch_op.drop_column('id')
+        batch_op.drop_column('id')
 
     with op.batch_alter_table('packages', schema=None) as batch_op:
         batch_op.alter_column('install_on_enrollment',

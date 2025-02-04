@@ -77,7 +77,6 @@ class CoTController(RabbitMQClient):
 
         # Only assume it's an EUD if it's got a <takv> tag
         if takv and uid and uid not in self.online_euds and not uid.endswith('ping'):
-            self.logger.info("Got PLI " + uid)
             device = takv.attrs['device'] if 'device' in takv.attrs else ""
             operating_system = takv.attrs['os'] if 'os' in takv.attrs else ""
             platform = takv.attrs['platform'] if 'platform' in takv.attrs else ""
