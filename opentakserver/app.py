@@ -297,7 +297,7 @@ def main():
     if app.config.get("OTS_ENABLE_PLUGINS"):
         plugin_manager = PluginManager(Plugin.group)
         plugin_manager.load_plugins()
-        plugin_manager.activate(app, logger)
+        plugin_manager.activate(app, logger, db)
 
     app.start_time = datetime.now()
 

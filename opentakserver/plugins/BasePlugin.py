@@ -8,7 +8,7 @@ class BasePlugin(ABC):
     """
     Base class for all plugin types
 
-    The `activate()` method must be implemented and receives the Poetry instance.
+    The `activate()` method must be implemented and receives the Flask instance, logger, and DB.
     """
 
     PLUGIN_API_VERSION = "1.0.0"
