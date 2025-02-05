@@ -1,5 +1,5 @@
-import eventlet
-eventlet.monkey_patch()
+from gevent import monkey
+monkey.patch_all()
 
 import sys
 import traceback
@@ -13,6 +13,8 @@ import requests
 from sqlalchemy import insert
 import sqlite3
 from opentakserver.models.Icon import Icon
+from opentakserver.plugins.Plugin import Plugin
+from opentakserver.plugins.PluginManager import PluginManager
 
 import yaml
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
@@ -291,6 +293,11 @@ def main():
             logger.error(traceback.format_exc())
     else:
         logger.info("Mumble authentication handler disabled")
+
+    if app.config.get("OTS_ENABLE_PLUGINS"):
+        plugin_manager = PluginManager(Plugin.group)
+        plugin_manager.load_plugins()
+        plugin_manager.activate(app, logger)
 
     app.start_time = datetime.now()
 

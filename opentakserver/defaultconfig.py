@@ -57,6 +57,8 @@ class DefaultConfig:
     OTS_AIRPLANES_LIVE_LON = -73.986939
     OTS_AIRPLANES_LIVE_RADIUS = 10
 
+    OTS_ENABLE_PLUGINS = True
+
     # AIS Settings
     OTS_AISHUB_USERNAME = None
     OTS_AISHUB_SOUTH_LAT = None
