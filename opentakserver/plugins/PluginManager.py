@@ -4,6 +4,8 @@ import logging
 
 from typing import TYPE_CHECKING
 
+from flask import Flask
+
 from opentakserver.plugins.Plugin import Plugin
 from poetry.utils._compat import metadata
 
@@ -20,9 +22,10 @@ class PluginManager:
     This class registers and activates plugins.
     """
 
-    def __init__(self, group: str) -> None:
+    def __init__(self, group: str, app: Flask) -> None:
         self._group = group
         self._plugins: list[Plugin] = []
+        self._app = app
 
     def load_plugins(self) -> None:
         plugin_entrypoints = self.get_plugin_entry_points()
@@ -35,7 +38,12 @@ class PluginManager:
 
     def activate(self, *args: Any, **kwargs: Any) -> None:
         for plugin in self._plugins:
-            plugin.activate(*args, **kwargs)
+            try:
+                plugin.activate(*args, **kwargs)
+                if plugin.blueprint:
+                    self._app.register_blueprint(plugin.blueprint)
+            except BaseException as e:
+                print(f"Failed to load plugin: {e}")
 
     def _add_plugin(self, plugin: Plugin) -> None:
         if not isinstance(plugin, Plugin):

@@ -295,9 +295,12 @@ def main():
         logger.info("Mumble authentication handler disabled")
 
     if app.config.get("OTS_ENABLE_PLUGINS"):
-        plugin_manager = PluginManager(Plugin.group)
-        plugin_manager.load_plugins()
-        plugin_manager.activate(app, logger, db)
+        try:
+            plugin_manager = PluginManager(Plugin.group, app)
+            plugin_manager.load_plugins()
+            plugin_manager.activate(app, logger, db)
+        except BaseException as e:
+            logger.error(f"Failed to load plugins: {e}")
 
     app.start_time = datetime.now()
 

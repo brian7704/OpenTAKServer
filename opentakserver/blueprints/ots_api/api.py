@@ -13,7 +13,7 @@ import yaml
 import bleach
 import psutil
 import sqlalchemy.exc
-from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
+from flask import current_app as app, request, Blueprint, jsonify, send_from_directory, url_for
 from flask_security import auth_required, current_user, verify_password
 from sqlalchemy import select
 
@@ -83,6 +83,26 @@ def change_config_setting(setting, value):
 @api_blueprint.route('/files/api/config')
 def cloudtak_config():
     return jsonify({'uploadSizeLimit': 400})
+
+
+def has_no_empty_params(rule):
+    defaults = rule.defaults if rule.defaults is not None else ()
+    arguments = rule.arguments if rule.arguments is not None else ()
+    return len(defaults) >= len(arguments)
+
+
+@api_blueprint.route("/api/plugins")
+def get_plugin_routes():
+    links = []
+    for rule in app.url_map.iter_rules():
+        # Filter out rules we can't navigate to in a browser
+        # and rules that require parameters
+        if "GET" in rule.methods and has_no_empty_params(rule):
+            url = url_for(rule.endpoint, **(rule.defaults or {}))
+            if url.startswith("/api/plugins/"):
+                links.append(url)
+
+    return links
 
 
 # Simple health check for docker
@@ -361,7 +381,8 @@ def cloudtak_oauth_token():
     if not user or not verify_password(request.args.get("password"), user.password):
         return jsonify({'success': False, 'error': 'Invalid username or password'}), 400
 
-    with open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.nopass.key"), "rb") as key:
+    with open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.nopass.key"),
+              "rb") as key:
         token = jwt.encode({
             "exp": datetime.datetime.now() + datetime.timedelta(days=365),
             "nbf": datetime.datetime.now(),
