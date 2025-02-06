@@ -298,7 +298,7 @@ def main():
         try:
             plugin_manager = PluginManager(Plugin.group, app)
             plugin_manager.load_plugins()
-            plugin_manager.activate(app, logger, db)
+            plugin_manager.activate(app)
         except BaseException as e:
             logger.error(f"Failed to load plugins: {e}")
 
