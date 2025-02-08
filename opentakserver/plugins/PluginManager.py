@@ -45,6 +45,10 @@ class PluginManager:
             except BaseException as e:
                 print(f"Failed to load plugin: {e}")
 
+    def stop_plugins(self):
+        for plugin in self._plugins:
+            plugin.stop()
+
     def _add_plugin(self, plugin: Plugin) -> None:
         if not isinstance(plugin, Plugin):
             raise ValueError(

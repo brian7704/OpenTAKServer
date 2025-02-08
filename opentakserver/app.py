@@ -294,6 +294,7 @@ def main():
     else:
         logger.info("Mumble authentication handler disabled")
 
+    plugin_manager = None
     if app.config.get("OTS_ENABLE_PLUGINS"):
         try:
             plugin_manager = PluginManager(Plugin.group, app)
@@ -301,11 +302,17 @@ def main():
             plugin_manager.activate(app)
         except BaseException as e:
             logger.error(f"Failed to load plugins: {e}")
+            logger.debug(traceback.format_exc())
 
     app.start_time = datetime.now()
 
-    socketio.run(app, host=app.config.get("OTS_LISTENER_ADDRESS"), port=app.config.get("OTS_LISTENER_PORT"),
-                 debug=app.config.get("DEBUG"), log_output=app.config.get("DEBUG"), use_reloader=False)
+    try:
+        socketio.run(app, host=app.config.get("OTS_LISTENER_ADDRESS"), port=app.config.get("OTS_LISTENER_PORT"),
+                     debug=app.config.get("DEBUG"), log_output=app.config.get("DEBUG"), use_reloader=False)
+    except KeyboardInterrupt:
+        logger.warning("Caught CTRL+C, exiting...")
+        if plugin_manager:
+            plugin_manager.stop_plugins()
 
 
 if __name__ == '__main__':

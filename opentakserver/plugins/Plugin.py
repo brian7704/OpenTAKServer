@@ -17,3 +17,6 @@ class Plugin(BasePlugin):
 
     @abstractmethod
     def activate(self, app: Flask) -> None: ...
+
+    @abstractmethod
+    def stop(self) -> None: ...
