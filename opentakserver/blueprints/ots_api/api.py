@@ -35,6 +35,8 @@ from opentakserver.models.Icon import Icon
 from opentakserver.models.Marker import Marker
 from opentakserver.models.RBLine import RBLine
 from opentakserver import __version__ as version
+from opentakserver.plugins.Plugin import Plugin
+from opentakserver.plugins.PluginManager import PluginManager
 
 api_blueprint = Blueprint('api_blueprint', __name__)
 
@@ -85,24 +87,16 @@ def cloudtak_config():
     return jsonify({'uploadSizeLimit': 400})
 
 
-def has_no_empty_params(rule):
-    defaults = rule.defaults if rule.defaults is not None else ()
-    arguments = rule.arguments if rule.arguments is not None else ()
-    return len(defaults) >= len(arguments)
-
-
 @api_blueprint.route("/api/plugins")
-def get_plugin_routes():
-    links = []
-    for rule in app.url_map.iter_rules():
-        # Filter out rules we can't navigate to in a browser
-        # and rules that require parameters
-        if "GET" in rule.methods and has_no_empty_params(rule):
-            url = url_for(rule.endpoint, **(rule.defaults or {}))
-            if url.startswith("/api/plugins/"):
-                links.append(url)
+def get_plugins():
+    plugin_manager = PluginManager(Plugin.group, api_blueprint)
+    plugin_manager.load_plugins()
 
-    return links
+    plugins = []
+    for plugin in plugin_manager._plugins:
+        plugins.append(plugin.get_info())
+
+    return jsonify({'success': True, 'plugins': plugins})
 
 
 # Simple health check for docker
