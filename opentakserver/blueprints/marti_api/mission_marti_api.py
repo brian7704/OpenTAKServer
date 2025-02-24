@@ -349,7 +349,9 @@ def put_mission(mission_name: str):
 
             event = generate_new_mission_cot(mission)
 
-            rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+            rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+            rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+            rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
             channel = rabbit_connection.channel()
             channel.basic_publish(exchange="missions", routing_key="missions",
                                   body=json.dumps(
@@ -437,7 +439,9 @@ def delete_mission(mission_name: str):
         db.session.delete(mission)
         db.session.commit()
 
-        rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+        rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+        rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+        rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
         channel = rabbit_connection.channel()
         channel.basic_publish(exchange="missions", routing_key="missions",
                               body=json.dumps({'uid': app.config.get("OTS_NODE_ID"),
@@ -531,7 +535,9 @@ def invite(mission_name: str, invitation_type: str, invitee: str):
     db.session.commit()
 
     event = generate_invitation_cot(mission, invitee)
-    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
     channel = rabbit_connection.channel()
     channel.basic_publish(exchange="dms", routing_key=invitee, body=json.dumps({"uid": app.config.get("OTS_NODE_ID"),
                                                                                 "cot": tostring(event).decode('utf-8')}))
@@ -590,7 +596,9 @@ def invite_json(mission_name: str):
         return jsonify({'success': False, 'error': f"Mission not found: {mission_name}"}), 404
     mission = mission[0]
 
-    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
     channel = rabbit_connection.channel()
 
     for invitee in invitees:
@@ -712,8 +720,9 @@ def change_eud_role(mission_name: str):
         event = generate_invitation_cot(mission, role.clientUid)
         body = {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}
 
-        rabbit_connection = pika.BlockingConnection(
-            pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+        rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+        rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+        rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
         channel = rabbit_connection.channel()
         channel.basic_publish(exchange="dms", routing_key=client_uid, body=json.dumps(body))
 
@@ -727,8 +736,9 @@ def change_eud_role(mission_name: str):
         event = generate_invitation_cot(mission, client_uid, 't-x-m-r', delete=True)
         body = {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}
 
-        rabbit_connection = pika.BlockingConnection(
-            pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+        rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+        rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+        rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
         channel = rabbit_connection.channel()
         channel.basic_publish(exchange="dms", routing_key=client_uid, body=json.dumps(body))
 
@@ -888,7 +898,9 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
             "role": role.to_json()['role'],
         }
 
-    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
     channel = rabbit_connection.channel()
     channel.queue_bind(queue=uid, exchange="missions", routing_key=f"missions.{mission_name}")
 
@@ -926,7 +938,9 @@ def mission_unsubscribe(mission_name: str):
         db.session.delete(role[0])
         db.session.commit()
 
-    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
     channel = rabbit_connection.channel()
     channel.queue_unbind(queue=eud_uid, exchange="missions", routing_key=f"missions.{mission_name}")
 
@@ -995,7 +1009,9 @@ def create_log_entry():
     change_cot = generate_mission_change_cot(log_entry.mission_name, mission[0], mission_change, cot_type='t-x-m-c-l')
     body = json.dumps({'uid': log_entry.creator_uid, 'cot': tostring(change_cot).decode('utf-8')})
 
-    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
     channel = rabbit_connection.channel()
     channel.basic_publish("missions", routing_key=f"missions.{log_entry.mission_name}", body=body)
 
@@ -1158,7 +1174,9 @@ def mission_contents(mission_name: str):
                 event = generate_mission_change_cot(mission_name, mission, mission_change, content=content)
 
                 body = json.dumps({'uid': mission_change.creator_uid, 'cot': tostring(event).decode('utf-8')})
-                rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+                rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+                rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+                rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
                 channel = rabbit_connection.channel()
                 channel.basic_publish("missions", routing_key=f"missions.{mission_name}", body=body)
 
@@ -1232,8 +1250,9 @@ def mission_contents(mission_name: str):
                 event = generate_mission_change_cot(mission_name, mission, mission_change, mission_uid=mission_uid)
 
                 body = json.dumps({'uid': mission_change.creator_uid, 'cot': tostring(event).decode('utf-8')})
-                rabbit_connection = pika.BlockingConnection(
-                    pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+                rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+                rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+                rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
                 channel = rabbit_connection.channel()
                 channel.basic_publish("missions", routing_key=f"missions.{mission_name}", body=body)
 
@@ -1310,8 +1329,9 @@ def delete_content(mission_name: str):
     event = generate_mission_change_cot(eud_uid, mission, mission_change, content=content, mission_uid=mission_uid, cot_event=cot_event)
     body = {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}
 
-    rabbit_connection = pika.BlockingConnection(
-        pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
     channel = rabbit_connection.channel()
     channel.basic_publish(exchange="missions", routing_key=f"missions.{mission_name}", body=json.dumps(body))
 

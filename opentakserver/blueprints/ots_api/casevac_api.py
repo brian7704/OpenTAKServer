@@ -107,8 +107,9 @@ def add_casevac():
         db.session.commit()
         logger.debug(f"Updated CasEvac {casevac.uid}")
 
-    rabbit_connection = pika.BlockingConnection(
-        pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
     channel = rabbit_connection.channel()
     channel.basic_publish(exchange='cot', routing_key='', body=json.dumps({'cot': cot.xml, 'uid': app.config['OTS_NODE_ID']}),
                           properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
@@ -153,8 +154,9 @@ def delete_casevac():
     SubElement(detail, '_flow-tags_',
                {'TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0': iso8601_string_from_datetime(now)})
 
-    rabbit_connection = pika.BlockingConnection(
-        pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
     channel = rabbit_connection.channel()
     channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
         {'cot': tostring(event).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
