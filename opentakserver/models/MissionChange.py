@@ -55,7 +55,7 @@ class MissionChange(db.Model):
         json = {
             "isFederatedChange": self.isFederatedChange,
             "type": self.change_type,
-            "contentUid": self.content_uid,
+            "contentUid": self.content_uid if self.content_uid != None else self.mission_uid if self.mission_uid != None else self.mission.guid,
             "missionName": self.mission_name,
             "timestamp": iso8601_string_from_datetime(self.timestamp),
             "creatorUid": self.creator_uid if self.creator_uid else "",
@@ -91,7 +91,7 @@ def generate_mission_change_cot(author_uid: str, mission: Mission, mission_chang
     detail = SubElement(event, "detail")
     mission_element = SubElement(detail, "mission",
                                  {"type": MissionChange.CHANGE, "tool": "public", "name": mission.name,
-                                  "guid": mission.guid, "authorUid": author_uid})
+                                  "guid": mission.guid, "authorUid": mission.creator_uid})
     mission_changes_element = SubElement(mission_element, "MissionChanges")
     mission_change_element = SubElement(mission_changes_element, "MissionChange")
 
