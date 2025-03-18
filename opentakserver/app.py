@@ -53,10 +53,11 @@ from opentakserver.certificate_authority import CertificateAuthority
 from opentakserver.SocketServer import SocketServer
 from pyfiglet import Figlet
 
-try:
-    from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
-except ModuleNotFoundError:
-    print("Mumble auth not supported on this platform")
+if os.getenv('DOCKER_WORKAROUND', 'false').lower() != 'true':
+    try:
+        from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
+    except ModuleNotFoundError:
+        print("Mumble auth not supported on this platform")
 
 
 def init_extensions(app):
@@ -114,14 +115,17 @@ def init_extensions(app):
         socketio_logger = logger
     socketio.init_app(app, logger=socketio_logger)
 
-    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
-    channel = rabbit_connection.channel()
-    channel.exchange_declare('cot', durable=True, exchange_type='fanout')
-    channel.exchange_declare('dms', durable=True, exchange_type='direct')
-    channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
-    channel.queue_declare(queue='cot_controller')
-    channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
-    channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
+    if os.getenv('DOCKER_WORKAROUND', 'false').lower() != 'true':
+        rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+        rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+        rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
+        channel = rabbit_connection.channel()
+        channel.exchange_declare('cot', durable=True, exchange_type='fanout')
+        channel.exchange_declare('dms', durable=True, exchange_type='direct')
+        channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
+        channel.queue_declare(queue='cot_controller')
+        channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
+        channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
 
     cot_thread = CoTController(app.app_context(), logger, db, socketio)
     app.cot_thread = cot_thread

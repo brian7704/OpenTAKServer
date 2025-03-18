@@ -1,0 +1,31 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ .Release.Name }}-ingress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  entryPoints:
+    - {{ .Values.ingress.entryPoint }}
+  routes:
+    - match: Host(`{{ .Values.ingress.host }}`) && (PathPrefix(`/api`) || PathPrefix(`/socket.io`))
+      kind: Rule
+      services:
+        - name: opentakserver-api
+          port: {{ .Values.service.api.port }}
+    - match: Host(`{{ .Values.ingress.host }}`) && PathPrefix(`/Marti`)
+      kind: Rule
+      services:
+        - name: opentakserver-api
+          port: {{ .Values.service.api.port }}
+    - match: Host(`{{ .Values.ingress.host }}`) && PathPrefix(`/`)
+      kind: Rule
+      services:
+        - name: opentakserver-ui
+          port: {{ .Values.service.ui.port }}
+  tls:
+    certResolver: {{ .Values.ingress.certResolver }}
+{{- end }}
