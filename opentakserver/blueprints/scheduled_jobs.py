@@ -42,13 +42,11 @@ scheduler_blueprint = Blueprint('scheduler_blueprint', __name__)
 
 def get_airplanes_live_data():
     with apscheduler.app.app_context():
-        logger.info("Running job")
         try:
             r = requests.get('https://api.airplanes.live/v2/point/{}/{}/{}'
                              .format(app.config["OTS_AIRPLANES_LIVE_LAT"],
                                      app.config["OTS_AIRPLANES_LIVE_LON"],
                                      app.config["OTS_AIRPLANES_LIVE_RADIUS"]))
-            logger.info(r.text)
             if r.status_code == 200:
                 rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
                 channel = rabbit_connection.channel()
