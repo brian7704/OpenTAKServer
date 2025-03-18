@@ -218,10 +218,7 @@ class CoTController(RabbitMQClient):
 
         # Update the CoT stored in memory which contains the new stale time
         elif takv:
-            self.logger.warning(f"This EUD is already online: {uid} {callsign}")
             self.online_euds[uid]['cot'] = str(soup)
-        else:
-            self.logger.error(f"Not pli takv: {takv}, uid: {uid}, online: {self.online_euds}")
 
     def insert_cot(self, soup, event, uid):
         try:
