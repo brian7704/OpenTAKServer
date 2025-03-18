@@ -918,28 +918,12 @@ class CoTController(RabbitMQClient):
                         mission_uid = self.db.session.execute(self.db.session.query(MissionUID).filter_by(uid=event.attrs['uid'])).first()
 
                         if not mission_uid:
-                            mission_change = MissionChange()
-                            mission_change.isFederatedChange = False
-                            mission_change.change_type = MissionChange.ADD_CONTENT
-                            mission_change.mission_name = destination.attrs['mission']
-                            mission_change.timestamp = datetime_from_iso8601_string(event.attrs['start'])
-                            mission_change.creator_uid = data['uid']
-                            mission_change.server_time = datetime_from_iso8601_string(event.attrs['start'])
-                            mission_change.mission_uid = event.attrs['uid']
-
-                            change_pk = self.db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
-                            self.db.session.commit()
-
-                            body = {'uid': uid, 'cot': tostring(generate_mission_change_cot(destination.attrs['mission'], mission, mission_change, cot_event=event)).decode('utf-8')}
-                            self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{mission.name}", body=json.dumps(body))
-
                             mission_uid = MissionUID()
                             mission_uid.uid = event.attrs['uid']
                             mission_uid.mission_name = destination.attrs['mission']
                             mission_uid.timestamp = datetime_from_iso8601_string(event.attrs['start'])
                             mission_uid.creator_uid = uid
                             mission_uid.cot_type = event.attrs['type']
-                            mission_uid.mission_change_id = change_pk.inserted_primary_key[0]
 
                             color = event.find('color')
                             icon = event.find('usericon')
@@ -964,6 +948,28 @@ class CoTController(RabbitMQClient):
                             except sqlalchemy.exc.IntegrityError:
                                 self.db.session.rollback()
                                 self.db.session.execute(update(MissionUID).values(**mission_uid.serialize()))
+
+                            mission_change = MissionChange()
+                            mission_change.isFederatedChange = False
+                            mission_change.change_type = MissionChange.ADD_CONTENT
+                            mission_change.mission_name = destination.attrs['mission']
+                            mission_change.timestamp = datetime_from_iso8601_string(event.attrs['start'])
+                            mission_change.creator_uid = data['uid']
+                            mission_change.server_time = datetime_from_iso8601_string(event.attrs['start'])
+                            mission_change.mission_uid = event.attrs['uid']
+
+                            change_pk = self.db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
+                            self.db.session.commit()
+
+                            try:
+                                mission_uid.mission_change_id = change_pk.inserted_primary_key[0]
+                                self.db.session.execute(update(MissionUID).values(**mission_uid.serialize()))
+                            except BaseException as e:
+                                self.logger.error(f"Failed to update mission_uid: {e}")
+                                self.logger.debug(traceback.format_exc())
+
+                            body = {'uid': uid, 'cot': tostring(generate_mission_change_cot(destination.attrs['mission'], mission, mission_change, cot_event=event)).decode('utf-8')}
+                            self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{mission.name}", body=json.dumps(body))
 
         # If no destination or callsign is specified, broadcast to all TAK clients
         elif self.rabbit_channel and self.rabbit_channel.is_open:
