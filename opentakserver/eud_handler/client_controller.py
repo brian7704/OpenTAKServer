@@ -319,9 +319,6 @@ class ClientController(Thread):
         link = event.find('link')
         fileshare = event.find('fileshare')
 
-        callsign = None
-        phone_number = None
-
         # EUDs running the Meshtastic and dmrcot plugins can relay messages from their RF networks to the server
         # so we want to use the UID of the "off grid" EUD, not the relay EUD
         takv = event.find('takv')
@@ -369,7 +366,7 @@ class ClientController(Thread):
                                 self.sock.send(eud.cots[-1].xml.encode())
 
             if 'phone' in contact.attrs and contact.attrs['phone']:
-                phone_number = contact.attrs['phone']
+                self.phone_number = contact.attrs['phone']
 
             with self.app.app_context():
                 group = event.find('__group')
@@ -406,15 +403,15 @@ class ClientController(Thread):
                     eud = EUD()
 
                 eud.uid = uid
-                if callsign:
-                    eud.callsign = callsign
+                if self.callsign:
+                    eud.callsign = self.callsign
                 if device:
                     eud.device = device
 
                 eud.os = operating_system
                 eud.platform = platform
                 eud.version = version
-                eud.phone_number = phone_number
+                eud.phone_number = self.phone_number
                 eud.last_event_time = datetime_from_iso8601_string(event.attrs['start'])
                 eud.last_status = 'Connected'
                 eud.user_id = self.user.id if self.user else None
