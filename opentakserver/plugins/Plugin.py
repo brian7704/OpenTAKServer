@@ -17,10 +17,10 @@ class Plugin(BasePlugin):
     def __init__(self):
         self._app: Flask | None = None
         self._config = {}
-        self._metadata = {}
-        self._name = ""
-        self._distro = ""
-        self._routes = []
+        self.metadata = {}
+        self.name = ""
+        self.distro = ""
+        self.routes = []
 
     group = "opentakserver.plugin"
     blueprint: Blueprint | None = None
@@ -34,19 +34,22 @@ class Plugin(BasePlugin):
     @abstractmethod
     def get_info(self) -> dict | None: ...
 
+    @abstractmethod
+    def load_metadata(self) -> None: ...
+
     def has_no_empty_params(self, rule):
         defaults = rule.defaults if rule.defaults is not None else ()
         arguments = rule.arguments if rule.arguments is not None else ()
         return len(defaults) >= len(arguments)
 
-    def get_plugin_routes(self, url_prefix: str):
+    def get_plugin_routes(self, url_prefix: str) -> list:
         links = []
         for rule in app.url_map.iter_rules():
             # Filter out rules we can't navigate to in a browser
             # and rules that require parameters
-            if "GET" in rule.methods and self.has_no_empty_params(rule):
+            if ("GET" in rule.methods or "POST" in rule.methods) and self.has_no_empty_params(rule):
                 url = url_for(rule.endpoint, **(rule.defaults or {}))
                 if url.startswith(url_prefix):
-                    self._routes.append(url)
+                    self.routes.append(url)
 
         return links

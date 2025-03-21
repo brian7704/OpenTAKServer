@@ -87,18 +87,6 @@ def cloudtak_config():
     return jsonify({'uploadSizeLimit': 400})
 
 
-@api_blueprint.route("/api/plugins")
-def get_plugins():
-    plugin_manager = PluginManager(Plugin.group, api_blueprint)
-    plugin_manager.load_plugins()
-
-    plugins = []
-    for plugin in plugin_manager._plugins:
-        plugins.append(plugin.get_info())
-
-    return jsonify({'success': True, 'plugins': plugins})
-
-
 # Simple health check for docker
 @api_blueprint.route('/api/health')
 def health():

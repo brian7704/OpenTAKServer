@@ -1,13 +1,11 @@
 from datetime import timedelta
-import json
 from uuid import UUID
 
 import pika
 import sqlalchemy.exc
-from flask import Blueprint, request, jsonify, current_app as app
+from flask import Blueprint, request, jsonify
 from flask_security import auth_required
 from sqlalchemy import insert, update
-from xml.etree.ElementTree import tostring, Element, SubElement
 
 from werkzeug.datastructures import ImmutableMultiDict
 
