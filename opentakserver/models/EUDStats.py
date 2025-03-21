@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from opentakserver.extensions import db
 from opentakserver.functions import bytes_to_gigabytes, bytes_to_megabytes
-from sqlalchemy import Integer, String, ForeignKey, DateTime
+from sqlalchemy import Integer, String, ForeignKey, DateTime, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.functions import iso8601_string_from_datetime
@@ -15,16 +15,16 @@ class EUDStats(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     timestamp: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
     eud_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=False)
-    heap_free_size: Mapped[int] = mapped_column(Integer, nullable=True)
+    heap_free_size: Mapped[int] = mapped_column(BigInteger, nullable=True)
     app_framerate: Mapped[int] = mapped_column(Integer, nullable=True)
-    storage_total: Mapped[int] = mapped_column(Integer, nullable=True)
+    storage_total: Mapped[int] = mapped_column(BigInteger, nullable=True)
     heap_current_size: Mapped[int] = mapped_column(Integer, nullable=True)
     battery: Mapped[int] = mapped_column(Integer, nullable=True)
     battery_temp: Mapped[int] = mapped_column(Integer, nullable=True)
-    deviceDataRx: Mapped[int] = mapped_column(Integer, nullable=True)
-    heap_max_size: Mapped[int] = mapped_column(Integer, nullable=True)
-    storage_available: Mapped[int] = mapped_column(Integer, nullable=True)
-    deviceDataTx: Mapped[int] = mapped_column(Integer, nullable=True)
+    deviceDataRx: Mapped[int] = mapped_column(BigInteger, nullable=True)
+    heap_max_size: Mapped[int] = mapped_column(BigInteger, nullable=True)
+    storage_available: Mapped[int] = mapped_column(BigInteger, nullable=True)
+    deviceDataTx: Mapped[int] = mapped_column(BigInteger, nullable=True)
     ip_address: Mapped[str] = mapped_column(String(255), nullable=True)
     battery_status: Mapped[str] = mapped_column(String(255), nullable=True)
     eud = relationship("EUD", back_populates="stats", uselist=False)
