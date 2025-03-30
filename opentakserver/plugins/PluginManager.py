@@ -19,14 +19,12 @@ class PluginManager:
     """
 
     def __init__(self, group: str, app: Flask) -> None:
-        logger.warning("pluginmanager")
         self._group = group
         self._plugins: dict[str, Plugin] = {}
         self._app = app
 
     def load_plugins(self) -> None:
         plugin_entrypoints = self.get_plugin_entry_points()
-        logger.info(f"Entry points: {plugin_entrypoints}")
         for ep in plugin_entrypoints:
             self._load_plugin_entry_point(ep)
 
@@ -62,7 +60,6 @@ class PluginManager:
             )
 
         plugin.load_metadata()
-        logger.warning(f"Adding plugin {plugin.distro}")
         self._plugins[plugin.distro] = plugin
 
     def _load_plugin_entry_point(self, ep: metadata.EntryPoint) -> None:

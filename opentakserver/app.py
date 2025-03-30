@@ -294,12 +294,11 @@ def main():
     else:
         logger.info("Mumble authentication handler disabled")
 
-    plugin_manager = None
     if app.config.get("OTS_ENABLE_PLUGINS"):
         try:
-            plugin_manager = PluginManager(Plugin.group, app)
-            plugin_manager.load_plugins()
-            plugin_manager.activate(app)
+            app.plugin_manager = PluginManager(Plugin.group, app)
+            app.plugin_manager.load_plugins()
+            app.plugin_manager.activate(app)
         except BaseException as e:
             logger.error(f"Failed to load plugins: {e}")
             logger.debug(traceback.format_exc())
@@ -311,8 +310,8 @@ def main():
                      debug=app.config.get("DEBUG"), log_output=app.config.get("DEBUG"), use_reloader=False)
     except KeyboardInterrupt:
         logger.warning("Caught CTRL+C, exiting...")
-        if plugin_manager:
-            plugin_manager.stop_plugins()
+        if app.config.get("OTS_ENABLE_PLUGINS"):
+            app.plugin_manager.stop_plugins()
 
 
 if __name__ == '__main__':
