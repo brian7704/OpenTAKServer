@@ -13,7 +13,7 @@ import jwt
 import bleach
 import sqlalchemy.exc
 from bs4 import BeautifulSoup
-from flask import Blueprint, request, current_app as app, jsonify
+from flask import Blueprint, request, current_app as app, jsonify, Response
 from flask_security import current_user, hash_password, verify_password
 from sqlalchemy import update, insert
 from werkzeug.utils import secure_filename
@@ -1362,7 +1362,7 @@ def get_mission_cots(mission_name: str = None, mission_guid: str = None):
     for cot in cots:
         events.append(fromstring(cot[0].xml))
 
-    return tostring(events).decode('utf-8'), 200
+    return Response(response=tostring(events).decode('utf-8'), status=200, mimetype='application/xml')
 
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/layers')
