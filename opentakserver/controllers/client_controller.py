@@ -74,8 +74,17 @@ class ClientController(Thread):
 
         # RabbitMQ
         try:
-            self.rabbit_connection = pika.SelectConnection(pika.ConnectionParameters(self.app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")),
-                                                           self.on_connection_open)
+            rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+            rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+            connection_params = pika.ConnectionParameters(
+                host=rabbit_host,
+                credentials=rabbit_credentials
+            )
+            self.rabbit_connection = pika.SelectConnection(
+                connection_params,
+                self.on_connection_open
+            )
+            
             self.rabbit_channel: Channel | None = None
             self.iothread = Thread(target=self.rabbit_connection.ioloop.start)
             self.iothread.daemon = True
