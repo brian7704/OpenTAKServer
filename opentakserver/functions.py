@@ -77,6 +77,12 @@ def get_battle_dimension(cot_type):
         return "surface/sea"
     if re.match("^a-.-U", cot_type):
         return "subsurface"
+    if re.match("^a-.-F", cot_type):
+        return "sof"
+    if re.match("^a-.-Z", cot_type):
+        return "unknown"
+    if re.match("^a-.-P", cot_type):
+        return "space"
     return None
 
 
