@@ -1,0 +1,44 @@
+replicaCount: 1
+
+image:
+  api:
+    repository: server/opentakserver
+  ui:
+    repository: server/opentakserver-ui
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  api:
+    port: 5000
+  ui:
+    port: 5001
+
+volume:
+  name: opentakserver-storage
+  size: 1Gi
+  mountPath: /app/data
+
+env:
+  - name: OTS_DATA_FOLDER
+    value: /app/data
+  - name: OTS_RABBITMQ_SERVER_ADDRESS
+    value: rabbitmq
+  - name: OTS_RABBITMQ_USERNAME
+    value: user
+  - name: OTS_LISTENER_ADDRESS
+    value: 0.0.0.0
+
+ingress:
+  enabled: true
+  host: "myopentakserver.instance.com"
+  entryPoint: "websecure"
+  certResolver: "myresolver"
+
+secretEnv:
+  - name: OTS_RABBITMQ_PASSWORD
+    value: password
+
+nodeSelector: {}
+tolerations: []

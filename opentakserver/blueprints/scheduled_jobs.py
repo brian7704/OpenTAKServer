@@ -48,7 +48,9 @@ def get_airplanes_live_data():
                                      app.config["OTS_AIRPLANES_LIVE_LON"],
                                      app.config["OTS_AIRPLANES_LIVE_RADIUS"]))
             if r.status_code == 200:
-                rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+                rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+                rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+                rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
                 channel = rabbit_connection.channel()
 
                 for craft in r.json()['ac']:
@@ -148,7 +150,9 @@ def get_aishub_data():
                 logger.error(f"Failed to get AIS data: {r.text}")
                 return
 
-            rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+            rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+            rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+            rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
             channel = rabbit_connection.channel()
             for vessel in r.json()[1]:
                 event = aiscot.ais_to_cot(vessel, None, None)
@@ -176,8 +180,9 @@ def delete_old_data():
         days=app.config.get("OTS_DELETE_OLD_DATA_DAYS"),
         weeks=app.config.get("OTS_DELETE_OLD_DATA_WEEKS"))
 
-    rabbit_connection = pika.BlockingConnection(
-        pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
     channel = rabbit_connection.channel()
 
     # I wish I hadn't made the marker's timestamp field a string...
