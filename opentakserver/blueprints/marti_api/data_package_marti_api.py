@@ -27,8 +27,7 @@ def save_data_package_to_db(filename: str = None, sha256_hash: str = None, mimet
         data_package = DataPackage()
         data_package.filename = filename
         data_package.hash = sha256_hash
-        data_package.creator_uid = request.args.get('creatorUid') if request.args.get('creatorUid') else str(
-            uuid.uuid4())
+        data_package.creator_uid = request.args.get('creatorUid') if request.args.get('creatorUid') else None
         data_package.submission_user = current_user.id if current_user.is_authenticated else None
         data_package.submission_time = datetime.now()
         data_package.mime_type = mimetype
