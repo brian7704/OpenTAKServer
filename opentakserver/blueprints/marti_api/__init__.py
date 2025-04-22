@@ -9,6 +9,7 @@ from opentakserver.blueprints.marti_api.device_profile_marti_api import device_p
 from opentakserver.blueprints.marti_api.group_marti_api import group_api
 from opentakserver.blueprints.marti_api.marti_api import marti_api
 from opentakserver.blueprints.marti_api.contacts_marti_api import contacts_api
+from opentakserver.blueprints.marti_api.video_marti_api import video_marti_api
 
 marti_blueprint = Blueprint("marti_blueprint", __name__)
 
@@ -19,5 +20,6 @@ marti_blueprint.register_blueprint(device_profile_marti_api_blueprint)
 marti_blueprint.register_blueprint(citrap_api_blueprint)
 marti_blueprint.register_blueprint(certificate_authority_api_blueprint)
 marti_blueprint.register_blueprint(group_api)
-marti_blueprint.register_blueprint(mission_marti_api    )
+marti_blueprint.register_blueprint(mission_marti_api)
 marti_blueprint.register_blueprint(contacts_api)
+marti_blueprint.register_blueprint(video_marti_api)
