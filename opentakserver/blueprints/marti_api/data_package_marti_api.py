@@ -135,8 +135,9 @@ def data_package_share():
 def data_package_metadata(file_hash):
     if request.method == 'PUT':
         try:
-            data_package = db.session.execute(db.select(DataPackage).filter_by(hash=file_hash)).scalar_one()
+            data_package = db.session.execute(db.select(DataPackage).filter_by(hash=file_hash)).first()
             if data_package:
+                data_package = data_package[0]
                 data_package.keywords = bleach.clean(request.data.decode("utf-8"))
                 db.session.add(data_package)
                 db.session.commit()
