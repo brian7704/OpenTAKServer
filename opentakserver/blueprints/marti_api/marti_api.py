@@ -128,7 +128,7 @@ def atak_track_history():
             return send_from_directory(app.config.get("UPLOAD_FOLDER"), f"{uid}.kmz", as_attachment=True, download_name=f"{uid}.kmz")
         else:
             kml.save(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{uid}.kml"))
-            return send_from_directory(app.config.get("UPLOAD_FOLDER"), f"{uid}.kmz", as_attachment=True, download_name=f"{uid}.kml")
+            return send_from_directory(app.config.get("UPLOAD_FOLDER"), f"{uid}.kml", as_attachment=True, download_name=f"{uid}.kml")
 
     except BaseException as e:
         logger.error(f"Failed to generate KML: {e}")
