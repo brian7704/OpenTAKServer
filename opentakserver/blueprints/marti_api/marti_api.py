@@ -1,23 +1,18 @@
-import json
+import glob
 import os
 import traceback
 from urllib.parse import urlparse, unquote
 
-from xml.etree.ElementTree import Element, tostring, fromstring
-
-import bleach
-import sqlalchemy
 from OpenSSL import crypto
-from bs4 import BeautifulSoup
-from flask import request, Blueprint, jsonify, current_app as app
+from flask import request, Blueprint, current_app as app, jsonify, send_from_directory
 from flask_security import current_user
+from simplekml import Kml, GxTrack, IconStyle, Icon, Style, GxMultiTrack, Document
 
 from opentakserver.extensions import logger, db
-from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
-from opentakserver.functions import iso8601_string_from_datetime
+from opentakserver.functions import iso8601_string_from_datetime, datetime_from_iso8601_string
 from opentakserver import __version__ as version
 from opentakserver.models.EUD import EUD
-from opentakserver.models.VideoStream import VideoStream
+from opentakserver.models.Point import Point
 
 marti_api = Blueprint('marti_api', __name__)
 
@@ -73,3 +68,69 @@ def marti_config():
     return {"version": "3", "type": "ServerConfig",
             "data": {"version": version, "api": "3", "hostname": url.hostname},
             "nodeId": app.config.get("OTS_NODE_ID")}, 200, {'Content-Type': 'application/json'}
+
+
+@marti_api.route('/Marti/ExportMissionKML')
+def atak_track_history():
+    try:
+        start_time = request.args.get('startTime')
+        end_time = request.args.get('endTime')
+        uid = request.args.get('uid')
+        file_format = request.args.get('format')
+        # Not sure what these three are supposed to do
+        multitrack_threshold = request.args.get('multiTrackThreshold')
+        extended_data = request.args.get('extendedData')
+        optimize_export = request.args.get('optimizeExport')
+
+        kml = Kml()
+        doc: Document = kml.newdocument(name=uid)
+
+        eud = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()
+        if not eud:
+            return jsonify({'success': False, 'error': f"No such UID: {uid}"}), 400
+        eud: EUD = eud[0]
+
+        icon = Icon(href=f"files/team_{eud.team.name.lower()}.png")
+        icon_style = IconStyle(scale=1.0, heading=0.0, icon=icon)
+        style = Style(iconstyle=icon_style)
+        doc.styles.append(style)
+        kml.addfile(os.path.join(os.path.dirname(os.path.realpath(__file__)), "icons", f"team_{eud.team.name.lower()}.png"))
+
+        query = db.session.query(Point)
+
+        if uid:
+            query = query.filter(Point.device_uid == uid)
+
+        if start_time:
+            query = query.filter(Point.timestamp >= datetime_from_iso8601_string(start_time))
+
+        if end_time:
+            query = query.filter(Point.timestamp <= datetime_from_iso8601_string(end_time))
+
+        points = db.session.execute(query)
+        timestamps = []
+        coords = []
+        for point in points:
+            point = point[0]
+            timestamps.append(iso8601_string_from_datetime(point.timestamp))
+            coords.append((point.longitude, point.latitude))
+
+        multitrack: GxMultiTrack = doc.newgxmultitrack(gxinterpolate=0)
+        multitrack.style = style
+        multitrack.name = eud.callsign
+
+        track: GxTrack = multitrack.newgxtrack(name=uid, gxaltitudemode="clampToGround")
+        track.newwhen(timestamps)
+        track.newgxcoord(coords)
+
+        if file_format == "kmz":
+            kml.savekmz(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{uid}.kmz"))
+            return send_from_directory(app.config.get("UPLOAD_FOLDER"), f"{uid}.kmz", as_attachment=True, download_name=f"{uid}.kmz")
+        else:
+            kml.save(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{uid}.kml"))
+            return send_from_directory(app.config.get("UPLOAD_FOLDER"), f"{uid}.kmz", as_attachment=True, download_name=f"{uid}.kml")
+
+    except BaseException as e:
+        logger.error(f"Failed to generate KML: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
