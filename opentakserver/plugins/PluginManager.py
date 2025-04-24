@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import traceback
 from typing import TYPE_CHECKING
 
+import sqlalchemy.exc
 from flask import Flask
+from sqlalchemy import update
 
-from opentakserver.extensions import logger
+from opentakserver.extensions import logger, db
+from opentakserver.models.Plugins import Plugins
 from opentakserver.plugins.Plugin import Plugin
 from poetry.utils._compat import metadata
 
@@ -35,22 +39,57 @@ class PluginManager:
         logger.info(self._plugins)
         for distro, plugin in self._plugins.items():
             try:
-                plugin.activate(*args, **kwargs)
+                try:
+                    with self._app.app_context():
+                        plugin_metadata = plugin.load_metadata()
+                        logger.warning(plugin_metadata)
+
+                        # Add the plugin to the DB or update its version number
+                        plugin_row = db.session.execute(db.session.query(Plugins).filter_by(name=plugin.name)).first()
+                        if plugin_row:
+                            plugin_row = plugin_row[0]
+                            plugin_row.version = plugin_metadata.get("version")
+                        else:
+                            plugin_row = Plugins()
+                            plugin_row.name = plugin.name
+                            plugin_row.author = plugin_metadata.get("author")
+                            plugin_row.version = plugin_metadata.get("version")
+                            plugin_row.enabled = True
+
+                        db.session.add(plugin_row)
+                        db.session.commit()
+                except sqlalchemy.exc.IntegrityError as e:
+                    logger.error(f"Failed to insert {plugin.name}: {e}")
+
+                plugin.activate(*args, **kwargs, enabled=self.check_if_plugin_enabled(plugin.name))
                 if plugin.blueprint:
                     self._app.register_blueprint(plugin.blueprint)
+
             except BaseException as e:
-                print(f"Failed to load plugin: {e}")
+                logger.error(f"Failed to load plugin: {e}")
+                logger.error(traceback.format_exc())
 
     def stop_plugins(self):
+        logger.warning(self._plugins)
         for distro, plugin in self._plugins.items():
             plugin.stop()
 
     def disable_plugin(self, plugin_distro: str):
-        self._plugins[plugin_distro].stop()
+        plugin = self._plugins[plugin_distro]
+        plugin.stop()
+
+        db.session.execute(update(Plugins).where(Plugins.name == plugin.name).values(enabled=False))
+        db.session.commit()
+
         logger.info(f"{plugin_distro} disabled")
 
     def enable_plugin(self, plugin_distro: str):
-        self._plugins[plugin_distro].activate(self._app)
+        plugin = self._plugins[plugin_distro]
+        plugin.activate(self._app, True)
+
+        db.session.execute(update(Plugins).where(Plugins.name == plugin.name).values(enabled=True))
+        db.session.commit()
+
         logger.info(f"{plugin_distro} enabled")
 
     def _add_plugin(self, plugin: Plugin) -> None:
@@ -72,4 +111,18 @@ class PluginManager:
                 "The OTS plugin must be an instance of Plugin"
             )
 
-        self._add_plugin(plugin())
+        try:
+            self._add_plugin(plugin())
+        except BaseException as e:
+            logger.error(f"Failed to load plugin: {e}")
+            logger.error(traceback.format_exc())
+
+    def check_if_plugin_enabled(self, plugin_name: str) -> bool:
+        with self._app.app_context():
+            plugin = db.session.execute(db.session.query(Plugins).filter_by(name=plugin_name)).first()
+            if plugin:
+                logger.warning(plugin)
+                return plugin[0].enabled
+            else:
+                # First time this plugin has been loaded, enable it by default
+                return True

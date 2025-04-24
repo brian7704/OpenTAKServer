@@ -14,9 +14,6 @@ plugin_blueprint = Blueprint("plugin_api_blueprint", __name__)
 @roles_required("administrator")
 def get_plugins():
     if hasattr(app, 'plugin_manager'):
-        #plugin_manager = PluginManager(Plugin.group, plugin_blueprint)
-        #app.plugin_manager.load_plugins()
-
         plugins = []
 
         for plugin in app.plugin_manager._plugins.values():
@@ -32,9 +29,7 @@ def get_plugins():
 def disable_plugin(plugin_distro):
     if hasattr(app, 'plugin_manager'):
         try:
-            #plugin_manager = PluginManager(Plugin.group, plugin_blueprint)
-            #app.plugin_manager.load_plugins()
-            logger.error(f"TRYING TO DISABLE {plugin_distro}")
+            logger.info(f"Disabling plugin {plugin_distro}")
             app.plugin_manager.disable_plugin(plugin_distro)
             return jsonify({'success': True})
         except BaseException as e:
@@ -50,8 +45,6 @@ def disable_plugin(plugin_distro):
 def enable_plugin(plugin_distro):
     if hasattr(app, 'plugin_manager'):
         try:
-            #plugin_manager = PluginManager(Plugin.group, plugin_blueprint)
-            #app.plugin_manager.load_plugins()
             app.plugin_manager.enable_plugin(plugin_distro)
             return jsonify({'success': True})
         except BaseException as e:
