@@ -16,12 +16,27 @@ def get_plugins():
     if hasattr(app, 'plugin_manager'):
         plugins = []
 
-        for plugin in app.plugin_manager._plugins.values():
+        for plugin in app.plugin_manager.plugins.values():
             plugins.append(plugin.get_info())
 
         return jsonify({'success': True, 'plugins': plugins})
     else:
         return jsonify({'success': True, 'plugins': []}), 200
+
+
+@plugin_blueprint.route("/api/plugins/<plugin_distro>", strict_slashes=False)
+@roles_required("administrator")
+def get_plugin(plugin_distro: str):
+    if hasattr(app, 'plugin_manager'):
+        plugin = app.plugin_manager.plugins.get(plugin_distro)
+        if plugin:
+            plugin_metadata = plugin.load_metadata()
+            plugin_metadata['enabled'] = app.plugin_manager.check_if_plugin_enabled(plugin.name)
+            return jsonify(plugin_metadata)
+        else:
+            return jsonify({'success': False, 'error': f'Plugin {plugin_distro} not found'}), 404
+    else:
+        return jsonify({'success': False, 'error': 'Plugins are disabled'}), 400
 
 
 @plugin_blueprint.route("/api/plugins/<plugin_distro>/disable", methods=["POST"])

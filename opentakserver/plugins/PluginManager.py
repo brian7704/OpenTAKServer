@@ -24,7 +24,7 @@ class PluginManager:
 
     def __init__(self, group: str, app: Flask) -> None:
         self._group = group
-        self._plugins: dict[str, Plugin] = {}
+        self.plugins: dict[str, Plugin] = {}
         self._app = app
 
     def load_plugins(self) -> None:
@@ -36,8 +36,8 @@ class PluginManager:
         return list(metadata.entry_points(group=self._group))
 
     def activate(self, *args: Any, **kwargs: Any) -> None:
-        logger.info(self._plugins)
-        for distro, plugin in self._plugins.items():
+        logger.info(self.plugins)
+        for distro, plugin in self.plugins.items():
             try:
                 try:
                     with self._app.app_context():
@@ -70,12 +70,12 @@ class PluginManager:
                 logger.error(traceback.format_exc())
 
     def stop_plugins(self):
-        logger.warning(self._plugins)
-        for distro, plugin in self._plugins.items():
+        logger.warning(self.plugins)
+        for distro, plugin in self.plugins.items():
             plugin.stop()
 
     def disable_plugin(self, plugin_distro: str):
-        plugin = self._plugins[plugin_distro]
+        plugin = self.plugins[plugin_distro]
         plugin.stop()
 
         db.session.execute(update(Plugins).where(Plugins.name == plugin.name).values(enabled=False))
@@ -84,7 +84,7 @@ class PluginManager:
         logger.info(f"{plugin_distro} disabled")
 
     def enable_plugin(self, plugin_distro: str):
-        plugin = self._plugins[plugin_distro]
+        plugin = self.plugins[plugin_distro]
         plugin.activate(self._app, True)
 
         db.session.execute(update(Plugins).where(Plugins.name == plugin.name).values(enabled=True))
@@ -99,7 +99,7 @@ class PluginManager:
             )
 
         plugin.load_metadata()
-        self._plugins[plugin.distro] = plugin
+        self.plugins[plugin.distro] = plugin
 
     def _load_plugin_entry_point(self, ep: metadata.EntryPoint) -> None:
         logger.debug("Loading the %s plugin", ep.name)
