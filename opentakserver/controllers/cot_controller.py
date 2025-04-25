@@ -95,7 +95,8 @@ class CoTController(RabbitMQClient):
                         self.online_callsigns[callsign] = {'uid': uid, 'cot': soup, 'last_meshtastic_publish': 0}
 
                     # Declare a RabbitMQ Queue for this uid and join the 'dms' and 'cot' exchanges
-                    if self.rabbit_channel and self.rabbit_channel.is_open and platform != "OpenTAK ICU" and platform != "Meshtastic" and platform != "DMRCOT":
+                    if self.rabbit_channel and self.rabbit_channel.is_open and platform != "OpenTAK ICU" and platform != "DMRCOT":
+                        self.rabbit_channel.queue_declare(queue=uid)
                         self.rabbit_channel.queue_bind(exchange='dms', queue=uid, routing_key=uid)
                         self.rabbit_channel.queue_bind(exchange='chatrooms', queue=uid,
                                                        routing_key='All Chat Rooms')
