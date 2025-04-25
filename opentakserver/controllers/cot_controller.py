@@ -80,7 +80,8 @@ class CoTController(RabbitMQClient):
             device = takv.attrs['device'] if 'device' in takv.attrs else ""
             operating_system = takv.attrs['os'] if 'os' in takv.attrs else ""
             platform = takv.attrs['platform'] if 'platform' in takv.attrs else ""
-            version = takv.attrs['version'] if 'version' in takv.attrs else ""
+            # If the version is included, make sure it's less than 255 characters. The Meshtastic Plugin version attribute is very long
+            version = takv.attrs['version'] if 'version' in takv.attrs and len(takv.attrs['version']) < 255 else ""
 
             contact = event.find('contact')
             if contact:
