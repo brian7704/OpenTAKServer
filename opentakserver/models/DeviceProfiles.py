@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import String, Boolean, DateTime, Integer
 from sqlalchemy.orm import Mapped, mapped_column
@@ -28,7 +28,7 @@ class DeviceProfiles(db.Model):
         self.connection = form.connection.data
         self.tool = form.tool.data
         self.active = form.active.data
-        self.publish_time = datetime.now()
+        self.publish_time = datetime.now(timezone.utc)
 
     def serialize(self):
         return {

@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, timezone
 from uuid import UUID
 
 import pika
@@ -139,7 +139,7 @@ def delete_casevac():
 
     casevac = casevac[0]
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     event = Element('event', {'how': 'h-g-i-g-o', 'type': 't-x-d-d', 'version': '2.0',
                               'uid': casevac.uid, 'start': iso8601_string_from_datetime(now),
                               'time': iso8601_string_from_datetime(now),

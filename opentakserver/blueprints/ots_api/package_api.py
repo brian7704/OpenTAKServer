@@ -129,7 +129,7 @@ def edit_package():
     package = package[0]
     package.install_on_enrollment = form.install_on_enrollment.data
     package.install_on_connection = form.install_on_connection.data
-    package.publish_time = datetime.datetime.now()
+    package.publish_time = datetime.datetime.now(datetime.timezone.utc)
 
     db.session.execute(sqlalchemy.update(Packages).where(Packages.package_name == form.package_name.data).values(**package.serialize()))
     db.session.commit()

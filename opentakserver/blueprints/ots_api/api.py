@@ -96,7 +96,7 @@ def health():
 @api_blueprint.route('/api/status')
 @auth_required()
 def status():
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(datetime.timezone.utc)
     system_boot_time = datetime.datetime.fromtimestamp(psutil.boot_time())
     system_uptime = now - system_boot_time
 
@@ -163,7 +163,7 @@ def certificate():
                 data_package.filename = filename
                 data_package.keywords = "public"
                 data_package.creator_uid = request.json['uid'] if 'uid' in request.json.keys() else None
-                data_package.submission_time = datetime.datetime.now()
+                data_package.submission_time = datetime.datetime.now(datetime.timezone.utc)
                 data_package.mime_type = "application/x-zip-compressed"
                 data_package.size = os.path.getsize(
                     os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', username, filename))
@@ -312,17 +312,17 @@ def get_map_state():
             results['euds'].append(eud[0].to_json())
 
         markers = db.session.execute(
-            db.session.query(Marker).join(CoT).filter(CoT.stale >= datetime.datetime.now())).all()
+            db.session.query(Marker).join(CoT).filter(CoT.stale >= datetime.datetime.now(datetime.timezone.utc))).all()
         for marker in markers:
             results['markers'].append(marker[0].to_json())
 
         rb_lines = db.session.execute(
-            db.session.query(RBLine).join(CoT).filter(CoT.stale >= datetime.datetime.now())).all()
+            db.session.query(RBLine).join(CoT).filter(CoT.stale >= datetime.datetime.now(datetime.timezone.utc))).all()
         for rb_line in rb_lines:
             results['rb_lines'].append(rb_line[0].to_json())
 
         casevacs = db.session.execute(
-            db.session.query(CasEvac).join(CoT).filter(CoT.stale >= datetime.datetime.now())).all()
+            db.session.query(CasEvac).join(CoT).filter(CoT.stale >= datetime.datetime.now(datetime.timezone.utc))).all()
         for casevac in casevacs:
             results['casevacs'].append(casevac[0].to_json())
 
@@ -366,11 +366,11 @@ def cloudtak_oauth_token():
     with open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.nopass.key"),
               "rb") as key:
         token = jwt.encode({
-            "exp": datetime.datetime.now() + datetime.timedelta(days=365),
-            "nbf": datetime.datetime.now(),
+            "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365),
+            "nbf": datetime.datetime.now(datetime.timezone.utc),
             "iss": "OpenTAKServer",
             "aud": "OpenTAKServer",
-            "iat": datetime.datetime.now(),
+            "iat": datetime.datetime.now(datetime.timezone.utc),
             "sub": user.username
         }, key.read(), algorithm="RS256")
 

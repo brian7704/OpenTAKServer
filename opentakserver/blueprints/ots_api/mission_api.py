@@ -50,7 +50,7 @@ def create_edit_mission():
 
         mission = Mission()
         mission.group = "__ANON__"
-        mission.create_time = datetime.datetime.now()
+        mission.create_time = datetime.datetime.now(datetime.timezone.utc)
         mission.guid = str(uuid.uuid4())
         mission.creator_uid = creator_uid
 
@@ -67,7 +67,7 @@ def create_edit_mission():
         role = MissionRole()
         role.clientUid = creator_uid
         role.username = current_user.username
-        role.createTime = datetime.datetime.now()
+        role.createTime = datetime.datetime.now(datetime.timezone.utc)
         role.role_type = MissionRole.MISSION_OWNER
         role.mission_name = mission_name
 

@@ -1,7 +1,7 @@
 import base64
 import hashlib
 import os.path
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from bs4 import BeautifulSoup
@@ -60,7 +60,7 @@ class Packages(db.Model):
         self.icon_filename = secure_filename(request.files['icon'].filename) if 'icon' in request.files else None
         self.install_on_enrollment = form.install_on_enrollment.data
         self.install_on_connection = form.install_on_connection.data
-        self.publish_time = datetime.now()
+        self.publish_time = datetime.now(timezone.utc)
 
         manifest = BeautifulSoup(tostring(apk.get_android_manifest_xml()).decode('utf-8'))
         meta_data = manifest.find_all("meta-data", "lxml")

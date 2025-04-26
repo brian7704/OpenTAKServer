@@ -298,7 +298,7 @@ class ClientController(Thread):
 
     def pong(self, event):
         if event.attrs.get('type') == 't-x-c-t':
-            now = datetime.datetime.now()
+            now = datetime.datetime.now(datetime.timezone.utc)
             stale = now + datetime.timedelta(seconds=10)
 
             cot = Element('event', {'how': 'h-g-i-g-o', 'type': 't-x-c-t-r', 'version': '2.0',
@@ -510,8 +510,8 @@ class ClientController(Thread):
 
     def send_disconnect_cot(self):
         if self.uid:
-            now = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
-            stale = (datetime.datetime.now() + datetime.timedelta(seconds=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            stale = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
             event = Element('event', {'how': 'h-g-i-g-o', 'type': 't-x-d-d', 'version': '2.0',
                                       'uid': str(uuid.uuid4()), 'start': now, 'time': now, 'stale': stale})
@@ -527,7 +527,7 @@ class ClientController(Thread):
 
             with self.app.app_context():
                 self.logger.info(traceback.print_exc())
-                now = iso8601_string_from_datetime(datetime.datetime.now())
+                now = iso8601_string_from_datetime(datetime.datetime.now(datetime.timezone.utc))
                 self.db.session.execute(update(EUD).filter(EUD.uid == self.uid).values(last_status='Disconnected', last_event_time=now))
                 self.db.session.commit()
 

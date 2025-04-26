@@ -1,7 +1,7 @@
 import json
 import math
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from flask import current_app as app
@@ -115,7 +115,7 @@ def cot_type_to_2525c(cot_type):
 
 def datetime_from_iso8601_string(datetime_string):
     if not datetime_string:
-        return datetime.now()
+        return datetime.now(timezone.utc)
     try:
         return datetime.strptime(datetime_string, ISO8601_FORMAT)
     except ValueError:
@@ -137,7 +137,7 @@ def iso8601_string_from_datetime_no_ms(datetime_object):
 
 
 def generate_delete_cot(uid: str, cot_type: str) -> Element:
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
 
     event = Element('event', {'how': 'h-g-i-g-o', 'type': 't-x-d-d', 'version': '2.0',
                               'uid': uid, 'start': iso8601_string_from_datetime(now),

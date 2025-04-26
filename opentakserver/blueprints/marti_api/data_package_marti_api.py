@@ -2,7 +2,7 @@ import hashlib
 import os
 import traceback
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 import zipfile
 
@@ -30,7 +30,7 @@ def save_data_package_to_db(filename: str = None, sha256_hash: str = None, mimet
         data_package.creator_uid = request.args.get('creatorUid') if request.args.get('creatorUid') else str(
             uuid.uuid4())
         data_package.submission_user = current_user.id if current_user.is_authenticated else None
-        data_package.submission_time = datetime.now()
+        data_package.submission_time = datetime.now(timezone.utc)
         data_package.mime_type = mimetype
         data_package.size = file_size
         db.session.add(data_package)

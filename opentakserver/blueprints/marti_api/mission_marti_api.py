@@ -146,10 +146,10 @@ def generate_token(mission: Mission, eud_uid: str):
 
 def generate_new_mission_cot(mission: Mission) -> Element:
     event = Element("event", {"type": "t-x-m-n", "how": "h-g-i-g-o", "version": "2.0", "uid": str(uuid.uuid4()),
-                              "start": iso8601_string_from_datetime(datetime.datetime.now()),
-                              "time": iso8601_string_from_datetime(datetime.datetime.now()),
+                              "start": iso8601_string_from_datetime(datetime.datetime.now(datetime.timezone.utc)),
+                              "time": iso8601_string_from_datetime(datetime.datetime.now(datetime.timezone.utc)),
                               "stale": iso8601_string_from_datetime(
-                                  datetime.datetime.now() + datetime.timedelta(hours=1))})
+                                  datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1))})
     SubElement(event, "point", {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0', 'lon': '0'})
     detail = SubElement(event, "detail")
     SubElement(detail, "mission", {'type': Mission.CREATE, 'tool': mission.tool, 'name': mission.name,
@@ -169,10 +169,10 @@ def generate_invitation_cot(mission: Mission, uid: str, cot_type: str = "t-x-m-i
     """
 
     event = Element("event", {"type": cot_type, "how": "h-g-i-g-o", "version": "2.0", "uid": str(uuid.uuid4()),
-                              "start": iso8601_string_from_datetime(datetime.datetime.now()),
-                              "time": iso8601_string_from_datetime(datetime.datetime.now()),
+                              "start": iso8601_string_from_datetime(datetime.datetime.now(datetime.timezone.utc)),
+                              "time": iso8601_string_from_datetime(datetime.datetime.now(datetime.timezone.utc)),
                               "stale": iso8601_string_from_datetime(
-                                  datetime.datetime.now() + datetime.timedelta(hours=1))})
+                                  datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1))})
 
     SubElement(event, "point", {"ce": "9999999", "le": "9999999", "hae": "0", "lat": "0", "lon": "0"})
     detail = SubElement(event, "detail")
@@ -204,9 +204,9 @@ def generate_invitation_cot(mission: Mission, uid: str, cot_type: str = "t-x-m-i
 
 def generate_mission_delete_cot(mission: Mission) -> Element:
     event = Element("event", {"type": "t-x-m-d", "how": "h-g-i-g-o", "version": "2.0", "uid": str(uuid.uuid4()),
-                              "start": iso8601_string_from_datetime(datetime.datetime.now()),
-                              "time": iso8601_string_from_datetime(datetime.datetime.now()),
-                              "stale": iso8601_string_from_datetime(datetime.datetime.now() + datetime.timedelta(hours=1))})
+                              "start": iso8601_string_from_datetime(datetime.datetime.now(datetime.timezone.utc)),
+                              "time": iso8601_string_from_datetime(datetime.datetime.now(datetime.timezone.utc)),
+                              "stale": iso8601_string_from_datetime(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1))})
     SubElement(event, "point", {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0', 'lon': '0'})
     detail = SubElement(event, "detail")
     SubElement(detail, "mission", {'type': Mission.DELETE, 'tool': mission.tool, 'name': mission.name,
@@ -320,7 +320,7 @@ def put_mission(mission_name: str):
     mission.password = password or mission.password or None
     mission.password_protected = (mission.password is not None)
     mission.guid = mission.guid or str(uuid.uuid4())
-    mission.create_time = mission.create_time or datetime.datetime.now()
+    mission.create_time = mission.create_time or datetime.datetime.now(datetime.timezone.utc)
 
     try:
         db.session.add(mission)
@@ -331,7 +331,7 @@ def put_mission(mission_name: str):
             mission_role = MissionRole()
             mission_role.clientUid = mission.creator_uid
             mission_role.username = eud.user.username if eud.user else "anonymous"
-            mission_role.createTime = datetime.datetime.now()
+            mission_role.createTime = datetime.datetime.now(datetime.timezone.utc)
             mission_role.role_type = MissionRole.MISSION_OWNER
             mission_role.mission_name = mission_name
             db.session.add(mission_role)
@@ -702,7 +702,7 @@ def change_eud_role(mission_name: str):
             role.username = eud.user.username
         except BaseException as e:
             role.username = "anonymous"
-        role.createTime = datetime.datetime.now()
+        role.createTime = datetime.datetime.now(datetime.timezone.utc)
         role.role_type = new_role
         role.mission_name = mission_name
 
@@ -831,7 +831,7 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
             role = MissionRole()
             role.clientUid = token['sub']
             role.username = eud.user.username if eud.user else 'anonymous'
-            role.createTime = datetime.datetime.now()
+            role.createTime = datetime.datetime.now(datetime.timezone.utc)
             role.role_type = mission.default_role
             role.mission_name = token['MISSION_NAME']
 
@@ -868,7 +868,7 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
             role = MissionRole()
             role.clientUid = uid
             role.username = eud.user.username
-            role.createTime = datetime.datetime.now()
+            role.createTime = datetime.datetime.now(datetime.timezone.utc)
             role.role_type = mission.default_role
             role.mission_name = mission.name
 
@@ -969,9 +969,9 @@ def create_log_entry():
     log_entry.creator_uid = request.json.get('creatorUid')
     log_entry.entry_uid = str(uuid.uuid4())
     log_entry.mission_name = request.json.get('missionNames')[0]
-    log_entry.server_time = datetime.datetime.now()
+    log_entry.server_time = datetime.datetime.now(datetime.timezone.utc)
     log_entry.dtg = datetime_from_iso8601_string(request.json.get('dtg'))
-    log_entry.created = datetime.datetime.now()
+    log_entry.created = datetime.datetime.now(datetime.timezone.utc)
     log_entry.keywords = request.json.get('keywords')
 
     db.session.add(log_entry)
@@ -986,7 +986,7 @@ def create_log_entry():
     mission_change.change_type = MissionChange.CHANGE
     mission_change.timestamp = log_entry.dtg
     mission_change.creator_uid = log_entry.creator_uid
-    mission_change.server_time = datetime.datetime.now()
+    mission_change.server_time = datetime.datetime.now(datetime.timezone.utc)
     mission_change.mission_name = log_entry.mission_name
 
     db.session.add(mission_change)
@@ -1061,7 +1061,7 @@ def upload_content():
         content = MissionContent()
         content.mime_type = request.content_type
         content.filename = file_name
-        content.submission_time = datetime.datetime.now()
+        content.submission_time = datetime.datetime.now(datetime.timezone.utc)
         content.submitter = current_user.username if current_user.is_authenticated else "anonymous"
         content.uid = str(uuid.uuid4())
         content.creator_uid = creator_uid
@@ -1149,9 +1149,9 @@ def mission_contents(mission_name: str):
                 mission_change.change_type = MissionChange.ADD_CONTENT
                 mission_change.content_uid = content.uid
                 mission_change.mission_name = mission_name
-                mission_change.timestamp = datetime.datetime.now()
+                mission_change.timestamp = datetime.datetime.now(datetime.timezone.utc)
                 mission_change.creator_uid = content.creator_uid
-                mission_change.server_time = datetime.datetime.now()
+                mission_change.server_time = datetime.datetime.now(datetime.timezone.utc)
 
                 db.session.add(mission_change)
 
@@ -1176,9 +1176,9 @@ def mission_contents(mission_name: str):
                 mission_change.isFederatedChange = False
                 mission_change.change_type = MissionChange.ADD_CONTENT
                 mission_change.mission_name = mission_name
-                mission_change.timestamp = datetime.datetime.now()
+                mission_change.timestamp = datetime.datetime.now(datetime.timezone.utc)
                 mission_change.creator_uid = request.args.get('creatorUid')
-                mission_change.server_time = datetime.datetime.now()
+                mission_change.server_time = datetime.datetime.now(datetime.timezone.utc)
                 mission_change.mission_uid = uid
 
                 change_pk = db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
@@ -1186,7 +1186,7 @@ def mission_contents(mission_name: str):
                 change_pk = change_pk.inserted_primary_key[0]
 
             mission_uid.uid = uid
-            mission_uid.timestamp = datetime.datetime.now()
+            mission_uid.timestamp = datetime.datetime.now(datetime.timezone.utc)
             mission_uid.creator_uid = request.args.get('creatorUid')
             mission_uid.mission_name = mission_name
 
@@ -1265,9 +1265,9 @@ def delete_content(mission_name: str):
     mission_change.isFederatedChange = False
     mission_change.change_type = MissionChange.REMOVE_CONTENT
     mission_change.mission_name = mission_name
-    mission_change.timestamp = datetime.datetime.now()
+    mission_change.timestamp = datetime.datetime.now(datetime.timezone.utc)
     mission_change.creator_uid = request.args.get('creatorUid')
-    mission_change.server_time = datetime.datetime.now()
+    mission_change.server_time = datetime.datetime.now(datetime.timezone.utc)
 
     mission_uid = None
     cot_event = None

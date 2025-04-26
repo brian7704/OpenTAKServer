@@ -39,7 +39,7 @@ def edit_data_package():
     if form.install_on_connection.data is not None:
         data_package.install_on_connection = form.install_on_connection.data
 
-    data_package.submission_time = datetime.now()
+    data_package.submission_time = datetime.now(datetime.timezone.utc)
 
     db.session.execute(update(DataPackage).filter(DataPackage.hash == data_package.hash).values(**data_package.serialize()))
     db.session.commit()

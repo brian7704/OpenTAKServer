@@ -83,7 +83,7 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
         plugins = db.session.execute(db.session.query(Packages).filter_by(install_on_enrollment=True)).all()
         data_packages = db.session.execute(db.session.query(DataPackage).filter_by(install_on_enrollment=True)).all()
     elif syncSecago > 0:
-        publish_time = datetime.datetime.now() - datetime.timedelta(seconds=syncSecago)
+        publish_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=syncSecago)
 
         device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(connection=True, active=True)
                                              .filter(DeviceProfiles.publish_time >= publish_time)).all()

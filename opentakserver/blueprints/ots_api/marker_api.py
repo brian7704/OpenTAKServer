@@ -87,7 +87,7 @@ def add_marker():
         point.ce = float(request.json['ce']) if 'ce' in request.json.keys() else 9999999.0
         point.hae = float(request.json['hae']) if 'hae' in request.json.keys() else 9999999.0
         point.le = float(request.json['le']) if 'le' in request.json.keys() else 9999999.0
-        point.timestamp = datetime.now()
+        point.timestamp = datetime.now(datetime.timezone.utc)
 
         with app.app_context():
             event = ET.Element("event")
@@ -191,7 +191,7 @@ def delete_marker():
             return jsonify({'success': False, 'error': 'Unknown UID'}), 404
 
         marker = marker[0]
-        now = datetime.now()
+        now = datetime.now(datetime.timezone.utc)
         event = ET.Element('event', {'how': 'h-g-i-g-o', 'type': 't-x-d-d', 'version': '2.0',
                                      'uid': marker.uid, 'start': iso8601_string_from_datetime(now),
                                      'time': iso8601_string_from_datetime(now),

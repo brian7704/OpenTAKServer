@@ -23,7 +23,7 @@ def get_all_groups():
     response = {"version": "3", "type": "com.bbn.marti.remote.groups.Group", "nodeId": app.config.get("OTS_NODE_ID"), "data": [{
             "name": "__ANON__",
             "direction": "IN",
-            "created": iso8601_string_from_datetime(datetime.datetime.now()).split("T")[0],
+            "created": iso8601_string_from_datetime(datetime.datetime.now(datetime.timezone.utc)).split("T")[0],
             "type": "SYSTEM",
             "bitpos": 2,
             "active": True,
@@ -32,7 +32,7 @@ def get_all_groups():
         {
             "name": "__ANON__",
             "direction": "OUT",
-            "created": iso8601_string_from_datetime(datetime.datetime.now()).split("T")[0],
+            "created": iso8601_string_from_datetime(datetime.datetime.now(datetime.timezone.utc)).split("T")[0],
             "type": "SYSTEM",
             "bitpos": 2,
             "active": True,

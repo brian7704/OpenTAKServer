@@ -159,8 +159,8 @@ class MeshtasticController(RabbitMQClient):
         elif not uid:
             uid = from_id
 
-        now = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
-        stale = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        stale = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         event = Element('event', {'how': how, 'type': cot_type, 'version': '2.0',
                                   'uid': uid, 'start': now, 'time': now, 'stale': stale})
@@ -259,7 +259,7 @@ class MeshtasticController(RabbitMQClient):
         SubElement(chat, 'chatgrp', {'id': chatroom, 'uid0': from_uid, 'uid1': chatroom})
         SubElement(detail, 'link', {'relation': 'p-p', 'type': 'a-f-G-U-C', 'uid': from_uid})
         remarks = SubElement(detail, 'remarks', {'source': 'BAO.F.ATAK.{}'.format(from_uid),
-                                                 'time': datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                                 'time': datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                                                  'to': chatroom})
 
         remarks.text = pb.decode('utf-8', 'replace')
@@ -339,7 +339,7 @@ class MeshtasticController(RabbitMQClient):
             SubElement(chat, 'chatgrp', {'id': chatroom, 'uid0': from_uid, 'uid1': chatroom})
             SubElement(detail, 'link', {'relation': 'p-p', 'type': 'a-f-G-U-C', 'uid': from_uid})
             remarks = SubElement(detail, 'remarks', {'source': 'BAO.F.ATAK.{}'.format(from_uid),
-                                                     'time': datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                                     'time': datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                                                      'to': chatroom})
             remarks.text = unishox2.decompress(pb.chat.message, len(pb.chat.message))
 

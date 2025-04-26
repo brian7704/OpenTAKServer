@@ -26,7 +26,7 @@ import os
 
 import colorlog
 from werkzeug.middleware.proxy_fix import ProxyFix
-from datetime import datetime
+from datetime import datetime, timezone
 import sqlalchemy
 
 import flask_wtf
@@ -303,7 +303,7 @@ def main():
             logger.error(f"Failed to load plugins: {e}")
             logger.debug(traceback.format_exc())
 
-    app.start_time = datetime.now()
+    app.start_time = datetime.now(timezone.utc)
 
     try:
         socketio.run(app, host=app.config.get("OTS_LISTENER_ADDRESS"), port=app.config.get("OTS_LISTENER_PORT"),

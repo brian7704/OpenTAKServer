@@ -185,7 +185,7 @@ def mediamtx_webhook():
         recording.segment_path = bleach.clean(request.args.get('segment_path'))
         recording.path = bleach.clean(request.args.get('path'))
         recording.in_progress = True
-        recording.start_time = datetime.datetime.now()
+        recording.start_time = datetime.datetime.now(datetime.timezone.utc)
 
         with (app.app_context()):
             try:
@@ -204,14 +204,14 @@ def mediamtx_webhook():
             if recording and recording.count:
                 recording = recording[0]
                 recording.in_progress = False
-                recording.stop_time = datetime.datetime.now()
+                recording.stop_time = datetime.datetime.now(datetime.timezone.utc)
                 recording.duration = (recording.stop_time - recording.start_time).seconds
             else:
                 recording = VideoRecording()
                 recording.segment_path = bleach.clean(request.args.get('segment_path'))
                 recording.path = bleach.clean(request.args.get('path'))
                 recording.in_progress = False
-                recording.stop_time = datetime.datetime.now()
+                recording.stop_time = datetime.datetime.now(datetime.timezone.utc)
 
             try:
                 probe = json.loads(FFmpeg(executable="ffprobe").input(recording.segment_path, print_format="json", show_streams=None, show_format=None).execute())

@@ -174,7 +174,7 @@ def get_aishub_data():
 
 @apscheduler.task('interval', name="Delete Old Data", id='delete_old_data', next_run_time=None)
 def delete_old_data():
-    timestamp = datetime.datetime.now() - datetime.timedelta(
+    timestamp = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
         seconds=app.config.get("OTS_DELETE_OLD_DATA_SECONDS"),
         minutes=app.config.get("OTS_DELETE_OLD_DATA_MINUTES"),
         hours=app.config.get("OTS_DELETE_OLD_DATA_HOURS"),
