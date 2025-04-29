@@ -42,14 +42,12 @@ class Plugin(BasePlugin):
         arguments = rule.arguments if rule.arguments is not None else ()
         return len(defaults) >= len(arguments)
 
-    def get_plugin_routes(self, url_prefix: str) -> list:
-        links = []
+    def get_plugin_routes(self, url_prefix: str):
         for rule in app.url_map.iter_rules():
             # Filter out rules we can't navigate to in a browser
             # and rules that require parameters
             if ("GET" in rule.methods or "POST" in rule.methods) and self.has_no_empty_params(rule):
                 url = url_for(rule.endpoint, **(rule.defaults or {}))
-                if url.startswith(url_prefix):
+                if url.startswith(url_prefix) and url not in self.routes:
                     self.routes.append(url)
-
-        return links
+                    logger.warning(f"Adding {url}")
