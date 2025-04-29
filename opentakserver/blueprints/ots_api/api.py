@@ -97,7 +97,7 @@ def health():
 @auth_required()
 def status():
     now = datetime.datetime.now(datetime.timezone.utc)
-    system_boot_time = datetime.datetime.fromtimestamp(psutil.boot_time())
+    system_boot_time = datetime.datetime.fromtimestamp(psutil.boot_time(), datetime.datetime.now().astimezone().tzinfo)
     system_uptime = now - system_boot_time
 
     ots_uptime = now - app.start_time
