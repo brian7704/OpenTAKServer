@@ -27,8 +27,7 @@ def save_data_package_to_db(filename: str = None, sha256_hash: str = None, mimet
         data_package = DataPackage()
         data_package.filename = filename
         data_package.hash = sha256_hash
-        data_package.creator_uid = request.args.get('creatorUid') if request.args.get('creatorUid') else str(
-            uuid.uuid4())
+        data_package.creator_uid = request.args.get('creatorUid') if request.args.get('creatorUid') else None
         data_package.submission_user = current_user.id if current_user.is_authenticated else None
         data_package.submission_time = datetime.now(timezone.utc)
         data_package.mime_type = mimetype
@@ -38,6 +37,7 @@ def save_data_package_to_db(filename: str = None, sha256_hash: str = None, mimet
     except sqlalchemy.exc.IntegrityError as e:
         db.session.rollback()
         logger.error("Failed to save data package: {}".format(e))
+        logger.debug(traceback.format_exc())
         return jsonify({'success': False, 'error': 'This data package has already been uploaded'}), 400
 
 
@@ -82,7 +82,7 @@ def create_data_package_zip(file: FileStorage) -> str:
     data_package_hash = sha256.hexdigest()
 
     os.rename(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{filename}.zip"), os.path.join(app.config.get("UPLOAD_FOLDER"), f"{data_package_hash}.zip"))
-    save_data_package_to_db(f"{filename}.zip", data_package_hash, file.content_type, len(zip_file_bytes))
+    save_data_package_to_db(f"{filename}.zip", data_package_hash, file.content_type or "application/zip", len(zip_file_bytes))
 
     return data_package_hash
 
