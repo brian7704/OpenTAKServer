@@ -3,7 +3,6 @@ from __future__ import annotations
 import subprocess
 import sys
 import traceback
-from threading import Thread
 from typing import TYPE_CHECKING
 
 import selectors
@@ -174,18 +173,9 @@ class PluginManager:
                 return_code = output.poll()
         if return_code == 0:
             socketio.emit('plugin_package_manager', {"success": True, "message": "Command completed successfully"}, to=request.sid, namespace="/socket.io", ignore_queue=True)
-            app.plugin_manager.load_plugins()
+            if json.get('action') == 'delete':
+                del app.plugin_manager.plugins[json.get('plugin_distro')]
+            else:
+                app.plugin_manager.load_plugins()
         else:
             socketio.emit('plugin_package_manager', {"success": False, "message": f"Command failed with return code: {return_code}"}, to=request.sid, namespace="/socket.io", ignore_queue=True)
-
-
-class PluginInstaller(Thread):
-    def __init__(self, plugin_distro):
-        super().__init__()
-        self.plugin_distro = plugin_distro
-
-    def run(self):
-        try:
-            output = subprocess.check_call(f"{sys.executable} -m pip install {self.plugin_distro}".split())
-        except BaseException as e:
-            return e
