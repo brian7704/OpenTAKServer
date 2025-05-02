@@ -23,8 +23,8 @@ from opentakserver.models.EUD import EUD
 
 
 class MeshtasticController(RabbitMQClient):
-    def __init__(self, context, logger, db, socketio):
-        super().__init__(context, logger, db, socketio)
+    def __init__(self, context):
+        super().__init__(context)
         self.node_names = {}
         self.logger.info("Starting Meshtastic controller...")
         self.meshtastic_devices = {}

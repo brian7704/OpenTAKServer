@@ -1,13 +1,16 @@
-import logging
 from threading import Thread
+
+from flask import Flask
 from pika.channel import Channel
 
 import flask_sqlalchemy
 import pika
 
+from opentakserver.extensions import *
+
 
 class RabbitMQClient:
-    def __init__(self, context, logger, db, socketio):
+    def __init__(self, context: Flask):
         self.context = context
         self.logger = logger
         self.db: flask_sqlalchemy.SQLAlchemy = db
