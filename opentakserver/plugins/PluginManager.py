@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 import traceback
+from threading import Thread
 from typing import TYPE_CHECKING
 
+import selectors
 import sqlalchemy.exc
-from flask import Flask
+from flask import Flask, request, current_app as app
 from sqlalchemy import update
 
-from opentakserver.extensions import logger, db
+from opentakserver.blueprints.ots_socketio import administrator_only
+from opentakserver.extensions import logger, db, socketio
 from opentakserver.models.Plugins import Plugins
 from opentakserver.plugins.Plugin import Plugin
 from poetry.utils._compat import metadata
@@ -36,13 +41,11 @@ class PluginManager:
         return list(metadata.entry_points(group=self._group))
 
     def activate(self, *args: Any, **kwargs: Any) -> None:
-        logger.info(self.plugins)
         for distro, plugin in self.plugins.items():
             try:
                 try:
                     with self._app.app_context():
                         plugin_metadata = plugin.load_metadata()
-                        logger.warning(plugin_metadata)
 
                         # Add the plugin to the DB or update its version number
                         plugin_row = db.session.execute(db.session.query(Plugins).filter_by(name=plugin.name)).first()
@@ -70,7 +73,6 @@ class PluginManager:
                 logger.error(traceback.format_exc())
 
     def stop_plugins(self):
-        logger.warning(self.plugins)
         for distro, plugin in self.plugins.items():
             plugin.stop()
 
@@ -121,8 +123,69 @@ class PluginManager:
         with self._app.app_context():
             plugin = db.session.execute(db.session.query(Plugins).filter_by(name=plugin_name)).first()
             if plugin:
-                logger.warning(plugin)
                 return plugin[0].enabled
             else:
                 # First time this plugin has been loaded, enable it by default
                 return True
+
+    @staticmethod
+    @socketio.on('plugin_package_manager', namespace="/socket.io")
+    @administrator_only
+    def install_plugin(json: dict):
+        if 'plugin_distro' not in json.keys() or 'action' not in json.keys():
+            socketio.emit('plugin_package_manager', {"success": False, "message": "Invalid payload"}, to=request.sid, namespace="/socketio")
+            return
+        elif not json.get('plugin_distro').startswith("ots_") and not json.get('plugin_distro').startswith("ots-"):
+            socketio.emit('plugin_package_manager', {"success": False, "message": f"Invalid Plugin: {json.get('plugin_distro')}"}, to=request.sid, namespace="/socket.io")
+            return
+
+        if json.get('action') == 'delete':
+            command = f"{sys.executable} -m pip uninstall --yes {json.get('plugin_distro')}"
+        elif json.get('action') == 'install':
+            command = f"{sys.executable} -m pip install {json.get('plugin_distro')} -i https://repo.opentakserver.io/brian/prod/"
+        else:
+            logger.error(f"Invalid action: {json.get('action')}")
+            socketio.emit('plugin_package_manager', {"success": False, "message": f"Invalid action: {json.get('action')}"}, namespace="/socket.io", to=request.sid, ignore_queue=True)
+            return
+
+        socketio.emit('plugin_package_manager', {"message": f"$ {command}\n"}, namespace="/socket.io", to=request.sid, ignore_queue=True)
+        return_code = None
+
+        try:
+            output = subprocess.Popen(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+            output.stdin.write(b"y\n")
+            sel = selectors.DefaultSelector()
+            sel.register(output.stdout, selectors.EVENT_READ)
+            sel.register(output.stderr, selectors.EVENT_READ)
+        except BaseException as e:
+            logger.error(f"Failed to run command {command}: {e}")
+            logger.error(traceback.format_exc())
+            socketio.emit("plugin_package_manager", {"success": False, "message": f"Command failed: {e}"}, namespace="/socket.io", to=request.sid, ignore_queue=True)
+            return
+
+        while return_code is None:
+            for key, _ in sel.select():
+                if key.fileobj != output.stdin:
+                    data = key.fileobj.read1().decode()
+
+                    if data:
+                        socketio.emit('plugin_package_manager', {"message": data}, to=request.sid, namespace="/socket.io", ignore_queue=True)
+
+                return_code = output.poll()
+        if return_code == 0:
+            socketio.emit('plugin_package_manager', {"success": True, "message": "Command completed successfully"}, to=request.sid, namespace="/socket.io", ignore_queue=True)
+            app.plugin_manager.load_plugins()
+        else:
+            socketio.emit('plugin_package_manager', {"success": False, "message": f"Command failed with return code: {return_code}"}, to=request.sid, namespace="/socket.io", ignore_queue=True)
+
+
+class PluginInstaller(Thread):
+    def __init__(self, plugin_distro):
+        super().__init__()
+        self.plugin_distro = plugin_distro
+
+    def run(self):
+        try:
+            output = subprocess.check_call(f"{sys.executable} -m pip install {self.plugin_distro}".split())
+        except BaseException as e:
+            return e

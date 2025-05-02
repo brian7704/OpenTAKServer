@@ -1,10 +1,8 @@
 import traceback
 
-from flask import Blueprint, request, jsonify, current_app as app
+from flask import Blueprint, jsonify, current_app as app
 from flask_security import roles_required
 
-from opentakserver.plugins.Plugin import Plugin
-from opentakserver.plugins.PluginManager import PluginManager
 from opentakserver.extensions import logger
 
 plugin_blueprint = Blueprint("plugin_api_blueprint", __name__)
