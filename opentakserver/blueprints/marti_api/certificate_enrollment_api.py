@@ -18,6 +18,7 @@ from opentakserver import __version__ as version
 
 from opentakserver.models.EUD import EUD
 from opentakserver.models.DataPackage import DataPackage
+from opentakserver.models.Token import Token
 
 from opentakserver.models.VideoStream import VideoStream
 
@@ -32,11 +33,18 @@ certificate_authority_api_blueprint = Blueprint('certificate_authority_api_bluep
 # so we handle basic auth ourselves
 def basic_auth(credentials):
     try:
-        username, password = base64.b64decode(credentials.split(" ")[-1].encode('utf-8')).decode('utf-8').split(":")
+        username, password = base64.b64decode(credentials.split(" ", 1)[-1].encode('utf-8')).decode('utf-8').split(":", 1)
         username = bleach.clean(username)
         password = bleach.clean(password)
         user = app.security.datastore.find_user(username=username)
-        return user and verify_password(password, user.password)
+        if not user:
+            logger.error(f"User {username} doesn't exist")
+            return False
+        elif verify_password(password, user.password):
+            return True
+        else:
+            return Token.verify_token(password)
+
     except BaseException as e:
         logger.error("Failed to verify credentials: {}".format(e))
         return False

@@ -1,4 +1,7 @@
 import hashlib
+import json
+import time
+import traceback
 
 import jwt
 import datetime
@@ -21,9 +24,9 @@ class Token(db.Model):
     username: Mapped[str] = mapped_column(String(255), ForeignKey("user.username"), nullable=True, unique=True)
     max_uses: Mapped[int] = mapped_column(Integer, default=0, nullable=True)
     total_uses: Mapped[int] = mapped_column(Integer, default=0, nullable=True)
-    creation: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.datetime.now(datetime.timezone.utc))
-    not_before: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    expiration: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    creation: Mapped[int] = mapped_column(DateTime, nullable=False, default=int(time.time()))
+    not_before: Mapped[int] = mapped_column(DateTime, nullable=True)
+    expiration: Mapped[int] = mapped_column(DateTime, nullable=True)
     disabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
     token_hash: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
 
@@ -31,8 +34,8 @@ class Token(db.Model):
 
     def to_json(self) -> dict:
         json_token = {
-            "username": self.username,
-            "iad": iso8601_string_from_datetime(self.creation),
+            "sub": self.username,
+            "iat": self.creation,
             "iss": "OpenTAKServer",
             "aud": "OpenTAKServer"
         }
@@ -55,7 +58,7 @@ class Token(db.Model):
             sha256.update(token.encode())
             token_hash = sha256.hexdigest()
         else:
-            sha256.update(self.generate_token().encode())
+            sha256.update(json.dumps(self.to_json()).encode())
             token_hash = sha256.hexdigest()
             self.token_hash = token_hash
 
@@ -66,47 +69,61 @@ class Token(db.Model):
             return None
 
         token = {
-            "iat": iso8601_string_from_datetime(self.creation),
-            "sub": self.username
+            "sub": self.username,
+            "iat": self.creation,
+            "iss": "OpenTAKServer",
+            "aud": "OpenTAKServer"
         }
-
-        if self.not_before:
-            token["nbf"] = iso8601_string_from_datetime(self.not_before)
-
-        if self.expiration:
-            token["exp"] = iso8601_string_from_datetime(self.expiration)
 
         if self.max_uses:
             token["max"] = self.max_uses
 
-        with open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.nopass.key"), "rb") as key:
-            return jwt.encode(token, key.read(), algorithm="RS256")
+        if self.not_before:
+            token["nbf"] = self.not_before
 
-    def verify_token(self, token: str) -> bool:
+        if self.expiration:
+            token["exp"] = self.expiration
+
+        with open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.nopass.key"), "rb") as key:
+            encoded_token = jwt.encode(token, key.read(), algorithm="RS256")
+            logger.warning(encoded_token)
+            return encoded_token
+
+    @staticmethod
+    def verify_token(token: str) -> bool:
         with open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.pub"), "r") as key:
             try:
-                token_hash = self.hash_token(token)
+                # Will raise InvalidTokenError on bad signature, expired, or before the nbf date
+                decoded_token: dict = jwt.decode(token, key.read(), algorithms=["RS256"], audience="OpenTAKServer")
+
+                sha256 = hashlib.sha256()
+                sha256.update(json.dumps(decoded_token).encode())
+                token_hash = sha256.hexdigest()
 
                 token_from_db = db.session.query(Token).filter_by(token_hash=token_hash).first()
                 if not token_from_db:
+                    logger.error(f"Token not in db: {token_hash}")
                     return False
-
-                token_from_db: Token = token_from_db[0]
 
                 if token_from_db.disabled:
+                    logger.error("Token disabled")
                     return False
 
-                # Will raise InvalidTokenError on bad signature, expired, or before the nbf date
-                decoded_token: dict = jwt.decode(token, key.read(), algorithm=["RS256"])
-
-                if "max_uses" in decoded_token.keys() and self.total_uses >= decoded_token["max_uses"]:
+                if "max_uses" in decoded_token.keys() and token_from_db.total_uses >= decoded_token["max_uses"]:
+                    logger.error(f"Too many uses for token {token_hash}")
                     return False
+
+                token_from_db.total_uses += 1
+                db.session.add(token_from_db)
+                db.session.commit()
 
                 return True
 
-            except jwt.exceptions.InvalidTokenError:
-                logger.error("Invalid token")
+            except jwt.exceptions.InvalidTokenError as e:
+                logger.error(f"Invalid token: {e}")
+                logger.debug(traceback.format_exc())
                 return False
             except BaseException as e:
                 logger.error(f"Failed to decode token: {e}")
+                logger.debug(traceback.format_exc())
                 return False

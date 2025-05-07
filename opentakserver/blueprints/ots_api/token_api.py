@@ -1,5 +1,6 @@
 import datetime
 import os
+import time
 import traceback
 from urllib.parse import urlparse
 
@@ -57,18 +58,16 @@ def new_atak_qr_string():
                 token = Token()
 
             token.username = username
-            token.expiration = datetime.datetime.fromtimestamp(
-                float(request.json.get("expiration"))) if request.json.get("expiration") else None
-            token.not_before = datetime.datetime.fromtimestamp(
-                float(request.json.get("not_before"))) if request.json.get("not_before") else None
+            token.creation = int(time.time())
+            token.expiration = int(request.json.get("expiration")) if request.json.get("expiration") else None
+            token.not_before = int(request.json.get("not_before")) if request.json.get("not_before") else None
             token.max_uses = int(request.json.get("max_uses")) if "max_uses" in request.json.keys() else None
             token.hash_token()
 
             db.session.add(token)
             db.session.commit()
 
-            return jsonify({"success": True,
-                            "qr_string": f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&user={username}&token={token.generate_token()}"})
+            return jsonify({"success": True, "qr_string": f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={username}&token={token.generate_token()}"})
 
     except BaseException as e:
         logger.error(f"Failed to create token: {e}")
@@ -90,8 +89,7 @@ def get_atak_qr_strings():
 
     token = db.session.execute(query).first()
     if token:
-        return jsonify({"success": True,
-                        "qr_string": f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&user={token[0].username}&token={token[0].generate_token()}"})
+        return jsonify({"success": True, "qr_string": f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={token[0].username}&token={token[0].generate_token()}"})
     else:
         return jsonify({'success': False, 'error': f"No token found for {username}"})
 
