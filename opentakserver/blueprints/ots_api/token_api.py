@@ -62,6 +62,7 @@ def new_atak_qr_string():
             token.expiration = int(request.json.get("expiration")) if request.json.get("expiration") else None
             token.not_before = int(request.json.get("not_before")) if request.json.get("not_before") else None
             token.max_uses = int(request.json.get("max_uses")) if "max_uses" in request.json.keys() else None
+            token.disabled = request.json.get("disabled") if "disabled" in request.json.keys() else None
             token.hash_token()
 
             db.session.add(token)
