@@ -56,9 +56,9 @@ def new_atak_qr_string():
                 token = token[0]
             else:
                 token = Token()
+                token.creation = int(time.time())
 
             token.username = username
-            token.creation = int(time.time())
             token.expiration = int(request.json.get("expiration")) if request.json.get("expiration") else None
             token.not_before = int(request.json.get("not_before")) if request.json.get("not_before") else None
             token.max_uses = int(request.json.get("max_uses")) if "max_uses" in request.json.keys() else None
@@ -92,7 +92,7 @@ def get_atak_qr_strings():
     if token:
         return jsonify({"success": True, "qr_string": f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={token[0].username}&token={token[0].generate_token()}"})
     else:
-        return jsonify({'success': False, 'error': f"No token found for {username}"})
+        return jsonify({'success': False, 'error': f"No token found for {username}"}), 404
 
 
 @token_api_blueprint.route("/api/atak_qr_string", methods=["DELETE"])
@@ -111,3 +111,4 @@ def delete_token():
     except BaseException as e:
         logger.error(f"Failed to delete token: {e}")
         logger.debug(traceback.format_exc())
+        return jsonify({"success": False, "error": f"Failed to delete token: {e}"}), 500
