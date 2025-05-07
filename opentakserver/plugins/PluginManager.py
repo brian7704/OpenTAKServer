@@ -54,6 +54,8 @@ class PluginManager:
                         else:
                             plugin_row = Plugins()
                             plugin_row.name = plugin.name
+                            logger.info(plugin_metadata)
+                            plugin_row.distro = plugin_metadata.get("distro")
                             plugin_row.author = plugin_metadata.get("author")
                             plugin_row.version = plugin_metadata.get("version")
                             plugin_row.enabled = True
@@ -173,8 +175,26 @@ class PluginManager:
                 return_code = output.poll()
         if return_code == 0:
             socketio.emit('plugin_package_manager', {"success": True, "message": "Command completed successfully"}, to=request.sid, namespace="/socket.io", ignore_queue=True)
-            if json.get('action') == 'delete':
+
+            if json.get('action') == 'install':
+                entry_points = app.plugin_manager.get_plugin_entry_points()
+                for entry_point in entry_points:
+                    plugin = entry_point.load()
+                    if plugin.distro == json.get("plugin_distro"):
+                        plugin_row = Plugins()
+                        plugin_row.name = plugin.name
+                        plugin_row.distro = plugin.distro
+                        plugin_row.author = plugin.metadata.author
+                        plugin_row.version = plugin.metadata.get.version
+                        plugin_row.enabled = True
+                        db.session.add(plugin_row)
+                        db.session.commit()
+
+            elif json.get('action') == 'delete':
                 del app.plugin_manager.plugins[json.get('plugin_distro')]
+                plugin = db.session.execute(db.session.query(Plugins).filter_by(distro=json.get('plugin_distro'))).first()
+                if plugin:
+                    db.session.delete(plugin[0])
             else:
                 app.plugin_manager.load_plugins()
         else:
