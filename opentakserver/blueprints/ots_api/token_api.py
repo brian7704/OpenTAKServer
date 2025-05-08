@@ -58,9 +58,22 @@ def new_atak_qr_string():
                 token = Token()
                 token.creation = int(time.time())
 
+            expiration = int(request.json.get("exp")) if request.json.get("exp") else None
+            # PyJWT uses timestamps in seconds to check expiration and not_before
+            # This makes sure these timestamps are in seconds and not milliseconds
+            # TODO: Fix this before January 19, 2038 03:14:07Z
+            if expiration and expiration > 2147483647:
+                token.expiration = expiration / 1000
+            elif expiration:
+                token.expiration = expiration
+
+            not_before = int(request.json.get("nbf")) if request.json.get("nbf") else None
+            if not_before and not_before > 2147483647:
+                token.not_before = not_before / 1000
+            elif not_before:
+                token.not_before = not_before
+
             token.username = username
-            token.expiration = int(request.json.get("exp")) if request.json.get("exp") else None
-            token.not_before = int(request.json.get("nbf")) if request.json.get("nbf") else None
             token.max_uses = int(request.json.get("max")) if "max" in request.json.keys() else None
             token.disabled = request.json.get("disabled") if "disabled" in request.json.keys() else None
             token.hash_token()
