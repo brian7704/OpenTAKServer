@@ -4,13 +4,11 @@ import time
 import traceback
 
 import jwt
-import datetime
 import os
 from dataclasses import dataclass
 
-from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.extensions import db, logger
-from sqlalchemy import String, DateTime, ForeignKey, Integer, Boolean
+from sqlalchemy import String, ForeignKey, Integer, Boolean, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from flask import current_app as app
@@ -24,9 +22,9 @@ class Token(db.Model):
     username: Mapped[str] = mapped_column(String(255), ForeignKey("user.username"), nullable=True, unique=True)
     max_uses: Mapped[int] = mapped_column(Integer, default=0, nullable=True)
     total_uses: Mapped[int] = mapped_column(Integer, default=0, nullable=True)
-    creation: Mapped[int] = mapped_column(DateTime, nullable=False, default=int(time.time()))
-    not_before: Mapped[int] = mapped_column(DateTime, nullable=True)
-    expiration: Mapped[int] = mapped_column(DateTime, nullable=True)
+    creation: Mapped[int] = mapped_column(BigInteger, nullable=False, default=int(time.time()))
+    not_before: Mapped[int] = mapped_column(BigInteger, nullable=True)
+    expiration: Mapped[int] = mapped_column(BigInteger, nullable=True)
     disabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
     token_hash: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
 
@@ -44,10 +42,10 @@ class Token(db.Model):
             json_token["max"] = self.max_uses
 
         if self.not_before:
-            json_token["nbf"] = iso8601_string_from_datetime(self.not_before)
+            json_token["nbf"] = self.not_before
 
         if self.expiration:
-            json_token["exp"] = iso8601_string_from_datetime(self.expiration)
+            json_token["exp"] = self.expiration
 
         return json_token
 

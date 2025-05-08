@@ -59,16 +59,20 @@ def new_atak_qr_string():
                 token.creation = int(time.time())
 
             token.username = username
-            token.expiration = int(request.json.get("expiration")) if request.json.get("expiration") else None
-            token.not_before = int(request.json.get("not_before")) if request.json.get("not_before") else None
-            token.max_uses = int(request.json.get("max_uses")) if "max_uses" in request.json.keys() else None
+            token.expiration = int(request.json.get("exp")) if request.json.get("exp") else None
+            token.not_before = int(request.json.get("nbf")) if request.json.get("nbf") else None
+            token.max_uses = int(request.json.get("max")) if "max" in request.json.keys() else None
             token.disabled = request.json.get("disabled") if "disabled" in request.json.keys() else None
             token.hash_token()
 
             db.session.add(token)
             db.session.commit()
 
-            return jsonify({"success": True, "qr_string": f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={username}&token={token.generate_token()}"})
+            response = token.to_json()
+            response["success"] = True
+            response["disabled"] = token.disabled
+            response["qr_string"] = f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={username}&token={token.generate_token()}"
+            return jsonify(response)
 
     except BaseException as e:
         logger.error(f"Failed to create token: {e}")
@@ -90,7 +94,11 @@ def get_atak_qr_strings():
 
     token = db.session.execute(query).first()
     if token:
-        return jsonify({"success": True, "qr_string": f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={token[0].username}&token={token[0].generate_token()}"})
+        response = token[0].to_json()
+        response["success"] = True
+        response["disabled"] = token[0].disabled
+        response["qr_string"] = f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={token[0].username}&token={token[0].generate_token()}"
+        return jsonify(response)
     else:
         return jsonify({'success': False, 'error': f"No token found for {username}"}), 404
 
