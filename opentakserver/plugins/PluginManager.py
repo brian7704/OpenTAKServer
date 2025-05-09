@@ -180,7 +180,7 @@ class PluginManager:
                 entry_points = app.plugin_manager.get_plugin_entry_points()
                 for entry_point in entry_points:
                     plugin = entry_point.load()
-                    if plugin.distro == json.get("plugin_distro"):
+                    if plugin().distro == json.get("plugin_distro"):
                         plugin_row = Plugins()
                         plugin_row.name = plugin.name
                         plugin_row.distro = plugin.distro
@@ -189,6 +189,7 @@ class PluginManager:
                         plugin_row.enabled = True
                         db.session.add(plugin_row)
                         db.session.commit()
+                        break
 
             elif json.get('action') == 'delete':
                 del app.plugin_manager.plugins[json.get('plugin_distro')]
