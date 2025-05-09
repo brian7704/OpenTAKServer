@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 
 from opentakserver.extensions import db
+# Leave this import here
+from opentakserver.models.Token import Token
 from sqlalchemy import String
 from flask_security.models import fsqla_v3 as fsqla
 from sqlalchemy.orm import relationship
