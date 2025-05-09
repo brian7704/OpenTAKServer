@@ -20,7 +20,7 @@ class Token(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(255), ForeignKey("user.username"), nullable=True, unique=True)
-    max_uses: Mapped[int] = mapped_column(Integer, default=0, nullable=True)
+    max_uses: Mapped[int] = mapped_column(Integer, default=None, nullable=True)
     total_uses: Mapped[int] = mapped_column(Integer, default=0, nullable=True)
     creation: Mapped[int] = mapped_column(BigInteger, nullable=False, default=int(time.time()))
     not_before: Mapped[int] = mapped_column(BigInteger, nullable=True)
