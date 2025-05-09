@@ -30,7 +30,7 @@ class Token(db.Model):
 
     user = relationship("User", back_populates="tokens")
 
-    def to_json(self) -> dict:
+    def to_json(self, hash=False) -> dict:
         json_token = {
             "sub": self.username,
             "iat": self.creation,
@@ -38,13 +38,13 @@ class Token(db.Model):
             "aud": "OpenTAKServer"
         }
 
-        if self.max_uses:
+        if self.max_uses or not hash:
             json_token["max"] = self.max_uses
 
-        if self.not_before:
+        if self.not_before or not hash:
             json_token["nbf"] = self.not_before
 
-        if self.expiration:
+        if self.expiration or not hash:
             json_token["exp"] = self.expiration
 
         return json_token
@@ -56,7 +56,7 @@ class Token(db.Model):
             sha256.update(token.encode())
             token_hash = sha256.hexdigest()
         else:
-            sha256.update(json.dumps(self.to_json()).encode())
+            sha256.update(json.dumps(self.to_json(True)).encode())
             token_hash = sha256.hexdigest()
             self.token_hash = token_hash
 
@@ -107,7 +107,7 @@ class Token(db.Model):
                     logger.error("Token disabled")
                     return False
 
-                if "max_uses" in decoded_token.keys() and token_from_db.total_uses >= decoded_token["max_uses"]:
+                if "max" in decoded_token.keys() and token_from_db.total_uses >= decoded_token["max"]:
                     logger.error(f"Too many uses for token {token_hash}")
                     return False
 

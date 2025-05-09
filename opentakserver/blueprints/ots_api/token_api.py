@@ -74,9 +74,16 @@ def new_atak_qr_string():
                 token.not_before = not_before
 
             token.username = username
-            token.max_uses = int(request.json.get("max")) if "max" in request.json.keys() else None
             token.disabled = request.json.get("disabled") if "disabled" in request.json.keys() else None
             token.hash_token()
+
+            if request.json.get("max"):
+                try:
+                    max_uses = int(request.json.get("max"))
+                    if max_uses > 0:
+                        token.max_uses = max_uses
+                except ValueError:
+                    pass
 
             db.session.add(token)
             db.session.commit()
@@ -110,6 +117,7 @@ def get_atak_qr_strings():
         response = token[0].to_json()
         response["success"] = True
         response["disabled"] = token[0].disabled
+        response["total_uses"] = token[0].total_uses
         response["qr_string"] = f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={token[0].username}&token={token[0].generate_token()}"
         return jsonify(response)
     else:
