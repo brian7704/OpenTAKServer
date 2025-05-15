@@ -29,7 +29,7 @@ def get_plugin(plugin_name: str):
         plugin = app.plugin_manager.plugins.get(plugin_name)
         if plugin:
             plugin_metadata = plugin.load_metadata()
-            plugin_metadata['enabled'] = app.plugin_manager.check_if_plugin_enabled(plugin.name)
+            plugin_metadata['enabled'] = app.plugin_manager.check_if_plugin_enabled(plugin.name.lower())
             return jsonify(plugin_metadata)
         else:
             return jsonify({'success': False, 'error': f'Plugin {plugin_name} not found'}), 404

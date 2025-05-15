@@ -53,7 +53,7 @@ class PluginManager:
                             plugin_row.version = plugin_metadata.get("version")
                         else:
                             plugin_row = Plugins()
-                            plugin_row.name = plugin.name
+                            plugin_row.name = plugin.name.lower()
                             plugin_row.distro = plugin_metadata.get("distro")
                             plugin_row.author = plugin_metadata.get("author")
                             plugin_row.version = plugin_metadata.get("version")
@@ -80,7 +80,7 @@ class PluginManager:
         plugin = self.plugins[plugin_name]
         plugin.stop()
 
-        db.session.execute(update(Plugins).where(Plugins.name == plugin.name).values(enabled=False))
+        db.session.execute(update(Plugins).where(Plugins.name == plugin.name.lower()).values(enabled=False))
         db.session.commit()
 
         logger.info(f"{plugin_name} disabled")
@@ -89,7 +89,7 @@ class PluginManager:
         plugin = self.plugins[plugin_name]
         plugin.activate(self._app, True)
 
-        db.session.execute(update(Plugins).where(Plugins.name == plugin.name).values(enabled=True))
+        db.session.execute(update(Plugins).where(Plugins.name == plugin.name.lower()).values(enabled=True))
         db.session.commit()
 
         logger.info(f"{plugin_name} enabled")
@@ -122,7 +122,7 @@ class PluginManager:
 
     def check_if_plugin_enabled(self, plugin_name: str) -> bool:
         with self._app.app_context():
-            plugin = db.session.execute(db.session.query(Plugins).filter_by(name=plugin_name)).first()
+            plugin = db.session.execute(db.session.query(Plugins).filter_by(name=plugin_name.lower())).first()
             if plugin:
                 return plugin[0].enabled
             else:
@@ -196,7 +196,12 @@ class PluginManager:
                         plugin_row.enabled = True
                         db.session.add(plugin_row)
                         db.session.commit()
+
+                        if json.get('plugin_name').lower() not in app.plugin_manager.plugins:
+                            app.plugin_manager.plugins[json.get('plugin_name').lower()] = plugin
                         break
+
+                app.plugin_manager.enable_plugin(json.get("plugin_name").lower())
 
             elif json.get('action') == 'delete':
                 del app.plugin_manager.plugins[json.get('plugin_name').lower()]
