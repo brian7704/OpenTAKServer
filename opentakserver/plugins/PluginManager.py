@@ -40,7 +40,7 @@ class PluginManager:
         return list(metadata.entry_points(group=self._group))
 
     def activate(self, *args: Any, **kwargs: Any) -> None:
-        for distro, plugin in self.plugins.items():
+        for name, plugin in self.plugins.items():
             try:
                 try:
                     with self._app.app_context():
@@ -54,7 +54,6 @@ class PluginManager:
                         else:
                             plugin_row = Plugins()
                             plugin_row.name = plugin.name
-                            logger.info(plugin_metadata)
                             plugin_row.distro = plugin_metadata.get("distro")
                             plugin_row.author = plugin_metadata.get("author")
                             plugin_row.version = plugin_metadata.get("version")
@@ -74,26 +73,26 @@ class PluginManager:
                 logger.error(traceback.format_exc())
 
     def stop_plugins(self):
-        for distro, plugin in self.plugins.items():
+        for name, plugin in self.plugins.items():
             plugin.stop()
 
-    def disable_plugin(self, plugin_distro: str):
-        plugin = self.plugins[plugin_distro]
+    def disable_plugin(self, plugin_name: str):
+        plugin = self.plugins[plugin_name]
         plugin.stop()
 
         db.session.execute(update(Plugins).where(Plugins.name == plugin.name).values(enabled=False))
         db.session.commit()
 
-        logger.info(f"{plugin_distro} disabled")
+        logger.info(f"{plugin_name} disabled")
 
-    def enable_plugin(self, plugin_distro: str):
-        plugin = self.plugins[plugin_distro]
+    def enable_plugin(self, plugin_name: str):
+        plugin = self.plugins[plugin_name]
         plugin.activate(self._app, True)
 
         db.session.execute(update(Plugins).where(Plugins.name == plugin.name).values(enabled=True))
         db.session.commit()
 
-        logger.info(f"{plugin_distro} enabled")
+        logger.info(f"{plugin_name} enabled")
 
     def _add_plugin(self, plugin: Plugin) -> None:
         if not isinstance(plugin, Plugin):
@@ -143,6 +142,12 @@ class PluginManager:
 
         if json.get('action') == 'delete':
             command = f"{sys.executable} -m pip uninstall --yes {json.get('plugin_name')}"
+            try:
+                logger.info(f"Disabling plugin {json.get('plugin_name')}")
+                app.plugin_manager.disable_plugin(json.get('plugin_name').lower())
+            except BaseException as e:
+                logger.error(f"Failed to disable plugin: {e}")
+                logger.debug(traceback.format_exc())
         elif json.get('action') == 'install':
             command = f"{sys.executable} -m pip install {json.get('plugin_name')} -i https://repo.opentakserver.io/brian/prod/"
         else:

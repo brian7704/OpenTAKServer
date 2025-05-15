@@ -37,31 +37,31 @@ def get_plugin(plugin_name: str):
         return jsonify({'success': False, 'error': 'Plugins are disabled'}), 400
 
 
-@plugin_blueprint.route("/api/plugins/<plugin_distro>/disable", methods=["POST"])
+@plugin_blueprint.route("/api/plugins/<plugin_name>/disable", methods=["POST"])
 @roles_required("administrator")
-def disable_plugin(plugin_distro):
+def disable_plugin(plugin_name):
     if hasattr(app, 'plugin_manager'):
         try:
-            logger.info(f"Disabling plugin {plugin_distro}")
-            app.plugin_manager.disable_plugin(plugin_distro)
+            logger.info(f"Disabling plugin {plugin_name}")
+            app.plugin_manager.disable_plugin(plugin_name)
             return jsonify({'success': True})
         except BaseException as e:
-            logger.error(f"Failed to disable {plugin_distro}: {e}")
+            logger.error(f"Failed to disable {plugin_name}: {e}")
             logger.error(traceback.format_exc())
             return jsonify({'success': False, 'error': str(e)})
     else:
         return jsonify({'success': False, 'error': 'Plugins are disabled'}), 400
 
 
-@plugin_blueprint.route("/api/plugins/<plugin_distro>/enable", methods=["POST"])
+@plugin_blueprint.route("/api/plugins/<plugin_name>/enable", methods=["POST"])
 @roles_required("administrator")
-def enable_plugin(plugin_distro):
+def enable_plugin(plugin_name):
     if hasattr(app, 'plugin_manager'):
         try:
-            app.plugin_manager.enable_plugin(plugin_distro)
+            app.plugin_manager.enable_plugin(plugin_name)
             return jsonify({'success': True})
         except BaseException as e:
-            logger.error(f"Failed to enable {plugin_distro}: {e}")
+            logger.error(f"Failed to enable {plugin_name}: {e}")
             logger.error(traceback.format_exc())
             return jsonify({'success': False, 'error': str(e)})
     else:
