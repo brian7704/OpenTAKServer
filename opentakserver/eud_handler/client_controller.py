@@ -81,11 +81,7 @@ class ClientController(Thread):
                         self.logger.debug("Got common name {}".format(self.common_name))
             except BaseException as e:
                 logger.warning("Failed to do handshake: {}".format(e))
-                self.unbind_rabbitmq_queues()
-                self.send_disconnect_cot()
-                self.sock.shutdown(socket.SHUT_RDWR)
-                self.sock.close()
-                self.shutdown = True
+                self.close_connection()
                 self.logger.error(traceback.format_exc())
 
         # RabbitMQ
@@ -94,7 +90,7 @@ class ClientController(Thread):
                                                            self.on_connection_open)
             self.rabbit_channel: Channel | None = None
             # Start the pika ioloop in a thread or else it blocks and we can't receive any CoT messages
-            self.iothread = Thread(target=self.rabbit_connection.ioloop.start)
+            self.iothread = Thread(target=self.rabbit_connection.ioloop.start, name="IOLOOP")
             self.iothread.daemon = True
             self.iothread.start()
             self.is_consuming = False
@@ -111,6 +107,11 @@ class ClientController(Thread):
         self.rabbit_channel.add_on_close_callback(self.on_close)
 
     def on_close(self, channel, error):
+        self.rabbit_connection.ioloop.stop()
+        try:
+            self.rabbit_connection = None
+        except BaseException as e:
+            self.logger.error(f"Failed to close ioloop: {e}")
         self.logger.info("Connection closed for {}: {}".format(self.address, error))
 
     def on_message(self, unused_channel, basic_deliver, properties, body):
@@ -120,11 +121,7 @@ class ClientController(Thread):
                 self.sock.send(body['cot'].encode())
         except BaseException as e:
             self.logger.error(f"{self.callsign}: {e}, closing socket")
-            self.unbind_rabbitmq_queues()
-            self.send_disconnect_cot()
-            self.sock.shutdown(socket.SHUT_RDWR)
-            self.sock.close()
-            self.shutdown = True
+            self.close_connection()
             self.logger.error(traceback.format_exc())
 
     # Yes this is super janky
@@ -133,30 +130,22 @@ class ClientController(Thread):
             try:
                 data = self.sock.recv(1)
                 if not data:
-                    self.shutdown = True
-                    self.logger.warning("Closing connection to {}".format(self.address))
-                    self.unbind_rabbitmq_queues()
-                    self.send_disconnect_cot()
-                    self.sock.shutdown(socket.SHUT_RDWR)
-                    self.sock.close()
+                    self.logger.warning("No Data Closing connection to {}".format(self.address))
+                    self.close_connection()
                     break
             except TimeoutError:
                 if self.shutdown:
-                    self.logger.warning("Closing connection to {}".format(self.address))
-                    self.unbind_rabbitmq_queues()
-                    self.send_disconnect_cot()
-                    self.sock.shutdown(socket.SHUT_RDWR)
-                    self.sock.close()
+                    self.logger.warning("Timeout Closing connection to {}".format(self.address))
+                    self.close_connection()
                     break
                 else:
                     continue
             except OSError:
+                self.logger.warning("OSError, stopping")
                 # Client disconnected abruptly, either ATAK crashed, lost network connectivity, the battery died, etc
                 return
             except (ConnectionError, ConnectionResetError) as e:
-                self.unbind_rabbitmq_queues()
-                self.send_disconnect_cot()
-                self.sock.close()
+                self.close_connection()
                 break
 
             if data:
@@ -170,12 +159,8 @@ class ClientController(Thread):
                             try:
                                 received_byte = self.sock.recv(1)
                                 if not received_byte:
-                                    self.shutdown = True
                                     self.logger.info(f"{self.address} disconnected")
-                                    self.unbind_rabbitmq_queues()
-                                    self.send_disconnect_cot()
-                                    self.sock.shutdown(socket.SHUT_RDWR)
-                                    self.sock.close()
+                                    self.close_connection()
                                     break
                                 data += received_byte
                                 continue
@@ -185,12 +170,8 @@ class ClientController(Thread):
                         try:
                             received_byte = self.sock.recv(1)
                             if not received_byte:
-                                self.shutdown = True
                                 self.logger.info(f"{self.address} disconnected")
-                                self.unbind_rabbitmq_queues()
-                                self.send_disconnect_cot()
-                                self.sock.shutdown(socket.SHUT_RDWR)
-                                self.sock.close()
+                                self.close_connection()
                                 break
                             data += received_byte
                             continue
@@ -200,12 +181,8 @@ class ClientController(Thread):
                         try:
                             received_byte = self.sock.recv(1)
                             if not received_byte:
-                                self.shutdown = True
                                 self.logger.info(f"{self.address} disconnected")
-                                self.unbind_rabbitmq_queues()
-                                self.send_disconnect_cot()
-                                self.sock.shutdown(socket.SHUT_RDWR)
-                                self.sock.close()
+                                self.close_connection()
                                 break
                             data += received_byte
                             continue
@@ -292,6 +269,7 @@ class ClientController(Thread):
         self.send_disconnect_cot()
         self.sock.shutdown(socket.SHUT_RDWR)
         self.sock.close()
+        self.shutdown = True
 
     def stop(self):
         self.shutdown = True
@@ -499,7 +477,7 @@ class ClientController(Thread):
                 self.logger.debug("Published message to " + routing_key)
 
     def unbind_rabbitmq_queues(self):
-        if self.uid:
+        if self.uid and self.rabbit_channel:
             self.rabbit_channel.queue_unbind(queue=self.uid, exchange="missions", routing_key="missions")
             self.rabbit_channel.queue_unbind(queue=self.uid, exchange="cot")
             with self.app.app_context():
@@ -522,8 +500,9 @@ class ClientController(Thread):
             flow_tags = SubElement(detail, '_flow-tags_', {'TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0': now})
 
             message = json.dumps({'uid': self.uid, 'cot': tostring(event).decode('utf-8')})
-            self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='', body=message,
-                                              properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
+            if self.rabbit_channel:
+                self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='', body=message,
+                                                  properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
             with self.app.app_context():
                 self.logger.info(traceback.print_exc())
