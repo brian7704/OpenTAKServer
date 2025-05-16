@@ -953,17 +953,34 @@ def create_app():
 
 
 app = create_app()
+child_processes = []
 
 
 def main():
     sio = SocketIO(message_queue="amqp://" + app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"))
 
-    try:
-        cot_parser = CoTController(app.app_context(), logger, db, sio)
-        cot_parser.run()
-    except KeyboardInterrupt:
-        logger.info("Got CTRL+C, Exiting...")
-        sys.exit()
+    processes = 0
+    while processes < app.config.get("OTS_COT_PARSER_PROCESSES"):
+        try:
+            pid = os.fork()
+            if pid == 0:
+                cot_parser = CoTController(app.app_context(), logger, db, sio)
+                cot_parser.run()
+            else:
+                child_processes.append(pid)
+        except KeyboardInterrupt:
+            pass
+        except BaseException as e:
+            logger.error(f"cot_parser error: {e}")
+            logger.debug(traceback.format_exc())
+        processes += 1
+
+    for i, child in enumerate(child_processes):
+        try:
+            os.waitpid(child, 0)
+        except BaseException as e:
+            logger.info(f"Got {e}, Exiting...")
+            sys.exit()
 
 
 if __name__ == "__main__":
