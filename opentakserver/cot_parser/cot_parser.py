@@ -978,8 +978,8 @@ def main():
     for i, child in enumerate(child_processes):
         try:
             os.waitpid(child, 0)
-        except BaseException as e:
-            logger.info(f"Got {e}, Exiting...")
+        except BaseException:
+            logger.info(f"Exiting...")
             sys.exit()
 
 
