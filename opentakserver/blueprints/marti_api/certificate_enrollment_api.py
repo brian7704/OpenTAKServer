@@ -89,7 +89,12 @@ def sign_csr_v2():
 
         csr = request.data.decode('utf-8')
         if "BEGIN CERTIFICATE REQUEST" not in csr:
-            csr = '-----BEGIN CERTIFICATE REQUEST-----\n' + csr + '-----END CERTIFICATE REQUEST-----'
+            csr = '-----BEGIN CERTIFICATE REQUEST-----\n' + csr
+
+        if not csr.endswith('\n'):
+            csr = csr + '\n'
+            
+        csr = csr + '-----END CERTIFICATE REQUEST-----'
 
         x509 = crypto.load_certificate_request(crypto.FILETYPE_PEM, csr.encode())
 

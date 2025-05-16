@@ -150,3 +150,46 @@ class DefaultConfig:
     SECURITY_USERNAME_MIN_LENGTH = 1
 
     SCHEDULER_API_ENABLED = False
+    JOBS = [
+        {
+            "id": "get_airplanes_live_data",
+            "func": "opentakserver.blueprints.scheduled_jobs:get_airplanes_live_data",
+            "trigger": "interval",
+            "seconds": 0,
+            "minutes": 1,
+            "next_run_time": None
+        },
+        {
+            "id": "delete_video_recordings",
+            "func": "opentakserver.blueprints.scheduled_jobs:delete_video_recordings",
+            "trigger": "interval",
+            "seconds": 0,
+            "minutes": 1,
+            "next_run_time": None
+        },
+        {
+            "id": "purge_data",
+            "func": "opentakserver.blueprints.scheduled_jobs:purge_data",
+            "trigger": "cron",
+            "day": "*",
+            "hour": 0,
+            "minute": 0,
+            "next_run_time": None
+        },
+        {
+            "id": "ais",
+            "func": "opentakserver.blueprints.scheduled_jobs:get_aishub_data",
+            "trigger": "interval",
+            "seconds": 0,
+            "minutes": 1,
+            "next_run_time": None
+        },
+        {
+            "id": "delete_old_data",
+            "func": "opentakserver.blueprints.scheduled_jobs:delete_old_data",
+            "trigger": "interval",
+            "seconds": 0,
+            "minutes": 1,
+            "next_run_time": None
+        }
+    ]

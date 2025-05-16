@@ -1,23 +1,18 @@
-import json
+import glob
 import os
 import traceback
 from urllib.parse import urlparse, unquote
 
-from xml.etree.ElementTree import Element, tostring, fromstring
-
-import bleach
-import sqlalchemy
 from OpenSSL import crypto
-from bs4 import BeautifulSoup
-from flask import request, Blueprint, jsonify, current_app as app
+from flask import request, Blueprint, current_app as app, jsonify, send_from_directory
 from flask_security import current_user
+from simplekml import Kml, GxTrack, IconStyle, Icon, Style, GxMultiTrack, Document
 
 from opentakserver.extensions import logger, db
-from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
-from opentakserver.functions import iso8601_string_from_datetime
+from opentakserver.functions import iso8601_string_from_datetime, datetime_from_iso8601_string
 from opentakserver import __version__ as version
 from opentakserver.models.EUD import EUD
-from opentakserver.models.VideoStream import VideoStream
+from opentakserver.models.Point import Point
 
 marti_api = Blueprint('marti_api', __name__)
 
@@ -75,122 +70,67 @@ def marti_config():
             "nodeId": app.config.get("OTS_NODE_ID")}, 200, {'Content-Type': 'application/json'}
 
 
-@marti_api.route('/Marti/vcm', methods=['GET', 'POST'])
-def video():
-    if request.method == 'POST':
-        soup = BeautifulSoup(request.data, 'xml')
-        video_connections = soup.find('videoConnections')
+@marti_api.route('/Marti/ExportMissionKML')
+def atak_track_history():
+    try:
+        start_time = request.args.get('startTime')
+        end_time = request.args.get('endTime')
+        uid = request.args.get('uid')
+        file_format = request.args.get('format')
+        # Not sure what these three are supposed to do
+        multitrack_threshold = request.args.get('multiTrackThreshold')
+        extended_data = request.args.get('extendedData')
+        optimize_export = request.args.get('optimizeExport')
 
-        path = video_connections.find('path').text
-        if path.startswith("/"):
-            path = path[1:]
+        kml = Kml()
+        doc: Document = kml.newdocument(name=uid)
 
-        if video_connections:
-            v = VideoStream()
-            v.protocol = video_connections.find('protocol').text
-            v.alias = video_connections.find('alias').text
-            v.uid = video_connections.find('uid').text
-            v.port = video_connections.find('port').text
-            v.rover_port = video_connections.find('roverPort').text
-            v.ignore_embedded_klv = (video_connections.find('ignoreEmbeddedKLV').text.lower() == 'true')
-            v.preferred_mac_address = video_connections.find('preferredMacAddress').text
-            v.preferred_interface_address = video_connections.find('preferredInterfaceAddress').text
-            v.path = path
-            v.buffer_time = video_connections.find('buffer').text
-            v.network_timeout = video_connections.find('timeout').text
-            v.rtsp_reliable = video_connections.find('rtspReliable').text
-            path_config = MediaMTXPathConfig(None).serialize()
-            path_config['sourceOnDemand'] = False
-            v.mediamtx_settings = json.dumps(path_config)
+        eud = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()
+        if not eud:
+            return jsonify({'success': False, 'error': f"No such UID: {uid}"}), 400
+        eud: EUD = eud[0]
 
-            # Discard username and password for security
-            feed = soup.find('feed')
-            address = feed.find('address').text
-            feed.find('address').string.replace_with(address.split("@")[-1])
+        icon = Icon(href=f"files/team_{eud.team.name.lower()}.png")
+        icon_style = IconStyle(scale=1.0, heading=0.0, icon=icon)
+        style = Style(iconstyle=icon_style)
+        doc.styles.append(style)
+        kml.addfile(os.path.join(os.path.dirname(os.path.realpath(__file__)), "icons", f"team_{eud.team.name.lower()}.png"))
 
-            v.xml = str(feed)
+        query = db.session.query(Point)
 
-            with app.app_context():
-                try:
-                    db.session.add(v)
-                    db.session.commit()
-                    logger.debug("Inserted Video")
-                except sqlalchemy.exc.IntegrityError as e:
-                    db.session.rollback()
-                    v = db.session.execute(db.select(VideoStream).filter_by(path=v.path)).scalar_one()
-                    v.protocol = video_connections.find('protocol').text
-                    v.alias = video_connections.find('alias').text
-                    v.uid = video_connections.find('uid').text
-                    v.port = video_connections.find('port').text
-                    v.rover_port = video_connections.find('roverPort').text
-                    v.ignore_embedded_klv = (video_connections.find('ignoreEmbeddedKLV').text.lower() == 'true')
-                    v.preferred_mac_address = video_connections.find('preferredMacAddress').text
-                    v.preferred_interface_address = video_connections.find('preferredInterfaceAddress').text
-                    v.path = video_connections.find('path').text
-                    v.buffer_time = video_connections.find('buffer').text
-                    v.network_timeout = video_connections.find('timeout').text
-                    v.rtsp_reliable = video_connections.find('rtspReliable').text
-                    feed = soup.find('feed')
-                    address = feed.find('address').text
-                    feed.find('address').replace_with(address.split("@")[-1])
+        if uid:
+            query = query.filter(Point.device_uid == uid)
 
-                    v.xml = str(feed)
+        if start_time:
+            query = query.filter(Point.timestamp >= datetime_from_iso8601_string(start_time))
 
-                    db.session.commit()
-                    logger.debug("Updated video")
+        if end_time:
+            query = query.filter(Point.timestamp <= datetime_from_iso8601_string(end_time))
 
-        return '', 200
+        points = db.session.execute(query)
+        timestamps = []
+        coords = []
+        for point in points:
+            point = point[0]
+            timestamps.append(iso8601_string_from_datetime(point.timestamp))
+            coords.append((point.longitude, point.latitude))
 
-    elif request.method == 'GET':
-        try:
-            with app.app_context():
-                videos = db.session.execute(db.select(VideoStream)).scalars()
-                videoconnections = Element('videoConnections')
+        multitrack: GxMultiTrack = doc.newgxmultitrack(gxinterpolate=0)
+        multitrack.style = style
+        multitrack.name = eud.callsign
 
-                for video in videos:
-                    # Make sure videos have the correct address based off of the Flask request and not 127.0.0.1
-                    # This also forces all streams to bounce through MediaMTX
-                    feed = BeautifulSoup(video.xml, 'xml')
+        track: GxTrack = multitrack.newgxtrack(name=uid, gxaltitudemode="clampToGround")
+        track.newwhen(timestamps)
+        track.newgxcoord(coords)
 
-                    url = urlparse(request.url_root).hostname
-                    path = feed.find('path').text
-                    if not path.startswith("/"):
-                        path = "/" + path
+        if file_format == "kmz":
+            kml.savekmz(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{uid}.kmz"))
+            return send_from_directory(app.config.get("UPLOAD_FOLDER"), f"{uid}.kmz", as_attachment=True, download_name=f"{uid}.kmz")
+        else:
+            kml.save(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{uid}.kml"))
+            return send_from_directory(app.config.get("UPLOAD_FOLDER"), f"{uid}.kml", as_attachment=True, download_name=f"{uid}.kml")
 
-                    if 'iTAK' in request.user_agent.string:
-                        url = feed.find('protocol').text + "://" + url + ":" + feed.find("port").text + path
-
-                    if feed.find('address'):
-                        feed.find('address').string.replace_with(url)
-                    else:
-                        address = feed.new_tag('address')
-                        address.string = url
-                        feed.feed.append(address)
-                    videoconnections.append(fromstring(str(feed)))
-
-            return tostring(videoconnections), 200
-        except BaseException as e:
-            logger.error(traceback.format_exc())
-            return '', 500
-
-
-@marti_api.route('/Marti/api/video')
-def get_videos():
-    cert = verify_client_cert()
-    if not cert:
-        # Shouldn't ever get here since nginx already verifies the cert
-        return jsonify({'success': False, 'error': 'Invalid Certificate'}), 400
-    username = None
-    for a in cert.get_subject().get_components():
-        if a[0].decode('UTF-8') == 'CN':
-            username = a[1].decode('UTF-8')
-            break
-
-    user = app.security.datastore.find_user(username=username)
-    videos = db.session.execute(db.select(VideoStream)).scalars()
-
-    video_connections = {'videoConnections': []}
-    for video in videos:
-        video_connections['videoConnections'].append(video.to_marti_json(user))
-
-    return jsonify(video_connections)
+    except BaseException as e:
+        logger.error(f"Failed to generate KML: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500

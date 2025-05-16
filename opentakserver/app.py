@@ -1,6 +1,7 @@
 from gevent import monkey
 monkey.patch_all()
 
+import random
 import sys
 import traceback
 import logging
@@ -15,6 +16,7 @@ import sqlite3
 from opentakserver.models.Icon import Icon
 from opentakserver.plugins.Plugin import Plugin
 from opentakserver.plugins.PluginManager import PluginManager
+from opentakserver.sql_jobstore import SQLJobStore
 
 import yaml
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
@@ -70,7 +72,7 @@ def init_extensions(app):
             logger.setLevel(logging.INFO)
 
     # Handle config options that can't be serialized to yaml
-    app.config.update({"SCHEDULER_JOBSTORES": {'default': SQLAlchemyJobStore(url=app.config.get("SQLALCHEMY_DATABASE_URI"))}})
+    app.config.update({"SCHEDULER_JOBSTORES": {'default': SQLJobStore(url=app.config.get("SQLALCHEMY_DATABASE_URI"))}})
     identity_attributes = [{"username": {"mapper": uia_username_mapper, "case_insensitive": True}}]
 
     # Don't allow registration unless email is enabled
@@ -114,7 +116,7 @@ def init_extensions(app):
 
     if not apscheduler.running:
         apscheduler.init_app(app)
-        apscheduler.start(paused=True)
+        apscheduler.start(paused=False)
 
     try:
         fsqla.FsModels.set_db_info(db)
