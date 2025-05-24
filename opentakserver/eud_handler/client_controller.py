@@ -469,7 +469,7 @@ class ClientController(Thread):
             for channel in channels:
                 channel = channel[0]
                 service_envelope.channel_id = channel
-                routing_key = f"{self.app.config.get("OTS_MESHTASTIC_TOPIC")}.2.e.{channel.name}.outgoing"
+                routing_key = f"{self.app.config.get('OTS_MESHTASTIC_TOPIC')}.2.e.{channel.name}.outgoing"
                 self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key,
                                                   body=service_envelope.SerializeToString(),
                                                   properties=pika.BasicProperties(
