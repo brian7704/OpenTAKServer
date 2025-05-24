@@ -279,7 +279,7 @@ def main():
         db.session.commit()
 
     if app.config.get("OTS_ENABLE_MESHTASTIC"):
-        mestastic_thread = MeshtasticController(app.app_context(), logger, db, socketio)
+        mestastic_thread = MeshtasticController(app.app_context())
         app.mestastic_thread = mestastic_thread
     else:
         app.meshtastic_thread = None
