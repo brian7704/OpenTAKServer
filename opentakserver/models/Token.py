@@ -84,7 +84,6 @@ class Token(db.Model):
 
         with open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.nopass.key"), "rb") as key:
             encoded_token = jwt.encode(token, key.read(), algorithm="RS256")
-            logger.warning(encoded_token)
             return encoded_token
 
     @staticmethod

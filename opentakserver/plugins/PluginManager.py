@@ -47,7 +47,7 @@ class PluginManager:
                         plugin_metadata = plugin.load_metadata()
 
                         # Add the plugin to the DB or update its version number
-                        plugin_row = db.session.execute(db.session.query(Plugins).filter_by(name=plugin.name)).first()
+                        plugin_row = db.session.execute(db.session.query(Plugins).filter_by(name=plugin.name.lower())).first()
                         if plugin_row:
                             plugin_row = plugin_row[0]
                             plugin_row.version = plugin_metadata.get("version")
@@ -62,6 +62,8 @@ class PluginManager:
                         db.session.add(plugin_row)
                         db.session.commit()
                 except sqlalchemy.exc.IntegrityError as e:
+                    logger.debug(f"{plugin_row.name} is already in the DB")
+                except BaseException as e:
                     logger.error(f"Failed to insert {plugin.name}: {e}")
 
                 plugin.activate(*args, **kwargs, enabled=self.check_if_plugin_enabled(plugin.name))
