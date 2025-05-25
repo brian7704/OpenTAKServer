@@ -488,16 +488,17 @@ class ClientController(Thread):
 
     def send_disconnect_cot(self):
         if self.uid:
-            now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-            stale = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            now = datetime.datetime.now(datetime.timezone.utc)
+            stale = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=10))
 
             event = Element('event', {'how': 'h-g-i-g-o', 'type': 't-x-d-d', 'version': '2.0',
-                                      'uid': str(uuid.uuid4()), 'start': now, 'time': now, 'stale': stale})
+                                      'uid': str(uuid.uuid4()), 'start': iso8601_string_from_datetime(now),
+                                      'time': iso8601_string_from_datetime(now), 'stale': iso8601_string_from_datetime(stale)})
             point = SubElement(event, 'point', {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0',
                                                 'lon': '0'})
             detail = SubElement(event, 'detail')
             link = SubElement(detail, 'link', {'relation': 'p-p', 'uid': self.uid, 'type': 'a-f-G-U-C'})
-            flow_tags = SubElement(detail, '_flow-tags_', {'TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0': now})
+            flow_tags = SubElement(detail, '_flow-tags_', {'TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0': iso8601_string_from_datetime(now)})
 
             message = json.dumps({'uid': self.uid, 'cot': tostring(event).decode('utf-8')})
             if self.rabbit_channel:
@@ -505,8 +506,6 @@ class ClientController(Thread):
                                                   properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
             with self.app.app_context():
-                self.logger.info(traceback.print_exc())
-                now = iso8601_string_from_datetime(datetime.datetime.now(datetime.timezone.utc))
                 self.db.session.execute(update(EUD).filter(EUD.uid == self.uid).values(last_status='Disconnected', last_event_time=now))
                 self.db.session.commit()
 
