@@ -213,7 +213,7 @@ class CoTController:
 
                 if self.context.app.config.get("OTS_ENABLE_MESHTASTIC"):
                     try:
-                        eud = self.db.session.execute(select(EUD).filter(uid=uid)).first()[0]
+                        eud = self.db.session.execute(select(EUD).filter_by(uid=uid)).first()[0]
 
                         now = time.time()
                         if now - eud.last_meshtastic_publish >= self.context.app.config.get("OTS_MESHTASTIC_PUBLISH_INTERVAL"):
@@ -221,7 +221,7 @@ class CoTController:
                             self.logger.debug("publishing position to mesh")
                             try:
                                 eud.last_meshtastic_publish = now
-                                self.db.session.execute(update(EUD).filter(uid=eud.uid).values(last_meshtastic_publish=now))
+                                self.db.session.execute(update(EUD).filter_by(uid=eud.uid).values(last_meshtastic_publish=now))
                                 self.db.session.commit()
 
                                 if eud.platform != "Meshtastic":
