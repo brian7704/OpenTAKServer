@@ -166,18 +166,7 @@ class ClientController(Thread):
                                 continue
                             except (ConnectionError, TimeoutError, ConnectionResetError) as e:
                                 break
-                    except ParseError as e:
-                        try:
-                            received_byte = self.sock.recv(1)
-                            if not received_byte:
-                                self.logger.info(f"{self.address} disconnected")
-                                self.close_connection()
-                                break
-                            data += received_byte
-                            continue
-                        except (ConnectionError, TimeoutError, ConnectionResetError) as e:
-                            break
-                    except UnicodeDecodeError as e:
+                    except (ParseError, UnicodeDecodeError) as e:
                         try:
                             received_byte = self.sock.recv(1)
                             if not received_byte:
@@ -256,9 +245,11 @@ class ClientController(Thread):
 
                     message = {'uid': self.uid, 'cot': str(soup)}
                     if self.rabbit_channel:
+                        self.logger.warning(f"Publishing {message}")
                         self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='',
                                                           body=json.dumps(message),
                                                           properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
+                        self.logger.warning("Message Published")
             else:
                 self.unbind_rabbitmq_queues()
                 self.send_disconnect_cot()
@@ -465,7 +456,7 @@ class ClientController(Thread):
             service_envelope.packet.CopyFrom(mesh_packet)
             service_envelope.gateway_id = "OpenTAKServer"
 
-            channels = self.db.session.execute(select(MeshtasticChannel).filter(MeshtasticChannel.uplink_enabled == True))
+            channels = self.db.session.execute(select(MeshtasticChannel).filter(MeshtasticChannel.uplink_enabled is True))
             for channel in channels:
                 channel = channel[0]
                 service_envelope.channel_id = channel
@@ -506,6 +497,7 @@ class ClientController(Thread):
                                                   properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
             with self.app.app_context():
+                self.logger.info(f"Now is {now}")
                 self.db.session.execute(update(EUD).filter(EUD.uid == self.uid).values(last_status='Disconnected', last_event_time=now))
                 self.db.session.commit()
 

@@ -64,7 +64,7 @@ class PluginManager:
                 except sqlalchemy.exc.IntegrityError as e:
                     logger.debug(f"{plugin_row.name} is already in the DB")
                 except BaseException as e:
-                    logger.error(f"Failed to insert {plugin.name}: {e}")
+                    logger.debug(f"{plugin.name} already in the database")
 
                 plugin.activate(*args, **kwargs, enabled=self.check_if_plugin_enabled(plugin.name))
                 if plugin.blueprint:
