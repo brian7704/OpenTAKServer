@@ -205,7 +205,7 @@ def mediamtx_webhook():
                 recording = recording[0]
                 recording.in_progress = False
                 recording.stop_time = datetime.datetime.now(datetime.timezone.utc)
-                recording.duration = (recording.stop_time - recording.start_time).seconds
+                recording.duration = (recording.stop_time - recording.start_time.replace(tzinfo=datetime.timezone.utc)).seconds
             else:
                 recording = VideoRecording()
                 recording.segment_path = bleach.clean(request.args.get('segment_path'))
