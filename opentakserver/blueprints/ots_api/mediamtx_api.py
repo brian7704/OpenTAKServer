@@ -346,6 +346,11 @@ def external_auth():
     password = bleach.clean(request.json.get('password'))
     action = bleach.clean(request.json.get('action'))
     query = bleach.clean(request.json.get('query'))
+    ip = bleach.clean(request.json.get('ip'))
+
+    # Whitelist 127.0.0.1 to make things like YouTube video re-streaming work
+    if ip and ip in app.config.get("OTS_IP_WHITELIST"):
+        return '', 200
 
     # Token auth to prevent high CPU usage when reading HLS streams
     if 'jwt' in query or 'token' in query:

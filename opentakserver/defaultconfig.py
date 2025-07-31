@@ -73,6 +73,8 @@ class DefaultConfig:
 
     OTS_ENABLE_MUMBLE_AUTHENTICATION = False
 
+    OTS_IP_WHITELIST = ["127.0.0.1"]
+
     # Meshtastic settings
     OTS_ENABLE_MESHTASTIC = False
     OTS_MESHTASTIC_TOPIC = "opentakserver"

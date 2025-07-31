@@ -495,7 +495,6 @@ class ClientController(Thread):
                                                   properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
             with self.app.app_context():
-                self.logger.info(f"Now is {now}")
                 self.db.session.execute(update(EUD).filter(EUD.uid == self.uid).values(last_status='Disconnected', last_event_time=now))
                 self.db.session.commit()
 
