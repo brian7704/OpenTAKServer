@@ -245,11 +245,9 @@ class ClientController(Thread):
 
                     message = {'uid': self.uid, 'cot': str(soup)}
                     if self.rabbit_channel:
-                        self.logger.warning(f"Publishing {message}")
                         self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='',
                                                           body=json.dumps(message),
                                                           properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
-                        self.logger.warning("Message Published")
             else:
                 self.unbind_rabbitmq_queues()
                 self.send_disconnect_cot()
