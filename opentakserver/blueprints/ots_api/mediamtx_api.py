@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+import pathlib
 import traceback
 import uuid
 from urllib.parse import urlparse
@@ -270,16 +271,28 @@ def add_update_stream():
             video.rtsp_reliable = 1
             video.network_timeout = 10000
             video.generate_xml(urlparse(request.url_root).hostname)
-            db.session.add(video)
-            db.session.commit()
         elif not video and request.path.endswith('update'):
             return jsonify({'success': False, 'error': 'Path {} not found'.format(path)}), 400
 
         settings = json.loads(video.mediamtx_settings)
 
         for setting in request.json:
-            if setting == 'csrf_token' or setting == 'sourceOnDemand' or setting == 'path' or setting == 'source':
+            if setting == 'csrf_token' or setting == 'sourceOnDemand' or setting == 'path':
                 continue
+
+            # When the source URL is blank set sourceOnDemand to false in order to avoid a MediaMTX error
+            if setting == 'source':
+                source = request.json.get(setting)
+                if not source:
+                    settings["sourceOnDemand"] = False
+                # Run ffmpeg and yt-dlp for live YouTube videos
+                elif "youtube.com" in source or "youtu.be" in source:
+                    settings["source"] = None
+                    settings["sourceOnDemand"] = False
+                    yt_dlp_path = os.path.join(pathlib.Path.home(), ".opentakserver_venv", "bin", "yt-dlp")
+                    settings["runOnDemand"] = f"sh -c 'ffmpeg -re -i \"$({yt_dlp_path} -g {source})\" -c:v copy -f rtsp rtsp://127.0.0.1:8554/$RTSP_PATH'"
+                continue
+
             key = bleach.clean(setting)
             value = request.json.get(setting)
             if isinstance(value, str):
@@ -306,7 +319,6 @@ def add_update_stream():
             action = 'add' if request.path.endswith('add') else 'update'
             logger.error("Failed to {} mediamtx path: {} - {}".format(action, r.status_code, r.json()['error']))
             return jsonify({'success': False, 'error': r.json()['error']}), 400
-
     except BaseException as e:
         logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500

@@ -59,7 +59,7 @@ class VideoStream(db.Model):
             source = mediamtx_settings['source']
             record = mediamtx_settings['record']
         except json.decoder.JSONDecodeError:
-            source = ""
+            source = None
             record = False
 
         with app.app_context():
