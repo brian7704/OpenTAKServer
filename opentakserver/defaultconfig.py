@@ -59,6 +59,8 @@ class DefaultConfig:
     OTS_AIRPLANES_LIVE_RADIUS = 10
 
     OTS_ENABLE_PLUGINS = True
+    OTS_PLUGIN_REPO = "https://repo.opentakserver.io/brian/prod/"
+    OTS_PLUGIN_PREFIXES = ["ots-", "ots_"]
 
     # AIS Settings
     OTS_AISHUB_USERNAME = None

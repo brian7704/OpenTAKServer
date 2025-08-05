@@ -78,23 +78,23 @@ class PluginManager:
         for name, plugin in self.plugins.items():
             plugin.stop()
 
-    def disable_plugin(self, plugin_name: str):
-        plugin = self.plugins[plugin_name]
+    def disable_plugin(self, plugin_distro: str):
+        plugin = self.plugins[plugin_distro]
         plugin.stop()
 
         db.session.execute(update(Plugins).where(Plugins.name == plugin.name.lower()).values(enabled=False))
         db.session.commit()
 
-        logger.info(f"{plugin_name} disabled")
+        logger.info(f"{plugin_distro} disabled")
 
-    def enable_plugin(self, plugin_name: str):
-        plugin = self.plugins[plugin_name]
+    def enable_plugin(self, plugin_distro: str):
+        plugin = self.plugins[plugin_distro]
         plugin.activate(self._app, True)
 
         db.session.execute(update(Plugins).where(Plugins.name == plugin.name.lower()).values(enabled=True))
         db.session.commit()
 
-        logger.info(f"{plugin_name} enabled")
+        logger.info(f"{plugin_distro} enabled")
 
     def _add_plugin(self, plugin: Plugin) -> None:
         if not isinstance(plugin, Plugin):
@@ -104,7 +104,7 @@ class PluginManager:
 
         logger.info(f"Adding {plugin.name}")
         plugin.load_metadata()
-        self.plugins[plugin.name.lower()] = plugin
+        self.plugins[plugin.distro.lower()] = plugin
 
     def _load_plugin_entry_point(self, ep: metadata.EntryPoint) -> None:
         logger.debug("Loading the %s plugin", ep.name)
@@ -122,9 +122,9 @@ class PluginManager:
             logger.error(f"Failed to load plugin: {e}")
             logger.error(traceback.format_exc())
 
-    def check_if_plugin_enabled(self, plugin_name: str) -> bool:
+    def check_if_plugin_enabled(self, plugin_distro: str) -> bool:
         with self._app.app_context():
-            plugin = db.session.execute(db.session.query(Plugins).filter_by(name=plugin_name.lower())).first()
+            plugin = db.session.execute(db.session.query(Plugins).filter_by(name=plugin_distro.lower())).first()
             if plugin:
                 return plugin[0].enabled
             else:
@@ -135,23 +135,31 @@ class PluginManager:
     @socketio.on('plugin_package_manager', namespace="/socket.io")
     @administrator_only
     def install_plugin(json: dict):
-        if 'plugin_name' not in json.keys() or 'action' not in json.keys():
+        plugin_valid = False
+
+        if 'plugin_distro' not in json.keys() or 'action' not in json.keys():
             socketio.emit('plugin_package_manager', {"success": False, "message": "Invalid payload"}, to=request.sid, namespace="/socketio")
             return
-        elif not json.get('plugin_name').lower().startswith("ots_") and not json.get('plugin_name').lower().startswith("ots-"):
-            socketio.emit('plugin_package_manager', {"success": False, "message": f"Invalid Plugin: {json.get('plugin_name')}"}, to=request.sid, namespace="/socket.io")
+        else:
+            for plugin_prefix in app.config.get("OTS_PLUGIN_PREFIXES"):
+                if json.get('plugin_distro').startswith(plugin_prefix):
+                    plugin_valid = True
+                    break
+
+        if not plugin_valid:
+            socketio.emit('plugin_package_manager', {"success": False, "message": f"Invalid Plugin: {json.get('plugin_distro')}"}, to=request.sid, namespace="/socket.io")
             return
 
         if json.get('action') == 'delete':
-            command = f"{sys.executable} -m pip uninstall --yes {json.get('plugin_name')}"
+            command = f"{sys.executable} -m pip uninstall --yes {json.get('plugin_distro')}"
             try:
-                logger.info(f"Disabling plugin {json.get('plugin_name')}")
-                app.plugin_manager.disable_plugin(json.get('plugin_name').lower())
+                logger.info(f"Disabling plugin {json.get('plugin_distro')}")
+                app.plugin_manager.disable_plugin(json.get('plugin_distro').lower())
             except BaseException as e:
                 logger.error(f"Failed to disable plugin: {e}")
                 logger.debug(traceback.format_exc())
         elif json.get('action') == 'install':
-            command = f"{sys.executable} -m pip install {json.get('plugin_name')} -i https://repo.opentakserver.io/brian/prod/"
+            command = f"{sys.executable} -m pip install {json.get('plugin_distro')} -i {app.config.get('OTS_PLUGIN_REPO')}"
         else:
             logger.error(f"Invalid action: {json.get('action')}")
             socketio.emit('plugin_package_manager', {"success": False, "message": f"Invalid action: {json.get('action')}"}, namespace="/socket.io", to=request.sid, ignore_queue=True)
@@ -188,7 +196,7 @@ class PluginManager:
                 entry_points = app.plugin_manager.get_plugin_entry_points()
                 for entry_point in entry_points:
                     plugin = entry_point.load()
-                    if plugin().name.lower() == json.get("plugin_name").lower():
+                    if plugin().name.lower() == json.get("plugin_distro").lower():
                         app.plugin_manager._add_plugin(plugin())
                         plugin_row = Plugins()
                         plugin_row.name = plugin().name.lower()
@@ -199,15 +207,15 @@ class PluginManager:
                         db.session.add(plugin_row)
                         db.session.commit()
 
-                        if json.get('plugin_name').lower() not in app.plugin_manager.plugins:
-                            app.plugin_manager.plugins[json.get('plugin_name').lower()] = plugin
+                        if json.get('plugin_distro').lower() not in app.plugin_manager.plugins:
+                            app.plugin_manager.plugins[json.get('plugin_distro').lower()] = plugin
                         break
 
-                app.plugin_manager.enable_plugin(json.get("plugin_name").lower())
+                app.plugin_manager.enable_plugin(json.get("plugin_distro").lower())
 
             elif json.get('action') == 'delete':
-                del app.plugin_manager.plugins[json.get('plugin_name').lower()]
-                plugin = db.session.execute(db.session.query(Plugins).filter_by(name=json.get('plugin_name').lower())).first()
+                del app.plugin_manager.plugins[json.get('plugin_distro').lower()]
+                plugin = db.session.execute(db.session.query(Plugins).filter_by(name=json.get('plugin_distro').lower())).first()
                 if plugin:
                     db.session.delete(plugin[0])
                     db.session.commit()
