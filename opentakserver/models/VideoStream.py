@@ -18,7 +18,7 @@ class VideoStream(db.Model):
     protocol: Mapped[str] = mapped_column(String(255), default='rtsp')
     port: Mapped[int] = mapped_column(Integer, default=8554)
     network_timeout: Mapped[int] = mapped_column(Integer, default=10000)
-    uid: Mapped[str] = mapped_column(String(255), nullable=True)
+    uid: Mapped[str] = mapped_column(String(255), nullable=True, default=str(uuid.uuid4()))
     buffer_time: Mapped[int] = mapped_column(Integer, nullable=True)
     rover_port: Mapped[int] = mapped_column(Integer, nullable=True)
     rtsp_reliable: Mapped[int] = mapped_column(Integer, nullable=True, default=1)
