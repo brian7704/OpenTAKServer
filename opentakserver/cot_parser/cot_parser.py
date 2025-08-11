@@ -215,7 +215,7 @@ class CoTController:
                     try:
                         eud = self.db.session.execute(select(EUD).filter_by(uid=uid)).first()[0]
 
-                        now = datetime.now(tz=datetime.timezone.utc)
+                        now = datetime.now(timezone.utc)
                         if eud.last_meshtastic_publish is None or (now - eud.last_meshtastic_publish).total_seconds() >= self.context.app.config.get("OTS_MESHTASTIC_PUBLISH_INTERVAL"):
 
                             self.logger.debug("publishing position to mesh")
