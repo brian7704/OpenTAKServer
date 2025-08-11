@@ -216,7 +216,7 @@ class CoTController:
                         eud = self.db.session.execute(select(EUD).filter_by(uid=uid)).first()[0]
 
                         now = time.time()
-                        if now - eud.last_meshtastic_publish >= self.context.app.config.get("OTS_MESHTASTIC_PUBLISH_INTERVAL"):
+                        if eud.last_meshtastic_publish is None or now - eud.last_meshtastic_publish >= self.context.app.config.get("OTS_MESHTASTIC_PUBLISH_INTERVAL"):
 
                             self.logger.debug("publishing position to mesh")
                             try:
@@ -275,6 +275,7 @@ class CoTController:
                             except BaseException as e:
                                 self.logger.error(f"Failed to send publish message to mesh: {e}")
                                 self.logger.debug(traceback.format_exc())
+
                     except BaseException as e:
                         logger.warning(f"Failed to publish Meshtastic message: {e}")
                         logger.debug(traceback.format_exc())
