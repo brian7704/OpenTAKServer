@@ -123,9 +123,13 @@ def datetime_from_iso8601_string(datetime_string):
     if not datetime_string:
         return datetime.now(timezone.utc)
     try:
-        return datetime.strptime(datetime_string, ISO8601_FORMAT)
+        dt = datetime.strptime(datetime_string, ISO8601_FORMAT)
+        dt.replace(tzinfo=timezone.utc)
+        return dt
     except ValueError:
-        return datetime.strptime(datetime_string, ISO8601_FORMAT_NO_MICROSECONDS)
+        dt = datetime.strptime(datetime_string, ISO8601_FORMAT_NO_MICROSECONDS)
+        dt.replace(tzinfo=timezone.utc)
+        return dt
 
 
 def iso8601_string_from_datetime(datetime_object):
