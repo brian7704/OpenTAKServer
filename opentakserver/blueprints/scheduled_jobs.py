@@ -169,7 +169,7 @@ def get_aishub_data():
 
 
 def delete_old_data():
-    timestamp = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+    timestamp = datetime.datetime.now() - datetime.timedelta(
         seconds=app.config.get("OTS_DELETE_OLD_DATA_SECONDS"),
         minutes=app.config.get("OTS_DELETE_OLD_DATA_MINUTES"),
         hours=app.config.get("OTS_DELETE_OLD_DATA_HOURS"),
