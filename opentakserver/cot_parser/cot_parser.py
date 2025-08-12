@@ -29,6 +29,7 @@ from flask import Flask
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.functions import *
 from opentakserver.models.EUDStats import EUDStats
+from opentakserver.models.Meshtastic import MeshtasticChannel
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionInvitation import MissionInvitation
 from opentakserver.models.MissionContentMission import MissionContentMission
@@ -834,7 +835,7 @@ class CoTController:
             self.logger.debug("Not publishing, channel closed")
 
     def publish_to_meshtastic(self, body):
-        for channel in self.context.app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"):
+        for channel in self.get_meshtastic_channels():
             body.channel_id = channel
             routing_key = "{}.2.e.{}.outgoing".format(self.context.app.config.get("OTS_MESHTASTIC_TOPIC"), channel)
             self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key,
@@ -842,6 +843,15 @@ class CoTController:
                                               properties=pika.BasicProperties(
                                                   expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
             self.logger.debug("Published message to " + routing_key)
+
+    def get_meshtastic_channels(self):
+        with self.context:
+            channels = self.db.session.execute(self.db.session.query(MeshtasticChannel)).scalars()
+            downlink_channels = []
+            for channel in channels:
+                if channel.downlink_enabled:
+                    downlink_channels.append(channel.name)
+            return downlink_channels
 
     def on_message(self, unused_channel, basic_deliver, properties, body):
         try:
