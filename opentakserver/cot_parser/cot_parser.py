@@ -166,7 +166,7 @@ class CoTController:
                 if 'battery' in status.attrs:
                     p.battery = status.attrs['battery']
 
-            with self.context:
+            with (self.context):
                 res = self.db.session.execute(insert(Point).values(
                     uid=p.uid, device_uid=p.device_uid, ce=p.ce, hae=p.hae, le=p.le, latitude=p.latitude,
                     longitude=p.longitude, timestamp=p.timestamp, cot_id=cot_id, location_source=p.location_source,
@@ -227,7 +227,7 @@ class CoTController:
 
                                 if eud.platform != "Meshtastic":
                                     mesh_user = mesh_pb2.User()
-                                    setattr(mesh_user, "id", str(eud.meshtastic_id))
+                                    setattr(mesh_user, "id", "!{:x}".format(eud.meshtastic_id))
                                     mesh_user.hw_model = mesh_pb2.HardwareModel.PRIVATE_HW
                                     mesh_user.short_name = p.device_uid[-4:]
 
@@ -235,24 +235,30 @@ class CoTController:
                                     if contact:
                                         mesh_user.long_name = contact.attrs['callsign']
 
+                                    # Rate limits how often to send NodeInfo messages
+                                    if (now - eud.last_meshtastic_publish.replace(tzinfo=timezone.utc)).total_seconds() >= \
+                                        self.context.app.config.get("OTS_MESHTASTIC_NODEINFO_INTERVAL") * self.context.app.config.get("OTS_MESHTASTIC_PUBLISH_INTERVAL"):
+
+                                        # Note to future self: The Meshtastic firmware expects a User payload when the Portnum is NodeInfo
+                                        # DO NOT SEND A NODEINFO PAYLOAD!
+                                        encoded_message = mesh_pb2.Data()
+                                        encoded_message.portnum = portnums_pb2.NODEINFO_APP
+                                        encoded_message.payload = mesh_user.SerializeToString()
+                                        self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=p.device_uid))
+
                                     position = mesh_pb2.Position()
                                     position.latitude_i = int(p.latitude / .0000001)
                                     position.longitude_i = int(p.longitude / .0000001)
                                     position.altitude = int(p.hae)
-                                    position.time = int(time.mktime(p.timestamp.timetuple()))
+                                    position.timestamp = int(time.mktime(p.timestamp.timetuple()))
                                     position.ground_track = int(p.course) if p.course else 0
                                     position.ground_speed = int(p.speed) if p.speed and p.speed >= 0 else 0
                                     position.seq_number = 1
                                     position.precision_bits = 32
 
-                                    node_info = mesh_pb2.NodeInfo()
-                                    node_info.user.CopyFrom(mesh_user)
-                                    node_info.position.CopyFrom(position)
-
                                     encoded_message = mesh_pb2.Data()
-                                    encoded_message.portnum = portnums_pb2.NODEINFO_APP
-                                    encoded_message.payload = node_info.SerializeToString()
-
+                                    encoded_message.portnum = portnums_pb2.POSITION_APP
+                                    encoded_message.payload = position.SerializeToString()
                                     self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=p.device_uid))
 
                                     tak_packet = atak_pb2.TAKPacket()

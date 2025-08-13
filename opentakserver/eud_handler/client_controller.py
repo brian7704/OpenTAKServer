@@ -429,12 +429,11 @@ class ClientController(Thread):
             user_info.short_name = eud.uid[-4:]
             user_info.hw_model = mesh_pb2.HardwareModel.PRIVATE_HW
 
-            node_info = mesh_pb2.NodeInfo()
-            node_info.user.CopyFrom(user_info)
-
+            # Note to future self: The Meshtastic firmware expects a User payload when the Portnum is NodeInfo
+            # DO NOT SEND A NODEINFO PAYLOAD!
             encoded_message = mesh_pb2.Data()
             encoded_message.portnum = portnums_pb2.NODEINFO_APP
-            encoded_message.payload = node_info.SerializeToString()
+            encoded_message.payload = user_info.SerializeToString()
 
             message_id = random.getrandbits(32)
             mesh_packet = mesh_pb2.MeshPacket()

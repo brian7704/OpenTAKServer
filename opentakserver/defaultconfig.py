@@ -82,6 +82,7 @@ class DefaultConfig:
     OTS_MESHTASTIC_TOPIC = "opentakserver"
     OTS_MESHTASTIC_PUBLISH_INTERVAL = 30
     OTS_MESHTASTIC_DOWNLINK_CHANNELS = []
+    OTS_MESHTASTIC_NODEINFO_INTERVAL = 3
 
     # Gmail settings
     OTS_ENABLE_EMAIL = False
