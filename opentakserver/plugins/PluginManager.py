@@ -215,7 +215,7 @@ class PluginManager:
 
             elif json.get('action') == 'delete':
                 del app.plugin_manager.plugins[json.get('plugin_distro').lower()]
-                plugin = db.session.execute(db.session.query(Plugins).filter_by(name=json.get('plugin_distro').lower())).first()
+                plugin = db.session.execute(db.session.query(Plugins).filter_by(distro=json.get('plugin_distro').lower())).first()
                 if plugin:
                     db.session.delete(plugin[0])
                     db.session.commit()
