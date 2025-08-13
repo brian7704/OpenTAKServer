@@ -434,8 +434,7 @@ class ClientController(Thread):
 
             encoded_message = mesh_pb2.Data()
             encoded_message.portnum = portnums_pb2.NODEINFO_APP
-            user_info_bytes = user_info.SerializeToString()
-            encoded_message.payload = user_info_bytes
+            encoded_message.payload = node_info.SerializeToString()
 
             message_id = random.getrandbits(32)
             mesh_packet = mesh_pb2.MeshPacket()

@@ -227,7 +227,7 @@ class CoTController:
 
                                 if eud.platform != "Meshtastic":
                                     mesh_user = mesh_pb2.User()
-                                    setattr(mesh_user, "id", eud.uid)
+                                    setattr(mesh_user, "id", str(eud.meshtastic_id))
                                     mesh_user.hw_model = mesh_pb2.HardwareModel.PRIVATE_HW
                                     mesh_user.short_name = p.device_uid[-4:]
 
@@ -250,8 +250,8 @@ class CoTController:
                                     node_info.position.CopyFrom(position)
 
                                     encoded_message = mesh_pb2.Data()
-                                    encoded_message.portnum = portnums_pb2.POSITION_APP
-                                    encoded_message.payload = position.SerializeToString()
+                                    encoded_message.portnum = portnums_pb2.NODEINFO_APP
+                                    encoded_message.payload = node_info.SerializeToString()
 
                                     self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=p.device_uid))
 
@@ -272,7 +272,7 @@ class CoTController:
                                     encoded_message.portnum = portnums_pb2.ATAK_PLUGIN
                                     encoded_message.payload = tak_packet.SerializeToString()
 
-                                    self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=eud.uid))
+                                    self.publish_to_meshtastic(self.get_protobuf(encoded_message, uid=eud.uid, from_id=eud.meshtastic_id))
                             except BaseException as e:
                                 self.logger.error(f"Failed to send publish message to mesh: {e}")
                                 self.logger.debug(traceback.format_exc())
@@ -363,7 +363,7 @@ class CoTController:
                         dest = event.find("dest")
                         if dest and 'callsign' in dest.attrs and dest.attrs['callsign'] == chat.attrs['chatroom']:
                             # This is a DM
-                            to = chat.attrs['chatroom']
+                            to = chat.attrs['id']
                             try:
                                 # DM to a Meshtastic device
                                 to_id = int(to, 16)
