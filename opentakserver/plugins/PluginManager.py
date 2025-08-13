@@ -196,7 +196,7 @@ class PluginManager:
                 entry_points = app.plugin_manager.get_plugin_entry_points()
                 for entry_point in entry_points:
                     plugin = entry_point.load()
-                    if plugin().name.lower() == json.get("plugin_distro").lower():
+                    if plugin().distro.lower() == json.get("plugin_distro").lower():
                         app.plugin_manager._add_plugin(plugin())
                         plugin_row = Plugins()
                         plugin_row.name = plugin().name.lower()
