@@ -1,9 +1,12 @@
+import hashlib
+import os
 import traceback
 
-from flask import Blueprint, jsonify, current_app as app
+from flask import Blueprint, jsonify, current_app as app, request
 from flask_security import roles_required
 
 from opentakserver.extensions import logger
+from werkzeug.utils import secure_filename
 
 plugin_blueprint = Blueprint("plugin_api_blueprint", __name__)
 
@@ -20,6 +23,34 @@ def get_plugins():
         return jsonify({'success': True, 'plugins': plugins})
     else:
         return jsonify({'success': True, 'plugins': []}), 200
+
+
+@plugin_blueprint.route("/api/plugins", methods=["POST"])
+@roles_required("administrator")
+def upload_plugin():
+    if hasattr(app, 'plugin_manager'):
+        if not len(request.files):
+            return jsonify({'error': 'You must upload a plugin file'}), 400
+        for file in request.files:
+            try:
+                file = request.files[file]
+
+                sanitized_filename = secure_filename(file.filename)
+                name, extension = os.path.splitext(sanitized_filename)
+                extension = extension.replace(".", "")
+
+                if extension not in ["zip", "whl", "gz"]:
+                    return jsonify({"success": False, "error": "Server plugins must be zip, whl, or tar.gz files"}), 400
+
+                file.save(os.path.join(app.config.get("UPLOAD_FOLDER"), sanitized_filename))
+
+                return jsonify({"success": True})
+            except BaseException as e:
+                logger.error(f"Failed to save plugin file: {e}")
+                logger.debug(traceback.format_exc())
+                return jsonify({"success": False, "error": e}), 500
+    else:
+        return jsonify({'success': False, 'error': "Plugins are disabled"}), 400
 
 
 @plugin_blueprint.route("/api/plugins/repo")

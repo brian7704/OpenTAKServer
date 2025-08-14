@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import traceback
@@ -15,6 +16,7 @@ from opentakserver.extensions import logger, db, socketio
 from opentakserver.models.Plugins import Plugins
 from opentakserver.plugins.Plugin import Plugin
 from poetry.utils._compat import metadata
+from werkzeug.utils import secure_filename
 
 
 if TYPE_CHECKING:
@@ -135,18 +137,17 @@ class PluginManager:
     @socketio.on('plugin_package_manager', namespace="/socket.io")
     @administrator_only
     def install_plugin(json: dict):
-        plugin_valid = False
+        plugin_valid = json.get('action') == 'install_local'
+        file_name = None
 
-        if 'plugin_distro' not in json.keys() or 'action' not in json.keys():
-            socketio.emit('plugin_package_manager', {"success": False, "message": "Invalid payload"}, to=request.sid, namespace="/socketio")
-            return
-        else:
+        if json.get('action') != "install_local":
             for plugin_prefix in app.config.get("OTS_PLUGIN_PREFIXES"):
                 if json.get('plugin_distro').startswith(plugin_prefix):
                     plugin_valid = True
                     break
 
         if not plugin_valid:
+            logger.error(f"Invalid Plugin: {json.get('plugin_distro')}")
             socketio.emit('plugin_package_manager', {"success": False, "message": f"Invalid Plugin: {json.get('plugin_distro')}"}, to=request.sid, namespace="/socket.io")
             return
 
@@ -158,8 +159,21 @@ class PluginManager:
             except BaseException as e:
                 logger.error(f"Failed to disable plugin: {e}")
                 logger.debug(traceback.format_exc())
+
         elif json.get('action') == 'install':
-            command = f"{sys.executable} -m pip install {json.get('plugin_distro')} -i {app.config.get('OTS_PLUGIN_REPO')}"
+            command = f"{sys.executable} -m pip --no-input install {json.get('plugin_distro')} -i {app.config.get('OTS_PLUGIN_REPO')}"
+
+        elif json.get('action') == 'install_local':
+            logger.info(f"{json.get('action')} {json.get('plugin_file_name')}")
+            file_name = secure_filename(json.get('plugin_file_name'))
+
+            if not os.path.exists(os.path.join(app.config.get('UPLOAD_FOLDER'), file_name)):
+                logger.error(f"Plugin file not found: {file_name}")
+                socketio.emit('plugin_package_manager', {"success": False, "message": f"Plugin file not found: {file_name}"}, namespace="/socket.io", to=request.sid, ignore_queue=True)
+                return
+
+            command = f"{sys.executable} -m pip --no-input install {os.path.join(app.config.get('UPLOAD_FOLDER'), file_name)}"
+
         else:
             logger.error(f"Invalid action: {json.get('action')}")
             socketio.emit('plugin_package_manager', {"success": False, "message": f"Invalid action: {json.get('action')}"}, namespace="/socket.io", to=request.sid, ignore_queue=True)
@@ -170,7 +184,6 @@ class PluginManager:
 
         try:
             output = subprocess.Popen(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
-            output.stdin.write(b"y\n")
             sel = selectors.DefaultSelector()
             sel.register(output.stdout, selectors.EVENT_READ)
             sel.register(output.stderr, selectors.EVENT_READ)
@@ -222,4 +235,8 @@ class PluginManager:
             else:
                 app.plugin_manager.load_plugins()
         else:
+            logger.error(f"Action {json.get('action')} failed with exit code: {return_code}")
             socketio.emit('plugin_package_manager', {"success": False, "message": f"Command failed with return code: {return_code}"}, to=request.sid, namespace="/socket.io", ignore_queue=True)
+
+        if json.get('action') == 'install_local' and file_name is not None:
+            os.remove(os.path.join(app.config.get('UPLOAD_FOLDER'), file_name))
