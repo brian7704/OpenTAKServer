@@ -1,4 +1,7 @@
 from gevent import monkey
+
+from opentakserver.UsernameValidator import UsernameValidator
+
 monkey.patch_all()
 
 import random
@@ -127,7 +130,7 @@ def init_extensions(app):
     from opentakserver.models.role import Role
 
     user_datastore = SQLAlchemyUserDatastore(db, User, Role, WebAuthn)
-    app.security = Security(app, user_datastore, mail_util_cls=EmailValidator, password_util_cls=PasswordValidator)
+    app.security = Security(app, user_datastore, mail_util_cls=EmailValidator, password_util_cls=PasswordValidator, username_util_cls=UsernameValidator)
 
     mail.init_app(app)
 

@@ -153,6 +153,7 @@ class DefaultConfig:
     SECURITY_REDIRECT_BEHAVIOR = 'spa'
     SECURITY_RESET_VIEW = '/reset'
     SECURITY_USERNAME_MIN_LENGTH = 1
+    SECURITY_MSG_USERNAME_DISALLOWED_CHARACTERS = ("Username can contain only letters, numbers, underscores, and periods", "error")
 
     SCHEDULER_API_ENABLED = False
     JOBS = [

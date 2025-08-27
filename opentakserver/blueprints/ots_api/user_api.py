@@ -8,6 +8,7 @@ from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.extensions import logger, db
 from opentakserver.models.EUD import EUD
 from opentakserver.models.user import User
+from opentakserver.UsernameValidator import UsernameValidator
 
 user_api_blueprint = Blueprint('user_api_blueprint', __name__)
 
@@ -18,6 +19,11 @@ def create_user():
     username = bleach.clean(request.json.get('username'))
     password = bleach.clean(request.json.get('password'))
     confirm_password = bleach.clean(request.json.get('confirm_password'))
+
+    validated_username = UsernameValidator(app).validate(username)
+    logger.debug(f"Username invalid? {validated_username}")
+    if validated_username[0]:
+        return jsonify({"success": False, "error": f"{validated_username[0]}"}), 400
 
     if password != confirm_password:
         return {'success': False, 'error': 'Passwords do not match'}, 400, {'Content-Type': 'application/json'}
