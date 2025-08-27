@@ -197,7 +197,7 @@ class ClientController(Thread):
                             user = self.app.security.datastore.find_user(username=self.common_name)
 
                         if not user:
-                            self.logger.warning("User {} does not exist".format(username))
+                            self.logger.warning("User {} does not exist".format(self.common_name))
                             self.close_connection()
                             break
                         elif not user.active:
