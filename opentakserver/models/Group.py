@@ -16,9 +16,11 @@ class Group(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     group_name: Mapped[str] = mapped_column(String(255))
-    created: Mapped[datetime] = mapped_column(DateTime)
+    created: Mapped[datetime] = mapped_column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
     group_type: Mapped[str] = mapped_column(String(255), default=SYSTEM)  # SYSTEM, LDAP
     bitpos: Mapped[int] = mapped_column(Integer)
+    description: Mapped[str] = mapped_column(String, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True);
     euds = relationship("EUD", secondary="groups_euds", back_populates="groups")
 
     def serialize(self):

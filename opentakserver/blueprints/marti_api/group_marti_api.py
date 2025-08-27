@@ -98,8 +98,16 @@ def put_active_groups():
 
 @group_api.route('/Marti/api/groups/update/<username>')
 def update_group(username: str):
-    # Not sure what this is supposed to return
-    return '', 200
+
+    response = {
+        "version": "",
+        "type": "",
+        "data": True,
+        "messages": [""],
+        "nodeId": app.config.get("OTS_NODE_ID")
+    }
+
+    return jsonify(response)
 
 
 @group_api.route('/Marti/api/groups/<group_name>/<direction>')
@@ -123,5 +131,44 @@ def get_all_subscriptions():
     limit = request.args.get("limit")
 
     response = {"version": "3", "type": "SubscriptionInfo", "data": [], "messages": [], "nodeId": app.config.get("OTS_NODE_ID")}
+
+    return jsonify(response)
+
+
+@group_api.route('/Marti/api/groups/activeForce')
+def group_active_force():
+    username = request.args.get("username")
+    if not username:
+        return '', 400
+
+    response = {
+        "name": "",
+        "distinguishedName": "",
+        "direction": "",
+        "created": "",
+        "type": "SYSTEM",  # Can also be LDAP but OTS doesn't support LDAP yet
+        "bitpos": 0,
+        "active": True,
+        "description": ""
+    }
+
+    return jsonify(response)
+
+
+@group_api.route('/Marti/api/groups/user')
+def get_user_groups():
+    username = request.args.get("username")
+    if not username:
+        return '', 400
+
+    groups = {}
+
+    response = {
+        "version": "",
+        "type": "",
+        "data": groups,
+        "messages": [""],
+        "nodeId": app.config.get("OTS_NODE_ID")
+    }
 
     return jsonify(response)
