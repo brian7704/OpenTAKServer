@@ -110,7 +110,7 @@ def compute_status(service_state: str, log_errors: List[str], rabbitmq_ok: bool)
             overall += "healthy"
     
     return {
-        "overall": overall,
+        "status": overall,
         "components": components,
         "problems": problems,
     }
