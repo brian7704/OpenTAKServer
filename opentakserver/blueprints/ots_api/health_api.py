@@ -6,7 +6,7 @@ from opentakserver.health.cot_parser import (
     find_errors,
     query_systemd,
     rabbitmq_check,
-    tail_log,
+    tail_ots_log_for_cot_parser_entries,
     current_timestamp,
 )
 
@@ -26,7 +26,7 @@ def health_ots():
 def health_cot():
     """Health check for the CoT parser service."""
     service_state = query_systemd()
-    log_lines = tail_log()
+    log_lines = tail_ots_log_for_cot_parser_entries()
     log_errors = find_errors(log_lines)
     rabbit_ok = rabbitmq_check()
 

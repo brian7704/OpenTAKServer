@@ -3,14 +3,20 @@ import re
 import socket
 import subprocess
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Iterable, List
 
 COT_PARSER_SERVICE = os.getenv("COT_PARSER_SERVICE", "cot-parser.service")
-COT_PARSER_LOG = os.getenv("COT_PARSER_LOG", "/var/log/cot-parser.log")
+OTS_DATA_FOLDER = os.getenv("OTS_DATA_FOLDER", os.path.join(Path.home(), "ots"))
+COT_PARSER_LOG = os.getenv(
+    "COT_PARSER_LOG",
+    os.path.join(OTS_DATA_FOLDER, "logs", "opentakserver.log"),
+)
 RABBIT_HOST = os.getenv("RABBIT_HOST", "localhost")
 RABBIT_PORT = int(os.getenv("RABBIT_PORT", "5672"))
 ERROR_PATTERN = os.getenv("COT_PARSER_ERROR_REGEX", r"(ERROR|Exception|Traceback)")
 ERROR_REGEX = re.compile(ERROR_PATTERN, re.IGNORECASE)
+LOG_TAG = "cot_parser"
 
 
 def query_systemd(service: str = COT_PARSER_SERVICE) -> str:
@@ -37,8 +43,10 @@ def query_systemd(service: str = COT_PARSER_SERVICE) -> str:
         return f"error: {exc}"  # noqa: TRY002
 
 
-def tail_log(path: str = COT_PARSER_LOG, lines: int = 100) -> List[str]:
-    """Return the last ``lines`` from the log file."""
+def tail_ots_log_for_cot_parser_entries(
+    path: str = COT_PARSER_LOG, lines: int = 100, tag: str = LOG_TAG
+) -> List[str]:
+    """Return the last ``lines`` from the OTS log produced by ``cot_parser``."""
     try:
         with open(path, "rb") as fh:
             fh.seek(0, os.SEEK_END)
@@ -50,7 +58,8 @@ def tail_log(path: str = COT_PARSER_LOG, lines: int = 100) -> List[str]:
                 size -= step
                 fh.seek(size)
                 data = fh.read(step) + data
-            return data.decode(errors="ignore").splitlines()[-lines:]
+            log_lines = data.decode(errors="ignore").splitlines()
+            return [line for line in log_lines if tag in line][-lines:]
     except OSError as exc:  # pragma: no cover - exercised via tests
         return [f"error: {exc}"]
 

@@ -9,7 +9,10 @@ def test_health_endpoints(auth):
 
 def test_health_cot_healthy(auth):
     with patch("opentakserver.health.cot_parser.query_systemd", return_value="active"), \
-        patch("opentakserver.health.cot_parser.tail_log", return_value=["all good"]), \
+        patch(
+            "opentakserver.health.cot_parser.tail_ots_log_for_cot_parser_entries",
+            return_value=["all good"],
+        ), \
         patch("opentakserver.health.cot_parser.find_errors", return_value=[]), \
         patch("opentakserver.health.cot_parser.rabbitmq_check", return_value=True):
         response = auth.get("/api/health/cot")
@@ -22,7 +25,10 @@ def test_health_cot_healthy(auth):
 
 def test_health_cot_unhealthy_strict(auth):
     with patch("opentakserver.health.cot_parser.query_systemd", return_value="inactive"), \
-        patch("opentakserver.health.cot_parser.tail_log", return_value=["error"]), \
+        patch(
+            "opentakserver.health.cot_parser.tail_ots_log_for_cot_parser_entries",
+            return_value=["error"],
+        ), \
         patch("opentakserver.health.cot_parser.find_errors", return_value=["error"]), \
         patch("opentakserver.health.cot_parser.rabbitmq_check", return_value=False):
         response = auth.get("/api/health/cot?strict=true")
