@@ -122,12 +122,14 @@ def status():
 
     online_euds = db.session.execute(select(EUD).filter(EUD.last_status == 'Connected')).all()
 
+    is_docker = Path('/.dockerenv').is_file() or (Path('/proc/self/cgroup').is_file() and 'docker' in Path('/proc/self/cgroup').read_text())
+
     response = {
         'online_euds': len(online_euds), 'system_boot_time': system_boot_time.strftime("%Y-%m-%d %H:%M:%SZ"),
         'system_uptime': system_uptime.total_seconds(), 'ots_start_time': app.start_time.strftime("%Y-%m-%d %H:%M:%SZ"),
         'ots_uptime': ots_uptime.total_seconds(), 'cpu_time': cpu_time_dict, 'cpu_percent': p.cpu_percent(),
         'load_avg': psutil.getloadavg(), 'memory': vmem_dict, 'disk_usage': disk_usage_dict, 'ots_version': version,
-        'uname': uname, 'os_release': os_release, 'python_version': platform.python_version()
+        'uname': uname, 'os_release': os_release, 'python_version': platform.python_version(), 'docker': is_docker
     }
 
     return jsonify(response)
