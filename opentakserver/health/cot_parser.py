@@ -89,18 +89,26 @@ def compute_status(service_state: str, log_errors: List[str], rabbitmq_ok: bool)
     """Compute component and overall health status."""
     components = {
         "service": service_state,
-        "logs": "errors" if log_errors else "ok",
+        "logs": "errors" if log_errors else "error-free",
         "rabbitmq": "up" if rabbitmq_ok else "down",
     }
     problems: List[str] = []
     if service_state != "active":
-        problems.append("cot-parser service inactive")
+        problems.append("cot_parser service inactive")
     if log_errors:
         problems.append("errors detected in log")
     if not rabbitmq_ok:
         problems.append("rabbitmq unreachable")
 
-    overall = "healthy" if not problems else "unhealthy"
+    # Determine operational status
+    overall = "non-operational" 
+    if rabbitmq_ok and service_state == "active":
+        overall = "operational-"
+        if log_errors:
+            overall += "errors"
+        else:
+            overall += "healthy"
+    
     return {
         "overall": overall,
         "components": components,
