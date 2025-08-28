@@ -38,6 +38,37 @@ def test_health_cot_unhealthy_strict(auth):
     assert data["problems"]
 
 
+def test_health_eud_healthy(auth):
+    with patch("opentakserver.health.eud_handler.query_systemd", return_value="active"), \
+        patch(
+            "opentakserver.health.eud_handler.tail_ots_log_for_eud_handler_entries",
+            return_value=["all good"],
+        ), \
+        patch("opentakserver.health.eud_handler.find_errors", return_value=[]), \
+        patch("opentakserver.health.eud_handler.rabbitmq_check", return_value=True):
+        response = auth.get("/api/health/eud")
+    assert response.status_code == 200
+    data = response.json
+    assert data["overall"] == "healthy"
+    assert data["problems"] == []
+    assert "timestamp" in data
+
+
+def test_health_eud_unhealthy_strict(auth):
+    with patch("opentakserver.health.eud_handler.query_systemd", return_value="inactive"), \
+        patch(
+            "opentakserver.health.eud_handler.tail_ots_log_for_eud_handler_entries",
+            return_value=["error"],
+        ), \
+        patch("opentakserver.health.eud_handler.find_errors", return_value=["error"]), \
+        patch("opentakserver.health.eud_handler.rabbitmq_check", return_value=False):
+        response = auth.get("/api/health/eud?strict=true")
+    assert response.status_code == 503
+    data = response.json
+    assert data["overall"] == "unhealthy"
+    assert data["problems"]
+
+
 def test_health_requires_auth(client):
     for endpoint in ("ots", "cot", "eud"):
         response = client.get(f"/api/health/{endpoint}")
