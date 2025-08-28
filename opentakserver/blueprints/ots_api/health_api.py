@@ -1,5 +1,14 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from flask_security import auth_required
+
+from opentakserver.health.cot_parser import (
+    compute_status,
+    find_errors,
+    query_systemd,
+    rabbitmq_check,
+    tail_log,
+    current_timestamp,
+)
 
 # Blueprint for health endpoints
 health_api = Blueprint("health_api", __name__)
@@ -15,8 +24,21 @@ def health_ots():
 @health_api.route("/api/health/cot")
 @auth_required()
 def health_cot():
-    """Placeholder health check for CoT."""
-    return jsonify({"status": "ok"})
+    """Health check for the CoT parser service."""
+    service_state = query_systemd()
+    log_lines = tail_log()
+    log_errors = find_errors(log_lines)
+    rabbit_ok = rabbitmq_check()
+
+    status = compute_status(service_state, log_errors, rabbit_ok)
+    status["timestamp"] = current_timestamp()
+
+    strict = request.args.get("strict", "false").lower() == "true"
+    code = 200
+    if strict and status["overall"] != "healthy":
+        code = 503
+
+    return jsonify(status), code
 
 
 @health_api.route("/api/health/eud")
@@ -24,3 +46,4 @@ def health_cot():
 def health_eud():
     """Placeholder health check for EUD."""
     return jsonify({"status": "ok"})
+
