@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, List
 
-COT_PARSER_SERVICE = os.getenv("COT_PARSER_SERVICE", "cot-parser.service")
+COT_PARSER_SERVICE = os.getenv("COT_PARSER_SERVICE", "cot_parser.service")
 OTS_DATA_FOLDER = os.getenv("OTS_DATA_FOLDER", os.path.join(Path.home(), "ots"))
 COT_PARSER_LOG = os.getenv(
     "COT_PARSER_LOG",
@@ -20,27 +20,34 @@ LOG_TAG = "cot_parser"
 
 
 def query_systemd(service: str = COT_PARSER_SERVICE) -> str:
-    """Return the ActiveState for a systemd service.
-
-    If systemctl is unavailable or an error occurs, a description of the
-    error is returned instead of raising an exception.
     """
+    Returns one of: active, inactive, failed, activating, deactivating, reloading, unknown
+    """
+    # First try: is-active (simplest, stable output)
     try:
         completed = subprocess.run(
-            [
-                "systemctl",
-                "show",
-                service,
-                "--property=ActiveState",
-                "--value",
-            ],
+            ["systemctl", "is-active", service],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        state = completed.stdout.strip()
+        if state:  # active/inactive/failed/...
+            return state
+    except Exception:
+        pass
+
+    # Fallback: show ActiveState
+    try:
+        completed = subprocess.run(
+            ["systemctl", "show", service, "--property=ActiveState", "--value"],
             check=True,
             capture_output=True,
             text=True,
         )
         return completed.stdout.strip()
-    except Exception as exc:  # pragma: no cover - exercised via tests
-        return f"error: {exc}"  # noqa: TRY002
+    except Exception as exc:
+        return f"error: {exc}"
 
 
 def tail_ots_log_for_cot_parser_entries(
