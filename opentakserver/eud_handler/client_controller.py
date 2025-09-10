@@ -107,9 +107,10 @@ class ClientController(Thread):
         self.rabbit_channel.add_on_close_callback(self.on_close)
 
     def on_close(self, channel, error):
-        self.rabbit_connection.ioloop.stop()
         try:
-            self.rabbit_connection = None
+            if self.rabbit_connection:
+                self.rabbit_connection.ioloop.stop()
+                self.rabbit_connection = None
         except BaseException as e:
             self.logger.error(f"Failed to close ioloop: {e}")
         self.logger.info("Connection closed for {}: {}".format(self.address, error))
