@@ -1,8 +1,7 @@
 from gevent import monkey
+monkey.patch_all()
 
 from opentakserver.UsernameValidator import UsernameValidator
-
-monkey.patch_all()
 
 import random
 import sys
