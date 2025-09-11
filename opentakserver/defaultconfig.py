@@ -50,6 +50,16 @@ class DefaultConfig:
     OTS_COT_PARSER_PROCESSES = 1
 
     OTS_ENABLE_LDAP = False
+    # LDAP users in this group will be considered OTS administrators
+    OTS_LDAP_ADMIN_GROUP = "ots_admin"
+
+    # Attributes to control a user's team color, role, and callsign. The default values match takserver's attributes
+    OTS_LDAP_COLOR_ATTRIBUTE = "colorAttribute"
+    OTS_LDAP_ROLE_ATTRIBUTE = "roleAttribute"
+    OTS_LDAP_CALLSIGN_ATTRIBUTE = "callsignAttribute"
+
+    # LDAP user attributes with this prefix can be used to control ATAK settings for a specific user
+    OTS_LDAP_PREFERENCE_ATTRIBUTE_PREFIX = "ots_"
 
     # See https://docs.python.org/3/library/logging.handlers.html#logging.handlers.TimedRotatingFileHandler
     OTS_LOG_ROTATE_WHEN = 'midnight'

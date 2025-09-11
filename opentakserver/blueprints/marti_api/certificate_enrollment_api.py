@@ -10,17 +10,13 @@ import bleach
 import sqlalchemy
 from OpenSSL import crypto
 from flask import current_app as app, request, Blueprint, jsonify
-from flask_security import verify_password, current_user
+from flask_ldap3_login import AuthenticationResponseStatus
+from flask_security import verify_password
 
-from opentakserver.extensions import logger, db
-from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
-from opentakserver import __version__ as version
+from opentakserver.extensions import logger, db, ldap_manager
 
 from opentakserver.models.EUD import EUD
-from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.Token import Token
-
-from opentakserver.models.VideoStream import VideoStream
 
 from opentakserver.certificate_authority import CertificateAuthority
 
@@ -36,6 +32,18 @@ def basic_auth(credentials):
         username, password = base64.b64decode(credentials.split(" ", 1)[-1].encode('utf-8')).decode('utf-8').split(":", 1)
         username = bleach.clean(username)
         password = bleach.clean(password)
+
+        if app.config.get("OTS_ENABLE_LDAP"):
+            result = ldap_manager.authenticate(username, password)
+
+            if result.status == AuthenticationResponseStatus.success:
+                # Keep this import here to avoid a circular import when OTS is started
+                from opentakserver.blueprints.ots_api.ldap_api import save_user
+
+                save_user(result.user_dn, result.user_id, result.user_info, result.user_groups)
+                return True
+            return False
+
         user = app.security.datastore.find_user(username=username)
         if not user:
             logger.error(f"User {username} doesn't exist")

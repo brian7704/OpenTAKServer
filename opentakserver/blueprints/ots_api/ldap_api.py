@@ -1,4 +1,3 @@
-import flask.typing
 from flask import current_app as app, request, Blueprint
 from flask_ldap3_login.forms import LDAPLoginForm
 from flask_security import login_user
@@ -17,6 +16,9 @@ def save_user(dn: str, username: str, data, groups):
     if user:
         roles = user.roles
         for role in roles:
+            if role == app.config.get("OTS_LDAP_ADMIN_GROUP"):
+                role = "administrator"
+
             app.security.datastore.remove_role_from_user(user, role)
     else:
         user = app.security.datastore.create_user(username=username, password=None)
@@ -24,6 +26,7 @@ def save_user(dn: str, username: str, data, groups):
     for group in groups:
         app.security.datastore.add_role_to_user(user, app.security.datastore.find_or_create_role(group['cn']))
 
+    app.security.datastore.commit()
     return user
 
 
@@ -33,8 +36,6 @@ def ldap_login():
 
     if form.validate():
         login_user(form.user, app.config.get("SECURITY_DEFAULT_REMEMBER_ME"), authn_via=["ldap"])
-        app.security.datastore.commit()
-
         payload = {"identity_attributes": {"ldap": {}}}
         return base_render_json(form, include_auth_token=True, additional=payload)
 
