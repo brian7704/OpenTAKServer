@@ -42,7 +42,7 @@ from flask_security.models import fsqla_v3 as fsqla
 from flask_security.signals import user_registered
 
 import opentakserver
-from opentakserver.extensions import logger, db, socketio, mail, apscheduler
+from opentakserver.extensions import logger, db, socketio, mail, apscheduler, ldap_manager
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.models.WebAuthn import WebAuthn
 
@@ -91,6 +91,12 @@ def init_extensions(app):
             "SECURITY_RECOVERABLE": False,
             "SECURITY_TWO_FACTOR_ENABLED_METHODS": ["authenticator"]
         })
+
+    if app.config.get("OTS_ENABLE_LDAP"):
+        logger.info("Enabling LDAP")
+        ldap_manager.init_app(app)
+        identity_attributes.append({"ldap": {}})
+
     app.config.update({"SECURITY_USER_IDENTITY_ATTRIBUTES": identity_attributes})
 
     ca = CertificateAuthority(logger, app)

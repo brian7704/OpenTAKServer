@@ -49,6 +49,8 @@ class DefaultConfig:
     OTS_RABBITMQ_PREFETCH = 2
     OTS_COT_PARSER_PROCESSES = 1
 
+    OTS_ENABLE_LDAP = False
+
     # See https://docs.python.org/3/library/logging.handlers.html#logging.handlers.TimedRotatingFileHandler
     OTS_LOG_ROTATE_WHEN = 'midnight'
     OTS_LOG_ROTATE_INTERVAL = 0
