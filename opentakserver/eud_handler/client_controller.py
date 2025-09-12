@@ -11,6 +11,7 @@ from threading import Thread
 
 import bleach
 import sqlalchemy
+from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import verify_password
 from flask_socketio import SocketIO
 
@@ -20,7 +21,7 @@ from meshtastic import mesh_pb2, portnums_pb2, BROADCAST_NUM, mqtt_pb2
 from pika.channel import Channel
 from sqlalchemy import select, update
 
-from opentakserver.extensions import db
+from opentakserver.extensions import db, ldap_manager
 from opentakserver.functions import datetime_from_iso8601_string, iso8601_string_from_datetime
 from opentakserver.models.Chatrooms import Chatroom
 from opentakserver.models.EUD import EUD
@@ -192,7 +193,35 @@ class ClientController(Thread):
                                 username = cot.attrs['username']
                                 password = cot.attrs['password']
                                 uid = cot.attrs['uid']
-                                user = self.app.security.datastore.find_user(username=username)
+
+                                if self.app.config.get("OTS_ENABLE_LDAP"):
+                                    result = ldap_manager.authenticate(username, password)
+
+                                    if result.status == AuthenticationResponseStatus.success:
+                                        # Keep this import here to avoid a circular import when OTS is started
+                                        from opentakserver.blueprints.ots_api.ldap_api import save_user
+
+                                        self.user = save_user(result.user_dn, result.user_id, result.user_info, result.user_groups)
+
+                                        try:
+                                            eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
+                                            self.logger.debug("Associating EUD uid {} to user {}".format(eud.uid, self.user.username))
+                                            eud.user_id = self.user.id
+                                            self.db.session.commit()
+                                        except:
+                                            self.logger.debug("This is a new eud: {} {}".format(uid, self.user.username))
+                                            eud = EUD()
+                                            eud.uid = uid
+                                            eud.user_id = self.user.id
+                                            self.db.session.add(eud)
+                                            self.db.session.commit()
+
+                                    else:
+                                        self.close_connection()
+                                        break
+
+                                else:
+                                    user = self.app.security.datastore.find_user(username=username)
                         elif self.common_name:
                             user = self.app.security.datastore.find_user(username=self.common_name)
 
