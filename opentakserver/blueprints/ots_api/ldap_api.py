@@ -52,6 +52,7 @@ def save_user(dn: str, username: str, data, groups):
 def ldap_login():
     form = LDAPLoginForm(formdata=ImmutableMultiDict(request.json))
 
+    # LDAPLoginForm.validate() will call save_user()
     if form.validate():
         login_user(form.user, app.config.get("SECURITY_DEFAULT_REMEMBER_ME"), authn_via=["ldap"])
         payload = {"identity_attributes": {"ldap": {}}}
