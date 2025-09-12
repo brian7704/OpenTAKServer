@@ -4,13 +4,15 @@ import time
 import traceback
 from urllib.parse import urlparse
 
+import bleach
 import jwt
 from flask import jsonify, request, current_app as app, Blueprint
+from flask_ldap3_login import AuthenticationResponseStatus
 from flask_login import current_user
 from flask_security import auth_required, verify_password
 from sqlalchemy import delete
 
-from opentakserver.extensions import db, logger
+from opentakserver.extensions import db, logger, ldap_manager
 from opentakserver.models.Token import Token
 from opentakserver.models.user import User
 
@@ -19,9 +21,25 @@ token_api_blueprint = Blueprint('token_api_blueprint', __name__)
 
 @token_api_blueprint.route("/oauth/token", methods=['GET', 'POST'])
 def cloudtak_oauth_token():
-    user = app.security.datastore.find_user(username=request.args.get("username"))
-    if not user or not verify_password(request.args.get("password"), user.password):
-        return jsonify({'success': False, 'error': 'Invalid username or password'}), 400
+    username = bleach.clean(request.args.get("username"))
+    password = bleach.clean(request.args.get("password"))
+
+    if app.config.get("OTS_ENABLE_LDAP"):
+        result = ldap_manager.authenticate(username, password)
+
+        if result.status == AuthenticationResponseStatus.success:
+            # Keep this import here to avoid a circular import when OTS is started
+            from opentakserver.blueprints.ots_api.ldap_api import save_user
+
+            save_user(result.user_dn, result.user_id, result.user_info, result.user_groups)
+
+        else:
+            return jsonify({'success': False, 'error': 'Invalid username or password'}), 400
+
+    else:
+        user = app.security.datastore.find_user(username=username)
+        if not user or not verify_password(password, user.password):
+            return jsonify({'success': False, 'error': 'Invalid username or password'}), 400
 
     with open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.nopass.key"),
               "rb") as key:
