@@ -14,3 +14,6 @@ class Role(db.Model, fsqla.FsRoleMixin):
             'permissions': self.permissions,
             'update_timestamp': self.update_datetime,
         }
+
+    def __eq__(self, other):
+        return self.name == other or self.name == getattr(other, "name", None)
