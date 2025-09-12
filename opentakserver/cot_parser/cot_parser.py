@@ -58,7 +58,6 @@ from opentakserver.models.Point import Point
 from opentakserver.models.Marker import Marker
 from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.Certificate import Certificate
-from opentakserver.models.GroupEud import GroupEud
 from opentakserver.models.Group import Group
 
 

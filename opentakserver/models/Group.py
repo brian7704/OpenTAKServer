@@ -1,43 +1,51 @@
 import datetime
+import enum
 from dataclasses import dataclass
 
 from opentakserver.extensions import db
 from opentakserver.functions import iso8601_string_from_datetime
-from sqlalchemy import Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Integer, String, Boolean, DateTime, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+
+class GroupTypeEnum(enum.Enum):
+    SYSTEM = "SYSTEM"
+    LDAP = "LDAP"
+
+
+class GroupDirectionEnum(enum.Enum):
+    IN = "IN"
+    OUT = "OUT"
 
 
 @dataclass
 class Group(db.Model):
     __tablename__ = "groups"
 
-    SYSTEM = "SYSTEM"
-    LDAP = "LDAP"
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    group_name: Mapped[str] = mapped_column(String(255))
+    name: Mapped[str] = mapped_column(String(255))
+    distinguishedName: Mapped[str] = mapped_column(String(255))
+    direction: Mapped[str] = mapped_column(Enum(GroupDirectionEnum))
     created: Mapped[datetime] = mapped_column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
-    group_type: Mapped[str] = mapped_column(String(255), default=SYSTEM)  # SYSTEM, LDAP
+    type: Mapped[str] = mapped_column(Enum(GroupTypeEnum), default=GroupTypeEnum.SYSTEM)
     bitpos: Mapped[int] = mapped_column(Integer)
     description: Mapped[str] = mapped_column(String, nullable=True)
-    active: Mapped[bool] = mapped_column(Boolean, default=True);
-    euds = relationship("EUD", secondary="groups_euds", back_populates="groups")
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    users = relationship("User", secondary="groups_users", back_populates="groups")
 
     def serialize(self):
         return {
-            'group_name': self.group_name,
+            'name': self.name,
+            'distinguishedName': self.distinguishedName,
+            'direction': self.direction,
             'created': self.created,
-            'group_type': self.group_type,
+            'type': self.type,
             'bitpos': self.bitpos,
+            'description': self.description,
+            'active': self.active
         }
 
     def to_json(self):
-        return {
-            "name": self.group_name,
-            "direction": self.direction,
-            "created": iso8601_string_from_datetime(self.created).split("T")[0],
-            "type": self.group_type,
-            "bitpos": self.bitpos,
-            "active": self.active,
-            "description": self.description if self.description else ""
-        }
+        return_value = self.serialize()
+        return_value['bitpos'] = "{0:b}".format(self.bitpos)
+        return return_value

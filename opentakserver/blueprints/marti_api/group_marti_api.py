@@ -5,7 +5,7 @@ from flask import Blueprint, current_app as app, jsonify, request
 from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.extensions import db, logger
 from opentakserver.models.Group import Group
-from opentakserver.models.GroupEud import GroupEud
+from opentakserver.models.GroupUser import GroupUser
 
 group_api = Blueprint('group_api', __name__)
 

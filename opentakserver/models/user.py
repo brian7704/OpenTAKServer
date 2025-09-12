@@ -17,6 +17,7 @@ class User(db.Model, fsqla.FsUserMixin):
     certificate = relationship("Certificate", back_populates="user")
     mission_invitations = relationship("MissionInvitation", back_populates="user")
     tokens = relationship("Token", back_populates="user")
+    groups = relationship("Group", secondary="groups_users", back_populates="users")
 
     def serialize(self):
         return {

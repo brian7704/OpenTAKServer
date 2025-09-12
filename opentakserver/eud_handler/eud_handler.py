@@ -22,7 +22,6 @@ from opentakserver.models.Certificate import Certificate
 from opentakserver.models.Marker import Marker
 from opentakserver.models.RBLine import RBLine
 from opentakserver.models.Team import Team
-from opentakserver.models.GroupEud import GroupEud
 from opentakserver.models.Group import Group
 from opentakserver.models.EUDStats import EUDStats
 from opentakserver.models.Mission import Mission
