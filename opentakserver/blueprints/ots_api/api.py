@@ -278,7 +278,6 @@ def rabbitmq_auth(path):
 
             return 'allow', 200
         else:
-            logger.error(f"{username} fuck you")
             return 'deny', 200
 
     user = None
