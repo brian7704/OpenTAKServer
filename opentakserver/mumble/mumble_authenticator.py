@@ -44,6 +44,12 @@ class MumbleAuthenticator(Murmur.ServerUpdatingAuthenticator):
                 auth_result = ldap_manager.authenticate(username, password)
                 if auth_result.status == AuthenticationResponseStatus.success:
                     self.logger.info("Mumble auth: {} has been authenticated".format(username))
+
+                    # Keep this import here to avoid a circular import when OTS is started
+                    from opentakserver.blueprints.ots_api.ldap_api import save_user
+
+                    save_user(auth_result.user_dn, auth_result.user_id, auth_result.user_info, auth_result.user_groups)
+
                     return user.id, user.username, None
 
             elif verify_password(password, user.password):

@@ -29,7 +29,6 @@ def save_user(dn: str, username: str, data, groups):
     if user:
         roles = user.roles
         for role in roles:
-            logger.warn(f"removing {role.name} from {user.username}")
             app.security.datastore.remove_role_from_user(user, role)
     else:
         user = app.security.datastore.create_user(username=username, password=None)

@@ -13,11 +13,12 @@ import yaml
 import bleach
 import psutil
 import sqlalchemy.exc
-from flask import current_app as app, request, Blueprint, jsonify, send_from_directory, url_for
+from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
+from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import auth_required, current_user, verify_password
-from sqlalchemy import select, delete
+from sqlalchemy import select
 
-from opentakserver.extensions import logger, db
+from opentakserver.extensions import logger, db, ldap_manager
 
 from opentakserver.models.Alert import Alert
 from opentakserver.models.CasEvac import CasEvac
@@ -259,12 +260,33 @@ def rabbitmq_auth(path):
     if request.remote_addr != app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"):
         return 'deny', 200
 
+    username = bleach.clean(request.form.get('username'))
+    password = bleach.clean(request.form.get('password'))
+
+    if app.config.get("OTS_ENABLE_LDAP"):
+        result = ldap_manager.authenticate(username, password)
+
+        if result.status == AuthenticationResponseStatus.success:
+            # Keep this import here to avoid a circular import when OTS is started
+            from opentakserver.blueprints.ots_api.ldap_api import save_user
+
+            save_user(result.user_dn, result.user_id, result.user_info, result.user_groups)
+
+            for group in result.user_groups:
+                if group['cn'] == app.config.get("OTS_LDAP_ADMIN_GROUP"):
+                    return 'allow administrator', 200
+
+            return 'allow', 200
+        else:
+            logger.error(f"{username} fuck you")
+            return 'deny', 200
+
     user = None
     if 'username' in request.form.keys():
-        user = app.security.datastore.find_user(username=bleach.clean(request.form.get('username')))
+        user = app.security.datastore.find_user(username=username)
 
     if user and 'password' in request.form.keys():
-        if user.active and verify_password(bleach.clean(request.form.get('password')), user.password):
+        if user.active and verify_password(password, user.password):
             if user.has_role("administrator"):
                 return 'allow administrator', 200
             return 'allow', 200
