@@ -50,6 +50,7 @@ sqlalchemy-utils = "0.41.2"
 tldextract = "5.1.2"
 unishox2-py3 = "1.0.0"
 yt-dlp = "*"
+zope-event = "5.1.1"
 
 [tool.poetry-dynamic-versioning]
 enable = true
