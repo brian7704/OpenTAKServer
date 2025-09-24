@@ -34,19 +34,25 @@ def add_group():
         return jsonify({'success': False, 'error': 'Missing name'}), 400
 
     name = bleach.clean(request.json.get("name"))
+    description = bleach.clean(request.json.get("description")) if "description" in request.json.keys() else None
+
     in_group = db.session.execute(db.session.query(Group).filter_by(name=name, direction=GroupDirectionEnum.IN)).first()
     out_group = db.session.execute(db.session.query(Group).filter_by(name=name, direction=GroupDirectionEnum.OUT)).first()
 
     if not in_group.count:
+        in_group = Group()
         in_group.name = name
         in_group.direction = GroupDirectionEnum.IN
         in_group.type = GroupTypeEnum.SYSTEM
+        in_group.description = description
         db.session.add(in_group)
 
     if not out_group.count:
+        out_group = Group()
         out_group.name = name
         out_group.direction = GroupDirectionEnum.OUT
         out_group.type = GroupTypeEnum.SYSTEM
+        out_group.description = description
         db.session.add(out_group)
 
 
