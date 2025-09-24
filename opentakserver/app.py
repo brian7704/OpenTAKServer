@@ -1,4 +1,7 @@
 from gevent import monkey
+
+from opentakserver.models.Group import Group, GroupDirectionEnum, GroupTypeEnum
+
 monkey.patch_all()
 
 import random
@@ -313,6 +316,21 @@ def main():
         except BaseException as e:
             logger.error(f"Failed to load plugins: {e}")
             logger.debug(traceback.format_exc())
+
+    if not app.config.get("OTS_ENABLE_LDAP") and db.session.execute(db.session.query(Group)).first().count == 0:
+        anon_in = Group()
+        anon_in.name = "__ANON__"
+        anon_in.direction = GroupDirectionEnum.IN
+        anon_in.type = GroupTypeEnum.SYSTEM
+        db.session.add(anon_in)
+
+        anon_out = Group()
+        anon_out.name = "__ANON__"
+        anon_out.direction = GroupDirectionEnum.OUT
+        anon_out.type = GroupTypeEnum.SYSTEM
+        db.session.add(anon_out)
+
+        db.session.commit()
 
     app.start_time = datetime.now(timezone.utc)
 
