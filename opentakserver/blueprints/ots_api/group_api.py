@@ -39,21 +39,29 @@ def add_group():
     in_group = db.session.execute(db.session.query(Group).filter_by(name=name, direction=GroupDirectionEnum.IN)).first()
     out_group = db.session.execute(db.session.query(Group).filter_by(name=name, direction=GroupDirectionEnum.OUT)).first()
 
-    if not in_group.count:
-        in_group = Group()
-        in_group.name = name
-        in_group.direction = GroupDirectionEnum.IN
-        in_group.type = GroupTypeEnum.SYSTEM
-        in_group.description = description
-        db.session.add(in_group)
+    try:
+        if not in_group.count:
+            in_group = Group()
+            in_group.name = name
+            in_group.direction = GroupDirectionEnum.IN
+            in_group.type = GroupTypeEnum.SYSTEM
+            in_group.description = description
+            db.session.add(in_group)
 
-    if not out_group.count:
-        out_group = Group()
-        out_group.name = name
-        out_group.direction = GroupDirectionEnum.OUT
-        out_group.type = GroupTypeEnum.SYSTEM
-        out_group.description = description
-        db.session.add(out_group)
+        if not out_group.count:
+            out_group = Group()
+            out_group.name = name
+            out_group.direction = GroupDirectionEnum.OUT
+            out_group.type = GroupTypeEnum.SYSTEM
+            out_group.description = description
+            db.session.add(out_group)
+
+    except BaseException as e:
+        logger.error(f"Failed to add {name} group: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({'success': False, "error": f"Failed to add {name} group: {e}"}), 500
+
+    return jsonify({'success': True})
 
 
 @group_api.route('/api/groups', methods=["DELETE"])
