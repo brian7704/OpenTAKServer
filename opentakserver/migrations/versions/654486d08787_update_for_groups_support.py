@@ -29,7 +29,7 @@ def upgrade():
 
     with op.batch_alter_table('groups', schema=None) as batch_op:
         batch_op.add_column(sa.Column('name', sa.String(length=255), nullable=False))
-        batch_op.add_column(sa.Column('distinguishedName', sa.String(length=255), nullable=False))
+        batch_op.add_column(sa.Column('distinguishedName', sa.String(length=255), nullable=True))
         batch_op.add_column(sa.Column('direction', sa.Enum('IN', 'OUT', name='groupdirectionenum'), nullable=False))
         batch_op.add_column(sa.Column('type', sa.Enum('SYSTEM', 'LDAP', name='grouptypeenum'), nullable=False))
         batch_op.add_column(sa.Column('description', sa.String(), nullable=True))
