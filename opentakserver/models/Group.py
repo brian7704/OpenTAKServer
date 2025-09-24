@@ -8,12 +8,12 @@ from sqlalchemy import Integer, String, Boolean, DateTime, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
-class GroupTypeEnum(enum.Enum):
+class GroupTypeEnum(str, enum.Enum):
     SYSTEM = "SYSTEM"
     LDAP = "LDAP"
 
 
-class GroupDirectionEnum(enum.Enum):
+class GroupDirectionEnum(str, enum.Enum):
     IN = "IN"
     OUT = "OUT"
 
