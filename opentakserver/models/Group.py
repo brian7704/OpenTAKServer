@@ -24,7 +24,7 @@ class Group(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
-    distinguishedName: Mapped[str] = mapped_column(String(255))
+    distinguishedName: Mapped[str] = mapped_column(String(255), nullable=True)
     direction: Mapped[str] = mapped_column(Enum(GroupDirectionEnum))
     created: Mapped[datetime] = mapped_column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
     type: Mapped[str] = mapped_column(Enum(GroupTypeEnum), default=GroupTypeEnum.SYSTEM)
