@@ -14,6 +14,7 @@ import bleach
 import psutil
 import sqlalchemy.exc
 from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
+from flask_babel import gettext
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import auth_required, current_user, verify_password
 from sqlalchemy import select
@@ -56,7 +57,7 @@ def paginate(query):
         page = int(request.args.get('page')) if 'page' in request.args else 1
         per_page = int(request.args.get('per_page')) if 'per_page' in request.args else 10
     except ValueError:
-        return {'success': False, 'error': 'Invalid page or per_page number'}, 400, {'Content-Type': 'application/json'}
+        return {'success': False, 'error': gettext('Invalid page or per_page number')}, 400, {'Content-Type': 'application/json'}
 
     pagination = db.paginate(query, page=page, per_page=per_page)
     rows = pagination.items
@@ -202,7 +203,7 @@ def certificate():
             logger.error(traceback.format_exc())
             return {'success': False, 'error': str(e)}, 500, {'Content-Type': 'application/json'}
     elif request.method == 'POST':
-        return ({'success': False, 'error': "Please specify a callsign"}, 400,
+        return ({'success': False, 'error': gettext("Please specify a callsign")}, 400,
                 {'Content-Type': 'application/json'})
     elif request.method == 'GET':
         query = db.session.query(Certificate)

@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 import bleach
 import pika
 from flask import Blueprint, request, jsonify, current_app as app
+from flask_babel import gettext
 from flask_security import auth_required, current_user
 from sqlalchemy import insert, update
 from sqlalchemy.exc import IntegrityError
@@ -181,7 +182,7 @@ def add_marker():
 def delete_marker():
     uid = request.args.get('uid')
     if not uid:
-        return jsonify({'success': False, 'error': 'Please provide the UID of the marker to delete'}), 400
+        return jsonify({'success': False, 'error': gettext('Please provide the UID of the marker to delete')}), 400
 
     with app.app_context():
         query = db.session.query(Marker)
