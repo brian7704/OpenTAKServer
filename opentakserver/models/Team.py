@@ -18,7 +18,7 @@ class Team(db.Model):
 
     colors = {'Cyan': '#00FFFF', 'White': '#000000', 'Yellow': '#FFFF00', 'Orange': '#FFA500', 'Magenta': '#FF00FF',
               'Red': '#FF0000', 'Maroon': '#800000', 'Purple': '#800080', 'Dark Blue': '#00008B', 'Blue': '#0000FF',
-              'Teal': '#008080', 'Green': '#00FF00', 'Dark Green': '#228B22', 'Brown': '#964B00'}
+              'Teal': '#008080', 'Green': '#00FF00', 'Dark Green': '#228B22', 'Brown': '#964B00', 'Gray': '#808080'}
 
     def get_team_color(self):
         return self.colors[self.name]
