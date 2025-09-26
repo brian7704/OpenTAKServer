@@ -40,7 +40,7 @@ def add_group():
     out_group = db.session.execute(db.session.query(Group).filter_by(name=name, direction=GroupDirectionEnum.OUT)).first()
 
     try:
-        if not in_group.count:
+        if not in_group:
             in_group = Group()
             in_group.name = name
             in_group.direction = GroupDirectionEnum.IN
@@ -48,13 +48,15 @@ def add_group():
             in_group.description = description
             db.session.add(in_group)
 
-        if not out_group.count:
+        if not out_group:
             out_group = Group()
             out_group.name = name
             out_group.direction = GroupDirectionEnum.OUT
             out_group.type = GroupTypeEnum.SYSTEM
             out_group.description = description
             db.session.add(out_group)
+
+        db.session.commit()
 
     except BaseException as e:
         logger.error(f"Failed to add {name} group: {e}")
