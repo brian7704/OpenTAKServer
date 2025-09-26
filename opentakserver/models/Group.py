@@ -22,6 +22,10 @@ class GroupDirectionEnum(str, enum.Enum):
 class Group(db.Model):
     __tablename__ = "groups"
 
+    def __init__(self):
+        super().__init__()
+        self.bitpos = self.get_next_bitpos()
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
     distinguishedName: Mapped[str] = mapped_column(String(255), nullable=True)
@@ -32,6 +36,21 @@ class Group(db.Model):
     description: Mapped[str] = mapped_column(String, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     users = relationship("User", secondary="groups_users", back_populates="groups")
+
+    def get_next_bitpos(self) -> int:
+        # the __ANON__ group is always 1 so default to 2 here
+        bitpos = 2
+        max_bitpos = db.session.execute(db.session.query(Group).order_by(Group.bitpos.desc()).limit(1)).first()
+        if max_bitpos:
+            bitpos = max_bitpos[0].bitpos + 1
+
+        return bitpos
+
+    def set_bitpos(self, new_bitpos : int = None):
+        if new_bitpos:
+            self.bitpos = new_bitpos
+        else:
+            self.bitpos = self.get_next_bitpos()
 
     def serialize(self):
         return {

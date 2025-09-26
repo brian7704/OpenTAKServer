@@ -54,6 +54,7 @@ def add_group():
             out_group.direction = GroupDirectionEnum.OUT
             out_group.type = GroupTypeEnum.SYSTEM
             out_group.description = description
+            out_group.set_bitpos(in_group.bitpos)
             db.session.add(out_group)
 
         db.session.commit()
