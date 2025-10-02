@@ -212,8 +212,10 @@ def create_app(cli=True):
         from opentakserver.blueprints.cli import ots
         app.cli.add_command(ots, name="ots")
 
-        db.init_app(app)
-        Migrate(app, db)
+        if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
+            app.config.from_file(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), load=yaml.safe_load)
+            db.init_app(app)
+            Migrate(app, db)
 
     return app
 
