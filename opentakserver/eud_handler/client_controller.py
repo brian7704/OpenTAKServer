@@ -159,8 +159,10 @@ class ClientController(Thread):
                     break
                 else:
                     continue
-            except OSError:
+            except OSError as e:
                 self.logger.warning("OSError, stopping")
+                self.logger.error(str(e))
+                self.logger.error(traceback.format_exc())
                 # Client disconnected abruptly, either ATAK crashed, lost network connectivity, the battery died, etc
                 return
             except (ConnectionError, ConnectionResetError) as e:
@@ -479,7 +481,8 @@ class ClientController(Thread):
                 self.logger.debug("Published message to " + routing_key)
 
     def unbind_rabbitmq_queues(self):
-        if self.uid and self.rabbit_channel:
+        self.logger.info("closed: " + self.rabbit_channel.is_closed + " is_closing: " + self.rabbit_channel.is_closing)
+        if self.uid and self.rabbit_channel and not self.rabbit_channel.is_closing and not self.rabbit_channel.is_closed:
             self.rabbit_channel.queue_unbind(queue=self.uid, exchange="missions", routing_key="missions")
             self.rabbit_channel.queue_unbind(queue=self.uid, exchange="cot")
             with self.app.app_context():

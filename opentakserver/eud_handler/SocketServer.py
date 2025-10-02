@@ -1,6 +1,7 @@
 import os
 import socket
 import ssl
+import traceback
 
 from opentakserver.eud_handler.client_controller import ClientController
 
@@ -48,11 +49,12 @@ class SocketServer:
                     self.socket.close()
             except (OSError, IOError) as e:
                 if "too many open files" in str(e).lower():
-                    self.logger.error(str(e))
+                    self.logger.error("too many open files: " + str(e))
                     self.socket.close()
                     break
                 else:
                     self.logger.warning(str(e))
+                    self.logger.warning(traceback.format_exc())
             except BaseException as e:
                 self.logger.warning(str(e))
                 continue
