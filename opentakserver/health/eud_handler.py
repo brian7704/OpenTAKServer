@@ -1,0 +1,119 @@
+import os
+import re
+import socket
+import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Iterable, List
+
+EUD_HANDLER_SERVICE = os.getenv("EUD_HANDLER_SERVICE", "eud_handler.service")
+OTS_DATA_FOLDER = os.getenv("OTS_DATA_FOLDER", os.path.join(Path.home(), "ots"))
+EUD_HANDLER_LOG = os.getenv(
+    "EUD_HANDLER_LOG",
+    os.path.join(OTS_DATA_FOLDER, "logs", "opentakserver.log"),
+)
+RABBIT_HOST = os.getenv("RABBIT_HOST", "localhost")
+RABBIT_PORT = int(os.getenv("RABBIT_PORT", "5672"))
+ERROR_PATTERN = os.getenv("EUD_HANDLER_ERROR_REGEX", r"(ERROR|Exception|Traceback)")
+ERROR_REGEX = re.compile(ERROR_PATTERN, re.IGNORECASE)
+LOG_TAG = "eud_handler"
+
+
+def query_systemd(service: str = EUD_HANDLER_SERVICE) -> str:
+    """Returns one of: active, inactive, failed, activating, deactivating, reloading, unknown"""
+    # First try: is-active (simplest, stable output)
+    try:
+        completed = subprocess.run(
+            ["systemctl", "is-active", service],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        state = completed.stdout.strip()
+        if state:  # active/inactive/failed/...
+            return state
+    except Exception:
+        pass
+
+    # Fallback: show ActiveState
+    try:
+        completed = subprocess.run(
+            ["systemctl", "show", service, "--property=ActiveState", "--value"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return completed.stdout.strip()
+    except Exception as exc:
+        return f"error: {exc}"
+
+
+def tail_ots_log_for_eud_handler_entries(
+    path: str = EUD_HANDLER_LOG, lines: int = 100, tag: str = LOG_TAG
+) -> List[str]:
+    """Return the last ``lines`` from the OTS log produced by ``eud_handler``."""
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            size = fh.tell()
+            block = 1024
+            data = bytearray()
+            while size > 0 and data.count(b"\n") <= lines:
+                step = min(block, size)
+                size -= step
+                fh.seek(size)
+                data = fh.read(step) + data
+            log_lines = data.decode(errors="ignore").splitlines()
+            return [line for line in log_lines if tag in line][-lines:]
+    except OSError as exc:  # pragma: no cover - exercised via tests
+        return [f"error: {exc}"]
+
+
+def find_errors(lines: Iterable[str]) -> List[str]:
+    """Filter log lines that match ``ERROR_REGEX``."""
+    return [line for line in lines if ERROR_REGEX.search(line)]
+
+
+def rabbitmq_check(host: str = RABBIT_HOST, port: int = RABBIT_PORT, timeout: float = 1.0) -> bool:
+    """Attempt a TCP connection to RabbitMQ and return whether it succeeded."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:  # pragma: no cover - exercised via tests
+        return False
+
+
+def compute_status(service_state: str, log_errors: List[str], rabbitmq_ok: bool) -> dict:
+    """Compute component and overall health status."""
+    components = {
+        "service": service_state,
+        "logs": "errors" if log_errors else "error-free",
+        "rabbitmq": "up" if rabbitmq_ok else "down",
+    }
+    problems: List[str] = []
+    if service_state != "active":
+        problems.append("eud_handler service inactive")
+    if log_errors:
+        problems.append("errors detected in log")
+    if not rabbitmq_ok:
+        problems.append("rabbitmq unreachable")
+
+    # Determine operational status
+    overall = "non-operational"
+    if rabbitmq_ok and service_state == "active":
+        overall = "operational-"
+        if log_errors:
+            overall += "errors"
+        else:
+            overall += "healthy"
+
+    return {
+        "status": overall,
+        "components": components,
+        "problems": problems,
+    }
+
+
+def current_timestamp() -> str:
+    """Return an ISO 8601 UTC timestamp."""
+    return datetime.now(timezone.utc).isoformat()
