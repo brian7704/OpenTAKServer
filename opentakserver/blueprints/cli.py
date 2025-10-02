@@ -33,9 +33,14 @@ def create_ca():
 
 
 @ots.command()
+@click.option("--overwrite", is_flag=True)
 @with_appcontext
-def generate_config():
+def generate_config(overwrite):
     app.config.from_object(DefaultConfig)
+
+    if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")) and not overwrite:
+        logger.warning("config.yml already exists")
+        return
 
     logger.info("Creating config.yml")
     with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), "w") as config:
