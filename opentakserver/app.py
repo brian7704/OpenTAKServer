@@ -55,9 +55,6 @@ except ModuleNotFoundError:
     print("Mumble auth not supported on this platform")
 
 
-#app = Flask(__name__)
-
-
 def init_extensions(app):
     db.init_app(app)
     Migrate(app, db)
@@ -214,6 +211,9 @@ def create_app(cli=True):
     else:
         from opentakserver.blueprints.cli import ots
         app.cli.add_command(ots, name="ots")
+
+        db.init_app(app)
+        Migrate(app, db)
 
     return app
 
