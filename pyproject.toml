@@ -19,6 +19,7 @@ dulwich = "0.24.1"
 eventlet = "0.40.0"
 flask = "3.1.0"
 flask-apscheduler = "1.13.1"
+flask-babel = "4.0.0"
 flask-cors = "5.0.0"
 flask-migrate = "4.1.0"
 Flask-Security-Too = {version="5.6.2", extras=["common", "mfa"]}

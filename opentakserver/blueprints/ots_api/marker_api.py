@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 import bleach
 import pika
 from flask import Blueprint, request, jsonify, current_app as app
+from flask_babel import gettext
 from flask_security import auth_required, current_user
 from sqlalchemy import insert, update
 from sqlalchemy.exc import IntegrityError
@@ -38,27 +39,28 @@ def add_marker():
     marker = Marker()
     point = Point()
 
+    # gettext(u'Value: %(value)s', value=42)
     try:
         if 'latitude' not in request.json.keys() or 'longitude' not in request.json.keys():
-            return jsonify({'success': False, 'error': 'Please provide a latitude and longitude'}), 400
+            return jsonify({'success': False, 'error': gettext('Please provide a latitude and longitude')}), 400
         elif float(request.json['latitude']) < -90 or float(request.json['latitude']) > 90:
-            return jsonify({'success': False, 'error': f"Invalid latitude: {request.json['latitude']}"}), 400
+            return jsonify({'success': False, 'error': gettext(u'Invalid latitude: %(latitude)s', latitude=request.json['latitude'])}), 400
         elif float(request.json['longitude']) < -180 or float(request.json['longitude']) > 180:
-            return jsonify({'success': False, 'error': f"Invalid longitude: {request.json['longitude']}"}), 400
+            return jsonify({'success': False, 'error': gettext(u'Invalid latitude: %(longitude)s', latitude=request.json['longitude'])}), 400
     except BaseException as e:
         logger.error(f"Failed to parse lat/lon: {e}")
-        return jsonify({'success': False, 'error': f"Failed to parse lat/lon: {e}"}), 400
+        return jsonify({'success': False, 'error': gettext("Failed to parse lat/lon: ") + str(e)}), 400
 
     if 'uid' not in request.json.keys():
-        return jsonify({'success': False, 'error': 'Please provide a UID'}), 400
+        return jsonify({'success': False, 'error': gettext('Please provide a UID')}), 400
     elif 'name' not in request.json.keys():
-        return jsonify({'success': False, 'error': 'Please provide a name'}), 400
+        return jsonify({'success': False, 'error': gettext('Please provide a name')}), 400
 
     try:
         UUID(request.json['uid'], version=4)
         marker.uid = request.json['uid']
     except ValueError:
-        return jsonify({'success': False, 'error': "Invalid UID. UIDs need to be in UUID4 format"}), 400
+        return jsonify({'success': False, 'error': gettext("Invalid UID. UIDs need to be in UUID4 format")}), 400
 
     cot_type = request.json['type'] if 'type' in request.json.keys() else 'a-u-G'
 
