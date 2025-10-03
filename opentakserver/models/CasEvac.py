@@ -24,6 +24,7 @@ class CasEvac(db.Model):
     ambulatory: Mapped[int] = mapped_column(Integer, nullable=True)
     casevac: Mapped[bool] = mapped_column(Boolean, nullable=True)
     child: Mapped[int] = mapped_column(Integer, nullable=True)
+    convenience: Mapped[int] = mapped_column(Integer, nullable=True)
     enemy: Mapped[str] = mapped_column(String(255), nullable=True)
     epw: Mapped[int] = mapped_column(Integer, nullable=True)
     equipment_detail: Mapped[str] = mapped_column(String(255), nullable=True)
@@ -59,6 +60,7 @@ class CasEvac(db.Model):
     ventilator: Mapped[bool] = mapped_column(Boolean, nullable=True)
     winds_are_from: Mapped[str] = mapped_column(String(255), nullable=True)
     zone_prot_selection: Mapped[int] = mapped_column(Integer, nullable=True)
+    urgent_surgical: Mapped[str] = mapped_column(String, nullable=True)
     point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id", ondelete="CASCADE"), nullable=True)
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id", ondelete="CASCADE"), nullable=True)
     point = relationship("Point", back_populates="casevac")
@@ -72,6 +74,7 @@ class CasEvac(db.Model):
         self.ambulatory = form.ambulatory.data
         self.casevac = form.casevac.data
         self.child = form.child.data
+        self.convenience = form.convenience.data
         self.enemy = form.enemy.data
         self.epw = form.epw.data
         self.equipment_detail = form.equipment_detail.data
@@ -102,6 +105,7 @@ class CasEvac(db.Model):
         self.terrain_slope_dir = form.terrain_slope_dir.data
         self.title = form.title.data
         self.urgent = form.urgent.data
+        self.urgent_surgical = form.urgent_surgical.data
         self.us_military = form.us_military.data
         self.us_civilian = form.us_civilian.data
         self.ventilator = form.ventilator.data
@@ -116,6 +120,7 @@ class CasEvac(db.Model):
             'ambulatory': self.ambulatory,
             'casevac': self.casevac,
             'child': self.child,
+            'convenience': self.convenience,
             'enemy': self.enemy,
             'epw': self.epw,
             'equipment_detail': self.equipment_detail,
@@ -146,6 +151,7 @@ class CasEvac(db.Model):
             'terrain_slope_dir': self.terrain_slope_dir,
             'title': self.title,
             'urgent': self.urgent,
+            'urgent_surgical': self.urgent_surgical,
             'us_civilian': self.us_civilian,
             'us_military': self.us_military,
             'ventilator': self.ventilator,
@@ -163,6 +169,7 @@ class CasEvac(db.Model):
             'ambulatory': self.ambulatory,
             'casevac': self.casevac,
             'child': self.child,
+            'convenience': self.convenience,
             'enemy': self.enemy,
             'epw': self.epw,
             'equipment_detail': self.equipment_detail,
@@ -193,6 +200,7 @@ class CasEvac(db.Model):
             'terrain_slope_dir': self.terrain_slope_dir,
             'title': self.title,
             'urgent': self.urgent,
+            'urgent_surgical': self.urgent_surgical,
             'us_civilian': self.us_civilian,
             'us_military': self.us_military,
             'ventilator': self.ventilator,
@@ -244,6 +252,8 @@ class CasEvac(db.Model):
             medevac.set("casevac", str(self.casevac).lower())
         if self.child is not None:
             medevac.set("child", str(self.child))
+        if self.convenience is not None:
+            medevac.set("convenience", str(self.convenience))
         if self.enemy is not None:
             medevac.set("enemy", str(self.enemy))
         if self.friendlies is not None:
@@ -304,6 +314,8 @@ class CasEvac(db.Model):
             medevac.set("routine", str(self.routine))
         if self.urgent is not None:
             medevac.set("urgent", str(self.urgent))
+        if self.urgent_surgical is not None:
+            medevac.set("urgent_surgical", str(self.urgent_surgical))
         if self.ventilator is not None:
             medevac.set("ventilator", str(self.ventilator).lower())
         if self.winds_are_from:
