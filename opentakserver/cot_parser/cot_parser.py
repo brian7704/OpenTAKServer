@@ -583,7 +583,7 @@ class CoTController:
                         if 'argb' in tag.attrs:
                             marker.argb = tag.attrs['argb']
                             marker.color_hex = marker.color_to_hex()
-                        if 'callsign' in tag.attrs:
+                        if tag.name == "contact":
                             marker.callsign = tag.attrs['callsign']
                         if 'iconsetpath' in tag.attrs:
                             marker.iconset_path = tag.attrs['iconsetpath']
