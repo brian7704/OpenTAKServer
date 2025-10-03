@@ -667,7 +667,8 @@ class CoTController:
                         rb_line.range = tag.attrs['value']
                     if tag.name == 'bearing':
                         rb_line.bearing = tag.attrs['value']
-                    if tag.name == 'inclination':
+                    # Sometimes ATAK sends NaN for the inclination which causes issues in the DB
+                    if tag.name == 'inclination' and tag.attrs['value'].isnumeric():
                         rb_line.inclination = tag.attrs['value']
                     if tag.name == 'anchorUID':
                         rb_line.anchor_uid = tag.attrs['value']
