@@ -348,7 +348,7 @@ class ClientController(Thread):
                         online_euds = self.db.session.execute(select(EUD).filter(EUD.last_status == 'Connected')).all()
                         for eud in online_euds:
                             eud = eud[0]
-                            if len(eud.cots) > 0:
+                            if eud.platform != "Meshtastic" and len(eud.cots) > 0:
                                 self.sock.send(eud.cots[-1].xml.encode())
 
             if 'phone' in contact.attrs and contact.attrs['phone']:
