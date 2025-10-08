@@ -214,7 +214,12 @@ class CoTController:
 
                 if self.context.app.config.get("OTS_ENABLE_MESHTASTIC"):
                     try:
-                        eud = self.db.session.execute(select(EUD).filter_by(uid=uid)).first()[0]
+                        eud = self.db.session.execute(select(EUD).filter_by(uid=uid)).first()
+
+                        if not eud:
+                            return res.inserted_primary_key[0]
+
+                        eud = eud[0]
 
                         now = datetime.now(timezone.utc)
                         if eud.last_meshtastic_publish is None or (now - eud.last_meshtastic_publish.replace(tzinfo=timezone.utc)).total_seconds() >= self.context.app.config.get("OTS_MESHTASTIC_PUBLISH_INTERVAL"):
