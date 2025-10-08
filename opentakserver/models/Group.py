@@ -54,12 +54,10 @@ class Group(db.Model):
         return {
             'name': self.name,
             'distinguishedName': self.distinguishedName,
-            'direction': self.direction,
             'created': self.created,
             'type': self.type,
             'bitpos': self.bitpos,
             'description': self.description,
-            'active': self.active
         }
 
     def to_json(self):
