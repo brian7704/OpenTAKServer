@@ -29,12 +29,10 @@ class Group(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
     distinguishedName: Mapped[str] = mapped_column(String(255), nullable=True)
-    direction: Mapped[str] = mapped_column(String(255))
     created: Mapped[datetime] = mapped_column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
     type: Mapped[str] = mapped_column(String(255))
     bitpos: Mapped[int] = mapped_column(Integer)
     description: Mapped[str] = mapped_column(String, nullable=True)
-    active: Mapped[bool] = mapped_column(Boolean, default=True)
     users = relationship("User", secondary="groups_users", back_populates="groups")
 
     def get_next_bitpos(self) -> int:
