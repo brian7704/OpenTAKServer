@@ -1048,6 +1048,11 @@ def upload_content():
         return jsonify({'success': False, 'error': 'File name cannot be blank'}), 400
 
     filename, extension = os.path.splitext(secure_filename(file_name))
+
+    # In some cases iTAK doesn't include the file extension. If the user agent includes iTAK and there's no extension we'll assume it's a zip
+    if not extension and "iTAK" in request.user_agent.string:
+        extension = "zip"
+
     if extension.replace('.', '').lower() not in app.config.get("ALLOWED_EXTENSIONS"):
         logger.error(f"{extension} is not an allowed file extension")
         return jsonify({'success': False, 'error': f'{extension} is not an allowed file extension'}), 400

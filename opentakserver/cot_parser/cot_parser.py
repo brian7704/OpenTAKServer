@@ -213,7 +213,12 @@ class CoTController:
 
                 if self.context.app.config.get("OTS_ENABLE_MESHTASTIC"):
                     try:
-                        eud = self.db.session.execute(select(EUD).filter_by(uid=uid)).first()[0]
+                        eud = self.db.session.execute(select(EUD).filter_by(uid=uid)).first()
+
+                        if not eud:
+                            return res.inserted_primary_key[0]
+
+                        eud = eud[0]
 
                         now = datetime.now(timezone.utc)
                         if eud.last_meshtastic_publish is None or (now - eud.last_meshtastic_publish.replace(tzinfo=timezone.utc)).total_seconds() >= self.context.app.config.get("OTS_MESHTASTIC_PUBLISH_INTERVAL"):
@@ -582,7 +587,7 @@ class CoTController:
                         if 'argb' in tag.attrs:
                             marker.argb = tag.attrs['argb']
                             marker.color_hex = marker.color_to_hex()
-                        if 'callsign' in tag.attrs:
+                        if tag.name == "contact":
                             marker.callsign = tag.attrs['callsign']
                         if 'iconsetpath' in tag.attrs:
                             marker.iconset_path = tag.attrs['iconsetpath']
@@ -666,7 +671,8 @@ class CoTController:
                         rb_line.range = tag.attrs['value']
                     if tag.name == 'bearing':
                         rb_line.bearing = tag.attrs['value']
-                    if tag.name == 'inclination':
+                    # Sometimes ATAK sends NaN for the inclination which causes issues in the DB
+                    if tag.name == 'inclination' and tag.attrs['value'].isnumeric():
                         rb_line.inclination = tag.attrs['value']
                     if tag.name == 'anchorUID':
                         rb_line.anchor_uid = tag.attrs['value']

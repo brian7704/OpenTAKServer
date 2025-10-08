@@ -1,5 +1,5 @@
 import traceback
-from datetime import timedelta
+from datetime import timedelta, timezone
 import json
 from uuid import UUID, uuid4
 
@@ -74,7 +74,7 @@ def add_marker():
 
     try:
         point.uid = str(uuid4())
-        point.device_uid = app.config.get('OTS_NODE_ID')
+        point.device_uid = None
         point.location_source = bleach.clean(
             request.json['location_source']) if 'location_source' in request.json.keys() else ""
         point.latitude = float(request.json['latitude'])
@@ -87,7 +87,7 @@ def add_marker():
         point.ce = float(request.json['ce']) if 'ce' in request.json.keys() else 9999999.0
         point.hae = float(request.json['hae']) if 'hae' in request.json.keys() else 9999999.0
         point.le = float(request.json['le']) if 'le' in request.json.keys() else 9999999.0
-        point.timestamp = datetime.now(datetime.timezone.utc)
+        point.timestamp = datetime.now(timezone.utc)
 
         with app.app_context():
             event = ET.Element("event")
@@ -191,7 +191,7 @@ def delete_marker():
             return jsonify({'success': False, 'error': 'Unknown UID'}), 404
 
         marker = marker[0]
-        now = datetime.now(datetime.timezone.utc)
+        now = datetime.now(timezone.utc)
         event = ET.Element('event', {'how': 'h-g-i-g-o', 'type': 't-x-d-d', 'version': '2.0',
                                      'uid': marker.uid, 'start': iso8601_string_from_datetime(now),
                                      'time': iso8601_string_from_datetime(now),

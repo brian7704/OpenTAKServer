@@ -86,7 +86,7 @@ def data_packages():
     query = db.session.query(DataPackage)
     query = search(query, DataPackage, 'filename')
     query = search(query, DataPackage, 'hash')
-    query = search(query, DataPackage, 'createor_uid')
+    query = search(query, DataPackage, 'creator_uid')
     query = search(query, DataPackage, 'keywords')
     query = search(query, DataPackage, 'mime_type')
     query = search(query, DataPackage, 'size')

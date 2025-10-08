@@ -91,10 +91,6 @@ def new_atak_qr_string():
             elif not_before:
                 token.not_before = not_before
 
-            token.username = username
-            token.disabled = request.json.get("disabled") if "disabled" in request.json.keys() else None
-            token.hash_token()
-
             if request.json.get("max"):
                 try:
                     max_uses = int(request.json.get("max"))
@@ -102,6 +98,10 @@ def new_atak_qr_string():
                         token.max_uses = max_uses
                 except ValueError:
                     pass
+
+            token.username = username
+            token.disabled = request.json.get("disabled") if "disabled" in request.json.keys() else None
+            token.hash_token()
 
             db.session.add(token)
             db.session.commit()

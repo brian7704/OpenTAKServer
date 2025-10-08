@@ -42,7 +42,7 @@ class Mission(db.Model):
     invitations = relationship("MissionInvitation", cascade="all, delete-orphan",  back_populates="mission")
     roles = relationship("MissionRole", cascade="all, delete-orphan",  back_populates="mission")
     mission_changes = relationship("MissionChange", cascade="all, delete-orphan",  back_populates="mission", uselist=True)
-    contents = relationship("MissionContent", cascade="all",  secondary="mission_content_mission", back_populates="mission", uselist=True)
+    contents = relationship("MissionContent", cascade="all, delete",  secondary="mission_content_mission", back_populates="mission", uselist=True)
     cots = relationship("CoT", back_populates="mission", uselist=True)
     uids = relationship("MissionUID", cascade="all, delete-orphan", back_populates="mission")
     mission_logs = relationship("MissionLogEntry", cascade="all, delete-orphan", back_populates="mission")

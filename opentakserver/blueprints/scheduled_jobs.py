@@ -27,6 +27,7 @@ from opentakserver.models.Marker import Marker
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionChange import MissionChange
 from opentakserver.models.MissionContentMission import MissionContentMission
+from opentakserver.models.MissionInvitation import MissionInvitation
 from opentakserver.models.MissionRole import MissionRole
 from opentakserver.models.MissionUID import MissionUID
 from opentakserver.models.Point import Point
@@ -169,7 +170,7 @@ def get_aishub_data():
 
 
 def delete_old_data():
-    timestamp = datetime.datetime.now() - datetime.timedelta(
+    timestamp = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
         seconds=app.config.get("OTS_DELETE_OLD_DATA_SECONDS"),
         minutes=app.config.get("OTS_DELETE_OLD_DATA_MINUTES"),
         hours=app.config.get("OTS_DELETE_OLD_DATA_HOURS"),
@@ -203,9 +204,18 @@ def delete_old_data():
         publish_cot(generate_delete_cot(rb_line.uid, rb_line.cot.type), channel)
         db.session.delete(rb_line)
 
+    db.session.execute(delete(GeoChat).where(GeoChat.timestamp <= timestamp))
+
+    timestamp = datetime.datetime.now() - datetime.timedelta(
+        seconds=app.config.get("OTS_DELETE_OLD_DATA_SECONDS"),
+        minutes=app.config.get("OTS_DELETE_OLD_DATA_MINUTES"),
+        hours=app.config.get("OTS_DELETE_OLD_DATA_HOURS"),
+        days=app.config.get("OTS_DELETE_OLD_DATA_DAYS"),
+        weeks=app.config.get("OTS_DELETE_OLD_DATA_WEEKS"))
+
+    db.session.execute(delete(EUD).where(EUD.last_event_time <= timestamp))
     db.session.execute(delete(Point).where(Point.timestamp <= timestamp))
     db.session.execute(delete(CoT).where(CoT.timestamp <= timestamp))
-    db.session.execute(delete(EUD).where(EUD.last_event_time <= timestamp).where(EUD.last_status != 'Connected'))
     db.session.commit()
 
     channel.close()

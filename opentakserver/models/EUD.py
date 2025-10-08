@@ -2,6 +2,11 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from opentakserver.extensions import db
+
+# Leave these imports, they're needed when making new DB migrations
+from opentakserver.models.Team import Team
+from opentakserver.models.Chatrooms import Chatroom
+
 from sqlalchemy import Integer, String, ForeignKey, DateTime, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

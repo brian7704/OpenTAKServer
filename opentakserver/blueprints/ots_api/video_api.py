@@ -51,6 +51,11 @@ def download_recording():
         return jsonify({'success': False, 'error': 'Please specify a recording ID'}), 400
     recording_id = bleach.clean(request.args.get('id'))
 
+    if recording_id.isdigit():
+        recording_id = int(recording_id)
+    else:
+        return jsonify({"success": False, "error": f"Invalid recording_id: {recording_id}"}), 400
+
     try:
         recording = \
             db.session.execute(db.session.query(VideoRecording).filter(VideoRecording.id == recording_id)).first()[0]

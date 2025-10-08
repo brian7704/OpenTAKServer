@@ -4,6 +4,7 @@ import os
 import random
 import socket
 import traceback
+import typing
 import uuid
 from xml.etree.ElementTree import Element, SubElement, tostring, fromstring, ParseError
 import datetime
@@ -73,6 +74,9 @@ class ClientController(Thread):
         self.location_source = None
         self.common_name = None
 
+        # In case the RabbitMQ channel or connection drops, cached_messages will hold message until the channel is open again
+        self.cached_messages = []
+
         if self.is_ssl:
             try:
                 self.sock.do_handshake()
@@ -103,14 +107,29 @@ class ClientController(Thread):
         self.rabbit_connection.channel(on_open_callback=self.on_channel_open)
         self.rabbit_connection.add_on_close_callback(self.on_close)
 
-    def on_channel_open(self, channel):
+    def on_channel_open(self, channel: Channel):
+        self.logger.debug(f"Opening RabbitMQ channel for {self.callsign or self.address}")
         self.rabbit_channel = channel
-        self.rabbit_channel.add_on_close_callback(self.on_close)
+        # Remove the on_channel_close callback in case this channel is being reopened
+        self.rabbit_channel.callbacks.clear()
+        self.rabbit_channel.add_on_close_callback(self.on_channel_close)
 
-    def on_close(self, channel, error):
-        self.rabbit_connection.ioloop.stop()
+        for message in self.cached_messages:
+            self.logger.info(f"Publishing cached message: {message}")
+            self.publish(**message)
+
+        self.cached_messages.clear()
+
+    def on_channel_close(self, channel: Channel, error):
+        if self.rabbit_connection.is_open:
+            self.logger.debug(f"RabbitMQ channel closed for {self.callsign}, attempting to re-open: {error}")
+            channel.open()
+
+    def on_close(self, connection, error):
         try:
-            self.rabbit_connection = None
+            if self.rabbit_connection:
+                self.rabbit_connection.ioloop.stop()
+                self.rabbit_connection = None
         except BaseException as e:
             self.logger.error(f"Failed to close ioloop: {e}")
         self.logger.info("Connection closed for {}: {}".format(self.address, error))
@@ -141,8 +160,10 @@ class ClientController(Thread):
                     break
                 else:
                     continue
-            except OSError:
+            except OSError as e:
                 self.logger.warning("OSError, stopping")
+                self.logger.error(str(e))
+                self.logger.error(traceback.format_exc())
                 # Client disconnected abruptly, either ATAK crashed, lost network connectivity, the battery died, etc
                 return
             except (ConnectionError, ConnectionResetError) as e:
@@ -226,7 +247,7 @@ class ClientController(Thread):
                             user = self.app.security.datastore.find_user(username=self.common_name)
 
                         if not user:
-                            self.logger.warning("User {} does not exist".format(username))
+                            self.logger.warning("User {} does not exist".format(self.common_name))
                             self.close_connection()
                             break
                         elif not user.active:
@@ -273,10 +294,8 @@ class ClientController(Thread):
                         self.parse_device_info(event)
 
                     message = {'uid': self.uid, 'cot': str(soup)}
-                    if self.rabbit_channel:
-                        self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='',
-                                                          body=json.dumps(message),
-                                                          properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
+                    self.publish(exchange='cot_controller', routing_key='', body=json.dumps(message),
+                                 properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
             else:
                 self.unbind_rabbitmq_queues()
                 self.send_disconnect_cot()
@@ -358,7 +377,7 @@ class ClientController(Thread):
                         online_euds = self.db.session.execute(select(EUD).filter(EUD.last_status == 'Connected')).all()
                         for eud in online_euds:
                             eud = eud[0]
-                            if len(eud.cots) > 0:
+                            if eud.platform != "Meshtastic" and len(eud.cots) > 0:
                                 self.sock.send(eud.cots[-1].xml.encode())
 
             if 'phone' in contact.attrs and contact.attrs['phone']:
@@ -441,7 +460,6 @@ class ClientController(Thread):
                     self.db.session.add(eud)
                     self.db.session.commit()
                 except sqlalchemy.exc.IntegrityError:
-                    self.logger.info(traceback.format_exc())
                     self.db.session.rollback()
                     self.db.session.execute(update(EUD).where(EUD.uid == eud.uid).values(**eud.serialize()))
                     self.db.session.commit()
@@ -486,14 +504,13 @@ class ClientController(Thread):
                 channel = channel[0]
                 service_envelope.channel_id = channel
                 routing_key = f"{self.app.config.get('OTS_MESHTASTIC_TOPIC')}.2.e.{channel.name}.outgoing"
-                self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key,
-                                                  body=service_envelope.SerializeToString(),
-                                                  properties=pika.BasicProperties(
-                                                      expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
+                self.publish(exchange='amq.topic', routing_key=routing_key,
+                             body=service_envelope.SerializeToString(),
+                             properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
                 self.logger.debug("Published message to " + routing_key)
 
     def unbind_rabbitmq_queues(self):
-        if self.uid and self.rabbit_channel:
+        if self.uid and self.rabbit_channel and not self.rabbit_channel.is_closing and not self.rabbit_channel.is_closed:
             self.rabbit_channel.queue_unbind(queue=self.uid, exchange="missions", routing_key="missions")
             self.rabbit_channel.queue_unbind(queue=self.uid, exchange="cot")
             with self.app.app_context():
@@ -518,8 +535,8 @@ class ClientController(Thread):
 
             message = json.dumps({'uid': self.uid, 'cot': tostring(event).decode('utf-8')})
             if self.rabbit_channel:
-                self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='', body=message,
-                                                  properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
+                self.publish(exchange='cot_controller', routing_key='', body=message,
+                             properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
             with self.app.app_context():
                 self.db.session.execute(update(EUD).filter(EUD.uid == self.uid).values(last_status='Disconnected', last_event_time=now))
@@ -528,3 +545,14 @@ class ClientController(Thread):
         self.logger.info('{} disconnected'.format(self.address))
         if self.rabbit_connection:
             self.rabbit_connection.close()
+
+    def publish(self, exchange: str, routing_key: str, body: typing.Any, properties: pika.BasicProperties):
+        if not self.rabbit_channel or not self.rabbit_channel.is_open:
+            self.cached_messages.append({'body': body, 'exchange': exchange, 'routing_key': routing_key, 'properties': properties})
+            return
+
+        try:
+            self.rabbit_channel.basic_publish(exchange=exchange, routing_key=routing_key, body=body, properties=properties)
+        except BaseException as e:
+            self.logger.error(f"Failed to publish message, caching and trying again later: {e}")
+            self.cached_messages.append({'exchange': exchange, 'routing_key': routing_key, 'body': body, 'properties': properties})
