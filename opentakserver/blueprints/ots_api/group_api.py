@@ -36,28 +36,18 @@ def add_group():
     name = bleach.clean(request.json.get("name"))
     description = bleach.clean(request.json.get("description")) if "description" in request.json.keys() else None
 
-    in_group = db.session.execute(db.session.query(Group).filter_by(name=name, direction=GroupDirectionEnum.IN)).first()
-    out_group = db.session.execute(db.session.query(Group).filter_by(name=name, direction=GroupDirectionEnum.OUT)).first()
+    group = db.session.execute(db.session.query(Group).filter_by(name=name)).first()
 
     try:
-        if not in_group:
-            in_group = Group()
-            in_group.name = name
-            in_group.direction = GroupDirectionEnum.IN
-            in_group.type = GroupTypeEnum.SYSTEM
-            in_group.description = description
-            db.session.add(in_group)
-
-        if not out_group:
-            out_group = Group()
-            out_group.name = name
-            out_group.direction = GroupDirectionEnum.OUT
-            out_group.type = GroupTypeEnum.SYSTEM
-            out_group.description = description
-            out_group.set_bitpos(in_group.bitpos)
-            db.session.add(out_group)
-
-        db.session.commit()
+        if not group:
+            group = Group()
+            group.name = name
+            group.type = GroupTypeEnum.SYSTEM
+            group.description = description
+            db.session.add(group)
+            db.session.commit()
+        else:
+            return jsonify({'success': False, 'error': f"{name} group already exists"}), 400
 
     except BaseException as e:
         logger.error(f"Failed to add {name} group: {e}")

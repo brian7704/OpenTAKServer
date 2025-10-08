@@ -19,26 +19,15 @@ def group_cache_enabled():
 
 @group_api.route('/Marti/api/groups/all')
 def get_all_groups():
-    # Only return the __ANON__ in and out groups until group support is fully implemented
-    response = {"version": "3", "type": "com.bbn.marti.remote.groups.Group", "nodeId": app.config.get("OTS_NODE_ID"), "data": [{
-            "name": "__ANON__",
-            "direction": "IN",
-            "created": iso8601_string_from_datetime(datetime.datetime.now(datetime.timezone.utc)).split("T")[0],
-            "type": "SYSTEM",
-            "bitpos": 2,
-            "active": True,
-            "description": ""
-        },
-        {
-            "name": "__ANON__",
-            "direction": "OUT",
-            "created": iso8601_string_from_datetime(datetime.datetime.now(datetime.timezone.utc)).split("T")[0],
-            "type": "SYSTEM",
-            "bitpos": 2,
-            "active": True,
-            "description": ""
-        }
-    ]}
+    groups = db.session.execute(db.session.query(Group)).all()
+
+    response = {"version": "3", "type": "com.bbn.marti.remote.groups.Group", "nodeId": app.config.get("OTS_NODE_ID"), "data": []}
+
+    for group in groups:
+        group = group[0]
+
+        response['data'].append(group.to_marti_json_in())
+        response['data'].append(group.to_marti_json_out())
 
     return jsonify(response)
 

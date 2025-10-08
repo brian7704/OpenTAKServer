@@ -342,7 +342,7 @@ def main(app):
             anon_in = Group()
             anon_in.name = "__ANON__"
             anon_in.type = GroupTypeEnum.SYSTEM
-            anon_in.bitpos = 1
+            anon_in.bitpos = 2
             db.session.add(anon_in)
 
             db.session.commit()
