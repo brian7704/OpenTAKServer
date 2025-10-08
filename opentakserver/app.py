@@ -1,8 +1,8 @@
 from gevent import monkey
 
-from opentakserver.models.Group import Group, GroupDirectionEnum, GroupTypeEnum
-
 monkey.patch_all()
+
+from opentakserver.models.Group import Group, GroupTypeEnum
 
 from opentakserver.UsernameValidator import UsernameValidator
 
@@ -289,6 +289,7 @@ def main(app):
                 db.session.commit()
             except BaseException as e:
                 logger.error("Failed to download icons: {}".format(e))
+                logger.debug(traceback.format_exc())
 
         if app.config.get("DEBUG"):
             logger.debug("Starting in debug mode")
@@ -340,17 +341,9 @@ def main(app):
         if not app.config.get("OTS_ENABLE_LDAP") and not db.session.execute(db.session.query(Group)).first():
             anon_in = Group()
             anon_in.name = "__ANON__"
-            anon_in.direction = GroupDirectionEnum.IN
             anon_in.type = GroupTypeEnum.SYSTEM
             anon_in.bitpos = 1
             db.session.add(anon_in)
-
-            anon_out = Group()
-            anon_out.name = "__ANON__"
-            anon_out.direction = GroupDirectionEnum.OUT
-            anon_out.type = GroupTypeEnum.SYSTEM
-            anon_out.bitpos = 1
-            db.session.add(anon_out)
 
             db.session.commit()
 
