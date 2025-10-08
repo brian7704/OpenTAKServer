@@ -3,7 +3,6 @@ monkey.patch_all()
 
 from opentakserver.UsernameValidator import UsernameValidator
 
-import random
 import sys
 import traceback
 import logging
@@ -21,7 +20,6 @@ from opentakserver.plugins.PluginManager import PluginManager
 from opentakserver.sql_jobstore import SQLJobStore
 
 import yaml
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 from opentakserver.EmailValidator import EmailValidator
 
@@ -36,7 +34,7 @@ import sqlalchemy
 import flask_wtf
 
 import pika
-from flask import Flask, jsonify
+from flask import Flask, current_app
 from flask_cors import CORS
 
 from flask_security import Security, SQLAlchemyUserDatastore, hash_password, uia_username_mapper, uia_email_mapper
@@ -156,80 +154,99 @@ def setup_logging(app):
     logger.addHandler(fh)
 
 
-def create_app():
+def create_app(cli=True):
     app = Flask(__name__)
     app.config.from_object(DefaultConfig)
     setup_logging(app)
 
-    # Load config.yml if it exists
-    if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
-        app.config.from_file(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), load=yaml.safe_load)
-    else:
-        # First run, created config.yml based on default settings
-        logger.info("Creating config.yml")
-        with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), "w") as config:
-            conf = {}
-            for option in DefaultConfig.__dict__:
-                # Fix the sqlite DB path on Windows
-                if option == "SQLALCHEMY_DATABASE_URI" and platform.system() == "Windows" and DefaultConfig.__dict__[option].startswith("sqlite"):
-                    conf[option] = DefaultConfig.__dict__[option].replace("////", "///").replace("\\", "/")
-                elif option.isupper():
-                    conf[option] = DefaultConfig.__dict__[option]
-            config.write(yaml.safe_dump(conf))
+    if not cli:
+        # Load config.yml if it exists
+        if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
+            app.config.from_file(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), load=yaml.safe_load)
+        else:
+            # First run, created config.yml based on default settings
+            logger.info("Creating config.yml")
+            with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), "w") as config:
+                conf = {}
+                for option in DefaultConfig.__dict__:
+                    # Fix the sqlite DB path on Windows
+                    if option == "SQLALCHEMY_DATABASE_URI" and platform.system() == "Windows" and DefaultConfig.__dict__[option].startswith("sqlite"):
+                        conf[option] = DefaultConfig.__dict__[option].replace("////", "///").replace("\\", "/")
+                    elif option.isupper():
+                        conf[option] = DefaultConfig.__dict__[option]
+                config.write(yaml.safe_dump(conf))
 
-    # Try to set the MediaMTX token
-    if app.config.get("OTS_MEDIAMTX_ENABLE"):
+        # Try to set the MediaMTX token
+        if app.config.get("OTS_MEDIAMTX_ENABLE"):
+            try:
+                new_conf = None
+                with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "mediamtx.yml"), "r") as mediamtx_config:
+                    conf = mediamtx_config.read()
+                    if "MTX_TOKEN" in conf:
+                        new_conf = conf.replace("MTX_TOKEN", app.config.get("OTS_MEDIAMTX_TOKEN"))
+                if new_conf:
+                    with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "mediamtx.yml"), "w") as mediamtx_config:
+                        mediamtx_config.write(new_conf)
+            except BaseException as e:
+                logger.error("Failed to set MediaMTX token: {}".format(e))
+        else:
+            logger.info("MediaMTX disabled")
+
+        init_extensions(app)
+
+        from opentakserver.blueprints.marti_api import marti_blueprint
+        app.register_blueprint(marti_blueprint)
+
+        from opentakserver.blueprints.ots_api import ots_api
+        app.register_blueprint(ots_api)
+
+        from opentakserver.blueprints.ots_socketio import ots_socketio_blueprint
+        app.register_blueprint(ots_socketio_blueprint)
+
+        from opentakserver.blueprints.scheduled_jobs import scheduler_blueprint
+        app.register_blueprint(scheduler_blueprint)
+
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
+
+    else:
+        from opentakserver.blueprints.cli import ots
+        app.cli.add_command(ots, name="ots")
+
+        if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
+            app.config.from_file(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), load=yaml.safe_load)
+            db.init_app(app)
+            Migrate(app, db)
+
+        flask_wtf.CSRFProtect(app)
+
         try:
-            new_conf = None
-            with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "mediamtx.yml"), "r") as mediamtx_config:
-                conf = mediamtx_config.read()
-                if "MTX_TOKEN" in conf:
-                    new_conf = conf.replace("MTX_TOKEN", app.config.get("OTS_MEDIAMTX_TOKEN"))
-            if new_conf:
-                with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "mediamtx.yml"), "w") as mediamtx_config:
-                    mediamtx_config.write(new_conf)
-        except BaseException as e:
-            logger.error("Failed to set MediaMTX token: {}".format(e))
-    else:
-        logger.info("MediaMTX disabled")
+            fsqla.FsModels.set_db_info(db)
+        except sqlalchemy.exc.InvalidRequestError:
+            pass
 
-    init_extensions(app)
+        from opentakserver.models.user import User
+        from opentakserver.models.role import Role
 
-    from opentakserver.blueprints.marti_api import marti_blueprint
-    app.register_blueprint(marti_blueprint)
+        user_datastore = SQLAlchemyUserDatastore(db, User, Role, WebAuthn)
+        app.security = Security(app, user_datastore, mail_util_cls=EmailValidator, password_util_cls=PasswordValidator, username_util_cls=UsernameValidator)
 
-    from opentakserver.blueprints.ots_api import ots_api
-    app.register_blueprint(ots_api)
+        # Register blueprints to properly import all the DB models without circular imports
+        from opentakserver.blueprints.marti_api import marti_blueprint
+        app.register_blueprint(marti_blueprint)
 
-    from opentakserver.blueprints.ots_socketio import ots_socketio_blueprint
-    app.register_blueprint(ots_socketio_blueprint)
+        from opentakserver.blueprints.ots_api import ots_api
+        app.register_blueprint(ots_api)
 
-    from opentakserver.blueprints.cli import ots
-    app.cli.add_command(ots, name="ots")
+        from opentakserver.blueprints.ots_socketio import ots_socketio_blueprint
+        app.register_blueprint(ots_socketio_blueprint)
 
-    from opentakserver.blueprints.scheduled_jobs import scheduler_blueprint
-    app.register_blueprint(scheduler_blueprint)
-
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
+        from opentakserver.blueprints.scheduled_jobs import scheduler_blueprint
+        app.register_blueprint(scheduler_blueprint)
 
     return app
 
 
-app = create_app()
-
-
-@app.route("/")
-def home():
-    return jsonify([])
-
-
-@app.after_request
-def after_request_func(response):
-    response.direct_passthrough = False
-    return response
-
-
-@user_registered.connect_via(app)
+@user_registered.connect_via(current_app)
 def user_registered_sighandler(app, user, confirmation_token, **kwargs):
     default_role = app.security.datastore.find_or_create_role(
         name="user", permissions={"user-read", "user-write"}
@@ -237,7 +254,7 @@ def user_registered_sighandler(app, user, confirmation_token, **kwargs):
     app.security.datastore.add_role_to_user(user, default_role)
 
 
-def main():
+def main(app):
     with app.app_context():
         # Download the icon sets if they aren't already in the DB
         icons = db.session.query(Icon).count()
@@ -321,5 +338,6 @@ def main():
             app.plugin_manager.stop_plugins()
 
 
-if __name__ == '__main__':
-    main()
+def start():
+    app = create_app(cli=False)
+    main(app)

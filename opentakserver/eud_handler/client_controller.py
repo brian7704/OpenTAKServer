@@ -481,7 +481,6 @@ class ClientController(Thread):
                 self.logger.debug("Published message to " + routing_key)
 
     def unbind_rabbitmq_queues(self):
-        self.logger.info("closed: " + self.rabbit_channel.is_closed + " is_closing: " + self.rabbit_channel.is_closing)
         if self.uid and self.rabbit_channel and not self.rabbit_channel.is_closing and not self.rabbit_channel.is_closed:
             self.rabbit_channel.queue_unbind(queue=self.uid, exchange="missions", routing_key="missions")
             self.rabbit_channel.queue_unbind(queue=self.uid, exchange="cot")

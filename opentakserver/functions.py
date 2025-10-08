@@ -119,16 +119,16 @@ def cot_type_to_2525c(cot_type):
     return mil_std_2525c
 
 
-def datetime_from_iso8601_string(datetime_string):
+def datetime_from_iso8601_string(datetime_string: str | None) -> datetime:
     if not datetime_string:
         return datetime.now(timezone.utc)
     try:
         dt = datetime.strptime(datetime_string, ISO8601_FORMAT)
-        dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=timezone.utc)
         return dt
     except ValueError:
         dt = datetime.strptime(datetime_string, ISO8601_FORMAT_NO_MICROSECONDS)
-        dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=timezone.utc)
         return dt
 
 

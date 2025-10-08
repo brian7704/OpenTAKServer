@@ -109,7 +109,7 @@ class DefaultConfig:
     OTS_DELETE_OLD_DATA_WEEKS = 1
 
     # flask-sqlalchemy
-    SQLALCHEMY_DATABASE_URI = "sqlite:////{}".format(os.path.join(OTS_DATA_FOLDER, 'ots.db'))
+    SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg://ots:POSTGRESQL_PASSWORD@127.0.0.1/ots"
     SQLALCHEMY_ECHO = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
     SQLALCHEMY_TRACK_MODIFICATIONS = False
