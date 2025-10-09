@@ -31,7 +31,8 @@ class User(db.Model, fsqla.FsUserMixin):
             'login_count': self.login_count,
             'euds': [eud.serialize() for eud in self.euds],
             'video_streams': [v.serialize() for v in self.video_streams],
-            'roles': [role.serialize() for role in self.roles]
+            'roles': [role.serialize() for role in self.roles],
+            'groups': [group.serialize() for group in self.groups]
         }
 
     def to_json(self):

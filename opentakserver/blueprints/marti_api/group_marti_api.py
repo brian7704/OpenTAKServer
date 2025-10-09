@@ -1,6 +1,9 @@
 import datetime
+import traceback
 
+import bleach
 from flask import Blueprint, current_app as app, jsonify, request
+from flask_security import current_user
 
 from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.extensions import db, logger
@@ -80,9 +83,49 @@ def put_active_bits():
 @group_api.route('/Marti/api/groups/active', methods=['PUT'])
 def put_active_groups():
     # [{"name":"__ANON__","direction":"OUT","created":1729814400000,"type":"SYSTEM","bitpos":2,"active":true},{"name":"__ANON__","direction":"IN","created":1729814400000,"type":"SYSTEM","bitpos":2,"active":true}]
-    # OTS only supports the __ANON__ group now so just return 200 until group support is fully implemented
+    logger.warning(request.json)
+    logger.warning(request.args)
 
-    return '', 200
+    uid = request.args.get("clientUid")
+    if not uid:
+        return jsonify({'success': False, 'error': "clientUid required"}), 400
+
+    for subscription in request.json:
+        group_name = subscription.get("name")
+        if not group_name:
+            return jsonify({"success": False, "error": "Group name is required"}), 400
+
+        group_name = bleach.clean(group_name)
+
+        group = db.session.execute(db.session.query(Group).filter_by(name=group_name)).first()
+
+        if not group:
+            return jsonify({"success": False, "error": f"{subscription.get('group')} group doesn't exist"}), 404
+
+        group = group[0]
+
+        try:
+            group_user = db.session.execute(db.session.query(GroupUser).filter_by(user_id=current_user.id, group_id=group.id, direction=subscription.get("direction"))).first()
+            if not group_user:
+                group_user = GroupUser()
+                group_user.user_id = current_user.id
+                group_user.group_id = group.id
+                group_user.direction = subscription.get("direction")
+                group_user.enabled = subscription.get("active")
+                db.session.add(group_user)
+                db.session.commit()
+            else:
+                group_user = group_user[0]
+                group_user.enabled = subscription.get("active")
+                db.session.add(group_user)
+                db.session.commit()
+
+                return '', 200
+
+        except BaseException as e:
+            logger.error(f"Failed to update group subscriptions for {current_user.username}: {e}")
+            logger.debug(traceback.format_exc())
+            return jsonify({"success": False, "error": f"Failed to update group subscriptions for {current_user.username}: {e}"}), 400
 
 
 @group_api.route('/Marti/api/groups/update/<username>')
