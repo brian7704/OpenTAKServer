@@ -1303,7 +1303,7 @@ def delete_content(mission_name: str):
 
         try:
             mission_content_mission = db.session.execute(db.session.query(MissionContentMission)
-                                                         .filter_by(mission_name=mission_name, mission_content_id=content.uid)).first()
+                                                         .filter_by(mission_name=mission_name, mission_content_id=content.id)).first()
             if mission_content_mission:
                 db.session.delete(mission_content_mission[0])
                 db.session.commit()
