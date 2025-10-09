@@ -7,7 +7,8 @@ from flask_security import current_user
 
 from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.extensions import db, logger
-from opentakserver.models.Group import Group
+from opentakserver.models.Group import Group, GroupDirectionEnum
+from opentakserver.models.GroupEUD import GroupEUD
 from opentakserver.models.GroupUser import GroupUser
 
 group_api = Blueprint('group_api', __name__)
@@ -90,6 +91,14 @@ def put_active_groups():
     if not uid:
         return jsonify({'success': False, 'error': "clientUid required"}), 400
 
+    direction = request.args.get("direction")
+    if not direction or (direction != GroupDirectionEnum.IN and direction != GroupDirectionEnum.OUT):
+        return jsonify({"success": False, "error": f"Direction must be IN or OUT"}), 400
+
+    active = request.args.get("active")
+    if not isinstance(active, bool):
+        return jsonify({"success": False, "error": "Invalid value for active attribute"}), 400
+
     for subscription in request.json:
         group_name = subscription.get("name")
         if not group_name:
@@ -105,22 +114,22 @@ def put_active_groups():
         group = group[0]
 
         try:
-            group_user = db.session.execute(db.session.query(GroupUser).filter_by(user_id=current_user.id, group_id=group.id, direction=subscription.get("direction"))).first()
-            if not group_user:
-                group_user = GroupUser()
-                group_user.user_id = current_user.id
-                group_user.group_id = group.id
-                group_user.direction = subscription.get("direction")
-                group_user.enabled = subscription.get("active")
-                db.session.add(group_user)
+            group_eud = db.session.execute(db.session.query(GroupEUD).filter_by(eud_uid=uid, group_name=group.name, direction=direction)).first()
+            if not group_eud:
+                group_eud = GroupEUD()
+                group_eud.eud_uid = uid
+                group_eud.group_name = group.name
+                group_eud.direction = direction
+                group_eud.enabled = active
+                db.session.add(group_eud)
                 db.session.commit()
             else:
-                group_user = group_user[0]
-                group_user.enabled = subscription.get("active")
-                db.session.add(group_user)
+                group_eud = group_eud[0]
+                group_eud.enabled = active
+                db.session.add(group_eud)
                 db.session.commit()
 
-                return '', 200
+            return '', 200
 
         except BaseException as e:
             logger.error(f"Failed to update group subscriptions for {current_user.username}: {e}")
