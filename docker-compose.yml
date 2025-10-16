@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     tty: true
     ports:
-      - "127.0.0.1:8081:8081" # OTS listens on this port on the loopback interface for HTTP(S) requests
+      - "8081:8081" # OTS listens on this port on the loopback interface for HTTP(S) requests
     volumes:
       - "./persistent/ots:/app/ots:rw"
     depends_on:
@@ -20,6 +20,10 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
+    environment:
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg://ots:password@ots-db/ots
+      OTS_RABBITMQ_SERVER_ADDRESS: rabbitmq
+      OTS_LISTENER_ADDRESS: 0.0.0.0
 
   ots_cot_parser:
     build:
@@ -37,6 +41,9 @@ services:
     depends_on:
       ots:
         condition: service_healthy
+    environment:
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg://ots:password@ots-db/ots
+      OTS_RABBITMQ_SERVER_ADDRESS: rabbitmq
 
   ots_eud_handler:
     build:
@@ -49,14 +56,13 @@ services:
     command: python3 /app/.opentakserver_venv/bin/eud_handler
     ports:
       - "0.0.0.0:8088:8088" # TCP CoT streaming port
-      - "0.0.0.0:8089:8089" # SSL CoT streaming port
     healthcheck:
       disable: true
     volumes:
       - "./persistent/ots:/app/ots:rw"
-    depends_on:
-      ots:
-        condition: service_healthy
+    environment:
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg://ots:password@ots-db/ots
+      OTS_RABBITMQ_SERVER_ADDRESS: rabbitmq
 
   ots_eud_handler_ssl:
     build:
@@ -66,14 +72,16 @@ services:
     hostname: ots_eud_handler_ssl
     restart: unless-stopped
     tty: true
-    command: python3 /app/.opentakserver_venv/bin/eud_handler --ssl
+    command: python3 /app/venv/bin/eud_handler --ssl
     ports:
-      - "0.0.0.0:8088:8088" # TCP CoT streaming port
       - "0.0.0.0:8089:8089" # SSL CoT streaming port
     healthcheck:
       disable: true
     volumes:
       - "./persistent/ots:/app/ots"
+    environment:
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg://ots:password@ots-db/ots
+      OTS_RABBITMQ_SERVER_ADDRESS: rabbitmq
     depends_on:
       ots:
         condition: service_healthy
@@ -137,7 +145,6 @@ services:
       - "0.0.0.0:8888:8888" # HLS video streams
       - "0.0.0.0:8889:8889" # WebRTC streams
       - "0.0.0.0:8890:8890/udp" # SRT streams
-      - "127.0.0.1:9997:9997" # DEBUG
     volumes:
       - "./persistent/ots:/app/ots"
       - "./persistent/ots/mediamtx/mediamtx.yml:/mediamtx.yml"
@@ -157,6 +164,7 @@ services:
       PGUSER: ots
     volumes:
       - "./persistent/db:/app/ots"
+      - "./persistent/ots/pgdata:/var/lib/postgresql"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready"]
       interval: 1s

@@ -12,9 +12,10 @@ RUN chown -R ots:ots /app
 RUN python -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
-RUN pip install opentakserver
+RUN pip install git+https://github.com/brian7704/OpenTAKServer.git@docker
 
-USER ots
+RUN /app/venv/bin/flask --app /app/venv/lib/python3.13/site-packages/opentakserver/app.py ots create-ca
+#RUN /app/venv/bin/flask --app /app/venv/lib/python3.13/site-packages/opentakserver/app.py db upgrade
 
 EXPOSE 8081
 
