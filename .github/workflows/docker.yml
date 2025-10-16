@@ -12,6 +12,16 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerfile: ./opentakserver/cot_parser/Dockerfile
+            image: ghcr.io/brian7704/ots_cot_parser
+          - dockerfile: ./opentakserver/eud_handler/Dockerfile
+            image: ghcr.io/brian7704/ots_eud_handler
+          - dockerfile: ./opentakserver/eud_handler/Dockerfile-ssl
+            image: ghcr.io/brian7704/ots_eud_handler_ssl
     permissions:
       contents: read
       packages: write
@@ -33,13 +43,14 @@ jobs:
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        images: ${{ matrix.image }}
 
     - name: Build and push Docker image
       id: push
       uses: docker/build-push-action@v6
       with:
         context: .
+        file: ${{ matrix.dockerfile }}
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
