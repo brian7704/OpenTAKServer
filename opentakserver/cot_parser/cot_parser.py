@@ -76,8 +76,9 @@ class CoTController:
         self.rabbit_channel = None
 
     def run(self):
-        self.rabbit_connection = pika.BlockingConnection(
-            pika.ConnectionParameters(self.context.app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+        rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+        rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+        self.rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
         self.rabbit_channel = self.rabbit_connection.channel()
         self.rabbit_channel.queue_declare(queue='cot_controller')
         self.rabbit_channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')

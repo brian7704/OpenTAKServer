@@ -90,8 +90,9 @@ class ClientController(Thread):
 
         # RabbitMQ
         try:
-            self.rabbit_connection = pika.SelectConnection(pika.ConnectionParameters(self.app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")),
-                                                           self.on_connection_open)
+            rabbit_credentials = pika.PlainCredentials(self.app.config.get("OTS_RABBITMQ_USERNAME"), self.app.config.get("OTS_RABBITMQ_PASSWORD"))
+            rabbit_host = self.app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+            self.rabbit_connection = pika.SelectConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials), self.on_connection_open)
             self.rabbit_channel: Channel | None = None
             # Start the pika ioloop in a thread or else it blocks and we can't receive any CoT messages
             self.iothread = Thread(target=self.rabbit_connection.ioloop.start, name="IOLOOP")

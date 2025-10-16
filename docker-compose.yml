@@ -1,0 +1,174 @@
+services:
+  ots:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: opentakserver
+    hostname: opentakserver
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "8081:8081" # OTS listens on this port on the loopback interface for HTTP(S) requests
+    volumes:
+      - "./persistent/ots:/app/ots:rw"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: curl --fail http://localhost:8081/api/health || exit 1
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    environment:
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg://ots:password@ots-db/ots
+      OTS_RABBITMQ_SERVER_ADDRESS: rabbitmq
+      OTS_LISTENER_ADDRESS: 0.0.0.0
+
+  ots_cot_parser:
+    build:
+      context: ./opentakserver/cot_parser/
+      dockerfile: Dockerfile
+    container_name: ots_cot_parser
+    hostname: ots-cot_parser
+    restart: unless-stopped
+    tty: true
+    command: python3 /app/.opentakserver_venv/bin/cot_parser
+    healthcheck:
+      disable: true
+    volumes:
+      - "./persistent/ots:/app/ots:rw"
+    depends_on:
+      ots:
+        condition: service_healthy
+    environment:
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg://ots:password@ots-db/ots
+      OTS_RABBITMQ_SERVER_ADDRESS: rabbitmq
+
+  ots_eud_handler:
+    build:
+      context: ./opentakserver/eud_handler/
+      dockerfile: Dockerfile
+    container_name: ots_eud_handler
+    hostname: ots_eud_handler
+    restart: unless-stopped
+    tty: true
+    command: python3 /app/.opentakserver_venv/bin/eud_handler
+    ports:
+      - "0.0.0.0:8088:8088" # TCP CoT streaming port
+    healthcheck:
+      disable: true
+    volumes:
+      - "./persistent/ots:/app/ots:rw"
+    environment:
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg://ots:password@ots-db/ots
+      OTS_RABBITMQ_SERVER_ADDRESS: rabbitmq
+
+  ots_eud_handler_ssl:
+    build:
+      context: ./opentakserver/eud_handler/
+      dockerfile: Dockerfile-ssl
+    container_name: ots_eud_handler_ssl
+    hostname: ots_eud_handler_ssl
+    restart: unless-stopped
+    tty: true
+    command: python3 /app/venv/bin/eud_handler --ssl
+    ports:
+      - "0.0.0.0:8089:8089" # SSL CoT streaming port
+    healthcheck:
+      disable: true
+    volumes:
+      - "./persistent/ots:/app/ots"
+    environment:
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg://ots:password@ots-db/ots
+      OTS_RABBITMQ_SERVER_ADDRESS: rabbitmq
+    depends_on:
+      ots:
+        condition: service_healthy
+
+  ots-webui:
+    image: ghcr.io/milsimdk/ots-ui-docker-image:latest
+    container_name: ots-webui
+    hostname: opentakserver-webui
+    restart: unless-stopped
+
+  nginx-proxy:
+    build:
+      context: .
+      dockerfile: persistent/nginx/Dockerfile
+    container_name: nginx-proxy
+    hostname: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:80:80" # HTTP Web UI
+      - "0.0.0.0:443:443" # HTTPS Web UI
+      - "0.0.0.0:8080:8080" # HTTP API requests to OpenTAKServer port 8081
+      - "0.0.0.0:8443:8443" # HTTPS API requests to OpenTAKServer port 8081
+      - "0.0.0.0:8446:8446" # Proxy for certificate enrollment to OpenTAKServer port 8081
+      - "0.0.0.0:8883:8883" # Proxy for MQTT / Meshtastic to Rabbitmq port 1883
+    volumes:
+      - "./persistent/ots/ca:/app/ots/ca:ro"
+      - "./persistent/nginx/templates:/etc/nginx/templates:ro"
+    depends_on:
+      ots:
+        condition: service_healthy
+
+  rabbitmq:
+    image: rabbitmq:latest
+    container_name: rabbitmq
+    hostname: rabbitmq
+    restart: unless-stopped
+    volumes:
+      - "/etc/timezone:/etc/timezone:ro"
+      - "./persistent/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro"
+      - "./persistent/rabbitmq/99-opentakserver.conf:/etc/rabbitmq/conf.d/99-opentakserver.conf:ro"
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  mediamtx:
+    image: bluenviron/mediamtx:1.13.0-ffmpeg
+    container_name: mediamtx
+    hostname: mediamtx
+    restart: unless-stopped
+#    network_mode: host
+    ports:
+      - "0.0.0.0:1935:1935" # RTMP video streams
+      - "0.0.0.0:1936:1936" # RTMPS video streams
+      - "0.0.0.0:8000:8000/udp" # RTP video streams
+      - "0.0.0.0:8001:8001/udp" # RTCP video streams
+      - "0.0.0.0:8189:8189/udp" # WebRTC
+      - "0.0.0.0:8322:8322" # RTSP(S) video streams
+      - "0.0.0.0:8554:8554" # RTSP video streams
+      - "0.0.0.0:8888:8888" # HLS video streams
+      - "0.0.0.0:8889:8889" # WebRTC streams
+      - "0.0.0.0:8890:8890/udp" # SRT streams
+    volumes:
+      - "./persistent/ots:/app/ots"
+      - "./persistent/ots/mediamtx/mediamtx.yml:/mediamtx.yml"
+    depends_on:
+      ots:
+        condition: service_healthy
+
+  ots-db:
+    image: postgis/postgis:18-3.6
+    container_name: ots-db
+    hostname: ots-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: ots
+      POSTGRES_DB: ots
+      PGUSER: ots
+    volumes:
+      - "./persistent/db:/app/ots"
+      - "./persistent/ots/pgdata:/var/lib/postgresql"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 1s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
