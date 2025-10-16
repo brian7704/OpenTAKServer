@@ -1,5 +1,8 @@
 services:
   ots:
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: opentakserver
     hostname: opentakserver
     restart: unless-stopped
@@ -7,12 +10,21 @@ services:
     ports:
       - "127.0.0.1:8081:8081" # OTS listens on this port on the loopback interface for HTTP(S) requests
     volumes:
-      - "./persistent/ots:/app/ots"
+      - "./persistent/ots:/app/ots:rw"
     depends_on:
       rabbitmq:
         condition: service_healthy
+    healthcheck:
+      test: curl --fail http://localhost:8081/api/health || exit 1
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
   ots_cot_parser:
+    build:
+      context: ./opentakserver/cot_parser/
+      dockerfile: Dockerfile
     container_name: ots_cot_parser
     hostname: ots-cot_parser
     restart: unless-stopped
@@ -21,12 +33,15 @@ services:
     healthcheck:
       disable: true
     volumes:
-      - "./persistent/ots:/app/ots"
+      - "./persistent/ots:/app/ots:rw"
     depends_on:
       ots:
         condition: service_healthy
 
   ots_eud_handler:
+    build:
+      context: ./opentakserver/eud_handler/
+      dockerfile: Dockerfile
     container_name: ots_eud_handler
     hostname: ots_eud_handler
     restart: unless-stopped
@@ -38,12 +53,15 @@ services:
     healthcheck:
       disable: true
     volumes:
-      - "./persistent/ots:/app/ots"
+      - "./persistent/ots:/app/ots:rw"
     depends_on:
       ots:
         condition: service_healthy
 
   ots_eud_handler_ssl:
+    build:
+      context: ./opentakserver/eud_handler/
+      dockerfile: Dockerfile-ssl
     container_name: ots_eud_handler_ssl
     hostname: ots_eud_handler_ssl
     restart: unless-stopped
@@ -61,6 +79,7 @@ services:
         condition: service_healthy
 
   ots-webui:
+    image: ghcr.io/milsimdk/ots-ui-docker-image:latest
     container_name: ots-webui
     hostname: opentakserver-webui
     restart: unless-stopped
@@ -132,9 +151,10 @@ services:
     hostname: ots-db
     restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: ${POSTGRESQL_PASSWORD}
+      POSTGRES_PASSWORD: password
       POSTGRES_USER: ots
       POSTGRES_DB: ots
+      PGUSER: ots
     volumes:
       - "./persistent/db:/app/ots"
     healthcheck:

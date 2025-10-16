@@ -6,7 +6,7 @@ WORKDIR /app/opentakserver
 
 COPY . /app/
 
-RUN chown -R appuser:appgroup /app
+RUN chown -R ots:ots /app
 
 RUN python -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
