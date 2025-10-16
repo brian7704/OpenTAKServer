@@ -4,6 +4,7 @@ import traceback
 from urllib.parse import urlparse, unquote
 
 from OpenSSL import crypto
+from OpenSSL.crypto import X509
 from flask import request, Blueprint, current_app as app, jsonify, send_from_directory
 from flask_security import current_user
 from simplekml import Kml, GxTrack, IconStyle, Icon, Style, GxMultiTrack, Document
@@ -19,7 +20,7 @@ marti_api = Blueprint('marti_api', __name__)
 
 # Verifies the client cert forwarded by nginx in the X-Ssl-Cert header
 # Returns the parsed cert if valid, otherwise returns False
-def verify_client_cert():
+def verify_client_cert() -> X509 | bool:
     cert_header = app.config.get("OTS_SSL_CERT_HEADER")
     if cert_header not in request.headers:
         return False

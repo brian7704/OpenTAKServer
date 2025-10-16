@@ -26,6 +26,7 @@ from opentakserver.extensions import db, ldap_manager
 from opentakserver.functions import datetime_from_iso8601_string, iso8601_string_from_datetime
 from opentakserver.models.Chatrooms import Chatroom
 from opentakserver.models.EUD import EUD
+from opentakserver.models.GroupUser import GroupUser
 from opentakserver.models.Meshtastic import MeshtasticChannel
 from opentakserver.models.Mission import Mission
 from opentakserver.models.CasEvac import CasEvac
@@ -345,7 +346,7 @@ class ClientController(Thread):
         contact = event.find('contact')
 
         # Only assume it's an EUD if it's got a <takv> tag
-        if takv and contact and uid and not uid.endswith('ping'):
+        if takv and contact and uid and not uid.endswith('ping') and self.user:
             self.uid = uid
             device = takv.attrs['device'] if 'device' in takv.attrs else ""
             operating_system = takv.attrs['os'] if 'os' in takv.attrs else ""
@@ -372,6 +373,14 @@ class ClientController(Thread):
                     self.rabbit_channel.queue_bind(exchange='dms', queue=self.uid, routing_key=self.uid)
                     self.rabbit_channel.queue_bind(exchange='dms', queue=self.callsign, routing_key=self.callsign)
                     self.rabbit_channel.queue_bind(exchange='chatrooms', queue=self.uid, routing_key='All Chat Rooms')
+
+                    with self.app.app_context():
+                        groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id)).all()
+                        for group in groups:
+                            group = group[0]
+                            if group.enabled:
+                                self.rabbit_channel.queue_bind(exchange="groups", routing_key=group.group.name, queue=self.uid)
+                                self.rabbit_channel.queue_bind(exchange="groups", routing_key=group.group.name, queue=self.callsign)
 
                     with self.app.app_context():
                         online_euds = self.db.session.execute(select(EUD).filter(EUD.last_status == 'Connected')).all()
@@ -513,6 +522,7 @@ class ClientController(Thread):
         if self.uid and self.rabbit_channel and not self.rabbit_channel.is_closing and not self.rabbit_channel.is_closed:
             self.rabbit_channel.queue_unbind(queue=self.uid, exchange="missions", routing_key="missions")
             self.rabbit_channel.queue_unbind(queue=self.uid, exchange="cot")
+            self.rabbit_channel.queue_unbind(queue=self.uid, exchange="groups")
             with self.app.app_context():
                 missions = db.session.execute(db.session.query(Mission)).all()
                 for mission in missions:

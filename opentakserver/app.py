@@ -122,6 +122,7 @@ def init_extensions(app):
     channel.queue_declare(queue='cot_controller')
     channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
     channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
+    channel.exchange_declare("groups", durable=True, exchange_type='topic')  # For channels/groups
 
     if not apscheduler.running:
         apscheduler.init_app(app)

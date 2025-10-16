@@ -23,18 +23,23 @@ class GroupDirectionEnum(str, enum.Enum):
 class Group(db.Model):
     __tablename__ = "groups"
 
+    IN = "IN"
+    OUT = "OUT"
+    SYSTEM = "SYSTEM"
+    LDAP = "LDAP"
+
     def __init__(self):
         super().__init__()
         self.bitpos = self.get_next_bitpos()
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(255))
+    name: Mapped[str] = mapped_column(String(255), unique=True)
     distinguishedName: Mapped[str] = mapped_column(String(255), nullable=True)
     created: Mapped[datetime] = mapped_column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
     type: Mapped[str] = mapped_column(String(255))
     bitpos: Mapped[int] = mapped_column(Integer)
     description: Mapped[str] = mapped_column(String, nullable=True)
-    users = relationship("User", secondary="groups_users", back_populates="groups", cascade="all, delete")
+    users = relationship("User", secondary="groups_users", viewonly=True, back_populates="groups", cascade="all, delete")
 
     def get_next_bitpos(self) -> int:
         # the __ANON__ group is always 2 so default to 3 here
@@ -69,7 +74,7 @@ class Group(db.Model):
     def to_marti_json_in(self):
         return {
             'name': self.name,
-            'direction': GroupDirectionEnum.IN,
+            'direction': Group.IN,
             'created': iso8601_string_from_datetime(self.created).split("T")[0],
             'type': self.type,
             'bitpos': self.bitpos,
@@ -79,5 +84,5 @@ class Group(db.Model):
 
     def to_marti_json_out(self):
         return_value = self.to_marti_json_in()
-        return_value['direction'] = GroupDirectionEnum.OUT
+        return_value['direction'] = Group.OUT
         return return_value

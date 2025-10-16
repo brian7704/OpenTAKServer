@@ -6,7 +6,7 @@ from flask_security import roles_required
 
 from opentakserver.extensions import db, logger
 from opentakserver.blueprints.ots_api.api import search, paginate
-from opentakserver.models.Group import Group, GroupDirectionEnum, GroupTypeEnum
+from opentakserver.models.Group import Group
 from opentakserver.models.GroupUser import GroupUser
 
 group_api = Blueprint("group_api", __name__)
@@ -48,7 +48,7 @@ def add_group():
         if not group:
             group = Group()
             group.name = name
-            group.type = GroupTypeEnum.SYSTEM
+            group.type = Group.SYSTEM
             group.description = description
             db.session.add(group)
             db.session.commit()

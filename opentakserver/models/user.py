@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from opentakserver.extensions import db
+from opentakserver.models.Group import Group
 # Leave this import here
 from opentakserver.models.Token import Token
 from sqlalchemy import String
@@ -17,7 +18,7 @@ class User(db.Model, fsqla.FsUserMixin):
     certificate = relationship("Certificate", back_populates="user")
     mission_invitations = relationship("MissionInvitation", back_populates="user")
     tokens = relationship("Token", back_populates="user")
-    groups = relationship("Group", secondary="groups_users", back_populates="users", cascade="all, delete")
+    groups = relationship("Group", secondary="groups_users", viewonly=True, back_populates="users", cascade="all, delete")
 
     def serialize(self):
         return {
