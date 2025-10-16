@@ -16,6 +16,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - dockerfile: ./Dockerfile
+            image: ghcr.io/brian7704/opentakserver
           - dockerfile: ./opentakserver/cot_parser/Dockerfile
             image: ghcr.io/brian7704/ots_cot_parser
           - dockerfile: ./opentakserver/eud_handler/Dockerfile
@@ -58,6 +60,6 @@ jobs:
     - name: Generate artifact attestation
       uses: actions/attest-build-provenance@v3
       with:
-        subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
+        subject-name: ${{ matrix.image }}
         subject-digest: ${{ steps.push.outputs.digest }}
         push-to-registry: true
