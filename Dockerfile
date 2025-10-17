@@ -2,7 +2,7 @@ FROM python:3.13
 
 RUN addgroup --gid 1024 ots
 RUN adduser --home /app --disabled-password --gecos "" --force-badname --gid 1024 ots
-RUN apt update && apt install ffmpeg
+RUN apt update && apt install ffmpeg -y
 
 USER ots
 
