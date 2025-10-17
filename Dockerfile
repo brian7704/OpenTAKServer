@@ -2,6 +2,7 @@ FROM python:3.13
 
 RUN addgroup --gid 1024 ots
 RUN adduser --home /app --disabled-password --gecos "" --force-badname --gid 1024 ots
+RUN apt update && apt install ffmpeg
 
 USER ots
 
@@ -12,7 +13,8 @@ RUN chown -R ots:ots /app
 RUN python -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
-RUN pip install git+https://github.com/brian7704/OpenTAKServer.git@docker
+# TODO: Install from PyPI
+RUN pip install git+https://github.com/brian7704/OpenTAKServer.git
 
 RUN /app/venv/bin/flask --app /app/venv/lib/python3.13/site-packages/opentakserver/app.py ots create-ca
 #RUN /app/venv/bin/flask --app /app/venv/lib/python3.13/site-packages/opentakserver/app.py db upgrade
