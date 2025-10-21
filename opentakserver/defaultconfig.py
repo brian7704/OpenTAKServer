@@ -22,6 +22,14 @@ class DefaultConfig:
     OTS_BACKUP_COUNT = int(os.getenv("OTS_BACKUP_COUNT", 7))
     OTS_ENABLE_CHANNELS = os.getenv("OTS_ENABLE_CHANNELS", "True").lower() in ["true", "1", "yes"]
 
+    # Multicast Settings
+    OTS_ENABLE_MULTICAST = os.getenv("OTS_ENABLE_MULTICAST", "False").lower() in ["true", "1", "yes"]
+    OTS_MULTICAST_ADDRESS = os.getenv("OTS_MULTICAST_ADDRESS", "239.2.3.1")
+    OTS_MULTICAST_PORT = int(os.getenv("OTS_MULTICAST_PORT", 8087))
+    OTS_MULTICAST_TTL = int(os.getenv("OTS_MULTICAST_TTL", 1))
+    OTS_MULTICAST_SEND = os.getenv("OTS_MULTICAST_SEND", "True").lower() in ["true", "1", "yes"]
+    OTS_MULTICAST_RECEIVE = os.getenv("OTS_MULTICAST_RECEIVE", "True").lower() in ["true", "1", "yes"]
+
     # RabbitMQ Settings
     OTS_RABBITMQ_SERVER_ADDRESS = os.getenv("OTS_RABBITMQ_SERVER_ADDRESS", "127.0.0.1")
     OTS_RABBITMQ_USERNAME = os.getenv("OTS_RABBITMQ_USERNAME", "guest")
