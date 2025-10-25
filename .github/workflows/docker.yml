@@ -1,0 +1,65 @@
+name: Docker Image CI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerfile: ./Dockerfile
+            image: ghcr.io/brian7704/opentakserver
+          - dockerfile: ./opentakserver/cot_parser/Dockerfile
+            image: ghcr.io/brian7704/ots_cot_parser
+          - dockerfile: ./opentakserver/eud_handler/Dockerfile
+            image: ghcr.io/brian7704/ots_eud_handler
+          - dockerfile: ./opentakserver/eud_handler/Dockerfile-ssl
+            image: ghcr.io/brian7704/ots_eud_handler_ssl
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+
+    - name: Log in to the Container registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ matrix.image }}
+
+    - name: Build and push Docker image
+      id: push
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ${{ matrix.dockerfile }}
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+
+    - name: Generate artifact attestation
+      uses: actions/attest-build-provenance@v3
+      with:
+        subject-name: ${{ matrix.image }}
+        subject-digest: ${{ steps.push.outputs.digest }}
+        push-to-registry: true

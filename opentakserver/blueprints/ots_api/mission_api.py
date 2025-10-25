@@ -87,8 +87,9 @@ def create_edit_mission():
             logger.debug(mission.serialize())
             return jsonify({'success': False, 'error': f"Failed to add mission: {e}"}), 400
 
-        rabbit_connection = pika.BlockingConnection(
-            pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+        rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+        rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+        rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
         channel = rabbit_connection.channel()
 
         channel.basic_publish(exchange="missions", routing_key="missions",
@@ -98,6 +99,7 @@ def create_edit_mission():
         channel.basic_publish(exchange="dms", routing_key=creator_uid,
                               body=json.dumps({'uid': creator_uid,
                                                'cot': tostring(generate_invitation_cot(mission, creator_uid)).decode('utf-8')}))
+        channel.close()
 
         return jsonify({'success': True})
 
@@ -140,12 +142,15 @@ def delete_mission():
     db.session.delete(mission)
     db.session.commit()
 
-    rabbit_connection = pika.BlockingConnection(
-        pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
     channel = rabbit_connection.channel()
     channel.basic_publish(exchange="missions", routing_key="missions",
                           body=json.dumps({'uid': app.config.get("OTS_NODE_ID"),
                                            'cot': tostring(generate_mission_delete_cot(mission)).decode('utf-8')}))
+    channel.close()
+    rabbit_connection.close()
 
     return jsonify({'success': True})
 

@@ -1,5 +1,4 @@
 from gevent import monkey
-
 monkey.patch_all()
 
 from opentakserver.models.Group import Group, GroupTypeEnum
@@ -114,7 +113,10 @@ def init_extensions(app):
         socketio_logger = logger
     socketio.init_app(app, logger=socketio_logger, ping_timeout=1, message_queue="amqp://" + app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"))
 
-    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
+
     channel = rabbit_connection.channel()
     channel.exchange_declare('cot', durable=True, exchange_type='fanout')
     channel.exchange_declare('dms', durable=True, exchange_type='direct')
@@ -123,6 +125,8 @@ def init_extensions(app):
     channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
     channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
     channel.exchange_declare("groups", durable=True, exchange_type='topic')  # For channels/groups
+    channel.close()
+    rabbit_connection.close()
 
     if not apscheduler.running:
         apscheduler.init_app(app)
