@@ -15,6 +15,18 @@ group_api = Blueprint("group_api", __name__)
 @group_api.route('/api/groups')
 @roles_required("administrator")
 def get_groups():
+    """ Search groups with filters and pagination
+
+    :parameter: name
+    :parameter: direction
+    :parameter: type
+    :parameter: bitpos
+    :parameter: active
+    :parameter: page
+    :parameter: per_page
+
+    :return: JSON array of groups
+    """
     query = db.session.query(Group)
     query = search(query, Group, 'name')
     query = search(query, Group, 'direction')
@@ -23,6 +35,53 @@ def get_groups():
     query = search(query, Group, 'active')
 
     return paginate(query)
+
+
+@group_api.route('/api/groups/all', methods=["GET"])
+@roles_required("administrator")
+def get_all_groups():
+    """ Get a list of all groups
+
+    :return: JSON array of groups
+    :rtype: Response
+    """
+    groups = db.session.execute(db.session.query(Group)).all()
+    return_value = []
+
+    for group in groups:
+        group = group[0]
+        return_value.append(group.to_json())
+
+    return jsonify(return_value)
+
+
+@group_api.route('/api/groups/members')
+@roles_required("administrator")
+def get_group():
+    """ Get a list of members of a group
+
+    :parameter: name
+
+    :return: JSON array of group members
+    :rtype: Response
+    """
+    group_name = request.args.get("name")
+    if not group_name:
+        return jsonify({"success": False, "error": "Please specify a group name"}), 400
+
+    group_name = bleach.clean(group_name)
+    group = db.session.execute(db.session.query(Group).filter_by(name=group_name)).first()
+    if not group:
+        return jsonify({"success": False, "error": f"Group {group_name} not found"}), 404
+
+    group = group[0]
+    members = db.session.execute(db.session.query(GroupUser).filter_by(group_id=group.id)).all()
+    return_value = []
+    for member in members:
+        member = member[0]
+        return_value.append({"username": member.user.username, "direction": member.direction, "active": member.enabled})
+
+    return return_value
 
 
 @group_api.route('/api/groups', methods=["POST"])

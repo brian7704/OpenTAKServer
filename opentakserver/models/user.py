@@ -22,6 +22,7 @@ class User(db.Model, fsqla.FsUserMixin):
 
     def serialize(self):
         return {
+            'id': self.id,
             'username': self.username,
             'active': self.active,
             'last_login_at': self.last_login_at,

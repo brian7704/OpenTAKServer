@@ -26,6 +26,9 @@ def group_cache_enabled():
 @group_api.route('/Marti/api/groups/all')
 def get_all_groups():
     cert = verify_client_cert()
+    if not cert:
+        return jsonify({"success": False, "error": "Groups are only supported on SSL connections"}), 400
+
     username = cert.get_subject().commonName
     user = app.security.datastore.find_user(username=username)
 

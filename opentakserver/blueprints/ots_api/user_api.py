@@ -215,3 +215,17 @@ def get_users():
     query = search(query, User, 'username')
 
     return paginate(query)
+
+
+@user_api_blueprint.route('/api/users/all')
+@roles_accepted('administrator')
+def get_all_users():
+    users = db.session.execute(db.session.query(User)).all()
+    return_value = []
+
+    for user in users:
+        user = user[0]
+        logger.info(user)
+        return_value.append(user.serialize())
+
+    return return_value
