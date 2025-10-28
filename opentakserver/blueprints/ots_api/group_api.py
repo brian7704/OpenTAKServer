@@ -1,6 +1,7 @@
 import traceback
 
 import bleach
+import sqlalchemy.exc
 from flask import Blueprint, request, jsonify, current_app as app, Response
 from flask_security import roles_required
 
@@ -126,6 +127,9 @@ def add_group():
 @roles_required("administrator")
 def add_user_to_group():
     """ Adds a user to a group. This will allow all the user's EUDs to subscribe and unsubscribe from the channels/groups they're allowed to see.
+    :parameter: users - A list of users to add to a group
+    :parameter: group_name - Name of the group to add users to
+    :parameter: direction - Group direction, can only be IN or OUT
 
     :return: 400 if LDAP is enabled, no group or username is specified, or if the specified group or user doesn't exist or the user is already in the group. 200 on success.
     :rtype: Response
@@ -134,30 +138,42 @@ def add_user_to_group():
     if app.config.get("OTS_ENABLE_LDAP"):
         return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to add users to groups'}), 400
 
-    username = request.json.get("username")
+    users = request.json.get("users")
     group_name = request.json.get("group_name")
+    direction = request.json.get("direction")
 
-    if username is None or group_name is None:
-        return jsonify({"success": False, "error": "Please provide a username and group name"}), 400
+    if users is None or group_name is None or direction is None:
+        return jsonify({"success": False, "error": "Please provide a list of users, group name, and direction"}), 400
 
-    user = app.security.find_user(username=username)
-    if not user:
-        return jsonify({"success": False, "error": f"User {username} does not exist"}), 400
+    if direction != "IN" and direction != "OUT":
+        return jsonify({"success": False, "error": "Direction must be IN or OUT"}), 400
 
-    group = db.session.execute(db.session.query(Group).filter_by(name=group_name)).first()
-    if not group:
-        return jsonify({"success": False, "error": f"Group {group_name} does not exist"}), 400
+    for username in users:
+        user = app.security.datastore.find_user(username=username)
+        if not user:
+            return jsonify({"success": False, "error": f"User {users} does not exist"}), 400
 
-    group_user = GroupUser()
-    group_user.user_id = user.id
-    group_user.group_id = group[0].id
+        group = db.session.execute(db.session.query(Group).filter_by(name=group_name)).first()
+        if not group:
+            return jsonify({"success": False, "error": f"Group {group_name} does not exist"}), 400
+
+        group_user = GroupUser()
+        group_user.user_id = user.id
+        group_user.group_id = group[0].id
+        group_user.direction = direction
+        db.session.add(group_user)
 
     try:
-        db.session.add(group_user)
         db.session.commit()
         return jsonify({"success": True})
+    except sqlalchemy.exc.IntegrityError as e:
+        db.session.rollback()
+        logger.error(f"Failed to add users to the {group_name} group: {e}")
+        return jsonify({"success": False, "error": f"Failed to add users to the {group_name} group: Duplicate entry"}), 400
     except BaseException as e:
-        return jsonify({"success": False, "error": f"User {username} is already in group {group_name}"}), 400
+        db.session.rollback()
+        logger.error(f"Failed to add users to the {group_name} group: {e}")
+        return jsonify({"success": False, "error": f"Failed to add users to the {group_name} group: {e}"}), 400
 
 
 @group_api.route('/api/groups', methods=["DELETE"])
