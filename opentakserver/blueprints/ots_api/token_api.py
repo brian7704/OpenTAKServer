@@ -52,7 +52,7 @@ def cloudtak_oauth_token():
             "sub": user.username
         }, key.read(), algorithm="RS256")
 
-        return jsonify({"access_token": token})
+        return jsonify({"access_token": token, "token_type": "Bearer", "expires_in": 365 * 24 * 60 * 60})
 
 
 @token_api_blueprint.route("/api/atak_qr_string", methods=['POST'])

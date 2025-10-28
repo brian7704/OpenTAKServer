@@ -48,7 +48,7 @@ def client_end_points():
     return_value = {'version': 3, "type": "com.bbn.marti.remote.ClientEndpoint", 'data': [],
                     'nodeId': app.config.get("OTS_NODE_ID")}
     for eud in euds:
-        if not eud.callsign:
+        if not eud.callsign or not eud.last_event_time:
             continue
 
         return_value['data'].append({
