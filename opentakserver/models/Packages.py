@@ -42,6 +42,7 @@ class Packages(db.Model):
     install_on_enrollment: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
     install_on_connection: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
     publish_time: Mapped[datetime] = mapped_column(DateTime)
+    atak_version: Mapped[str] = mapped_column(String(255), nullable=True)
 
     def from_wtform(self, form: PackageForm):
         self.platform = form.platform.data
@@ -61,6 +62,7 @@ class Packages(db.Model):
         self.install_on_enrollment = form.install_on_enrollment.data
         self.install_on_connection = form.install_on_connection.data
         self.publish_time = datetime.now(timezone.utc)
+        self.atak_version = form.atak_version.data
 
         manifest = BeautifulSoup(tostring(apk.get_android_manifest_xml()).decode('utf-8'))
         meta_data = manifest.find_all("meta-data", "lxml")
@@ -96,7 +98,8 @@ class Packages(db.Model):
             'icon_filename': self.icon_filename,
             'install_on_enrollment': self.install_on_enrollment,
             'install_on_connection': self.install_on_connection,
-            'publish_time': self.publish_time
+            'publish_time': self.publish_time,
+            'atak_version': self.atak_version,
         }
 
     def to_json(self):

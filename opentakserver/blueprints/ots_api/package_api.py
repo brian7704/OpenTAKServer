@@ -46,10 +46,19 @@ def get_packages():
 
 
 @packages_blueprint.route('/api/packages/product.infz', methods=['HEAD'])
-@auth_required("session", "token", "basic")
-@roles_accepted("user", "administrator")
 def head_product_infz():
-    return jsonify({'success': True})
+    if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.infz")):
+        return jsonify({'success': True})
+
+    return jsonify({'success': False}), 404
+
+
+@packages_blueprint.route('/api/packages/<atak_version>/product.infz', methods=['HEAD'])
+def head_product_infz_with_version(atak_version: str):
+    if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", atak_version, "product.infz")):
+        return jsonify({'success': True})
+
+    return jsonify({'success': False}), 404
 
 
 @packages_blueprint.route('/api/packages/product.infz', methods=['GET'])
@@ -59,15 +68,30 @@ def get_product_infz():
     return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages"), "product.infz")
 
 
-def create_product_infz():
-    if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.infz")):
-        os.remove(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.infz"))
+@packages_blueprint.route('/api/packages/<atak_version>/product.infz', methods=['GET'])
+@auth_required("session", "token", "basic")
+@roles_accepted("user", "administrator")
+def get_product_infz(atak_version: str):
+    return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", atak_version), "product.infz")
+
+
+def create_product_infz(atak_version: str):
+    product_infz_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.infz")
+    product_inf_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.inf")
+
+    if atak_version:
+        product_infz_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", atak_version, "product.infz")
+        product_inf_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", atak_version, "product.inf")
+        os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", atak_version), exist_ok=True)
+
+    if os.path.exists(product_infz_file):
+        os.remove(product_infz_file)
+
     packages = db.session.execute(db.session.query(Packages)).all()
 
-    with zipfile.ZipFile(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.infz"), mode='a',
-                         compression=zipfile.ZIP_DEFLATED) as zipf:
+    with zipfile.ZipFile(product_infz_file, mode='a', compression=zipfile.ZIP_DEFLATED) as zipf:
 
-        with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.inf"), "w") as inf:
+        with open(product_inf_file, "w") as inf:
             csv_writer = csv.writer(inf)
 
             for package in packages:
@@ -80,8 +104,8 @@ def create_product_infz():
                 if package.icon:
                     zipf.writestr(package.icon_filename, package.icon)
 
-        zipf.write(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.inf"), arcname="product.inf")
-        os.remove(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.inf"))
+        zipf.write(product_inf_file, arcname="product.inf")
+        os.remove(product_inf_file)
 
 
 @packages_blueprint.route('/api/packages', methods=['POST'])

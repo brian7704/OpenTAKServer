@@ -13,6 +13,7 @@ class PackageForm(FlaskForm):
     description = StringField(validators=[Optional()])
     install_on_enrollment = BooleanField(false_values=false_values)
     install_on_connection = BooleanField(false_values=false_values)
+    atak_version = StringField(validators=[Optional()])
 
 
 class PackageUpdateForm(FlaskForm):
