@@ -3,6 +3,7 @@ import datetime
 import os
 import zipfile
 
+import bleach
 import sqlalchemy.exc
 from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
 from flask_security import roles_accepted, auth_required
@@ -10,7 +11,7 @@ from werkzeug.datastructures import ImmutableMultiDict
 
 from opentakserver.forms.package_form import PackageForm, PackageUpdateForm
 from opentakserver.models.Packages import Packages
-from opentakserver.extensions import db
+from opentakserver.extensions import db, logger
 from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.blueprints.marti_api.certificate_enrollment_api import basic_auth
 
@@ -71,15 +72,16 @@ def get_product_infz():
 @packages_blueprint.route('/api/packages/<atak_version>/product.infz', methods=['GET'])
 @auth_required("session", "token", "basic")
 @roles_accepted("user", "administrator")
-def get_product_infz(atak_version: str):
+def get_product_infz_with_version(atak_version: str):
     return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", atak_version), "product.infz")
 
 
-def create_product_infz(atak_version: str):
+def create_product_infz(atak_version: str | None):
     product_infz_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.infz")
     product_inf_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.inf")
 
     if atak_version:
+        atak_version = bleach.clean(atak_version)
         product_infz_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", atak_version, "product.infz")
         product_inf_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", atak_version, "product.inf")
         os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", atak_version), exist_ok=True)
@@ -87,7 +89,10 @@ def create_product_infz(atak_version: str):
     if os.path.exists(product_infz_file):
         os.remove(product_infz_file)
 
-    packages = db.session.execute(db.session.query(Packages)).all()
+    query = db.session.query(Packages)
+    if atak_version:
+        query = query.where(Packages.atak_version == atak_version)
+    packages = db.session.execute(query).all()
 
     with zipfile.ZipFile(product_infz_file, mode='a', compression=zipfile.ZIP_DEFLATED) as zipf:
 
@@ -108,11 +113,27 @@ def create_product_infz(atak_version: str):
         os.remove(product_inf_file)
 
 
+@packages_blueprint.route('/api/packages/repositories.inf')
+def get_repository_inf():
+    versions = Packages.query.distinct(Packages.atak_version).where(Packages.atak_version != None).all()
+    if not versions:
+        return "", 404
+
+    response = ""
+    for version in versions:
+        logger.warn(version.to_json())
+        response += version.atak_version + "\n"
+
+    logger.warning(response)
+    return response, 200
+
+
 @packages_blueprint.route('/api/packages', methods=['POST'])
 @auth_required()
 @roles_accepted("administrator")
 def add_package():
     form = PackageForm()
+    logger.warning(f"ATAK_VERSION: {form.atak_version.data}")
     if not form.validate():
         return jsonify({'success': False, 'errors': form.errors}), 400
 
@@ -133,7 +154,7 @@ def add_package():
         db.session.execute(sqlalchemy.update(Packages).where(Packages.package_name == package.package_name).values(**package.serialize()))
         db.session.commit()
 
-    create_product_infz()
+    create_product_infz(form.atak_version.data)
 
     return jsonify({'success': True})
 
@@ -169,8 +190,14 @@ def delete_package():
     if not package_name:
         return jsonify({'success': False, 'error': 'Please provide the package name of the plugin to delete'}), 400
 
+    atak_version = None
+
     query = db.session.query(Packages)
     query = search(query, Packages, 'package_name')
+    if request.args.get('atak_version'):
+        atak_version = bleach.clean(request.args.get("atak_version"))
+        query = query.where(Packages.atak_version == atak_version)
+
     package = db.session.execute(query).first()
     if not package:
         return jsonify({'success': False, 'error': f'Unknown package name: {package_name}'}), 404
@@ -182,6 +209,6 @@ def delete_package():
     db.session.delete(package)
     db.session.commit()
 
-    create_product_infz()
+    create_product_infz(atak_version)
 
     return jsonify({'success': True})
