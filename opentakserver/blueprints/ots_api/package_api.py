@@ -9,9 +9,10 @@ from flask import current_app as app, request, Blueprint, jsonify, send_from_dir
 from flask_security import roles_accepted, auth_required
 from werkzeug.datastructures import ImmutableMultiDict
 
+from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
 from opentakserver.forms.package_form import PackageForm, PackageUpdateForm
 from opentakserver.models.Packages import Packages
-from opentakserver.extensions import db, logger
+from opentakserver.extensions import db
 from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.blueprints.marti_api.certificate_enrollment_api import basic_auth
 
@@ -48,6 +49,10 @@ def get_packages():
 
 @packages_blueprint.route('/api/packages/product.infz', methods=['HEAD'])
 def head_product_infz():
+    cert = verify_client_cert()
+    if not cert:
+        return '', 401
+
     if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.infz")):
         return jsonify({'success': True})
 
@@ -56,6 +61,10 @@ def head_product_infz():
 
 @packages_blueprint.route('/api/packages/<atak_version>/product.infz', methods=['HEAD'])
 def head_product_infz_with_version(atak_version: str):
+    cert = verify_client_cert()
+    if not cert:
+        return '', 401
+
     if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", atak_version, "product.infz")):
         return jsonify({'success': True})
 
@@ -63,16 +72,15 @@ def head_product_infz_with_version(atak_version: str):
 
 
 @packages_blueprint.route('/api/packages/product.infz', methods=['GET'])
-@auth_required("session", "token", "basic")
-@roles_accepted("user", "administrator")
 def get_product_infz():
     return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages"), "product.infz")
 
 
 @packages_blueprint.route('/api/packages/<atak_version>/product.infz', methods=['GET'])
-@auth_required("session", "token", "basic")
-@roles_accepted("user", "administrator")
 def get_product_infz_with_version(atak_version: str):
+    cert = verify_client_cert()
+    if not cert:
+        return '', 401
     return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", atak_version), "product.infz")
 
 
@@ -115,16 +123,18 @@ def create_product_infz(atak_version: str | None):
 
 @packages_blueprint.route('/api/packages/repositories.inf')
 def get_repository_inf():
+    cert = verify_client_cert()
+    if not cert:
+        return '', 401
+
     versions = Packages.query.distinct(Packages.atak_version).where(Packages.atak_version != None).all()
     if not versions:
         return "", 404
 
     response = ""
     for version in versions:
-        logger.warn(version.to_json())
         response += version.atak_version + "\n"
 
-    logger.warning(response)
     return response, 200
 
 
@@ -133,7 +143,6 @@ def get_repository_inf():
 @roles_accepted("administrator")
 def add_package():
     form = PackageForm()
-    logger.warning(f"ATAK_VERSION: {form.atak_version.data}")
     if not form.validate():
         return jsonify({'success': False, 'errors': form.errors}), 400
 
