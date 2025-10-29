@@ -95,8 +95,8 @@ def put_active_bits():
 def put_active_groups():
     # [{"name":"__ANON__","direction":"OUT","created":1729814400000,"type":"SYSTEM","bitpos":2,"active":true},{"name":"__ANON__","direction":"IN","created":1729814400000,"type":"SYSTEM","bitpos":2,"active":true}]
 
-    logger.warning(request.json)
-    logger.warning(request.args)
+    logger.debug(request.json)
+    logger.debug(request.args)
 
     uid = request.args.get("clientUid")
     if not uid:
@@ -118,6 +118,7 @@ def put_active_groups():
     group_subscriptions = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id)).all()
 
     for subscription in request.json:
+        logger.warning(subscription)
         direction = subscription.get("direction")
         if not direction and direction != Group.IN and direction != Group.OUT:
             logger.error(f"Direction must be IN or OUT: {direction}")
@@ -139,6 +140,7 @@ def put_active_groups():
         for group_subscription in group_subscriptions:
             group_subscription = group_subscription[0]
             if group_subscription.group.name == group_name:
+                logger.error(f"{username} is in the {group_name} group {direction}")
                 group_subscription.enabled = active
                 db.session.add(group_subscription)
 
@@ -148,23 +150,19 @@ def put_active_groups():
                     channel.queue_unbind(queue=uid, exchange="groups", routing_key=f"{group_subscription.group.name}.{group_subscription.direction}")
 
                 user_in_group = True
-                break
 
         if not user_in_group:
             logger.warning(f"{username} is not in the {group_name} group")
             db.session.rollback()
             return jsonify({"success": False, "error": f"{username} is not in the {group_name} group"}), 403
 
+    try:
         db.session.commit()
-
-        try:
-
-            return '', 200
-
-        except BaseException as e:
-            logger.error(f"Failed to update group subscriptions for {current_user.username}: {e}")
-            logger.debug(traceback.format_exc())
-            return jsonify({"success": False, "error": f"Failed to update group subscriptions for {current_user.username}: {e}"}), 400
+        return '', 200
+    except BaseException as e:
+        logger.error(f"Failed to update group subscriptions for {current_user.username}: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({"success": False, "error": f"Failed to update group subscriptions for {current_user.username}: {e}"}), 400
 
 
 @group_api.route('/Marti/api/groups/update/<username>')
