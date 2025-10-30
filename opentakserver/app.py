@@ -118,11 +118,9 @@ def init_extensions(app):
     rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
 
     channel = rabbit_connection.channel()
-    channel.exchange_declare('cot', durable=True, exchange_type='fanout')
     channel.exchange_declare('dms', durable=True, exchange_type='direct')
+    channel.exchange_declare('cot_parser', durable=True, exchange_type='direct')
     channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
-    channel.queue_declare(queue='cot_controller')
-    channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
     channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
     channel.exchange_declare("groups", durable=True, exchange_type='topic')  # For channels/groups
     channel.close()

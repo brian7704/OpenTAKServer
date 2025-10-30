@@ -118,7 +118,6 @@ def put_active_groups():
     group_subscriptions = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id)).all()
 
     for subscription in request.json:
-        logger.warning(subscription)
         direction = subscription.get("direction")
         if not direction and direction != Group.IN and direction != Group.OUT:
             logger.error(f"Direction must be IN or OUT: {direction}")
@@ -139,8 +138,7 @@ def put_active_groups():
         user_in_group = False
         for group_subscription in group_subscriptions:
             group_subscription = group_subscription[0]
-            if group_subscription.group.name == group_name:
-                logger.error(f"{username} is in the {group_name} group {direction}")
+            if group_subscription.group.name == group_name and group_subscription.direction == direction:
                 group_subscription.enabled = active
                 db.session.add(group_subscription)
 
