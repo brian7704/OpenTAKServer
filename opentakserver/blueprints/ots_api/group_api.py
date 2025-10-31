@@ -212,15 +212,22 @@ def delete_group():
     if app.config.get("OTS_ENABLE_LDAP"):
         return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to delete groups'}), 400
 
-    if "name" not in request.json.keys() or not request.json.get("name"):
+    if "group_name" not in request.args.keys() or not request.args.get("group_name"):
         return jsonify({'success': False, 'error': 'Missing name'}), 400
 
     try:
-        db.session.delete(Group).where(Group.name == bleach.clean(request.json.get("name")))
+        group = db.session.execute(db.session.query(Group).filter_by(name=bleach.clean(request.args.get("group_name")))).first()
+        if not group:
+            return jsonify({"success": False, "error": f"No such group: {request.args.get('group_name')}"}), 404
+
+        group = group[0]
+
+        GroupUser.query.filter_by(group_id=group.id).delete()
+        db.session.delete(group)
         db.session.commit()
     except BaseException as e:
-        logger.error(f"Failed to delete {request.json.get('name')}: {e}")
+        logger.error(f"Failed to delete {request.args.get('group_name')}: {e}")
         logger.debug(traceback.format_exc())
-        return jsonify({'success': False, 'error': f"Failed to delete {request.json.get('name')}: {e}"}), 500
+        return jsonify({'success': False, 'error': f"Failed to delete {request.args.get('group_name')}: {e}"}), 500
 
     return jsonify({'success': True})
