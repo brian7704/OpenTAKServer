@@ -58,7 +58,7 @@ def get_all_groups():
 
 @group_api.route('/api/groups/members')
 @roles_required("administrator")
-def get_group():
+def get_group_members():
     """ Get a list of members of a group
 
     :parameter: name
@@ -83,6 +83,41 @@ def get_group():
         return_value.append({"username": member.user.username, "direction": member.direction, "active": member.enabled})
 
     return return_value
+
+
+@group_api.route('/api/groups/members', methods=["DELETE"])
+@roles_required("administrator")
+def remove_user_from_group():
+    username = request.args.get("username")
+    group_name = request.args.get("group_name")
+    direction = request.args.get("direction")
+
+    if not username or not group_name or not direction:
+        return jsonify({"success": False, "error": "Please provide the username, group name, and direction"}), 400
+
+    username = bleach.clean(username)
+    group_name = bleach.clean(group_name)
+    direction = bleach.clean(direction)
+
+    if direction != Group.IN and direction != Group.OUT:
+        return jsonify({"success": False, "error": f"Invalid direction: {direction}"})
+
+    user = app.security.datastore.find_user(username=username)
+    if not user:
+        return jsonify({"success": False, "error": f"User {username} not found"}), 404
+
+    group = db.session.execute(db.session.query(Group).filter_by(name=group_name)).first()
+    if not group:
+        return jsonify({"success": False, "error": f"Group {group_name} not found"}), 404
+
+    try:
+        GroupUser.query.filter_by(group_id=group[0].id, user_id=user.id, direction=direction).delete()
+        db.session.commit()
+        return jsonify({"success": True})
+    except BaseException as e:
+        logger.error(f"Failed to remove {username} from {group_name}: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({"success": False, "error": f"Failed to remove {username} from {group_name}: {e}"}), 500
 
 
 @group_api.route('/api/groups', methods=["POST"])
@@ -177,7 +212,7 @@ def delete_group():
     if app.config.get("OTS_ENABLE_LDAP"):
         return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to delete groups'}), 400
 
-    if "name" not in request.json.keys():
+    if "name" not in request.json.keys() or not request.json.get("name"):
         return jsonify({'success': False, 'error': 'Missing name'}), 400
 
     try:
