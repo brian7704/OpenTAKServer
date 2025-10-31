@@ -1,6 +1,7 @@
 import traceback
 
 import bleach
+import sqlalchemy
 from flask import current_app as app, request, Blueprint, jsonify
 from flask_security import roles_accepted, hash_password, current_user, admin_change_password, auth_required
 
@@ -305,8 +306,7 @@ def add_user_to_groups():
         try:
             db.session.add(membership)
             db.session.commit()
-        except BaseException as e:
-            logger.warning(f"Failed to add {username} to the {group_name} group: {e}")
+        except sqlalchemy.exc.IntegrityError:
             db.session.rollback()
 
     return jsonify({"success": True})

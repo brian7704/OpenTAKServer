@@ -126,7 +126,7 @@ def add_group():
 @group_api.route('/api/groups', methods=["PUT"])
 @roles_required("administrator")
 def add_user_to_group():
-    """ Adds a user to a group. This will allow all the user's EUDs to subscribe and unsubscribe from the channels/groups they're allowed to see.
+    """ Adds a users to a group. This will allow all the user's EUDs to subscribe and unsubscribe from the channels/groups they're allowed to see.
     :parameter: users - A list of users to add to a group
     :parameter: group_name - Name of the group to add users to
     :parameter: direction - Group direction, can only be IN or OUT
@@ -157,23 +157,18 @@ def add_user_to_group():
         if not group:
             return jsonify({"success": False, "error": f"Group {group_name} does not exist"}), 400
 
-        group_user = GroupUser()
-        group_user.user_id = user.id
-        group_user.group_id = group[0].id
-        group_user.direction = direction
-        db.session.add(group_user)
+        membership = GroupUser()
+        membership.user_id = user.id
+        membership.group_id = group[0].id
+        membership.direction = direction
 
-    try:
-        db.session.commit()
-        return jsonify({"success": True})
-    except sqlalchemy.exc.IntegrityError as e:
-        db.session.rollback()
-        logger.error(f"Failed to add users to the {group_name} group: {e}")
-        return jsonify({"success": False, "error": f"Failed to add users to the {group_name} group: Duplicate entry"}), 400
-    except BaseException as e:
-        db.session.rollback()
-        logger.error(f"Failed to add users to the {group_name} group: {e}")
-        return jsonify({"success": False, "error": f"Failed to add users to the {group_name} group: {e}"}), 400
+        try:
+            db.session.add(membership)
+            db.session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            db.session.rollback()
+
+    return jsonify({"success": True})
 
 
 @group_api.route('/api/groups', methods=["DELETE"])
