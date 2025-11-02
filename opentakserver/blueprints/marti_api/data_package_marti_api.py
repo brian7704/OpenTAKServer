@@ -17,6 +17,7 @@ from werkzeug.datastructures.file_storage import FileStorage
 from xml.etree.ElementTree import Element, tostring, SubElement
 
 from opentakserver.extensions import logger, db
+from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.MissionContent import MissionContent
 
@@ -169,8 +170,38 @@ def data_package_metadata(file_hash):
                                    download_name=data_package.filename)
 
 
-@data_package_marti_api.route('/Marti/sync/search', methods=['GET'])
 @data_package_marti_api.route('/Marti/api/sync/search', methods=['GET'])
+def get_data_package():
+    hash = request.args.get("hash")
+    if not hash:
+        return jsonify({"success": False, "error": "Please provide a hash"}), 400
+
+    data_packages = db.session.execute(db.select(DataPackage)).scalars()
+    return_value = {"version": "3", "type": "gov.tak.api.comms.takserver.mission.data.Resource", "data": [],
+                    "messages": [], "nodeId": app.config.get("OTS_NODE_ID")}
+
+    for dp in data_packages:
+        submission_user = "anonymous"
+        if dp.user:
+            submission_user = dp.user.username
+        keywords = []
+        if dp.keywords:
+            keywords = dp.keywords.split(',')
+
+        try:
+            return_value["data"].append({"filename": dp.filename, "keywords": keywords, "mimeType": dp.mime_type,
+                                         "name": dp.filename, "submissionTime": iso8601_string_from_datetime(dp.submission_time),
+                                        "submitter": submission_user, "uid": dp.hash, "creatorUid": dp.creator_uid, "hash": dp.hash,
+                                         "size": dp.size, "tool": dp.tool, "groups": [], "expiration": int(dp.expiration),
+                                         "latitude": 0, "longitude": 0, "altitude": 0})
+        except BaseException as e:
+            logger.error(f"Data package GET failed: {e}")
+            logger.debug(traceback.format_exc())
+
+    return jsonify(return_value)
+
+
+@data_package_marti_api.route('/Marti/sync/search', methods=['GET'])
 def data_package_search():
     data_packages = db.session.execute(db.select(DataPackage)).scalars()
     res = {'resultCount': 0, 'results': []}
