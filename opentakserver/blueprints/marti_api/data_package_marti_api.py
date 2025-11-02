@@ -170,6 +170,7 @@ def data_package_metadata(file_hash):
 
 
 @data_package_marti_api.route('/Marti/sync/search', methods=['GET'])
+@data_package_marti_api.route('/Marti/api/sync/search', methods=['GET'])
 def data_package_search():
     data_packages = db.session.execute(db.select(DataPackage)).scalars()
     res = {'resultCount': 0, 'results': []}
