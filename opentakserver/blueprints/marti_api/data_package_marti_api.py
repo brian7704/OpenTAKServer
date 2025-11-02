@@ -172,11 +172,16 @@ def data_package_metadata(file_hash):
 
 @data_package_marti_api.route('/Marti/api/sync/search', methods=['GET'])
 def get_data_package():
-    hash = request.args.get("hash")
-    if not hash:
-        return jsonify({"success": False, "error": "Please provide a hash"}), 400
+    data_package_hash = request.args.get("hash")
 
-    data_packages = db.session.execute(db.select(DataPackage)).scalars()
+    # TODO: Support keywords
+    keyword = request.args.get("keyword")
+
+    query = db.select(DataPackage)
+    if data_package_hash:
+        query = query.where(DataPackage.hash == data_package_hash)
+
+    data_packages = db.session.execute(query).scalars()
     return_value = {"version": "3", "type": "gov.tak.api.comms.takserver.mission.data.Resource", "data": [],
                     "messages": [], "nodeId": app.config.get("OTS_NODE_ID")}
 
