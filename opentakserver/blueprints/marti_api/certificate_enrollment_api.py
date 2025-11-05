@@ -142,12 +142,13 @@ def sign_csr_v2():
         user = app.security.datastore.find_user(username=username)
 
         try:
-            eud = EUD()
-            eud.uid = uid
-            eud.user_id = user.id
+            if uid:
+                eud = EUD()
+                eud.uid = uid
+                eud.user_id = user.id
 
-            db.session.add(eud)
-            db.session.commit()
+                db.session.add(eud)
+                db.session.commit()
         except sqlalchemy.exc.IntegrityError:
             db.session.rollback()
             eud = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()[0]
@@ -158,37 +159,39 @@ def sign_csr_v2():
 
         try:
             certificate = Certificate()
-            certificate.common_name = common_name
-            certificate.eud_uid = uid
-            certificate.callsign = eud.callsign
-            certificate.expiration_date = datetime.datetime.today() + datetime.timedelta(
-                days=app.config.get("OTS_CA_EXPIRATION_TIME"))
-            certificate.server_address = urlparse(request.url_root).hostname
-            certificate.server_port = app.config.get("OTS_MARTI_HTTPS_PORT")
-            certificate.truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "truststore-root.p12")
-            certificate.user_cert_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name,
-                                                          common_name + ".pem")
-            certificate.csr = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".csr")
-            certificate.cert_password = app.config.get("OTS_CA_PASSWORD")
+            if uid:
+                certificate.common_name = common_name
+                certificate.eud_uid = uid
+                certificate.callsign = eud.callsign
+                certificate.expiration_date = datetime.datetime.today() + datetime.timedelta(
+                    days=app.config.get("OTS_CA_EXPIRATION_TIME"))
+                certificate.server_address = urlparse(request.url_root).hostname
+                certificate.server_port = app.config.get("OTS_MARTI_HTTPS_PORT")
+                certificate.truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "truststore-root.p12")
+                certificate.user_cert_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name,
+                                                              common_name + ".pem")
+                certificate.csr = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".csr")
+                certificate.cert_password = app.config.get("OTS_CA_PASSWORD")
 
-            db.session.add(certificate)
-            db.session.commit()
+                db.session.add(certificate)
+                db.session.commit()
         except sqlalchemy.exc.IntegrityError:
             db.session.rollback()
-            certificate = db.session.execute(db.session.query(Certificate).filter_by(eud_uid=eud.uid)).scalar_one()
-            certificate.common_name = common_name
-            certificate.callsign = eud.callsign
-            certificate.expiration_date = datetime.datetime.today() + datetime.timedelta(
-                days=app.config.get("OTS_CA_EXPIRATION_TIME"))
-            certificate.server_address = urlparse(request.url_root).hostname
-            certificate.server_port = app.config.get("OTS_MARTI_HTTPS_PORT")
-            certificate.truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "truststore-root.p12")
-            certificate.user_cert_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name,
-                                                          common_name + ".pem")
-            certificate.csr = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".csr")
-            certificate.cert_password = app.config.get("OTS_CA_PASSWORD")
+            if uid:
+                certificate = db.session.execute(db.session.query(Certificate).filter_by(eud_uid=eud.uid)).scalar_one()
+                certificate.common_name = common_name
+                certificate.callsign = eud.callsign
+                certificate.expiration_date = datetime.datetime.today() + datetime.timedelta(
+                    days=app.config.get("OTS_CA_EXPIRATION_TIME"))
+                certificate.server_address = urlparse(request.url_root).hostname
+                certificate.server_port = app.config.get("OTS_MARTI_HTTPS_PORT")
+                certificate.truststore_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "truststore-root.p12")
+                certificate.user_cert_filename = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name,
+                                                              common_name + ".pem")
+                certificate.csr = os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".csr")
+                certificate.cert_password = app.config.get("OTS_CA_PASSWORD")
 
-            db.session.commit()
+                db.session.commit()
 
         if request.headers.get('Accept') == 'text/plain':
             return response, 200, {'Content-Type': 'text/plain', 'Content-Encoding': 'charset=UTF-8'}
