@@ -1,8 +1,12 @@
 import os
 
 import Ice
+from flask import Flask
+from flask_ldap3_login import AuthenticationResponseStatus
 
 from flask_security import verify_password
+
+from ..extensions import ldap_manager
 
 # Load up Murmur slice file into Ice
 Ice.loadSlice('', ['-I' + Ice.getSliceDir(), os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Murmur.ice')])
@@ -14,7 +18,7 @@ class MumbleAuthenticator(Murmur.ServerUpdatingAuthenticator):
 
     def __init__(self, app, logger, ice):
         Murmur.ServerUpdatingAuthenticator.__init__(self)
-        self.app = app
+        self.app: Flask = app
         self.logger = logger
         self.ice = ice
 
@@ -31,17 +35,29 @@ class MumbleAuthenticator(Murmur.ServerUpdatingAuthenticator):
             user = self.app.security.datastore.find_user(username=username)
             if not user:
                 self.logger.warning("Mumble auth: User {} not found".format(username))
-                return (-1, None, None)
+                return -1, None, None
             elif not user.active:
                 self.logger.warning("Mumble auth: User {} is deactivated".format(username))
-                return (-1, None, None)
+                return -1, None, None
 
-            if verify_password(password, user.password):
+            if self.app.config.get("OTS_ENABLE_LDAP"):
+                auth_result = ldap_manager.authenticate(username, password)
+                if auth_result.status == AuthenticationResponseStatus.success:
+                    self.logger.info("Mumble auth: {} has been authenticated".format(username))
+
+                    # Keep this import here to avoid a circular import when OTS is started
+                    from opentakserver.blueprints.ots_api.ldap_api import save_user
+
+                    save_user(auth_result.user_dn, auth_result.user_id, auth_result.user_info, auth_result.user_groups)
+
+                    return user.id, user.username, None
+
+            elif verify_password(password, user.password):
                 self.logger.info("Mumble auth: {} has been authenticated".format(username))
-                return (user.id, user.username, None)
+                return user.id, user.username, None
 
             self.logger.warning("Mumble auth: Bad password for {}".format(username))
-            return (-1, None, None)
+            return -1, None, None
 
     def idToTexture(self, id, current=None):
         return
@@ -52,7 +68,7 @@ class MumbleAuthenticator(Murmur.ServerUpdatingAuthenticator):
         """
 
         # We do not expose any additional information so always fall through
-        return (False, None)
+        return False, None
 
     def nameToId(self, name, current=None):
         """

@@ -22,7 +22,6 @@ from opentakserver.models.Certificate import Certificate
 from opentakserver.models.Marker import Marker
 from opentakserver.models.RBLine import RBLine
 from opentakserver.models.Team import Team
-from opentakserver.models.GroupEud import GroupEud
 from opentakserver.models.Group import Group
 from opentakserver.models.EUDStats import EUDStats
 from opentakserver.models.Mission import Mission
@@ -38,7 +37,7 @@ from opentakserver.models.ChatroomsUids import ChatroomsUids
 from opentakserver.models.VideoStream import VideoStream
 from opentakserver.models.VideoRecording import VideoRecording
 from opentakserver.models.WebAuthn import WebAuthn
-from opentakserver.extensions import db, logger
+from opentakserver.extensions import db, logger, ldap_manager
 from opentakserver.defaultconfig import DefaultConfig
 import colorlog
 from flask import Flask
@@ -98,6 +97,10 @@ def create_app():
 
     setup_logging(app)
     db.init_app(app)
+
+    if app.config.get("OTS_ENABLE_LDAP"):
+        logger.info("Enabling LDAP")
+        ldap_manager.init_app(app)
 
     # The rest is required by flask, leave it in
     try:

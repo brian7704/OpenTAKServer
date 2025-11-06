@@ -1,6 +1,8 @@
 from gevent import monkey
 monkey.patch_all()
 
+from opentakserver.models.Group import Group, GroupTypeEnum
+
 from opentakserver.UsernameValidator import UsernameValidator
 
 import sys
@@ -42,7 +44,7 @@ from flask_security.models import fsqla_v3 as fsqla
 from flask_security.signals import user_registered
 
 import opentakserver
-from opentakserver.extensions import logger, db, socketio, mail, apscheduler
+from opentakserver.extensions import logger, db, socketio, mail, apscheduler, ldap_manager
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.models.WebAuthn import WebAuthn
 
@@ -91,6 +93,12 @@ def init_extensions(app):
             "SECURITY_RECOVERABLE": False,
             "SECURITY_TWO_FACTOR_ENABLED_METHODS": ["authenticator"]
         })
+
+    if app.config.get("OTS_ENABLE_LDAP"):
+        logger.info("Enabling LDAP")
+        ldap_manager.init_app(app)
+        identity_attributes.append({"ldap": {}})
+
     app.config.update({"SECURITY_USER_IDENTITY_ATTRIBUTES": identity_attributes})
 
     ca = CertificateAuthority(logger, app)
@@ -110,12 +118,11 @@ def init_extensions(app):
     rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
 
     channel = rabbit_connection.channel()
-    channel.exchange_declare('cot', durable=True, exchange_type='fanout')
     channel.exchange_declare('dms', durable=True, exchange_type='direct')
+    channel.exchange_declare('cot_parser', durable=True, exchange_type='direct')
     channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
-    channel.queue_declare(queue='cot_controller')
-    channel.exchange_declare(exchange='cot_controller', exchange_type='fanout')
     channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
+    channel.exchange_declare("groups", durable=True, exchange_type='topic')  # For channels/groups
     channel.close()
     rabbit_connection.close()
 
@@ -285,6 +292,7 @@ def main(app):
                 db.session.commit()
             except BaseException as e:
                 logger.error("Failed to download icons: {}".format(e))
+                logger.debug(traceback.format_exc())
 
         if app.config.get("DEBUG"):
             logger.debug("Starting in debug mode")
@@ -331,6 +339,16 @@ def main(app):
         except BaseException as e:
             logger.error(f"Failed to load plugins: {e}")
             logger.debug(traceback.format_exc())
+
+    with app.app_context():
+        if not app.config.get("OTS_ENABLE_LDAP") and not db.session.execute(db.session.query(Group)).first():
+            anon_in = Group()
+            anon_in.name = "__ANON__"
+            anon_in.type = GroupTypeEnum.SYSTEM
+            anon_in.bitpos = 2
+            db.session.add(anon_in)
+
+            db.session.commit()
 
     app.start_time = datetime.now(timezone.utc)
 

@@ -46,10 +46,7 @@ class EUD(db.Model):
     rb_lines = relationship("RBLine", cascade="all, delete-orphan", back_populates="eud")
     team = relationship("Team", back_populates="euds")
     owned_missions = relationship("Mission", back_populates="owner")
-    groups = relationship("Group", secondary="groups_euds", back_populates="euds")
     stats = relationship("EUDStats", back_populates="eud")
-    #mission_invitations_uid = relationship("MissionInvitation", back_populates="eud_uid")
-    #mission_invitations_callsign = relationship("MissionInvitation", back_populates="eud_callsign")
 
     def serialize(self):
         return {

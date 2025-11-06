@@ -1,12 +1,15 @@
 import traceback
 
 import bleach
+import sqlalchemy
 from flask import current_app as app, request, Blueprint, jsonify
 from flask_security import roles_accepted, hash_password, current_user, admin_change_password, auth_required
 
 from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.extensions import logger, db
 from opentakserver.models.EUD import EUD
+from opentakserver.models.Group import Group
+from opentakserver.models.GroupUser import GroupUser
 from opentakserver.models.user import User
 from opentakserver.UsernameValidator import UsernameValidator
 
@@ -215,3 +218,95 @@ def get_users():
     query = search(query, User, 'username')
 
     return paginate(query)
+
+
+@user_api_blueprint.route('/api/users/all')
+@roles_accepted('administrator')
+def get_all_users():
+    users = db.session.execute(db.session.query(User)).all()
+    return_value = []
+
+    for user in users:
+        user = user[0]
+        logger.info(user)
+        return_value.append(user.serialize())
+
+    return return_value
+
+
+@user_api_blueprint.route('/api/users/groups')
+@roles_accepted('administrator')
+def get_user_groups():
+    """ Gets a list of group memberships for a user
+    :parameter: username
+
+    :return: List of group memberships
+    """
+    username = request.args.get("username")
+    if not username:
+        return jsonify({"success": False, "error": "Please provide a username"}), 400
+
+    username = bleach.clean(username)
+
+    user = app.security.datastore.find_user(username=username)
+    if not user:
+        return jsonify({"success": False, "error": f"User {username} not found"}), 404
+
+    group_memberships = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id)).all()
+    memberships = []
+    for membership in group_memberships:
+        membership: GroupUser = membership[0]
+        memberships.append({"group_name": membership.group.name, "direction": membership.direction, "active": membership.enabled})
+
+    return jsonify({"success": True, "results": memberships})
+
+
+@user_api_blueprint.route('/api/users/groups', methods=["PUT"])
+@roles_accepted("administrator")
+def add_user_to_groups():
+    """ Adds a user to one or more groups
+    :parameter: groups - List of groups to add a user to
+    :parameter: username
+    :parameter: direction - Group direction, must be either IN or OUT
+
+    :return: 400 if LDAP is enabled, no group or username is specified, or if the specified group or user doesn't exist or the user is already in the group. 200 on success.
+    :rtype: Response
+    """
+
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to add users to groups'}), 400
+
+    groups = request.json.get("groups")
+    username = request.json.get("username")
+    direction = request.json.get("direction")
+
+    if not groups or not username or not direction:
+        return jsonify({"success": False, "error": "Please provide a list of groups, a username, and a direction"}), 400
+
+    if direction != "IN" and direction != "OUT":
+        return jsonify({"success": False, "error": "Direction must be IN or OUT"}), 400
+
+    user = app.security.datastore.find_user(username=username)
+    if not user:
+        return jsonify({"success": False, "error": f"User {username} doesn't exist"}), 404
+
+    for group_name in groups:
+        group_name = bleach.clean(group_name)
+        group = db.session.execute(db.session.query(Group).filter_by(name=group_name)).first()
+        if not group:
+            return jsonify({"success": False, "error": f"Group {group_name} doesn't exist"}), 404
+
+        group = group[0]
+
+        membership = GroupUser()
+        membership.user_id = user.id
+        membership.group_id = group.id
+        membership.direction = direction
+
+        try:
+            db.session.add(membership)
+            db.session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            db.session.rollback()
+
+    return jsonify({"success": True})

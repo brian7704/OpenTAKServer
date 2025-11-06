@@ -17,6 +17,7 @@ from werkzeug.datastructures.file_storage import FileStorage
 from xml.etree.ElementTree import Element, tostring, SubElement
 
 from opentakserver.extensions import logger, db
+from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.MissionContent import MissionContent
 
@@ -167,6 +168,42 @@ def data_package_metadata(file_hash):
         data_package = db.session.execute(db.select(DataPackage).filter_by(hash=file_hash)).scalar_one()
         return send_from_directory(app.config.get("UPLOAD_FOLDER"), data_package.hash + ".zip",
                                    download_name=data_package.filename)
+
+
+@data_package_marti_api.route('/Marti/api/sync/search', methods=['GET'])
+def get_data_package():
+    data_package_hash = request.args.get("hash")
+
+    # TODO: Support keywords
+    keyword = request.args.get("keyword")
+
+    query = db.select(DataPackage)
+    if data_package_hash:
+        query = query.where(DataPackage.hash == data_package_hash)
+
+    data_packages = db.session.execute(query).scalars()
+    return_value = {"version": "3", "type": "gov.tak.api.comms.takserver.mission.data.Resource", "data": [],
+                    "messages": [], "nodeId": app.config.get("OTS_NODE_ID")}
+
+    for dp in data_packages:
+        submission_user = "anonymous"
+        if dp.user:
+            submission_user = dp.user.username
+        keywords = []
+        if dp.keywords:
+            keywords = dp.keywords.split(',')
+
+        try:
+            return_value["data"].append({"filename": dp.filename, "keywords": keywords, "mimeType": dp.mime_type,
+                                         "name": dp.filename, "submissionTime": iso8601_string_from_datetime(dp.submission_time),
+                                        "submitter": submission_user, "uid": dp.hash, "creatorUid": dp.creator_uid, "hash": dp.hash,
+                                         "size": dp.size, "tool": dp.tool, "groups": [], "expiration": int(dp.expiration),
+                                         "latitude": 0, "longitude": 0, "altitude": 0})
+        except BaseException as e:
+            logger.error(f"Data package GET failed: {e}")
+            logger.debug(traceback.format_exc())
+
+    return jsonify(return_value)
 
 
 @data_package_marti_api.route('/Marti/sync/search', methods=['GET'])

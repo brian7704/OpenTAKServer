@@ -1,11 +1,17 @@
 import datetime
+import traceback
 
+import bleach
+import pika
+from OpenSSL.crypto import X509
 from flask import Blueprint, current_app as app, jsonify, request
+from flask_security import current_user
 
+from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
 from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.extensions import db, logger
 from opentakserver.models.Group import Group
-from opentakserver.models.GroupEud import GroupEud
+from opentakserver.models.GroupUser import GroupUser
 
 group_api = Blueprint('group_api', __name__)
 
@@ -19,27 +25,24 @@ def group_cache_enabled():
 
 @group_api.route('/Marti/api/groups/all')
 def get_all_groups():
-    # Only return the __ANON__ in and out groups until group support is fully implemented
-    response = {"version": "3", "type": "com.bbn.marti.remote.groups.Group", "nodeId": app.config.get("OTS_NODE_ID"), "data": [{
-            "name": "__ANON__",
-            "direction": "IN",
-            "created": iso8601_string_from_datetime(datetime.datetime.now(datetime.timezone.utc)).split("T")[0],
-            "type": "SYSTEM",
-            "bitpos": 2,
-            "active": True,
-            "description": ""
-        },
-        {
-            "name": "__ANON__",
-            "direction": "OUT",
-            "created": iso8601_string_from_datetime(datetime.datetime.now(datetime.timezone.utc)).split("T")[0],
-            "type": "SYSTEM",
-            "bitpos": 2,
-            "active": True,
-            "description": ""
-        }
-    ]}
+    cert = verify_client_cert()
+    if not cert:
+        return jsonify({"success": False, "error": "Groups are only supported on SSL connections"}), 400
 
+    username = cert.get_subject().commonName
+    user = app.security.datastore.find_user(username=username)
+
+    logger.warning(request.args)
+
+    response = {"version": "3", "type": "com.bbn.marti.remote.groups.Group", "nodeId": app.config.get("OTS_NODE_ID"), "data": []}
+
+    for group in user.groups:
+        group = group
+
+        response['data'].append(group.to_marti_json_in())
+        response['data'].append(group.to_marti_json_out())
+
+    logger.warning(response)
     return jsonify(response)
 
 
@@ -91,15 +94,87 @@ def put_active_bits():
 @group_api.route('/Marti/api/groups/active', methods=['PUT'])
 def put_active_groups():
     # [{"name":"__ANON__","direction":"OUT","created":1729814400000,"type":"SYSTEM","bitpos":2,"active":true},{"name":"__ANON__","direction":"IN","created":1729814400000,"type":"SYSTEM","bitpos":2,"active":true}]
-    # OTS only supports the __ANON__ group now so just return 200 until group support is fully implemented
 
-    return '', 200
+    logger.debug(request.json)
+    logger.debug(request.args)
+
+    uid = request.args.get("clientUid")
+    if not uid:
+        logger.error("clientUid required")
+        return jsonify({'success': False, 'error': "clientUid required"}), 400
+
+    cert = verify_client_cert()
+    username = cert.get_subject().commonName
+    user = app.security.datastore.find_user(username=username)
+
+    groups_users = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id)).all()
+    if not groups_users:
+        logger.warning(f"User {username} doesn't belong to any groups, defaulting to __ANON__")
+        return '', 400
+
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    channel = rabbit_connection.channel()
+
+    group_subscriptions = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id)).all()
+
+    for subscription in request.json:
+        direction = subscription.get("direction")
+        if not direction and direction != Group.IN and direction != Group.OUT:
+            logger.error(f"Direction must be IN or OUT: {direction}")
+            return jsonify({"success": False, "error": f"Direction must be IN or OUT"}), 400
+
+        active = subscription.get("active")
+        if not isinstance(active, bool):
+            logger.error("The active attribute must be true or false")
+            return jsonify({"success": False, "error": "The active attribute must be true or false"}), 400
+
+        group_name = subscription.get("name")
+        if not group_name:
+            logger.error("Group name is required")
+            return jsonify({"success": False, "error": "Group name is required"}), 400
+
+        group_name = bleach.clean(group_name)
+
+        user_in_group = False
+        for group_subscription in group_subscriptions:
+            group_subscription = group_subscription[0]
+            if group_subscription.group.name == group_name and group_subscription.direction == direction:
+                group_subscription.enabled = active
+                db.session.add(group_subscription)
+
+                if active:
+                    channel.queue_bind(queue=uid, exchange="groups", routing_key=f"{group_subscription.group.name}.{group_subscription.direction}")
+                else:
+                    channel.queue_unbind(queue=uid, exchange="groups", routing_key=f"{group_subscription.group.name}.{group_subscription.direction}")
+
+                user_in_group = True
+
+        if not user_in_group:
+            logger.warning(f"{username} is not in the {group_name} group")
+            db.session.rollback()
+            return jsonify({"success": False, "error": f"{username} is not in the {group_name} group"}), 403
+
+    try:
+        db.session.commit()
+        return '', 200
+    except BaseException as e:
+        logger.error(f"Failed to update group subscriptions for {current_user.username}: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({"success": False, "error": f"Failed to update group subscriptions for {current_user.username}: {e}"}), 400
 
 
 @group_api.route('/Marti/api/groups/update/<username>')
 def update_group(username: str):
-    # Not sure what this is supposed to return
-    return '', 200
+
+    response = {
+        "version": "",
+        "type": "",
+        "data": True,
+        "messages": [""],
+        "nodeId": app.config.get("OTS_NODE_ID")
+    }
+
+    return jsonify(response)
 
 
 @group_api.route('/Marti/api/groups/<group_name>/<direction>')
@@ -123,5 +198,44 @@ def get_all_subscriptions():
     limit = request.args.get("limit")
 
     response = {"version": "3", "type": "SubscriptionInfo", "data": [], "messages": [], "nodeId": app.config.get("OTS_NODE_ID")}
+
+    return jsonify(response)
+
+
+@group_api.route('/Marti/api/groups/activeForce')
+def group_active_force():
+    username = request.args.get("username")
+    if not username:
+        return '', 400
+
+    response = {
+        "name": "",
+        "distinguishedName": "",
+        "direction": "",
+        "created": "",
+        "type": "SYSTEM",  # Can also be LDAP but OTS doesn't support LDAP yet
+        "bitpos": 0,
+        "active": True,
+        "description": ""
+    }
+
+    return jsonify(response)
+
+
+@group_api.route('/Marti/api/groups/user')
+def get_user_groups():
+    username = request.args.get("username")
+    if not username:
+        return '', 400
+
+    groups = {}
+
+    response = {
+        "version": "",
+        "type": "",
+        "data": groups,
+        "messages": [""],
+        "nodeId": app.config.get("OTS_NODE_ID")
+    }
 
     return jsonify(response)
