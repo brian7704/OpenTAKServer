@@ -42,7 +42,7 @@ PyJWT = "2.9.0"
 pytak = "6.3.2"
 pytest = "8.3.3"
 pytest-cov = "6.0.0"
-python = ">=3.10"
+python = "<3.14,>=3.9"
 python-ffmpeg = "2.0.12"
 python-socketio = {extras = ["client", "websocket_client", "asyncio_client"], version = "5.12.1"}
 pyOpenSSL = "24.2.1"
