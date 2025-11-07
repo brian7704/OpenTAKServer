@@ -53,6 +53,7 @@ def get_airplanes_live_data():
                 rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
                 rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
                 channel = rabbit_connection.channel()
+                channel.exchange_declare(exchange="adsb", exchange_type="fanout")
 
                 for craft in r.json()['ac']:
                     try:
@@ -65,7 +66,7 @@ def get_airplanes_live_data():
                         {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
                                           properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
                     # noinspection PyTypeChecker
-                    channel.basic_publish(exchange='cot_controller', routing_key='', body=json.dumps(
+                    channel.basic_publish(exchange='groups', routing_key='adsb.OUT', body=json.dumps(
                         {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
                                           properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
 
@@ -155,6 +156,8 @@ def get_aishub_data():
             rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
             rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
             channel = rabbit_connection.channel()
+            channel.exchange_declare(exchange="ais", exchange_type="fanout")
+
             for vessel in r.json()[1]:
                 event = aiscot.ais_to_cot(vessel, None, None)
                 # noinspection PyTypeChecker
@@ -162,7 +165,7 @@ def get_aishub_data():
                     {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
                                       properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
                 # noinspection PyTypeChecker
-                channel.basic_publish(exchange='cot_controller', routing_key='', body=json.dumps(
+                channel.basic_publish(exchange='groups', routing_key='ais.OUT', body=json.dumps(
                     {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
                                       properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
 

@@ -372,29 +372,21 @@ class ClientController(Thread):
                         group_memberships = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id, direction=Group.OUT)).all()
                         if not group_memberships or not self.is_ssl:
                             self.logger.debug(f"{self.callsign} doesn't belong to any groups, adding them to the __ANON__ group")
-                            self.rabbit_channel.queue_bind(exchange="groups", queue=self.callsign, routing_key="__ANON__.OUT")
                             self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid, routing_key="__ANON__.OUT")
 
                         elif group_memberships and self.is_ssl:
                             for membership in group_memberships:
                                 membership = membership[0]
-                                self.rabbit_channel.queue_bind(exchange="groups", queue=self.callsign, routing_key=f"{membership.group.name}.OUT")
                                 self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid, routing_key=f"{membership.group.name}.OUT")
 
-                        self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.callsign)
                         self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.uid)
 
+                        # The DMs queue also binds by callsign since the <dest> tag in CoT messages can be by callsign instead of UID
                         self.rabbit_channel.queue_bind(exchange='dms', queue=self.uid, routing_key=self.uid)
                         self.rabbit_channel.queue_bind(exchange='dms', queue=self.callsign, routing_key=self.callsign)
 
                         self.rabbit_channel.basic_consume(queue=self.callsign, on_message_callback=self.on_message, auto_ack=True)
                         self.rabbit_channel.basic_consume(queue=self.uid, on_message_callback=self.on_message, auto_ack=True)
-
-                        online_euds = self.db.session.execute(select(EUD).filter(EUD.last_status == 'Connected')).all()
-                        for eud in online_euds:
-                            eud = eud[0]
-                            if eud.platform != "Meshtastic" and len(eud.cots) > 0:
-                                self.sock.send(eud.cots[-1].xml.encode())
 
             if 'phone' in contact.attrs and contact.attrs['phone']:
                 self.phone_number = contact.attrs['phone']
@@ -671,7 +663,7 @@ class ClientController(Thread):
 
         if not destinations:
             with self.app.app_context():
-                group_memberships = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id, direction=Group.IN)).all()
+                group_memberships = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id, direction=Group.IN, enabled=True)).all()
                 if not group_memberships:
                     # Default to the __ANON__ group if the user doesn't belong to any IN groups
                     self.rabbit_channel.basic_publish(exchange='groups', routing_key="__ANON__.OUT", body=json.dumps({'uid': self.uid, 'cot': str(event)}),

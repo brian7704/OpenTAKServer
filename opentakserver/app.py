@@ -144,6 +144,40 @@ def init_extensions(app):
     mail.init_app(app)
 
 
+def create_groups(app: Flask):
+    try:
+        with app.app_context():
+            public_group = Group()
+            public_group.name("__ANON__")
+            public_group.type = GroupTypeEnum.SYSTEM
+            public_group.bitpos = 2
+            public_group.description = "Default public group"
+
+            db.session.add(public_group)
+            db.session.commit()
+
+            adsb_group = Group()
+            adsb_group.name("ADS-B")
+            adsb_group.type = GroupTypeEnum.SYSTEM
+            adsb_group.bitpos = 3
+            adsb_group.description = "ADS-B data"
+
+            db.session.add(adsb_group)
+            db.session.commit()
+
+            ais_group = Group()
+            ais_group.name("AIS")
+            ais_group.type = GroupTypeEnum.SYSTEM
+            ais_group.bitpos = 4
+            ais_group.description = "AIS data"
+
+            db.session.add(ais_group)
+            db.session.commit()
+    except BaseException as e:
+        logger.error(f"Failed to create groups: {e}")
+        logger.debug(traceback.format_exc())
+
+
 def setup_logging(app):
     level = logging.INFO
     if app.config.get("DEBUG"):
@@ -187,6 +221,8 @@ def create_app(cli=True):
                     elif option.isupper():
                         conf[option] = DefaultConfig.__dict__[option]
                 config.write(yaml.safe_dump(conf))
+
+            create_groups(app)
 
         # Try to set the MediaMTX token
         if app.config.get("OTS_MEDIAMTX_ENABLE"):
