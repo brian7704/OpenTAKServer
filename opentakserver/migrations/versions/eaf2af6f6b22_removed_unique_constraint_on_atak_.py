@@ -1,7 +1,7 @@
 """Removed unique constraint on ATAK plugin names
 
 Revision ID: eaf2af6f6b22
-Revises: ab719ee9b322
+Revises: 8d6f811f4fd7
 Create Date: 2025-11-08 16:28:41.700279
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'eaf2af6f6b22'
-down_revision = 'ab719ee9b322'
+down_revision = '8d6f811f4fd7'
 branch_labels = None
 depends_on = None
 
