@@ -40,7 +40,7 @@ from opentakserver.models.WebAuthn import WebAuthn
 from opentakserver.extensions import db, logger, ldap_manager
 from opentakserver.defaultconfig import DefaultConfig
 import colorlog
-from flask import Flask
+from flask import Flask, jsonify
 import logging
 import argparse
 
@@ -119,6 +119,10 @@ def create_app():
 
 
 app = create_app()
+
+@app.route("/status")
+def status():
+    return jsonify({"status": "ok"})
 
 
 def main():
