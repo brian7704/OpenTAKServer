@@ -89,7 +89,7 @@ def create_product_infz(atak_version: str | None):
     product_infz_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.infz")
     product_inf_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.inf")
 
-    if atak_version:
+    if atak_version and atak_version.lower() != "any":
         atak_version = bleach.clean(atak_version)
         product_infz_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", atak_version, "product.infz")
         product_inf_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", atak_version, "product.inf")
@@ -208,7 +208,7 @@ def delete_package():
 
     query = db.session.query(Packages)
     query = search(query, Packages, 'package_name')
-    if request.args.get('atak_version'):
+    if request.args.get('atak_version') and request.args.get('atak_version').lower() != "any":
         atak_version = bleach.clean(request.args.get("atak_version"))
         query = query.where(Packages.atak_version == atak_version)
 
