@@ -27,7 +27,7 @@ class Packages(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     platform: Mapped[str] = mapped_column(String(255))
     plugin_type: Mapped[str] = mapped_column(String(255))
-    package_name: Mapped[str] = mapped_column(String(255), unique=True)
+    package_name: Mapped[str] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(255))
     file_name: Mapped[str] = mapped_column(String(255))
     version: Mapped[str] = mapped_column(String(255))

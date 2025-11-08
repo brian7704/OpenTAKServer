@@ -43,6 +43,7 @@ def get_packages():
     query = search(query, Packages, 'apk_hash')
     query = search(query, Packages, 'tak_prereq')
     query = search(query, Packages, 'file_size')
+    query = search(query, Packages, 'atak_version')
 
     return paginate(query)
 
@@ -154,6 +155,10 @@ def add_package():
 
     package = Packages()
     package.from_wtform(form)
+
+    existing_package = db.session.execute(db.session.query(Packages).filter_by(version=package.version)).first()
+    if existing_package:
+        return jsonify({'success': False, 'errors': [f"{package.name} version {package.version} is already on the server"]}), 400
 
     try:
         db.session.add(package)
