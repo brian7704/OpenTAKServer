@@ -2,6 +2,7 @@ import io
 import os
 import random
 import re
+import shutil
 import subprocess
 import traceback
 import uuid
@@ -115,7 +116,7 @@ class CertificateAuthority:
             raise FileNotFoundError("ca.pem not found")
 
         if os.path.exists(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name)):
-            raise Exception("There is already a certificate for {}".format(common_name))
+            shutil.rmtree(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name))
 
         os.makedirs(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name))
 
