@@ -266,9 +266,9 @@ def get_missions():
         if user.has_role('administrator'):
             missions = db.session.execute(db.session.query(Mission)).scalars()
             for mission in missions:
-                if password_protected and not mission.mission.password_protected:
+                if password_protected and not mission.password_protected:
                     continue
-                if tool and mission.mission.tool != tool:
+                if tool and mission.tool != tool:
                     continue
                 response['data'].append(mission.to_json())
 
