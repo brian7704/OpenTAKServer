@@ -35,6 +35,7 @@ from opentakserver.models.MissionInvitation import MissionInvitation
 from opentakserver.models.MissionContentMission import MissionContentMission
 from opentakserver.models.MissionLogEntry import MissionLogEntry
 from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
+from opentakserver.models.GroupMission import GroupMission
 from opentakserver.models.MissionUID import MissionUID
 from opentakserver.models.WebAuthn import WebAuthn
 
