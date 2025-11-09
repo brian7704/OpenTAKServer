@@ -32,8 +32,6 @@ def get_all_groups():
     username = cert.get_subject().commonName
     user = app.security.datastore.find_user(username=username)
 
-    logger.warning(request.args)
-
     response = {"version": "3", "type": "com.bbn.marti.remote.groups.Group", "nodeId": app.config.get("OTS_NODE_ID"), "data": []}
 
     for group in user.groups:
@@ -42,7 +40,6 @@ def get_all_groups():
         response['data'].append(group.to_marti_json_in())
         response['data'].append(group.to_marti_json_out())
 
-    logger.warning(response)
     return jsonify(response)
 
 
@@ -93,11 +90,6 @@ def put_active_bits():
 
 @group_api.route('/Marti/api/groups/active', methods=['PUT'])
 def put_active_groups():
-    # [{"name":"__ANON__","direction":"OUT","created":1729814400000,"type":"SYSTEM","bitpos":2,"active":true},{"name":"__ANON__","direction":"IN","created":1729814400000,"type":"SYSTEM","bitpos":2,"active":true}]
-
-    logger.debug(request.json)
-    logger.debug(request.args)
-
     uid = request.args.get("clientUid")
     if not uid:
         logger.error("clientUid required")

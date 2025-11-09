@@ -12,7 +12,7 @@ from werkzeug.datastructures import ImmutableMultiDict
 from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
 from opentakserver.forms.package_form import PackageForm, PackageUpdateForm
 from opentakserver.models.Packages import Packages
-from opentakserver.extensions import db
+from opentakserver.extensions import db, logger
 from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.blueprints.marti_api.certificate_enrollment_api import basic_auth
 
@@ -89,7 +89,7 @@ def create_product_infz(atak_version: str | None):
     product_infz_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.infz")
     product_inf_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", "product.inf")
 
-    if atak_version and atak_version.lower() != "any":
+    if atak_version:
         atak_version = bleach.clean(atak_version)
         product_infz_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", atak_version, "product.infz")
         product_inf_file = os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", atak_version, "product.inf")
@@ -208,7 +208,7 @@ def delete_package():
 
     query = db.session.query(Packages)
     query = search(query, Packages, 'package_name')
-    if request.args.get('atak_version') and request.args.get('atak_version').lower() != "any":
+    if request.args.get('atak_version'):
         atak_version = bleach.clean(request.args.get("atak_version"))
         query = query.where(Packages.atak_version == atak_version)
 
