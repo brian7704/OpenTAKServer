@@ -15,7 +15,7 @@ import sqlalchemy.exc
 from bs4 import BeautifulSoup
 from flask import Blueprint, request, current_app as app, jsonify, Response
 from flask_security import current_user, hash_password, verify_password
-from sqlalchemy import update, insert
+from sqlalchemy import update, insert, or_
 from werkzeug.utils import secure_filename
 import pika
 
@@ -27,6 +27,7 @@ from opentakserver.extensions import db, logger
 from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
 from opentakserver.models.Group import Group
+from opentakserver.models.GroupMission import GroupMission
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
 from opentakserver.models.MissionContent import MissionContent
@@ -235,6 +236,13 @@ def get_mission_by_guid(mission_guid: str):
 
 @mission_marti_api.route('/Marti/api/missions')
 def get_missions():
+    cert = verify_client_cert()
+    if not cert:
+        return '', 401
+
+    username = cert.get_subject().commonName
+    user = app.security.datastore.find_user(username=username)
+
     password_protected = request.args.get('passwordProtected', False)
 
     tool = request.args.get('tool')
@@ -245,25 +253,42 @@ def get_missions():
     if default_role:
         default_role = bleach.clean(default_role).lower() == 'true'
 
+    groups = []
+    for group in user.groups:
+        groups.append(GroupMission.group_id == group.id)
+
     response = {
         'version': 3, 'type': 'Mission', 'data': [], 'nodeId': app.config.get('OTS_NODE_ID')
     }
 
     try:
-        query = db.session.query(Mission)
-        if not password_protected:
-            query = query.where(Mission.password_protected is False)
-        if tool:
-            query = query.where(Mission.tool == tool)
-        missions = db.session.execute(query).scalars()
-        for mission in missions:
-            response['data'].append(mission.to_json())
+        # Let admins see all missions
+        if user.has_role('administrator'):
+            missions = db.session.execute(db.session.query(Mission)).scalars()
+            for mission in missions:
+                if password_protected and not mission.mission.password_protected:
+                    continue
+                if tool and mission.mission.tool != tool:
+                    continue
+                response['data'].append(mission.to_json())
+
+        else:
+            query = db.session.query(GroupMission).where(or_(*groups))
+
+            missions = db.session.execute(query).scalars()
+            for mission in missions:
+                if password_protected and not mission.mission.password_protected:
+                    continue
+                if tool and mission.mission.tool != tool:
+                    continue
+                response['data'].append(mission.mission.to_json())
 
     except BaseException as e:
         logger.error(f"Failed to get missions: {e}")
         logger.debug(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
 
+    logger.info(response)
     return jsonify(response)
 
 

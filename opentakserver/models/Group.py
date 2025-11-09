@@ -68,6 +68,7 @@ class Group(db.Model):
 
     def to_json(self):
         return_value = self.serialize()
+        return_value['id'] = self.id
         return_value['bitpos'] = "{0:b}".format(self.bitpos)
         return_value['users'] = [user.serialize() for user in self.users]
         return return_value

@@ -68,8 +68,6 @@ class Mission(db.Model):
             'invite_only': self.invite_only,
             'expiration': self.expiration,
             'guid': self.guid,
-            'uids': self.uids,
-            'contents': self.contents,
             'password_protected': self.password_protected,
             'password': self.password
         }
