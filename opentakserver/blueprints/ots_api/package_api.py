@@ -22,8 +22,10 @@ packages_blueprint = Blueprint('packages_api_blueprint', __name__)
 
 
 @packages_blueprint.route('/api/packages/<package_name>')
-def download_package(package_name):
-    if not basic_auth(request.headers.get('Authorization')):
+@packages_blueprint.route('/api/packages/<atak_version>/<package_name>')
+def download_package(package_name, atak_version):
+    cert = verify_client_cert()
+    if not cert:
         return '', 401
     return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages"), secure_filename(package_name))
 
@@ -74,6 +76,9 @@ def head_product_infz_with_version(atak_version: str):
 
 @packages_blueprint.route('/api/packages/product.infz', methods=['GET'])
 def get_product_infz():
+    cert = verify_client_cert()
+    if not cert:
+        return '', 401
     return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages"), "product.infz")
 
 
