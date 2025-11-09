@@ -40,6 +40,7 @@ class Group(db.Model):
     bitpos: Mapped[int] = mapped_column(Integer)
     description: Mapped[str] = mapped_column(String, nullable=True)
     users = relationship("User", secondary="groups_users", viewonly=True, back_populates="groups", cascade="all, delete")
+    missions = relationship("Mission", secondary="groups_missions", viewonly=True, back_populates="groups", cascade="all, delete")
 
     def get_next_bitpos(self) -> int:
         # the __ANON__ group is always 2 so default to 3 here
@@ -71,6 +72,7 @@ class Group(db.Model):
         return_value['id'] = self.id
         return_value['bitpos'] = "{0:b}".format(self.bitpos)
         return_value['users'] = [user.serialize() for user in self.users]
+        return_value['missions'] = [mission.serialize() for mission in self.missions]
         return return_value
 
     def to_marti_json_in(self):

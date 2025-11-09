@@ -30,7 +30,6 @@ def get_missions():
     query = search(query, Mission, 'name')
     query = search(query, Mission, 'guid')
     query = search(query, Mission, 'tool')
-    query = search(query, Mission, 'group')
 
     return paginate(query)
 
