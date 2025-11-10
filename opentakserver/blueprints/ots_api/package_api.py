@@ -23,7 +23,7 @@ packages_blueprint = Blueprint('packages_api_blueprint', __name__)
 
 @packages_blueprint.route('/api/packages/<package_name>')
 @packages_blueprint.route('/api/packages/<atak_version>/<package_name>')
-def download_package(package_name, atak_version):
+def download_package(package_name, atak_version=None):
     cert = verify_client_cert()
     if not cert:
         return '', 401
