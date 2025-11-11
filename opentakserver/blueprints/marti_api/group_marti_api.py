@@ -31,14 +31,15 @@ def get_all_groups():
 
     username = cert.get_subject().commonName
     user = app.security.datastore.find_user(username=username)
+    groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id)).scalars()
 
     response = {"version": "3", "type": "com.bbn.marti.remote.groups.Group", "nodeId": app.config.get("OTS_NODE_ID"), "data": []}
 
-    for group in user.groups:
-        group = group
-
-        response['data'].append(group.to_marti_json_in())
-        response['data'].append(group.to_marti_json_out())
+    for group in groups:
+        if group.direction == Group.IN:
+            response['data'].append(group.group.to_marti_json_in())
+        else:
+            response['data'].append(group.group.to_marti_json_out())
 
     return jsonify(response)
 
