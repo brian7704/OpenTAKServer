@@ -261,7 +261,9 @@ def rabbitmq_auth(path):
         return 'deny', 200
 
     username = bleach.clean(request.form.get('username'))
-    password = bleach.clean(request.form.get('password'))
+    password = None
+    if 'password' in request.form.keys():
+        password = bleach.clean(request.form.get('password'))
 
     if app.config.get("OTS_ENABLE_LDAP"):
         result = ldap_manager.authenticate(username, password)
