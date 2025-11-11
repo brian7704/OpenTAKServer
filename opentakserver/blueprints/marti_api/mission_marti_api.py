@@ -316,7 +316,7 @@ def put_mission(mission_name: str):
     """ Used by the Data Sync plugin to create or change a mission """
     cert = verify_client_cert()
     if not cert:
-        return jsonify({"success": False, "error": "Groups are only supported on SSL connections"}), 400
+        return jsonify({"success": False, "error": "Missions are only supported on SSL connections"}), 400
 
     username = cert.get_subject().commonName
     user = app.security.datastore.find_user(username=username)
@@ -850,8 +850,9 @@ def put_mission_keywords(mission_name):
 @mission_marti_api.route('/Marti/api/missions/guid/<mission_guid>/subscription', methods=['PUT'])
 def mission_subscribe(mission_name: str = None, mission_guid: str = None):
     """ Used by the Data Sync plugin to subscribe to a feed """
-
-    # ?uid=ANDROID-CloudTAK-administrator
+    cert = verify_client_cert()
+    username = cert.get_subject().commonName
+    user = app.security.datastore.find_user(username=username)
 
     if mission_name:
         mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
@@ -866,6 +867,20 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
         return jsonify({'success': False, 'error': f"Cannot find mission {mission_guid}"}), 404
 
     mission = mission[0]
+    group_filters = []
+    groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id)).scalars()
+    for group in groups:
+        group_filters.append(GroupMission.group_id == group.group_id)
+    if not group_filters:
+        # Default to the __ANON__ group
+        group_filters.append(GroupMission.group_id == 1)
+
+    query = db.session.query(GroupMission).filter_by(mission_name=mission_name)
+    query.where(or_(*group_filters))
+    mission_groups = db.session.execute(query).scalars()
+    logger.info(mission_groups)
+    if not mission_groups:
+        return jsonify({"success": False, "error": f"{username} and mission {mission_name} are not in the same group"}), 403
 
     response = {
         "version": "3", "type": "com.bbn.marti.sync.model.MissionSubscription", "data": {}, "nodeId": app.config.get("OTS_NODE_ID")
