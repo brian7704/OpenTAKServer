@@ -3,7 +3,8 @@ import traceback
 import bleach
 import sqlalchemy.exc
 from flask import Blueprint, request, jsonify, current_app as app, Response
-from flask_security import roles_required
+from flask_login import current_user
+from flask_security import roles_required, auth_required
 
 from opentakserver.extensions import db, logger
 from opentakserver.blueprints.ots_api.api import search, paginate
@@ -39,19 +40,31 @@ def get_groups():
 
 
 @group_api.route('/api/groups/all', methods=["GET"])
-@roles_required("administrator")
+@auth_required()
 def get_all_groups():
     """ Get a list of all groups
 
     :return: JSON array of groups
     :rtype: Response
     """
-    groups = db.session.execute(db.session.query(Group)).all()
+
     return_value = []
 
-    for group in groups:
-        group = group[0]
-        return_value.append(group.to_json())
+    if not current_user.has_role("administrator"):
+        groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=current_user.id, direction=Group.OUT)).scalars()
+        # Make sure a group is only added once, not twice for both IN and OUT
+        group_names = []
+        for group in groups:
+            if group.group.name not in group_names:
+                group_names.append(group.group.name)
+            else:
+                continue
+            return_value.append(group.group.to_json())
+
+    else:
+        groups = db.session.execute(db.session.query(Group)).scalars()
+        for group in groups:
+            return_value.append(group.to_json())
 
     return jsonify(return_value)
 
