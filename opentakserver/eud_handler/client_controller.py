@@ -51,6 +51,7 @@ class ClientController(Thread):
         self.db = db
         self.is_ssl = is_ssl
         self.socketio = SocketIO(message_queue="amqp://" + app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"))
+        self.bound_queues = []
 
         self.user = None
 
@@ -373,17 +374,30 @@ class ClientController(Thread):
                         if not group_memberships or not self.is_ssl:
                             self.logger.debug(f"{self.callsign} doesn't belong to any groups, adding them to the __ANON__ group")
                             self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid, routing_key="__ANON__.OUT")
+                            if {"exchange": "groups", "routing_key": "__ANON__.OUT", "queue": self.uid} not in self.bound_queues:
+                                self.bound_queues.append({"exchange": "groups", "routing_key": "__ANON__.OUT"})
 
                         elif group_memberships and self.is_ssl:
                             for membership in group_memberships:
                                 membership = membership[0]
                                 self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid, routing_key=f"{membership.group.name}.OUT")
 
+                                if {"exchange": "groups", "routing_key": f"{membership.group.name}.OUT", "queue": self.uid} not in self.bound_queues:
+                                    self.bound_queues.append({"exchange": "groups", "routing_key": f"{membership.group.name}.OUT", "queue": self.uid})
+
                         self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.uid)
+                        if {"exchange": "missions", "routing_key": "missions", "queue": self.uid} not in self.bound_queues:
+                            self.bound_queues.append({"exchange": "groups", "routing_key": "__ANON__.OUT", "queue": self.uid})
 
                         # The DMs queue also binds by callsign since the <dest> tag in CoT messages can be by callsign instead of UID
                         self.rabbit_channel.queue_bind(exchange='dms', queue=self.uid, routing_key=self.uid)
                         self.rabbit_channel.queue_bind(exchange='dms', queue=self.callsign, routing_key=self.callsign)
+
+                        if {"exchange": "dms", "routing_key": self.uid, "queue": self.uid} not in self.bound_queues:
+                            self.bound_queues.append({"exchange": "dms", "routing_key": self.uid, "queue": self.uid})
+
+                        if {"exchange": "dms", "routing_key": self.callsign, "queue": self.callsign} not in self.bound_queues:
+                            self.bound_queues.append({"exchange": "dms", "routing_key": self.callsign, "queue": self.callsign})
 
                         self.rabbit_channel.basic_consume(queue=self.callsign, on_message_callback=self.on_message, auto_ack=True)
                         self.rabbit_channel.basic_consume(queue=self.uid, on_message_callback=self.on_message, auto_ack=True)
@@ -392,17 +406,22 @@ class ClientController(Thread):
                 self.phone_number = contact.attrs['phone']
 
             with self.app.app_context():
-                group = event.find('__group')
+                __group = event.find('__group')
                 team = Team()
 
-                if group:
+                if __group:
                     # Declare an exchange for each group and bind the callsign's queue
                     if self.rabbit_channel.is_open and platform != "Meshtastic" and platform != "DMRCOT":
-                        self.logger.debug("Declaring exchange {}".format(group.attrs['name']))
-                        self.rabbit_channel.exchange_declare(exchange=group.attrs['name'])
-                        self.rabbit_channel.queue_bind(queue=self.uid, exchange='chatrooms', routing_key=group.attrs['name'])
+                        groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id)).scalars()
+                        for group in groups:
+                            # __group.attrs['name'] is the team color
+                            routing_key = f"{group.group.name}.{__group.attrs['name']}"
+                            self.logger.debug(f"Binding {self.uid} to {routing_key}")
+                            self.rabbit_channel.queue_bind(queue=self.uid, exchange='chatrooms', routing_key=routing_key)
+                            if {"exchange": "chatrooms", "queue": self.uid, "routing_key": routing_key} not in self.bound_queues:
+                                self.bound_queues.append({"exchange": "chatrooms", "queue": self.uid, "routing_key": routing_key})
 
-                    team.name = bleach.clean(group.attrs['name'])
+                    team.name = bleach.clean(__group.attrs['name'])
 
                     try:
                         chatroom = self.db.session.execute(select(Chatroom).filter(Chatroom.name == team.name)).first()[0]
@@ -415,7 +434,7 @@ class ClientController(Thread):
                         self.db.session.commit()
                     except sqlalchemy.exc.IntegrityError:
                         self.db.session.rollback()
-                        team = self.db.session.execute(select(Team).filter(Team.name == group.attrs['name'])).first()[0]
+                        team = self.db.session.execute(select(Team).filter(Team.name == __group.attrs['name'])).first()[0]
                         if not team.chatroom_id and chatroom:
                             team.chatroom_id = chatroom.id
                             self.db.session.execute(update(Team).filter(Team.name == chatroom.id).values(chatroom_id=chatroom.id))
@@ -460,9 +479,9 @@ class ClientController(Thread):
                 else:
                     eud.meshtastic_macaddr = base64.b64encode(os.urandom(6)).decode('ascii')
 
-                if group:
+                if __group:
                     eud.team_id = team.id
-                    eud.team_role = bleach.clean(group.attrs['role'])
+                    eud.team_role = bleach.clean(__group.attrs['role'])
 
                 try:
                     self.db.session.add(eud)
@@ -526,9 +545,9 @@ class ClientController(Thread):
                     self.rabbit_channel.queue_unbind(queue=self.uid, exchange="missions", routing_key=f"missions.{mission[0].name}")
                     self.logger.debug(f"Unbound {self.uid} from mission.{mission[0].name}")
 
-                groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id)).all()
-                for group in groups:
-                    self.rabbit_channel.queue_unbind(queue=self.uid, exchange="groups", routing_key=f"{group[0].group.name}.{group[0].direction}")
+            for bind in self.bound_queues:
+                self.logger.info(f"Unbinding {bind}")
+                self.rabbit_channel.queue_unbind(exchange=bind['exchange'], queue=bind['queue'], routing_key=bind['routing_key'])
 
     def send_disconnect_cot(self):
         if self.uid:
@@ -551,6 +570,7 @@ class ClientController(Thread):
                     groups = self.db.session.execute(group_query).all()
                     for group in groups:
                         group = group[0]
+                        self.logger.warning(f"Publishing to group {group.group.name}.{group.direction}")
                         self.rabbit_channel.basic_publish(exchange="groups", routing_key=f"{group.group.name}.{group.direction}", body=message)
 
             with self.app.app_context():
@@ -581,6 +601,7 @@ class ClientController(Thread):
                 uid = None
                 # ATAK and WinTAK use callsign, iTAK uses uid
                 if 'callsign' in destination.attrs and destination.attrs['callsign']:
+                    self.logger.warning(f"Publishing to dms {destination.attrs['callsign']}")
                     self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['callsign'],
                                                       body=json.dumps({'uid': self.uid, 'cot': str(event)}))
 
@@ -666,10 +687,12 @@ class ClientController(Thread):
                 group_memberships = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id, direction=Group.IN, enabled=True)).all()
                 if not group_memberships:
                     # Default to the __ANON__ group if the user doesn't belong to any IN groups
+                    self.logger.warning(f"Publisshing to __ANON__OUT")
                     self.rabbit_channel.basic_publish(exchange='groups', routing_key="__ANON__.OUT", body=json.dumps({'uid': self.uid, 'cot': str(event)}),
                                                       properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
                 for membership in group_memberships:
                     membership = membership[0]
+                    self.logger.warning(f"Publisshing to groups {membership.group.name}.{Group.OUT}")
                     self.rabbit_channel.basic_publish(exchange='groups', routing_key=f"{membership.group.name}.{Group.OUT}", body=json.dumps({'uid': self.uid, 'cot': str(event)}),
                                                       properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
