@@ -206,11 +206,14 @@ def delete_mission():
     if not mission_name:
         return jsonify({'success': False, 'error': 'Please specify a mission name'}), 404
 
+    mission_name = bleach.clean(mission_name)
+
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
     mission = mission[0]
 
+    db.session.execute(sqlalchemy.delete(GroupMission).filter_by(mission_name=mission_name))
     db.session.delete(mission)
     db.session.commit()
 
