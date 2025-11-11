@@ -9,6 +9,7 @@ from flask import Blueprint, request, jsonify, current_app as app
 from flask_security import auth_required, current_user, roles_required, hash_password, verify_password
 from xml.etree.ElementTree import tostring
 import pika
+from sqlalchemy import or_
 
 from opentakserver.blueprints.marti_api.mission_marti_api import invite, generate_mission_delete_cot, generate_new_mission_cot, generate_invitation_cot
 from opentakserver.extensions import db, logger
@@ -16,6 +17,7 @@ from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.models.EUD import EUD
 from opentakserver.models.Group import Group
 from opentakserver.models.GroupMission import GroupMission
+from opentakserver.models.GroupUser import GroupUser
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionInvitation import MissionInvitation
 from opentakserver.models.MissionRole import MissionRole
@@ -26,10 +28,19 @@ data_sync_api = Blueprint("data_sync_api", __name__)
 @data_sync_api.route('/api/missions')
 @auth_required()
 def get_missions():
-    query = db.session.query(Mission)
+    query: db.Query = db.session.query(Mission)
     query = search(query, Mission, 'name')
     query = search(query, Mission, 'guid')
     query = search(query, Mission, 'tool')
+
+    # Only show users missions that belong to the same groups they belong to
+    if not current_user.has_role("administrator"):
+        group_filters = []
+        groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=current_user.id, direction=Group.IN)).scalars()
+        for group in groups:
+            group_filters.append(GroupMission.group_id == group.group_id)
+        if group_filters:
+            query = query.outerjoin(GroupMission).where(or_(*group_filters))
 
     return paginate(query)
 
@@ -53,6 +64,7 @@ def create_edit_mission():
         if not eud:
             return jsonify({'success': False, 'error': f"Invalid UID: {creator_uid}"}), 400
 
+        groups = None
         mission_groups = []
 
         mission = Mission()
@@ -64,9 +76,27 @@ def create_edit_mission():
             if key == 'password' and request.json.get('password'):
                 mission.password = hash_password(request.json.get('password'))
             elif key == 'groups':
-                groups = request.json.get('groups')
+                group_ids = request.json.get('groups')
+                groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=current_user.id, enabled=True, direction=Group.IN)).scalars()
 
-                for group_id in groups:
+                # Make sure the user is a member of the IN group that they want the mission to be associated with. Also allow
+                # administrators to associate a mission with any group
+                for group_id in group_ids:
+                    user_in_group = False
+
+                    if not current_user.has_role("administrator"):
+                        for group in groups:
+                            if group.id == group_id:
+                                user_in_group = True
+                                break
+
+                    if not user_in_group and not current_user.has_role("administrator"):
+                        group = db.session.execute(db.session.query(Group).filter_by(id=group_id)).first()
+                        if group:
+                            return jsonify({"success": False, "error": f"User is not a member of {group[0].name}"}), 403
+                        else:
+                            return jsonify({"success": False, "error": f"Invalid group ID: {group_id}"}), 400
+
                     group_id = int(group_id)
                     group = db.session.execute(db.session.query(Group).filter_by(id=group_id)).first()
                     if not group:
@@ -116,9 +146,10 @@ def create_edit_mission():
         rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
         channel = rabbit_connection.channel()
 
-        channel.basic_publish(exchange="missions", routing_key="missions",
-                              body=json.dumps({'uid': app.config.get("OTS_NODE_ID"),
-                                               'cot': tostring(generate_new_mission_cot(mission)).decode('utf-8')}))
+        for group in groups:
+            logger.error(f"Publishing to {group.group.name}.{group.direction}")
+            channel.basic_publish(exchange="groups", routing_key=f"{group.group.name}.{group.direction}", body=json.dumps(
+                {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(generate_new_mission_cot(mission)).decode('utf-8')}))
 
         channel.basic_publish(exchange="dms", routing_key=creator_uid,
                               body=json.dumps({'uid': creator_uid,

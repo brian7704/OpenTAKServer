@@ -28,6 +28,7 @@ from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
 from opentakserver.models.Group import Group
 from opentakserver.models.GroupMission import GroupMission
+from opentakserver.models.GroupUser import GroupUser
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
 from opentakserver.models.MissionContent import MissionContent
@@ -253,35 +254,32 @@ def get_missions():
     if default_role:
         default_role = bleach.clean(default_role).lower() == 'true'
 
-    groups = []
-    for group in user.groups:
-        groups.append(GroupMission.group_id == group.id)
-
     response = {
         'version': 3, 'type': 'Mission', 'data': [], 'nodeId': app.config.get('OTS_NODE_ID')
     }
 
     try:
+        query = db.session.query(Mission)
+
         # Let admins see all missions
-        if user.has_role('administrator'):
-            missions = db.session.execute(db.session.query(Mission)).scalars()
-            for mission in missions:
-                if password_protected and not mission.password_protected:
-                    continue
-                if tool and mission.tool != tool:
-                    continue
-                response['data'].append(mission.to_json())
+        if not user.has_role('administrator'):
+            group_filters = []
+            groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id, direction=Group.IN)).scalars()
+            for group in groups:
+                group_filters.append(GroupMission.group_id == group.group.id)
+                logger.info(group.group.id)
+            if group_filters:
+                query = query.outerjoin(GroupMission).where(or_(*group_filters))
 
-        else:
-            query = db.session.query(GroupMission).where(or_(*groups))
-
-            missions = db.session.execute(query).scalars()
-            for mission in missions:
-                if password_protected and not mission.mission.password_protected:
-                    continue
-                if tool and mission.mission.tool != tool:
-                    continue
-                response['data'].append(mission.mission.to_json())
+        logger.info(query)
+        missions = db.session.execute(query).scalars()
+        for mission in missions:
+            logger.warning(mission.serialize())
+            if not password_protected and mission.password_protected:
+                continue
+            if tool and tool.lower() != "public" and mission.tool != tool:
+                continue
+            response['data'].append(mission.to_json())
 
     except BaseException as e:
         logger.error(f"Failed to get missions: {e}")
@@ -316,6 +314,13 @@ def all_invitations():
 @mission_marti_api.route('/Marti/api/missions/<mission_name>', methods=['PUT', 'POST'])
 def put_mission(mission_name: str):
     """ Used by the Data Sync plugin to create or change a mission """
+    cert = verify_client_cert()
+    if not cert:
+        return jsonify({"success": False, "error": "Groups are only supported on SSL connections"}), 400
+
+    username = cert.get_subject().commonName
+    user = app.security.datastore.find_user(username=username)
+
     new_mission = True
 
     if not mission_name or not request.args.get('creatorUid'):
@@ -376,11 +381,13 @@ def put_mission(mission_name: str):
 
             rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
             rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
-            rabbit_connection = pika.BlockingConnection( pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
+            rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
             channel = rabbit_connection.channel()
-            channel.basic_publish(exchange="missions", routing_key="missions",
-                                  body=json.dumps(
-                                      {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}))
+
+            groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id, enabled=True)).scalers()
+            for group in groups:
+                channel.basic_publish(exchange="groups", routing_key=f"{group.name}.{group.direction}", body=json.dumps({'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}))
+
             channel.close()
             rabbit_connection.close()
     except sqlalchemy.exc.IntegrityError:
