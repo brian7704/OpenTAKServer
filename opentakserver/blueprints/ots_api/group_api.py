@@ -1,6 +1,7 @@
 import traceback
 
 import bleach
+import pika
 import sqlalchemy.exc
 from flask import Blueprint, request, jsonify, current_app as app, Response
 from flask_login import current_user
@@ -126,6 +127,14 @@ def remove_user_from_group():
     try:
         GroupUser.query.filter_by(group_id=group[0].id, user_id=user.id, direction=direction).delete()
         db.session.commit()
+
+        rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+        rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+        rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
+        channel = rabbit_connection.channel()
+        for eud in user.euds:
+            channel.queue_unbind(exchange="groups", queue=eud.uid, routing_key=f"{group_name}.{direction}")
+
         return jsonify({"success": True})
     except BaseException as e:
         logger.error(f"Failed to remove {username} from {group_name}: {e}")
