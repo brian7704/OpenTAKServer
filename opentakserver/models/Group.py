@@ -16,7 +16,7 @@ class GroupTypeEnum(str, enum.Enum):
 
 class GroupDirectionEnum(str, enum.Enum):
     IN = "IN"  # Write
-    OUT = "OUT"  # Read
+    OUT = "OUT"  # Rea
 
 
 @dataclass

@@ -125,7 +125,6 @@ class ClientController(Thread):
         self.rabbit_channel.add_on_close_callback(self.on_channel_close)
 
         for message in self.cached_messages:
-            self.logger.info(f"Publishing cached message: {message}")
             self.route_cot(message)
 
         self.cached_messages.clear()
@@ -161,7 +160,6 @@ class ClientController(Thread):
         if self.is_ssl and not self.is_authenticated and (auth or self.common_name):
             user = None
             with self.app.app_context():
-                self.logger.error(auth)
                 if auth:
                     cot = auth.find('cot')
                     if cot:
@@ -199,7 +197,6 @@ class ClientController(Thread):
                         else:
                             user = self.app.security.datastore.find_user(username=username)
                 elif self.common_name:
-                    self.logger.warning(f"Looking up {self.common_name}")
                     user = self.app.security.datastore.find_user(username=self.common_name)
 
                 if not user:
@@ -410,17 +407,6 @@ class ClientController(Thread):
                 team = Team()
 
                 if __group:
-                    # Declare an exchange for each group and bind the callsign's queue
-                    if self.rabbit_channel.is_open and platform != "Meshtastic" and platform != "DMRCOT":
-                        groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id)).scalars()
-                        for group in groups:
-                            # __group.attrs['name'] is the team color
-                            routing_key = f"{group.group.name}.{__group.attrs['name']}"
-                            self.logger.debug(f"Binding {self.uid} to {routing_key}")
-                            self.rabbit_channel.queue_bind(queue=self.uid, exchange='chatrooms', routing_key=routing_key)
-                            if {"exchange": "chatrooms", "queue": self.uid, "routing_key": routing_key} not in self.bound_queues:
-                                self.bound_queues.append({"exchange": "chatrooms", "queue": self.uid, "routing_key": routing_key})
-
                     team.name = bleach.clean(__group.attrs['name'])
 
                     try:
@@ -687,12 +673,10 @@ class ClientController(Thread):
                 group_memberships = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id, direction=Group.IN, enabled=True)).all()
                 if not group_memberships:
                     # Default to the __ANON__ group if the user doesn't belong to any IN groups
-                    self.logger.warning(f"Publisshing to __ANON__OUT")
                     self.rabbit_channel.basic_publish(exchange='groups', routing_key="__ANON__.OUT", body=json.dumps({'uid': self.uid, 'cot': str(event)}),
                                                       properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
                 for membership in group_memberships:
                     membership = membership[0]
-                    self.logger.warning(f"Publisshing to groups {membership.group.name}.{Group.OUT}")
                     self.rabbit_channel.basic_publish(exchange='groups', routing_key=f"{membership.group.name}.{Group.OUT}", body=json.dumps({'uid': self.uid, 'cot': str(event)}),
                                                       properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))

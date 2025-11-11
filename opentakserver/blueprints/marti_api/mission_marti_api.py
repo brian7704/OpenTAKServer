@@ -271,7 +271,6 @@ def get_missions():
             if group_filters:
                 query = query.outerjoin(GroupMission).where(or_(*group_filters))
 
-        logger.info(query)
         missions = db.session.execute(query).scalars()
         for mission in missions:
             logger.warning(mission.serialize())
@@ -878,7 +877,7 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
     query = db.session.query(GroupMission).filter_by(mission_name=mission_name)
     query.where(or_(*group_filters))
     mission_groups = db.session.execute(query).scalars()
-    logger.info(mission_groups)
+
     if not mission_groups:
         return jsonify({"success": False, "error": f"{username} and mission {mission_name} are not in the same group"}), 403
 
