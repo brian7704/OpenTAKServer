@@ -37,11 +37,14 @@ def save_user(dn: str, username: str, data, groups):
     for group in groups:
         if group['cn'] == app.config.get("OTS_LDAP_ADMIN_GROUP"):
             is_admin = True
-        else:
+        elif group['cn'].startswith(app.config.get("OTS_LDAP_PREFERENCE_ATTRIBUTE_PREFIX")) and (group['cn'].endswith("_READ") or group['cn'].endswith("_WRITE")):
+            logger.debug(f"Adding {group['cn']} role to {user.username}")
             app.security.datastore.add_role_to_user(user, app.security.datastore.find_or_create_role(group['cn']))
 
     if not is_admin:
         app.security.datastore.add_role_to_user(user, 'user')
+    else:
+        app.security.datastore.add_role_to_user(user, 'administrator')
 
     app.security.datastore.commit()
     return user
@@ -53,7 +56,6 @@ def ldap_login():
 
     # LDAPLoginForm.validate() will call save_user()
     if form.validate():
-        # TODO: Override save_user to add admin role
         login_user(form.user, app.config.get("SECURITY_DEFAULT_REMEMBER_ME"), authn_via=["ldap"])
         payload = {"identity_attributes": {"ldap": {}}}
         return base_render_json(form, include_auth_token=True, additional=payload)
