@@ -50,4 +50,3 @@ class Plugin(BasePlugin):
                 url = url_for(rule.endpoint, **(rule.defaults or {}))
                 if url.startswith(url_prefix) and url not in self.routes:
                     self.routes.append(url)
-                    logger.warning(f"Adding {url}")

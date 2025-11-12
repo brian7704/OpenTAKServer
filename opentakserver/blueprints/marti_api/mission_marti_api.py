@@ -273,7 +273,6 @@ def get_missions():
 
         missions = db.session.execute(query).scalars()
         for mission in missions:
-            logger.warning(mission.serialize())
             if not password_protected and mission.password_protected:
                 continue
             if tool and tool.lower() != "public" and mission.tool != tool:
@@ -285,7 +284,6 @@ def get_missions():
         logger.debug(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
 
-    logger.info(response)
     return jsonify(response)
 
 
@@ -1055,22 +1053,10 @@ def create_log_entry():
     db.session.commit()
 
     response = {
-        'version': '3', 'type': '', 'messages': [], 'nodeId': app.config.get('OTS_NODE_ID'), 'data': [log_entry.to_json()]
+        'version': '3', 'type': 'com.bbn.marti.sync.model.LogEntry', 'nodeId': app.config.get('OTS_NODE_ID'), 'data': [log_entry.to_json()]
     }
 
-    mission_change = MissionChange()
-    mission_change.content_uid = log_entry.entry_uid
-    mission_change.isFederatedChange = False
-    mission_change.change_type = MissionChange.CHANGE
-    mission_change.timestamp = log_entry.dtg
-    mission_change.creator_uid = log_entry.creator_uid
-    mission_change.server_time = datetime.datetime.now(datetime.timezone.utc)
-    mission_change.mission_name = log_entry.mission_name
-
-    db.session.add(mission_change)
-    db.session.commit()
-
-    change_cot = generate_mission_change_cot(log_entry.mission_name, mission[0], mission_change, cot_type='t-x-m-c-l')
+    change_cot = log_entry.generate_cot()
     body = json.dumps({'uid': log_entry.creator_uid, 'cot': tostring(change_cot).decode('utf-8')})
 
     rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
@@ -1421,9 +1407,6 @@ def delete_content(mission_name: str):
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/contents/missionpackage', methods=['PUT'])
 def add_content(mission_name):
-    logger.info(request.headers)
-    logger.info(request.args)
-    logger.info(request.data)
     client_uid = request.args.get('clientUid')
     if 'Authorization' not in request.headers or not verify_token():
         return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
