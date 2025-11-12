@@ -383,9 +383,9 @@ def put_mission(mission_name: str):
             rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
             channel = rabbit_connection.channel()
 
-            groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id, enabled=True)).scalers()
+            groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id, enabled=True)).scalars()
             for group in groups:
-                channel.basic_publish(exchange="groups", routing_key=f"{group.name}.{group.direction}", body=json.dumps({'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}))
+                channel.basic_publish(exchange="groups", routing_key=f"{group.group.name}.{group.direction}", body=json.dumps({'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}))
 
             channel.close()
             rabbit_connection.close()
@@ -1052,6 +1052,7 @@ def create_log_entry():
     log_entry.keywords = request.json.get('keywords')
 
     db.session.add(log_entry)
+    db.session.commit()
 
     response = {
         'version': '3', 'type': '', 'messages': [], 'nodeId': app.config.get('OTS_NODE_ID'), 'data': [log_entry.to_json()]

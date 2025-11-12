@@ -48,14 +48,15 @@ class MissionChange(db.Model):
             "timestamp": self.timestamp,
             "creator_uid": self.creator_uid,
             "server_time": self.server_time,
-            "mission_uid": self.mission_uid
+            "mission_uid": self.mission_uid,
+            "content_uid": self.content_uid
         }
 
     def to_json(self):
         json = {
             "isFederatedChange": self.isFederatedChange,
             "type": self.change_type,
-            "contentUid": self.content_uid if self.content_uid != None else self.mission_uid if self.mission_uid != None else self.mission.guid,
+            "contentUid": self.content_uid,
             "missionName": self.mission_name,
             "timestamp": iso8601_string_from_datetime(self.timestamp),
             "creatorUid": self.creator_uid if self.creator_uid else "",
@@ -85,13 +86,14 @@ def generate_mission_change_cot(author_uid: str, mission: Mission, mission_chang
                               "start": iso8601_string_from_datetime(mission_change.timestamp),
                               "time": iso8601_string_from_datetime(mission_change.timestamp),
                               "stale": iso8601_string_from_datetime(
-                                  mission_change.timestamp + datetime.timedelta(minutes=2))})
-    SubElement(event, "point", {"ce": "9999999", "le": "9999999", "hae": "0", "lat": "0", "lon": "0"})
+                                  mission_change.timestamp + datetime.timedelta(minutes=2)),
+                              "access": "Undefined"})
+    SubElement(event, "point", {"ce": "9999999", "le": "9999999", "hae": "0.0", "lat": "0.0", "lon": "0.0"})
 
     detail = SubElement(event, "detail")
     mission_element = SubElement(detail, "mission",
                                  {"type": MissionChange.CHANGE, "tool": "public", "name": mission.name,
-                                  "guid": mission.guid, "authorUid": mission.creator_uid})
+                                  "guid": mission.guid, "authorUid": mission_change.creator_uid})
     mission_changes_element = SubElement(mission_element, "MissionChanges")
     mission_change_element = SubElement(mission_changes_element, "MissionChange")
 
@@ -127,7 +129,7 @@ def generate_mission_change_cot(author_uid: str, mission: Mission, mission_chang
             details_tag.set("iconsetPath", icon.attrs['iconsetpath'])
 
         SubElement(details_tag, "location", {'lon': point.attrs['lon'], 'lat': point.attrs['lat']})
-        SubElement(mission_change_element, "contentUid").text = cot_event.attrs['uid']
+        # SubElement(mission_change_element, "contentUid").text = cot_event.attrs['uid']
 
     if mission_uid:
         details_tag = SubElement(mission_change_element, "details")
@@ -142,11 +144,12 @@ def generate_mission_change_cot(author_uid: str, mission: Mission, mission_chang
         if mission_uid.longitude:
             SubElement(details_tag, "location", {'lon': str(mission_uid.longitude), 'lat': str(mission_uid.latitude)})
 
-    # if mission_change.content_uid:
-    #    SubElement(mission_change_element, "contentUid").text = mission_change.content_uid
+    if mission_change.mission_uid:
+        SubElement(mission_change_element, "contentUid").text = mission_change.mission_uid
 
+    SubElement(mission_change_element, "missionGuid").text = mission.guid
     SubElement(mission_change_element, "creatorUid").text = mission_change.creator_uid
-    SubElement(mission_change_element, "isFederatedChange").text = str(mission_change.isFederatedChange)
+    SubElement(mission_change_element, "isFederatedChange").text = str(mission_change.isFederatedChange).lower()
     SubElement(mission_change_element, "missionName").text = mission.name
     SubElement(mission_change_element, "timestamp").text = iso8601_string_from_datetime(mission_change.timestamp)
     SubElement(mission_change_element, "type").text = mission_change.change_type

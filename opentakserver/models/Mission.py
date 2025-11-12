@@ -84,7 +84,6 @@ class Mission(db.Model):
             'path': self.path or "",
             'classification': self.classification or "",
             'tool': self.tool or "",
-            'group': self.group or "__ANON__",
             'defaultRole': self.default_role or "",
             'keywords': self.keywords if self.keywords else [],
             'creatorUid': self.creator_uid or "",
@@ -105,9 +104,7 @@ class Mission(db.Model):
         }
 
         for group in self.groups:
-            group_json = group.serialize()
-            group_json['id'] = group.id
-            json['groups'].append(group_json)
+            json['groups'].append(group.name)
 
         if self.default_role == MissionRole.MISSION_SUBSCRIBER or not self.default_role:
             json['defaultRole'] = MissionRole.SUBSCRIBER_ROLE
