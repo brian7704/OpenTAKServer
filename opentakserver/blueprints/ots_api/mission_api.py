@@ -161,6 +161,7 @@ def create_edit_mission():
     # Update an existing mission
 
     # Checks if current user is the mission creator
+    mission = mission[0]
     is_user_mission_creator = False
     for eud in current_user.euds:
         if eud.uid == mission.creator_uid:
@@ -171,7 +172,6 @@ def create_edit_mission():
     if not current_user.has_role('administrator') and not is_user_mission_creator:
         return jsonify({'success': False, 'error': 'Only an admin or the mission creator can change this mission'}), 403
 
-    mission = mission[0]
     for key in request.json:
         if key == 'groups':
             db.session.execute(sqlalchemy.delete(GroupMission).filter_by(mission_name=mission_name))
