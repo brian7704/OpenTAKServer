@@ -1,5 +1,6 @@
 import datetime
 import enum
+import re
 from dataclasses import dataclass
 
 from opentakserver.extensions import db
@@ -76,10 +77,16 @@ class Group(db.Model):
         return return_value
 
     def to_marti_json_in(self):
+        # Remove the _READ and _WRITE suffixes when using LDAP for groups
+        remove_read = re.compile(re.escape("_read"), re.IGNORECASE)
+        remove_write = re.compile(re.escape("_write"), re.IGNORECASE)
+        group_name = remove_read.sub("", self.name)
+        group_name = remove_write.sub("", group_name)
+
         return {
-            'name': self.name,
+            'name': group_name,
             'direction': Group.IN,
-            'created': iso8601_string_from_datetime(self.created).split("T")[0],
+            'created': iso8601_string_from_datetime(self.created or datetime.datetime.now(tz=datetime.timezone.utc)).split("T")[0],
             'type': self.type,
             'bitpos': self.bitpos,
             'active': True,

@@ -54,9 +54,9 @@ def get_all_groups():
             g.distinguishedName = group['dn']
             g.type = Group.LDAP
 
-            if group['cn'].endswith("_WRITE"):
+            if group['cn'].lower().endswith("_write"):
                 response['data'].append(g.to_marti_json_in())
-            elif group['cn'].endswith("_READ"):
+            elif group['cn'].lower().endswith("_read"):
                 response['data'].append(g.to_marti_json_out())
 
     return jsonify(response)

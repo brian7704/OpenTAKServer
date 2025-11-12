@@ -31,7 +31,8 @@ def get_groups():
     """
 
     if app.config.get("OTS_ENABLE_LDAP"):
-        return jsonify({"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
+        return jsonify(
+            {"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
 
     query = db.session.query(Group)
     query = search(query, Group, 'name')
@@ -50,14 +51,28 @@ def get_all_groups():
     :return: JSON array of groups
     :rtype: Response
     """
-
-    if app.config.get("OTS_ENABLE_LDAP"):
-        return jsonify({"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
-
     return_value = []
 
+    if app.config.get("OTS_ENABLE_LDAP"):
+
+        groups = ldap_manager.get_user_groups(current_user.username)
+        for group in groups:
+            if group['cn'].lower().startswith(app.config.get("OTS_LDAP_GROUP_PREFIX").lower()) and not \
+                    (group['cn'].lower().endswith("_read") or group['cn'].lower().endswith("_write")):
+
+                g = Group()
+                g.id = group['entryuuid']
+                g.name = group['cn']
+                g.distinguishedName = group['dn']
+                g.type = Group.LDAP
+
+                return_value.append(g.to_json())
+
+        return jsonify(return_value)
+
     if not current_user.has_role("administrator"):
-        groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=current_user.id, direction=Group.OUT)).scalars()
+        groups = db.session.execute(
+            db.session.query(GroupUser).filter_by(user_id=current_user.id, direction=Group.OUT)).scalars()
         # Make sure a group is only added once, not twice for both IN and OUT
         group_names = []
         for group in groups:
@@ -86,7 +101,8 @@ def get_group_members():
     :rtype: Response
     """
     if app.config.get("OTS_ENABLE_LDAP"):
-        return jsonify({"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
+        return jsonify(
+            {"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
 
     group_name = request.args.get("name")
     if not group_name:
@@ -111,7 +127,8 @@ def get_group_members():
 @roles_required("administrator")
 def remove_user_from_group():
     if app.config.get("OTS_ENABLE_LDAP"):
-        return jsonify({"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
+        return jsonify(
+            {"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
 
     username = request.args.get("username")
     group_name = request.args.get("group_name")
@@ -139,9 +156,11 @@ def remove_user_from_group():
         GroupUser.query.filter_by(group_id=group[0].id, user_id=user.id, direction=direction).delete()
         db.session.commit()
 
-        rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+        rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"),
+                                                   app.config.get("OTS_RABBITMQ_PASSWORD"))
         rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
-        rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
+        rabbit_connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
         channel = rabbit_connection.channel()
         for eud in user.euds:
             channel.queue_unbind(exchange="groups", queue=eud.uid, routing_key=f"{group_name}.{direction}")
@@ -207,7 +226,8 @@ def add_user_to_group():
     """
 
     if app.config.get("OTS_ENABLE_LDAP"):
-        return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to add users to groups'}), 400
+        return jsonify(
+            {'success': False, 'error': 'LDAP is enabled, please use your LDAP server to add users to groups'}), 400
 
     users = request.json.get("users")
     group_name = request.json.get("group_name")
@@ -246,13 +266,15 @@ def add_user_to_group():
 @roles_required("administrator")
 def delete_group():
     if app.config.get("OTS_ENABLE_LDAP"):
-        return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to delete groups'}), 400
+        return jsonify(
+            {'success': False, 'error': 'LDAP is enabled, please use your LDAP server to delete groups'}), 400
 
     if "group_name" not in request.args.keys() or not request.args.get("group_name"):
         return jsonify({'success': False, 'error': 'Missing name'}), 400
 
     try:
-        group = db.session.execute(db.session.query(Group).filter_by(name=bleach.clean(request.args.get("group_name")))).first()
+        group = db.session.execute(
+            db.session.query(Group).filter_by(name=bleach.clean(request.args.get("group_name")))).first()
         if not group:
             return jsonify({"success": False, "error": f"No such group: {request.args.get('group_name')}"}), 404
 
