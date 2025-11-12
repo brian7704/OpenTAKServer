@@ -72,7 +72,7 @@ def get_ldap_groups():
     group_name = bleach.clean(group_name)
 
     if not group_name.startswith(app.config.get("OTS_LDAP_GROUP_PREFIX")):
-        return jsonify({'success': False, 'error': f"Please specify a groupNameFilter that starts with {app.config.get("OTS_LDAP_GROUP_PREFIX")}"}), 400
+        return jsonify({'success': False, 'error': f"Please specify a groupNameFilter that starts with {app.config.get('OTS_LDAP_GROUP_PREFIX')}"}), 400
 
     if not group_name.endswith("_READ") and not group_name.endswith("_WRITE"):
         return jsonify({'success': False,'error': "groupNameFilter must end with either _READ or _WRITE"}), 400
