@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify, current_app as app, Response
 from flask_login import current_user
 from flask_security import roles_required, auth_required
 
-from opentakserver.extensions import db, logger
+from opentakserver.extensions import db, logger, ldap_manager
 from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.models.Group import Group
 from opentakserver.models.GroupUser import GroupUser
@@ -21,7 +21,6 @@ def get_groups():
     """ Search groups with filters and pagination
 
     :parameter: name
-    :parameter: direction
     :parameter: type
     :parameter: bitpos
     :parameter: active
@@ -30,9 +29,12 @@ def get_groups():
 
     :return: JSON array of groups
     """
+
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify({"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
+
     query = db.session.query(Group)
     query = search(query, Group, 'name')
-    query = search(query, Group, 'direction')
     query = search(query, Group, 'type')
     query = search(query, Group, 'bitpos')
     query = search(query, Group, 'active')
@@ -48,6 +50,9 @@ def get_all_groups():
     :return: JSON array of groups
     :rtype: Response
     """
+
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify({"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
 
     return_value = []
 
@@ -80,6 +85,9 @@ def get_group_members():
     :return: JSON array of group members
     :rtype: Response
     """
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify({"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
+
     group_name = request.args.get("name")
     if not group_name:
         return jsonify({"success": False, "error": "Please specify a group name"}), 400
@@ -102,6 +110,9 @@ def get_group_members():
 @group_api.route('/api/groups/members', methods=["DELETE"])
 @roles_required("administrator")
 def remove_user_from_group():
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify({"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
+
     username = request.args.get("username")
     group_name = request.args.get("group_name")
     direction = request.args.get("direction")
@@ -134,6 +145,9 @@ def remove_user_from_group():
         channel = rabbit_connection.channel()
         for eud in user.euds:
             channel.queue_unbind(exchange="groups", queue=eud.uid, routing_key=f"{group_name}.{direction}")
+
+        channel.close()
+        rabbit_connection.close()
 
         return jsonify({"success": True})
     except BaseException as e:

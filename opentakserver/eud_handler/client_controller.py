@@ -556,7 +556,7 @@ class ClientController(Thread):
                     groups = self.db.session.execute(group_query).all()
                     for group in groups:
                         group = group[0]
-                        self.logger.warning(f"Publishing to group {group.group.name}.{group.direction}")
+                        self.logger.debug(f"Publishing to group {group.group.name}.{group.direction}")
                         self.rabbit_channel.basic_publish(exchange="groups", routing_key=f"{group.group.name}.{group.direction}", body=message)
 
             with self.app.app_context():
@@ -580,11 +580,16 @@ class ClientController(Thread):
         self.rabbit_channel.basic_publish(exchange='cot', body=json.dumps({'uid': self.uid, 'cot': str(event)}), routing_key='',
                                           properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
+        mission_changes = []
         destinations = event.find_all('dest')
         if destinations:
 
             for destination in destinations:
-                uid = None
+                creator = event.find("creator")
+                creator_uid = self.uid
+                if creator and "uid" in creator.attrs:
+                    creator_uid = creator.attrs['uid']
+
                 # ATAK and WinTAK use callsign, iTAK uses uid
                 if 'callsign' in destination.attrs and destination.attrs['callsign']:
                     self.logger.warning(f"Publishing to dms {destination.attrs['callsign']}")
@@ -617,7 +622,7 @@ class ClientController(Thread):
                             mission_uid.uid = event.attrs['uid']
                             mission_uid.mission_name = destination.attrs['mission']
                             mission_uid.timestamp = datetime_from_iso8601_string(event.attrs['start'])
-                            mission_uid.creator_uid = uid
+                            mission_uid.creator_uid = creator_uid
                             mission_uid.cot_type = event.attrs['type']
 
                             color = event.find('color')
@@ -649,18 +654,16 @@ class ClientController(Thread):
                             mission_change.change_type = MissionChange.ADD_CONTENT
                             mission_change.mission_name = destination.attrs['mission']
                             mission_change.timestamp = datetime_from_iso8601_string(event.attrs['start'])
-                            mission_change.creator_uid = self.uid
+                            mission_change.creator_uid = creator_uid
                             mission_change.server_time = datetime_from_iso8601_string(event.attrs['start'])
                             mission_change.mission_uid = event.attrs['uid']
 
                             change_pk = self.db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
                             self.db.session.commit()
 
-                            body = {'uid': uid, 'cot': tostring(
-                                generate_mission_change_cot(destination.attrs['mission'], mission, mission_change,
-                                                            cot_event=event)).decode('utf-8')}
-                            self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{mission.name}",
-                                                              body=json.dumps(body))
+                            body = {'uid': self.uid, 'cot': tostring(generate_mission_change_cot(destination.attrs['mission'], mission, mission_change, cot_event=event)).decode('utf-8')}
+                            mission_changes.append({"mission": mission.name, "message": body})
+                            self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{mission.name}", body=json.dumps(body))
 
         if not destinations and not self.is_ssl:
             # Publish all CoT messages received by TCP and that have no destination to the __ANON__ group
@@ -680,3 +683,9 @@ class ClientController(Thread):
                     membership = membership[0]
                     self.rabbit_channel.basic_publish(exchange='groups', routing_key=f"{membership.group.name}.{Group.OUT}", body=json.dumps({'uid': self.uid, 'cot': str(event)}),
                                                       properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
+
+        if mission_changes:
+            for change in mission_changes:
+                self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{change['mission']}",
+                                                  body=json.dumps(change['message']))
+                self.logger.warning(change['message']['cot'])

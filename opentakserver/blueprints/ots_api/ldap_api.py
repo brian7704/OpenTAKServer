@@ -1,6 +1,6 @@
 from flask import current_app as app, request, Blueprint
 from flask_ldap3_login.forms import LDAPLoginForm
-from flask_security import login_user
+from flask_security import login_user, current_user
 from flask_security.utils import base_render_json
 from werkzeug.datastructures import ImmutableMultiDict
 
@@ -53,6 +53,7 @@ def ldap_login():
 
     # LDAPLoginForm.validate() will call save_user()
     if form.validate():
+        # TODO: Override save_user to add admin role
         login_user(form.user, app.config.get("SECURITY_DEFAULT_REMEMBER_ME"), authn_via=["ldap"])
         payload = {"identity_attributes": {"ldap": {}}}
         return base_render_json(form, include_auth_token=True, additional=payload)
