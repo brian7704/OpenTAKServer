@@ -1,5 +1,6 @@
 import datetime
 import enum
+import re
 from dataclasses import dataclass
 
 from opentakserver.extensions import db
@@ -15,8 +16,8 @@ class GroupTypeEnum(str, enum.Enum):
 
 
 class GroupDirectionEnum(str, enum.Enum):
-    IN = "IN"
-    OUT = "OUT"
+    IN = "IN"  # Write
+    OUT = "OUT"  # Rea
 
 
 @dataclass
@@ -40,6 +41,7 @@ class Group(db.Model):
     bitpos: Mapped[int] = mapped_column(Integer)
     description: Mapped[str] = mapped_column(String, nullable=True)
     users = relationship("User", secondary="groups_users", viewonly=True, back_populates="groups", cascade="all, delete")
+    missions = relationship("Mission", secondary="groups_missions", viewonly=True, back_populates="groups", cascade="all, delete")
 
     def get_next_bitpos(self) -> int:
         # the __ANON__ group is always 2 so default to 3 here
@@ -68,15 +70,23 @@ class Group(db.Model):
 
     def to_json(self):
         return_value = self.serialize()
+        return_value['id'] = self.id
         return_value['bitpos'] = "{0:b}".format(self.bitpos)
         return_value['users'] = [user.serialize() for user in self.users]
+        return_value['missions'] = [mission.serialize() for mission in self.missions]
         return return_value
 
     def to_marti_json_in(self):
+        # Remove the _READ and _WRITE suffixes when using LDAP for groups
+        remove_read = re.compile(re.escape("_read"), re.IGNORECASE)
+        remove_write = re.compile(re.escape("_write"), re.IGNORECASE)
+        group_name = remove_read.sub("", self.name)
+        group_name = remove_write.sub("", group_name)
+
         return {
-            'name': self.name,
+            'name': group_name,
             'direction': Group.IN,
-            'created': iso8601_string_from_datetime(self.created).split("T")[0],
+            'created': iso8601_string_from_datetime(self.created or datetime.datetime.now(tz=datetime.timezone.utc)).split("T")[0],
             'type': self.type,
             'bitpos': self.bitpos,
             'active': True,

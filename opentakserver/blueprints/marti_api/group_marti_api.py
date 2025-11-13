@@ -9,7 +9,7 @@ from flask_security import current_user
 
 from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
 from opentakserver.functions import iso8601_string_from_datetime
-from opentakserver.extensions import db, logger
+from opentakserver.extensions import db, logger, ldap_manager
 from opentakserver.models.Group import Group
 from opentakserver.models.GroupUser import GroupUser
 
@@ -29,56 +29,105 @@ def get_all_groups():
     if not cert:
         return jsonify({"success": False, "error": "Groups are only supported on SSL connections"}), 400
 
-    username = cert.get_subject().commonName
-    user = app.security.datastore.find_user(username=username)
-
-    logger.warning(request.args)
-
     response = {"version": "3", "type": "com.bbn.marti.remote.groups.Group", "nodeId": app.config.get("OTS_NODE_ID"), "data": []}
 
-    for group in user.groups:
-        group = group
+    username = cert.get_subject().commonName
 
-        response['data'].append(group.to_marti_json_in())
-        response['data'].append(group.to_marti_json_out())
+    if not app.config.get("OTS_ENABLE_LDAP"):
+        user = app.security.datastore.find_user(username=username)
+        groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id)).scalars()
 
-    logger.warning(response)
+        for group in groups:
+            if group.direction == Group.IN:
+                response['data'].append(group.group.to_marti_json_in())
+            else:
+                response['data'].append(group.group.to_marti_json_out())
+
+    else:
+        groups = ldap_manager.get_user_groups(username)
+        for group in groups:
+            if app.config.get("OTS_LDAP_GROUP_PREFIX") and not group['cn'].startswith(app.config.get("OTS_LDAP_GROUP_PREFIX")):
+                continue
+
+            g = Group()
+            g.name = group['cn']
+            g.distinguishedName = group['dn']
+            g.type = Group.LDAP
+
+            if group['cn'].lower().endswith("_write"):
+                response['data'].append(g.to_marti_json_in())
+            elif group['cn'].lower().endswith("_read"):
+                response['data'].append(g.to_marti_json_out())
+
     return jsonify(response)
 
 
 @group_api.route('/Marti/api/groups')
 def get_ldap_groups():
-    # Always return an empty response until LDAP support is implemented
+
     group_name = request.args.get("groupNameFilter")
     if not group_name:
         return jsonify({'success': False, 'error': "Please specify a groupNameFilter"}), 400
 
-    groups = db.session.execute(db.session.query(Group).filter_by(group_name=group_name)).all()
-    if not groups:
-        return jsonify({'success': False, 'error': f"Group {group_name} not found"}), 404
+    group_name = bleach.clean(group_name)
+
+    if not group_name.startswith(app.config.get("OTS_LDAP_GROUP_PREFIX")):
+        return jsonify({'success': False, 'error': f"Please specify a groupNameFilter that starts with {app.config.get('OTS_LDAP_GROUP_PREFIX')}"}), 400
+
+    if not group_name.endswith("_READ") and not group_name.endswith("_WRITE"):
+        return jsonify({'success': False,'error': "groupNameFilter must end with either _READ or _WRITE"}), 400
 
     response = {"version": "3", "type": "com.bbn.marti.remote.groups.LdapGroup", "data": [],
                 "nodeId": app.config.get("OTS_NODE_ID")}
+
+    if app.config.get("OTS_ENABLE_LDAP"):
+        group = ldap_manager.get_group_info(group_name)
+        g = Group()
+        g.name = group['cn']
+        g.distinguishedName = group['dn']
+        g.type = Group.LDAP
+
+        if group['cn'].endswith("_WRITE"):
+            response['data'].append(g.to_marti_json_in())
+        elif group['cn'].endswith("_READ"):
+            response['data'].append(g.to_marti_json_out())
 
     return jsonify(response)
 
 
 @group_api.route('/Marti/api/groups/members')
 def get_ldap_group_members():
-    # Always return 0 until LDAP support is implemented
     group_name = request.args.get("groupNameFilter")
     if not group_name:
         return jsonify({'success': False, 'error': "Please specify a groupNameFilter"}), 400
 
+    group_name = bleach.clean(group_name)
+
+    if not group_name.startswith(app.config.get("OTS_LDAP_GROUP_PREFIX")):
+        return jsonify({'success': False, 'error': f"Please specify a groupNameFilter that starts with {app.config.get('OTS_LDAP_GROUP_PREFIX')}"}), 400
+
+    if not group_name.endswith("_READ") and not group_name.endswith("_WRITE"):
+        return jsonify({'success': False, 'error': "groupNameFilter must end with either _READ or _WRITE"}), 400
+
     response = {"version": "3", "type": "java.lang.Integer", "data": 0, "nodeId": app.config.get("OTS_NODE_ID")}
+
+    if app.config.get("OTS_ENABLE_LDAP"):
+        group = {}
+        try:
+            group = ldap_manager.get_group_info(group_name)
+            response['data'] = len(group['member'])
+        except BaseException as e:
+            logger.error(f"Failed to get member count for {group_name}: {e}")
+            logger.debug(group)
 
     return jsonify(response)
 
 
 @group_api.route('/Marti/api/groupprefix')
 def get_ldap_group_prefix():
-    # Always return and empty string until LDAP support is implemented
     response = {"version": "3", "type": "java.lang.String", "data": "", "nodeId": app.config.get("OTS_NODE_ID")}
+    if app.config.get("OTS_ENABLE_LDAP"):
+        response["data"] = app.config.get("OTS_LDAP_GROUP_PREFIX")
 
     return jsonify(response)
 
@@ -93,11 +142,6 @@ def put_active_bits():
 
 @group_api.route('/Marti/api/groups/active', methods=['PUT'])
 def put_active_groups():
-    # [{"name":"__ANON__","direction":"OUT","created":1729814400000,"type":"SYSTEM","bitpos":2,"active":true},{"name":"__ANON__","direction":"IN","created":1729814400000,"type":"SYSTEM","bitpos":2,"active":true}]
-
-    logger.debug(request.json)
-    logger.debug(request.args)
-
     uid = request.args.get("clientUid")
     if not uid:
         logger.error("clientUid required")
@@ -112,7 +156,9 @@ def put_active_groups():
         logger.warning(f"User {username} doesn't belong to any groups, defaulting to __ANON__")
         return '', 400
 
-    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")))
+    rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
     channel = rabbit_connection.channel()
 
     group_subscriptions = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id)).all()
@@ -139,8 +185,9 @@ def put_active_groups():
         for group_subscription in group_subscriptions:
             group_subscription = group_subscription[0]
             if group_subscription.group.name == group_name and group_subscription.direction == direction:
-                group_subscription.enabled = active
-                db.session.add(group_subscription)
+                if not app.config.get("OTS_ENABLE_LDAP"):
+                    group_subscription.enabled = active
+                    db.session.add(group_subscription)
 
                 if active:
                     channel.queue_bind(queue=uid, exchange="groups", routing_key=f"{group_subscription.group.name}.{group_subscription.direction}")
@@ -148,6 +195,9 @@ def put_active_groups():
                     channel.queue_unbind(queue=uid, exchange="groups", routing_key=f"{group_subscription.group.name}.{group_subscription.direction}")
 
                 user_in_group = True
+
+        channel.close()
+        rabbit_connection.close()
 
         if not user_in_group:
             logger.warning(f"{username} is not in the {group_name} group")
@@ -182,12 +232,29 @@ def get_group(group_name: str, direction: str):
     if not group_name or not direction:
         return jsonify({'success': False, 'error': "Please provide a group name and direction"}), 400
 
-    group = db.session.execute(db.session.query(Group).filter_by(group_name=group_name, direction=direction)).first()
-    if not group:
-        return jsonify({'success': False, 'error': f"No group found: {group_name}, {direction}"}), 404
+    response = {"version": "3", "type": "com.bbn.marti.remote.groups.Group", "data": {}, "nodeId": app.config.get("OTS_NODE_ID")}
 
-    return jsonify({"version": "3", "type": "com.bbn.marti.remote.groups.Group", "data": group[0].to_json(),
-                    "nodeId": app.config.get("OTS_NODE_ID")})
+    if not app.config.get("OTS_ENABLE_LDAP"):
+        group = db.session.execute(db.session.query(Group).filter_by(group_name=group_name, direction=direction)).first()
+        if not group:
+            return jsonify({'success': False, 'error': f"No group found: {group_name}, {direction}"}), 404
+        if direction == Group.IN:
+            response['data'] = group[0].to_marti_json_in()
+        elif direction == Group.OUT:
+            response['data'] = group[0].to_marti_json_out()
+
+    else:
+        group = ldap_manager.get_group_info(group_name)
+        g = Group()
+        g.name = group['cn']
+        g.distinguishedName = group['dn']
+        g.type = Group.LDAP
+        if direction == Group.IN:
+            response['data'] = g.to_marti_json_in()
+        elif direction == Group.OUT:
+            response['data'] = g.to_marti_json_out()
+
+    return jsonify()
 
 
 @group_api.route('/Marti/api/subscriptions/all')

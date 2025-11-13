@@ -24,7 +24,7 @@ from bs4 import BeautifulSoup
 from meshtastic import mqtt_pb2, mesh_pb2, portnums_pb2, BROADCAST_NUM
 import unishox2
 import yaml
-from flask import Flask
+from flask import Flask, jsonify
 
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.functions import *
@@ -35,6 +35,7 @@ from opentakserver.models.MissionInvitation import MissionInvitation
 from opentakserver.models.MissionContentMission import MissionContentMission
 from opentakserver.models.MissionLogEntry import MissionLogEntry
 from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
+from opentakserver.models.GroupMission import GroupMission
 from opentakserver.models.MissionUID import MissionUID
 from opentakserver.models.WebAuthn import WebAuthn
 
@@ -880,6 +881,10 @@ def create_app():
 
 app = create_app()
 child_processes = []
+
+@app.route("/status")
+def status():
+    return jsonify({"status": "ok"})
 
 
 def main():

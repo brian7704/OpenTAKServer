@@ -6,7 +6,7 @@ from flask import current_app as app, request, Blueprint, jsonify
 from flask_security import roles_accepted, hash_password, current_user, admin_change_password, auth_required
 
 from opentakserver.blueprints.ots_api.api import search, paginate
-from opentakserver.extensions import logger, db
+from opentakserver.extensions import logger, db, ldap_manager
 from opentakserver.models.EUD import EUD
 from opentakserver.models.Group import Group
 from opentakserver.models.GroupUser import GroupUser
@@ -19,12 +19,14 @@ user_api_blueprint = Blueprint('user_api_blueprint', __name__)
 @user_api_blueprint.route("/api/user/add", methods=['POST'])
 @roles_accepted("administrator")
 def create_user():
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to create users'}), 400
+
     username = bleach.clean(request.json.get('username'))
     password = bleach.clean(request.json.get('password'))
     confirm_password = bleach.clean(request.json.get('confirm_password'))
 
     validated_username = UsernameValidator(app).validate(username)
-    logger.debug(f"Username invalid? {validated_username}")
     if validated_username[0]:
         return jsonify({"success": False, "error": f"{validated_username[0]}"}), 400
 
@@ -63,6 +65,9 @@ def create_user():
 @user_api_blueprint.route("/api/user/delete", methods=['POST'])
 @roles_accepted("administrator")
 def delete_user():
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to delete users'}), 400
+
     username = bleach.clean(request.json.get('username'))
 
     if username == current_user.username:
@@ -84,6 +89,9 @@ def delete_user():
 @user_api_blueprint.route("/api/user/password/reset", methods=['POST'])
 @roles_accepted("administrator")
 def admin_reset_password():
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to reset passwords'}), 400
+
     username = bleach.clean(request.json.get("username"))
     new_password = bleach.clean(request.json.get("new_password"))
 
@@ -107,6 +115,9 @@ def admin_reset_password():
 @user_api_blueprint.route('/api/user/deactivate', methods=['POST'])
 @roles_accepted('administrator')
 def deactivate_user():
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to deactivate users'}), 400
+
     username = bleach.clean(request.json.get("username", ""))
     if not username:
         return jsonify({'success': False, 'error': 'Please specify the username to deactivate'}), 400
@@ -126,6 +137,9 @@ def deactivate_user():
 @user_api_blueprint.route('/api/user/activate', methods=['POST'])
 @roles_accepted('administrator')
 def activate_user():
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to activate users'}), 400
+
     username = bleach.clean(request.json.get("username", ""))
     if not username:
         return jsonify({'success': False, 'error': 'Please specify the username to activate'}), 400
@@ -145,6 +159,9 @@ def activate_user():
 @user_api_blueprint.route("/api/user/role", methods=['POST'])
 @roles_accepted("administrator")
 def set_user_role():
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to assign roles'}), 400
+
     username = bleach.clean(request.json.get("username", ""))
     roles = request.json.get("roles")
     roles_cleaned = []
@@ -214,6 +231,9 @@ def assign_eud_to_user():
 @user_api_blueprint.route('/api/users')
 @roles_accepted('administrator')
 def get_users():
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to manage users'}), 400
+
     query = db.session.query(User)
     query = search(query, User, 'username')
 
@@ -223,6 +243,9 @@ def get_users():
 @user_api_blueprint.route('/api/users/all')
 @roles_accepted('administrator')
 def get_all_users():
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to manage users'}), 400
+
     users = db.session.execute(db.session.query(User)).all()
     return_value = []
 
@@ -242,6 +265,9 @@ def get_user_groups():
 
     :return: List of group memberships
     """
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to manage groups'}), 400
+
     username = request.args.get("username")
     if not username:
         return jsonify({"success": False, "error": "Please provide a username"}), 400

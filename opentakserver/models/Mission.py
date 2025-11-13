@@ -47,6 +47,7 @@ class Mission(db.Model):
     uids = relationship("MissionUID", cascade="all, delete-orphan", back_populates="mission")
     mission_logs = relationship("MissionLogEntry", cascade="all, delete-orphan", back_populates="mission")
     owner = relationship("EUD", back_populates="owned_missions")
+    groups = relationship("Group", secondary="groups_missions", viewonly=True, back_populates="missions", cascade="all, delete")
 
     def serialize(self):
         return {
@@ -68,8 +69,6 @@ class Mission(db.Model):
             'invite_only': self.invite_only,
             'expiration': self.expiration,
             'guid': self.guid,
-            'uids': self.uids,
-            'contents': self.contents,
             'password_protected': self.password_protected,
             'password': self.password
         }
@@ -85,7 +84,6 @@ class Mission(db.Model):
             'path': self.path or "",
             'classification': self.classification or "",
             'tool': self.tool or "",
-            'group': self.group or "__ANON__",
             'defaultRole': self.default_role or "",
             'keywords': self.keywords if self.keywords else [],
             'creatorUid': self.creator_uid or "",
@@ -101,8 +99,12 @@ class Mission(db.Model):
             'passwordProtected': self.password_protected if self.password_protected is not None else False,
             'missionChanges': [mission_change.to_json() for mission_change in self.mission_changes],
             'qr_code': f"{url}:{app.config.get('OTS_SSL_STREAMING_PORT')}:ssl,{url}-{app.config.get('OTS_MARTI_HTTPS_PORT')}-ssl-{self.name},{self.name}",
-            'owner': self.owner.to_json() if self.owner else None
+            'owner': self.owner.to_json() if self.owner else None,
+            'groups': []
         }
+
+        for group in self.groups:
+            json['groups'].append(group.name)
 
         if self.default_role == MissionRole.MISSION_SUBSCRIBER or not self.default_role:
             json['defaultRole'] = MissionRole.SUBSCRIBER_ROLE

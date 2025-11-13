@@ -1,11 +1,13 @@
 import traceback
 
 import bleach
+import pika
 import sqlalchemy.exc
 from flask import Blueprint, request, jsonify, current_app as app, Response
-from flask_security import roles_required
+from flask_login import current_user
+from flask_security import roles_required, auth_required
 
-from opentakserver.extensions import db, logger
+from opentakserver.extensions import db, logger, ldap_manager
 from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.models.Group import Group
 from opentakserver.models.GroupUser import GroupUser
@@ -19,7 +21,6 @@ def get_groups():
     """ Search groups with filters and pagination
 
     :parameter: name
-    :parameter: direction
     :parameter: type
     :parameter: bitpos
     :parameter: active
@@ -28,9 +29,13 @@ def get_groups():
 
     :return: JSON array of groups
     """
+
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify(
+            {"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
+
     query = db.session.query(Group)
     query = search(query, Group, 'name')
-    query = search(query, Group, 'direction')
     query = search(query, Group, 'type')
     query = search(query, Group, 'bitpos')
     query = search(query, Group, 'active')
@@ -39,19 +44,48 @@ def get_groups():
 
 
 @group_api.route('/api/groups/all', methods=["GET"])
-@roles_required("administrator")
+@auth_required()
 def get_all_groups():
     """ Get a list of all groups
 
     :return: JSON array of groups
     :rtype: Response
     """
-    groups = db.session.execute(db.session.query(Group)).all()
     return_value = []
 
-    for group in groups:
-        group = group[0]
-        return_value.append(group.to_json())
+    if app.config.get("OTS_ENABLE_LDAP"):
+
+        groups = ldap_manager.get_user_groups(current_user.username)
+        for group in groups:
+            if group['cn'].lower().startswith(app.config.get("OTS_LDAP_GROUP_PREFIX").lower()) and not \
+                    (group['cn'].lower().endswith("_read") or group['cn'].lower().endswith("_write")):
+
+                g = Group()
+                g.id = group['entryuuid']
+                g.name = group['cn']
+                g.distinguishedName = group['dn']
+                g.type = Group.LDAP
+
+                return_value.append(g.to_json())
+
+        return jsonify(return_value)
+
+    if not current_user.has_role("administrator"):
+        groups = db.session.execute(
+            db.session.query(GroupUser).filter_by(user_id=current_user.id, direction=Group.OUT)).scalars()
+        # Make sure a group is only added once, not twice for both IN and OUT
+        group_names = []
+        for group in groups:
+            if group.group.name not in group_names:
+                group_names.append(group.group.name)
+            else:
+                continue
+            return_value.append(group.group.to_json())
+
+    else:
+        groups = db.session.execute(db.session.query(Group)).scalars()
+        for group in groups:
+            return_value.append(group.to_json())
 
     return jsonify(return_value)
 
@@ -66,6 +100,10 @@ def get_group_members():
     :return: JSON array of group members
     :rtype: Response
     """
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify(
+            {"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
+
     group_name = request.args.get("name")
     if not group_name:
         return jsonify({"success": False, "error": "Please specify a group name"}), 400
@@ -88,6 +126,10 @@ def get_group_members():
 @group_api.route('/api/groups/members', methods=["DELETE"])
 @roles_required("administrator")
 def remove_user_from_group():
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return jsonify(
+            {"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
+
     username = request.args.get("username")
     group_name = request.args.get("group_name")
     direction = request.args.get("direction")
@@ -113,6 +155,19 @@ def remove_user_from_group():
     try:
         GroupUser.query.filter_by(group_id=group[0].id, user_id=user.id, direction=direction).delete()
         db.session.commit()
+
+        rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"),
+                                                   app.config.get("OTS_RABBITMQ_PASSWORD"))
+        rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+        rabbit_connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
+        channel = rabbit_connection.channel()
+        for eud in user.euds:
+            channel.queue_unbind(exchange="groups", queue=eud.uid, routing_key=f"{group_name}.{direction}")
+
+        channel.close()
+        rabbit_connection.close()
+
         return jsonify({"success": True})
     except BaseException as e:
         logger.error(f"Failed to remove {username} from {group_name}: {e}")
@@ -171,7 +226,8 @@ def add_user_to_group():
     """
 
     if app.config.get("OTS_ENABLE_LDAP"):
-        return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to add users to groups'}), 400
+        return jsonify(
+            {'success': False, 'error': 'LDAP is enabled, please use your LDAP server to add users to groups'}), 400
 
     users = request.json.get("users")
     group_name = request.json.get("group_name")
@@ -210,13 +266,15 @@ def add_user_to_group():
 @roles_required("administrator")
 def delete_group():
     if app.config.get("OTS_ENABLE_LDAP"):
-        return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to delete groups'}), 400
+        return jsonify(
+            {'success': False, 'error': 'LDAP is enabled, please use your LDAP server to delete groups'}), 400
 
     if "group_name" not in request.args.keys() or not request.args.get("group_name"):
         return jsonify({'success': False, 'error': 'Missing name'}), 400
 
     try:
-        group = db.session.execute(db.session.query(Group).filter_by(name=bleach.clean(request.args.get("group_name")))).first()
+        group = db.session.execute(
+            db.session.query(Group).filter_by(name=bleach.clean(request.args.get("group_name")))).first()
         if not group:
             return jsonify({"success": False, "error": f"No such group: {request.args.get('group_name')}"}), 404
 

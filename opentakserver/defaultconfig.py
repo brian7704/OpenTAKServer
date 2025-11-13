@@ -65,6 +65,8 @@ class DefaultConfig:
     # LDAP user attributes with this prefix can be used to control ATAK settings for a specific user
     OTS_LDAP_PREFERENCE_ATTRIBUTE_PREFIX = "ots_"
 
+    OTS_LDAP_GROUP_PREFIX = "ots_"
+
     # See https://docs.python.org/3/library/logging.handlers.html#logging.handlers.TimedRotatingFileHandler
     OTS_LOG_ROTATE_WHEN = os.getenv("OTS_LOG_ROTATE_WHEN", "midnight")
     OTS_LOG_ROTATE_INTERVAL = int(os.getenv("OTS_LOG_ROTATE_INTERVAL", 0))

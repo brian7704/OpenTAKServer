@@ -15,7 +15,7 @@ import sqlalchemy.exc
 from bs4 import BeautifulSoup
 from flask import Blueprint, request, current_app as app, jsonify, Response
 from flask_security import current_user, hash_password, verify_password
-from sqlalchemy import update, insert
+from sqlalchemy import update, insert, or_
 from werkzeug.utils import secure_filename
 import pika
 
@@ -27,6 +27,8 @@ from opentakserver.extensions import db, logger
 from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
 from opentakserver.models.Group import Group
+from opentakserver.models.GroupMission import GroupMission
+from opentakserver.models.GroupUser import GroupUser
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
 from opentakserver.models.MissionContent import MissionContent
@@ -235,6 +237,13 @@ def get_mission_by_guid(mission_guid: str):
 
 @mission_marti_api.route('/Marti/api/missions')
 def get_missions():
+    cert = verify_client_cert()
+    if not cert:
+        return '', 401
+
+    username = cert.get_subject().commonName
+    user = app.security.datastore.find_user(username=username)
+
     password_protected = request.args.get('passwordProtected', False)
 
     tool = request.args.get('tool')
@@ -251,12 +260,23 @@ def get_missions():
 
     try:
         query = db.session.query(Mission)
-        if not password_protected:
-            query = query.where(Mission.password_protected is False)
-        if tool:
-            query = query.where(Mission.tool == tool)
+
+        # Let admins see all missions
+        if not user.has_role('administrator'):
+            group_filters = []
+            groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id, direction=Group.IN)).scalars()
+            for group in groups:
+                group_filters.append(GroupMission.group_id == group.group.id)
+                logger.info(group.group.id)
+            if group_filters:
+                query = query.outerjoin(GroupMission).where(or_(*group_filters))
+
         missions = db.session.execute(query).scalars()
         for mission in missions:
+            if not password_protected and mission.password_protected:
+                continue
+            if tool and tool.lower() != "public" and mission.tool != tool:
+                continue
             response['data'].append(mission.to_json())
 
     except BaseException as e:
@@ -291,6 +311,13 @@ def all_invitations():
 @mission_marti_api.route('/Marti/api/missions/<mission_name>', methods=['PUT', 'POST'])
 def put_mission(mission_name: str):
     """ Used by the Data Sync plugin to create or change a mission """
+    cert = verify_client_cert()
+    if not cert:
+        return jsonify({"success": False, "error": "Missions are only supported on SSL connections"}), 400
+
+    username = cert.get_subject().commonName
+    user = app.security.datastore.find_user(username=username)
+
     new_mission = True
 
     if not mission_name or not request.args.get('creatorUid'):
@@ -351,11 +378,13 @@ def put_mission(mission_name: str):
 
             rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
             rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
-            rabbit_connection = pika.BlockingConnection( pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
+            rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
             channel = rabbit_connection.channel()
-            channel.basic_publish(exchange="missions", routing_key="missions",
-                                  body=json.dumps(
-                                      {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}))
+
+            groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id, enabled=True)).scalars()
+            for group in groups:
+                channel.basic_publish(exchange="groups", routing_key=f"{group.group.name}.{group.direction}", body=json.dumps({'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}))
+
             channel.close()
             rabbit_connection.close()
     except sqlalchemy.exc.IntegrityError:
@@ -818,8 +847,9 @@ def put_mission_keywords(mission_name):
 @mission_marti_api.route('/Marti/api/missions/guid/<mission_guid>/subscription', methods=['PUT'])
 def mission_subscribe(mission_name: str = None, mission_guid: str = None):
     """ Used by the Data Sync plugin to subscribe to a feed """
-
-    # ?uid=ANDROID-CloudTAK-administrator
+    cert = verify_client_cert()
+    username = cert.get_subject().commonName
+    user = app.security.datastore.find_user(username=username)
 
     if mission_name:
         mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
@@ -834,6 +864,20 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
         return jsonify({'success': False, 'error': f"Cannot find mission {mission_guid}"}), 404
 
     mission = mission[0]
+    group_filters = []
+    groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id)).scalars()
+    for group in groups:
+        group_filters.append(GroupMission.group_id == group.group_id)
+    if not group_filters:
+        # Default to the __ANON__ group
+        group_filters.append(GroupMission.group_id == 1)
+
+    query = db.session.query(GroupMission).filter_by(mission_name=mission_name)
+    query.where(or_(*group_filters))
+    mission_groups = db.session.execute(query).scalars()
+
+    if not mission_groups:
+        return jsonify({"success": False, "error": f"{username} and mission {mission_name} are not in the same group"}), 403
 
     response = {
         "version": "3", "type": "com.bbn.marti.sync.model.MissionSubscription", "data": {}, "nodeId": app.config.get("OTS_NODE_ID")
@@ -1006,24 +1050,13 @@ def create_log_entry():
     log_entry.keywords = request.json.get('keywords')
 
     db.session.add(log_entry)
-
-    response = {
-        'version': '3', 'type': '', 'messages': [], 'nodeId': app.config.get('OTS_NODE_ID'), 'data': [log_entry.to_json()]
-    }
-
-    mission_change = MissionChange()
-    mission_change.content_uid = log_entry.entry_uid
-    mission_change.isFederatedChange = False
-    mission_change.change_type = MissionChange.CHANGE
-    mission_change.timestamp = log_entry.dtg
-    mission_change.creator_uid = log_entry.creator_uid
-    mission_change.server_time = datetime.datetime.now(datetime.timezone.utc)
-    mission_change.mission_name = log_entry.mission_name
-
-    db.session.add(mission_change)
     db.session.commit()
 
-    change_cot = generate_mission_change_cot(log_entry.mission_name, mission[0], mission_change, cot_type='t-x-m-c-l')
+    response = {
+        'version': '3', 'type': 'com.bbn.marti.sync.model.LogEntry', 'nodeId': app.config.get('OTS_NODE_ID'), 'data': [log_entry.to_json()]
+    }
+
+    change_cot = log_entry.generate_cot()
     body = json.dumps({'uid': log_entry.creator_uid, 'cot': tostring(change_cot).decode('utf-8')})
 
     rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
@@ -1374,9 +1407,6 @@ def delete_content(mission_name: str):
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/contents/missionpackage', methods=['PUT'])
 def add_content(mission_name):
-    logger.info(request.headers)
-    logger.info(request.args)
-    logger.info(request.data)
     client_uid = request.args.get('clientUid')
     if 'Authorization' not in request.headers or not verify_token():
         return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401

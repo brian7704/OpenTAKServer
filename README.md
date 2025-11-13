@@ -11,11 +11,14 @@ OpenTAKServer (OTS) is yet another open source TAK Server for ATAK, iTAK, and Wi
 Join us on our [Discord server](https://discord.gg/6uaVHjtfXN)
 
 ## Current Features
-- Connect via TCP from ATAK, WinTAK, and iTAK
+- Connect via TCP from ATAK, WinTAK, iTAK, TAKAware, TAKX, CloudTAK, and PyTAK
 - SSL
 - Authentication
 - [WebUI with a live map](https://github.com/brian7704/OpenTAKServer-UI)
 - Client certificate enrollment
+- Groups/Channels
+- LDAP/Active Directory
+- ATAK Plugin Update Server
 - Send and receive messages
 - Send and receive points
 - Send and receive routes
@@ -34,7 +37,6 @@ Join us on our [Discord server](https://discord.gg/6uaVHjtfXN)
 
 ## Planned Features
 - Federation
-- Groups/Channels
 
 ## Requirements
 - RabbitMQ

@@ -2,9 +2,9 @@ import base64
 import json
 import os
 import random
+import re
 import socket
 import traceback
-import typing
 import uuid
 from xml.etree.ElementTree import Element, SubElement, tostring, fromstring, ParseError
 import datetime
@@ -51,6 +51,7 @@ class ClientController(Thread):
         self.db = db
         self.is_ssl = is_ssl
         self.socketio = SocketIO(message_queue="amqp://" + app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"))
+        self.bound_queues = []
 
         self.user = None
 
@@ -124,7 +125,6 @@ class ClientController(Thread):
         self.rabbit_channel.add_on_close_callback(self.on_channel_close)
 
         for message in self.cached_messages:
-            self.logger.info(f"Publishing cached message: {message}")
             self.route_cot(message)
 
         self.cached_messages.clear()
@@ -153,15 +153,140 @@ class ClientController(Thread):
             self.close_connection()
             self.logger.error(traceback.format_exc())
 
+    def handle_auth(self, auth: str):
+        self.logger.debug(auth)
+        if auth:
+            auth = BeautifulSoup(auth, 'xml')
+        if self.is_ssl and not self.is_authenticated and (auth or self.common_name):
+            user = None
+            with self.app.app_context():
+                if auth:
+                    cot = auth.find('cot')
+                    if cot:
+                        username = cot.attrs['username']
+                        password = cot.attrs['password']
+                        uid = cot.attrs['uid']
+
+                        if self.app.config.get("OTS_ENABLE_LDAP"):
+                            result = ldap_manager.authenticate(username, password)
+
+                            if result.status == AuthenticationResponseStatus.success:
+                                # Keep this import here to avoid a circular import when OTS is started
+                                from opentakserver.blueprints.ots_api.ldap_api import save_user
+
+                                self.user = save_user(result.user_dn, result.user_id, result.user_info,
+                                                      result.user_groups)
+
+                                try:
+                                    eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
+                                    self.logger.debug("Associating EUD uid {} to user {}".format(eud.uid, self.user.username))
+                                    eud.user_id = self.user.id
+                                    self.db.session.commit()
+                                except:
+                                    self.logger.debug("This is a new eud: {} {}".format(uid, self.user.username))
+                                    eud = EUD()
+                                    eud.uid = uid
+                                    eud.user_id = self.user.id
+                                    self.db.session.add(eud)
+                                    self.db.session.commit()
+
+                            else:
+                                self.close_connection()
+                                return
+
+                        else:
+                            user = self.app.security.datastore.find_user(username=username)
+                elif self.common_name:
+                    user = self.app.security.datastore.find_user(username=self.common_name)
+
+                if not user:
+                    self.logger.warning("User {} does not exist".format(self.common_name))
+                    self.close_connection()
+                    return
+                elif not user.active:
+                    self.logger.warning("User {} is deactivated, disconnecting".format(username))
+                    self.close_connection()
+                    return
+                elif self.common_name:
+                    self.logger.info("{} is ID'ed by cert".format(user.username))
+                    self.is_authenticated = True
+                    self.user = user
+                elif verify_password(password, user.password):
+                    self.logger.info("Successful login from {}".format(username))
+                    self.is_authenticated = True
+                    self.user = user
+                    try:
+                        eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
+                        self.logger.debug("Associating EUD uid {} to user {}".format(eud.uid, user.username))
+                        eud.user_id = user.id
+                        self.db.session.commit()
+                    except:
+                        self.logger.debug("This is a new eud: {} {}".format(uid, user.username))
+                        eud = EUD()
+                        eud.uid = uid
+                        eud.user_id = user.id
+                        self.db.session.add(eud)
+                        self.db.session.commit()
+
+                else:
+                    self.logger.warning("Wrong password for user {}".format(username))
+                    self.close_connection()
+                    return
+
+    def handle_cot(self, cot):
+        self.logger.debug(cot)
+        event = BeautifulSoup(cot, 'xml').find("event")
+
+        # If this client is connected via ssl, make sure they're authenticated
+        # before accepting any data from them
+        if self.is_ssl and not self.is_authenticated:
+            self.logger.warning("EUD isn't authenticated, ignoring")
+            return
+
+        if self.pong(event):
+            return
+
+        if event and not self.uid:
+            self.parse_device_info(event)
+
+        self.route_cot(event)
+
     # Yes this is super janky
     def run(self):
+        cot = ""
+
         while not self.shutdown:
             try:
-                data = self.sock.recv(1)
+                if self.common_name and not self.is_authenticated:
+                    self.handle_auth("")
+
+                data = self.sock.recv(65536)
                 if not data:
                     self.logger.warning("No Data Closing connection to {}".format(self.address))
                     self.close_connection()
                     break
+
+                cot += data.decode("utf-8")
+                cot_list = re.split("</event>|</auth>", cot)
+
+                if len(cot_list) < 2:
+                    continue
+
+                for c in cot_list:
+                    try:
+                        if "<event" in c:
+                            fromstring(c + "</event>")
+                            self.handle_cot(c + "</event>")
+                        elif "<auth>" in c:
+                            fromstring(c + "</auth>")
+                            self.handle_auth(c + "</auth>")
+                    except ParseError as e:
+                        self.logger.error(f"Failed to parse: {e}")
+                        cot = c
+                        break
+
+                cot = ""
+
             except TimeoutError:
                 if self.shutdown:
                     self.logger.warning("Timeout Closing connection to {}".format(self.address))
@@ -176,136 +301,8 @@ class ClientController(Thread):
                 # Client disconnected abruptly, either ATAK crashed, lost network connectivity, the battery died, etc
                 return
             except (ConnectionError, ConnectionResetError) as e:
+                self.logger.info(f"Closing connection {e}")
                 self.close_connection()
-                break
-
-            if data:
-                while True:
-                    try:
-                        if data.decode('utf-8').endswith(">"):
-                            # fromstring will raise ParseError if the XML data isn't valid yet
-                            fromstring(data)
-                            break
-                        else:
-                            try:
-                                received_byte = self.sock.recv(1)
-                                if not received_byte:
-                                    self.logger.info(f"{self.address} disconnected")
-                                    self.close_connection()
-                                    break
-                                data += received_byte
-                                continue
-                            except (ConnectionError, TimeoutError, ConnectionResetError) as e:
-                                break
-                    except (ParseError, UnicodeDecodeError) as e:
-                        try:
-                            received_byte = self.sock.recv(1)
-                            if not received_byte:
-                                self.logger.info(f"{self.address} disconnected")
-                                self.close_connection()
-                                break
-                            data += received_byte
-                            continue
-                        except (ConnectionError, TimeoutError, ConnectionResetError) as e:
-                            break
-
-                self.logger.debug(data)
-                soup = BeautifulSoup(data, 'xml')
-
-                event = soup.find('event')
-                auth = soup.find('auth')
-
-                if self.is_ssl and not self.is_authenticated and (auth or self.common_name):
-                    with self.app.app_context():
-                        if auth:
-                            cot = auth.find('cot')
-                            if cot:
-                                username = cot.attrs['username']
-                                password = cot.attrs['password']
-                                uid = cot.attrs['uid']
-
-                                if self.app.config.get("OTS_ENABLE_LDAP"):
-                                    result = ldap_manager.authenticate(username, password)
-
-                                    if result.status == AuthenticationResponseStatus.success:
-                                        # Keep this import here to avoid a circular import when OTS is started
-                                        from opentakserver.blueprints.ots_api.ldap_api import save_user
-
-                                        self.user = save_user(result.user_dn, result.user_id, result.user_info, result.user_groups)
-
-                                        try:
-                                            eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
-                                            self.logger.debug("Associating EUD uid {} to user {}".format(eud.uid, self.user.username))
-                                            eud.user_id = self.user.id
-                                            self.db.session.commit()
-                                        except:
-                                            self.logger.debug("This is a new eud: {} {}".format(uid, self.user.username))
-                                            eud = EUD()
-                                            eud.uid = uid
-                                            eud.user_id = self.user.id
-                                            self.db.session.add(eud)
-                                            self.db.session.commit()
-
-                                    else:
-                                        self.close_connection()
-                                        break
-
-                                else:
-                                    user = self.app.security.datastore.find_user(username=username)
-                        elif self.common_name:
-                            user = self.app.security.datastore.find_user(username=self.common_name)
-
-                        if not user:
-                            self.logger.warning("User {} does not exist".format(self.common_name))
-                            self.close_connection()
-                            break
-                        elif not user.active:
-                            self.logger.warning("User {} is deactivated, disconnecting".format(username))
-                            self.close_connection()
-                            break
-                        elif self.common_name:
-                            self.logger.info("{} is ID'ed by cert".format(user.username))
-                            self.is_authenticated = True
-                            self.user = user
-                        elif verify_password(password, user.password):
-                            self.logger.info("Successful login from {}".format(username))
-                            self.is_authenticated = True
-                            self.user = user
-                            try:
-                                eud = self.db.session.execute(self.db.session.query(EUD).filter_by(uid=uid)).first()[0]
-                                self.logger.debug("Associating EUD uid {} to user {}".format(eud.uid, user.username))
-                                eud.user_id = user.id
-                                self.db.session.commit()
-                            except:
-                                self.logger.debug("This is a new eud: {} {}".format(uid, user.username))
-                                eud = EUD()
-                                eud.uid = uid
-                                eud.user_id = user.id
-                                self.db.session.add(eud)
-                                self.db.session.commit()
-
-                        else:
-                            self.logger.warning("Wrong password for user {}".format(username))
-                            self.close_connection()
-                            break
-
-                if event:
-                    # If this client is connected via ssl, make sure they're authenticated
-                    # before accepting any data from them
-                    if self.is_ssl and not self.is_authenticated:
-                        self.logger.warning("EUD isn't authenticated, ignoring")
-                        continue
-
-                    if self.pong(event):
-                        continue
-
-                    if event and not self.uid:
-                        self.parse_device_info(event)
-
-                    self.route_cot(event)
-            else:
-                self.unbind_rabbitmq_queues()
-                self.send_disconnect_cot()
                 break
 
     def close_connection(self):
@@ -330,10 +327,10 @@ class ClientController(Thread):
 
             try:
                 self.sock.send(event.encode())
+                return True
             except BaseException as e:
                 self.logger.error(e)
                 self.logger.debug(traceback.format_exc())
-            return True
 
         return False
 
@@ -373,45 +370,44 @@ class ClientController(Thread):
                         group_memberships = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id, direction=Group.OUT)).all()
                         if not group_memberships or not self.is_ssl:
                             self.logger.debug(f"{self.callsign} doesn't belong to any groups, adding them to the __ANON__ group")
-                            self.rabbit_channel.queue_bind(exchange="groups", queue=self.callsign, routing_key="__ANON__.OUT")
                             self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid, routing_key="__ANON__.OUT")
+                            if {"exchange": "groups", "routing_key": "__ANON__.OUT", "queue": self.uid} not in self.bound_queues:
+                                self.bound_queues.append({"exchange": "groups", "routing_key": "__ANON__.OUT"})
 
                         elif group_memberships and self.is_ssl:
                             for membership in group_memberships:
                                 membership = membership[0]
-                                self.rabbit_channel.queue_bind(exchange="groups", queue=self.callsign, routing_key=f"{membership.group.name}.OUT")
                                 self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid, routing_key=f"{membership.group.name}.OUT")
 
-                        self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.callsign)
-                        self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.uid)
+                                if {"exchange": "groups", "routing_key": f"{membership.group.name}.OUT", "queue": self.uid} not in self.bound_queues:
+                                    self.bound_queues.append({"exchange": "groups", "routing_key": f"{membership.group.name}.OUT", "queue": self.uid})
 
+                        self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.uid)
+                        if {"exchange": "missions", "routing_key": "missions", "queue": self.uid} not in self.bound_queues:
+                            self.bound_queues.append({"exchange": "groups", "routing_key": "__ANON__.OUT", "queue": self.uid})
+
+                        # The DMs queue also binds by callsign since the <dest> tag in CoT messages can be by callsign instead of UID
                         self.rabbit_channel.queue_bind(exchange='dms', queue=self.uid, routing_key=self.uid)
                         self.rabbit_channel.queue_bind(exchange='dms', queue=self.callsign, routing_key=self.callsign)
 
+                        if {"exchange": "dms", "routing_key": self.uid, "queue": self.uid} not in self.bound_queues:
+                            self.bound_queues.append({"exchange": "dms", "routing_key": self.uid, "queue": self.uid})
+
+                        if {"exchange": "dms", "routing_key": self.callsign, "queue": self.callsign} not in self.bound_queues:
+                            self.bound_queues.append({"exchange": "dms", "routing_key": self.callsign, "queue": self.callsign})
+
                         self.rabbit_channel.basic_consume(queue=self.callsign, on_message_callback=self.on_message, auto_ack=True)
                         self.rabbit_channel.basic_consume(queue=self.uid, on_message_callback=self.on_message, auto_ack=True)
-
-                        online_euds = self.db.session.execute(select(EUD).filter(EUD.last_status == 'Connected')).all()
-                        for eud in online_euds:
-                            eud = eud[0]
-                            if eud.platform != "Meshtastic" and len(eud.cots) > 0:
-                                self.sock.send(eud.cots[-1].xml.encode())
 
             if 'phone' in contact.attrs and contact.attrs['phone']:
                 self.phone_number = contact.attrs['phone']
 
             with self.app.app_context():
-                group = event.find('__group')
+                __group = event.find('__group')
                 team = Team()
 
-                if group:
-                    # Declare an exchange for each group and bind the callsign's queue
-                    if self.rabbit_channel.is_open and platform != "Meshtastic" and platform != "DMRCOT":
-                        self.logger.debug("Declaring exchange {}".format(group.attrs['name']))
-                        self.rabbit_channel.exchange_declare(exchange=group.attrs['name'])
-                        self.rabbit_channel.queue_bind(queue=self.uid, exchange='chatrooms', routing_key=group.attrs['name'])
-
-                    team.name = bleach.clean(group.attrs['name'])
+                if __group:
+                    team.name = bleach.clean(__group.attrs['name'])
 
                     try:
                         chatroom = self.db.session.execute(select(Chatroom).filter(Chatroom.name == team.name)).first()[0]
@@ -424,7 +420,7 @@ class ClientController(Thread):
                         self.db.session.commit()
                     except sqlalchemy.exc.IntegrityError:
                         self.db.session.rollback()
-                        team = self.db.session.execute(select(Team).filter(Team.name == group.attrs['name'])).first()[0]
+                        team = self.db.session.execute(select(Team).filter(Team.name == __group.attrs['name'])).first()[0]
                         if not team.chatroom_id and chatroom:
                             team.chatroom_id = chatroom.id
                             self.db.session.execute(update(Team).filter(Team.name == chatroom.id).values(chatroom_id=chatroom.id))
@@ -469,9 +465,9 @@ class ClientController(Thread):
                 else:
                     eud.meshtastic_macaddr = base64.b64encode(os.urandom(6)).decode('ascii')
 
-                if group:
+                if __group:
                     eud.team_id = team.id
-                    eud.team_role = bleach.clean(group.attrs['role'])
+                    eud.team_role = bleach.clean(__group.attrs['role'])
 
                 try:
                     self.db.session.add(eud)
@@ -535,9 +531,9 @@ class ClientController(Thread):
                     self.rabbit_channel.queue_unbind(queue=self.uid, exchange="missions", routing_key=f"missions.{mission[0].name}")
                     self.logger.debug(f"Unbound {self.uid} from mission.{mission[0].name}")
 
-                groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id)).all()
-                for group in groups:
-                    self.rabbit_channel.queue_unbind(queue=self.uid, exchange="groups", routing_key=f"{group[0].group.name}.{group[0].direction}")
+            for bind in self.bound_queues:
+                self.logger.info(f"Unbinding {bind}")
+                self.rabbit_channel.queue_unbind(exchange=bind['exchange'], queue=bind['queue'], routing_key=bind['routing_key'])
 
     def send_disconnect_cot(self):
         if self.uid:
@@ -555,7 +551,13 @@ class ClientController(Thread):
 
             message = json.dumps({'uid': self.uid, 'cot': tostring(event).decode('utf-8')})
             if self.rabbit_channel:
-                self.route_cot(event)
+                with self.app.app_context():
+                    group_query = self.db.session.query(GroupUser).filter_by(user_id=self.user.id, enabled=True)
+                    groups = self.db.session.execute(group_query).all()
+                    for group in groups:
+                        group = group[0]
+                        self.logger.debug(f"Publishing to group {group.group.name}.{group.direction}")
+                        self.rabbit_channel.basic_publish(exchange="groups", routing_key=f"{group.group.name}.{group.direction}", body=message)
 
             with self.app.app_context():
                 self.db.session.execute(update(EUD).filter(EUD.uid == self.uid).values(last_status='Disconnected', last_event_time=now))
@@ -566,93 +568,102 @@ class ClientController(Thread):
             self.rabbit_connection.close()
 
     def route_cot(self, event):
+        if not event:
+            return
+
         if not self.rabbit_channel or not self.rabbit_channel.is_open:
             self.cached_messages.append(event)
             self.logger.error("RabbitMQ channel is closed, not publishing cot")
             return
 
         # Route all CoTs to the cot exchange for cot_parser and any plugins to receive
-        self.rabbit_channel.basic_publish(exchange='cot_parser', body=json.dumps({'uid': self.uid, 'cot': str(event)}), routing_key='',
+        self.rabbit_channel.basic_publish(exchange='cot', body=json.dumps({'uid': self.uid, 'cot': str(event)}), routing_key='',
                                           properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
+        mission_changes = []
         destinations = event.find_all('dest')
-        for destination in destinations:
-            uid = None
-            # ATAK and WinTAK use callsign, iTAK uses uid
-            if 'callsign' in destination.attrs and destination.attrs['callsign']:
-                self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['callsign'],
-                                                  body=json.dumps({'uid': self.uid, 'cot': str(event)}))
+        if destinations:
 
-            elif 'uid' in destination.attrs:
-                self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['uid'],
-                                                  body=json.dumps({'uid': self.uid, 'cot': str(event)}))
-            # For data sync missions
-            elif 'mission' in destination.attrs:
-                with self.app.app_context():
-                    mission = self.db.session.execute(
-                        self.db.session.query(Mission).filter_by(name=destination.attrs['mission'])).first()
+            for destination in destinations:
+                creator = event.find("creator")
+                creator_uid = self.uid
+                if creator and "uid" in creator.attrs:
+                    creator_uid = creator.attrs['uid']
 
-                    if not mission:
-                        self.logger.error(f"No such mission found: {destination.attrs['mission']}")
-                        return
-
-                    mission = mission[0]
-                    self.rabbit_channel.basic_publish("missions",
-                                                      routing_key=f"missions.{destination.attrs['mission']}",
+                # ATAK and WinTAK use callsign, iTAK uses uid
+                if 'callsign' in destination.attrs and destination.attrs['callsign']:
+                    self.logger.warning(f"Publishing to dms {destination.attrs['callsign']}")
+                    self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['callsign'],
                                                       body=json.dumps({'uid': self.uid, 'cot': str(event)}))
 
-                    mission_uid = self.db.session.execute(
-                        self.db.session.query(MissionUID).filter_by(uid=event.attrs['uid'])).first()
+                elif 'uid' in destination.attrs:
+                    self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['uid'],
+                                                      body=json.dumps({'uid': self.uid, 'cot': str(event)}))
+                # For data sync missions
+                elif 'mission' in destination.attrs:
+                    with self.app.app_context():
+                        mission = self.db.session.execute(
+                            self.db.session.query(Mission).filter_by(name=destination.attrs['mission'])).first()
 
-                    if not mission_uid:
-                        mission_uid = MissionUID()
-                        mission_uid.uid = event.attrs['uid']
-                        mission_uid.mission_name = destination.attrs['mission']
-                        mission_uid.timestamp = datetime_from_iso8601_string(event.attrs['start'])
-                        mission_uid.creator_uid = uid
-                        mission_uid.cot_type = event.attrs['type']
+                        if not mission:
+                            self.logger.error(f"No such mission found: {destination.attrs['mission']}")
+                            return
 
-                        color = event.find('color')
-                        icon = event.find('usericon')
-                        point = event.find('point')
-                        contact = event.find('contact')
+                        mission = mission[0]
+                        self.rabbit_channel.basic_publish("missions",
+                                                          routing_key=f"missions.{destination.attrs['mission']}",
+                                                          body=json.dumps({'uid': self.uid, 'cot': str(event)}))
 
-                        if color and 'argb' in color.attrs:
-                            mission_uid.color = color.attrs['argb']
-                        elif color and 'value' in color.attrs:
-                            mission_uid.color = color.attrs['value']
-                        if icon:
-                            mission_uid.iconset_path = icon['iconsetpath']
-                        if point:
-                            mission_uid.latitude = float(point.attrs['lat'])
-                            mission_uid.longitude = float(point.attrs['lon'])
-                        if contact:
-                            mission_uid.callsign = contact.attrs['callsign']
+                        mission_uid = self.db.session.execute(
+                            self.db.session.query(MissionUID).filter_by(uid=event.attrs['uid'])).first()
 
-                        try:
-                            self.db.session.add(mission_uid)
+                        if not mission_uid:
+                            mission_uid = MissionUID()
+                            mission_uid.uid = event.attrs['uid']
+                            mission_uid.mission_name = destination.attrs['mission']
+                            mission_uid.timestamp = datetime_from_iso8601_string(event.attrs['start'])
+                            mission_uid.creator_uid = creator_uid
+                            mission_uid.cot_type = event.attrs['type']
+
+                            color = event.find('color')
+                            icon = event.find('usericon')
+                            point = event.find('point')
+                            contact = event.find('contact')
+
+                            if color and 'argb' in color.attrs:
+                                mission_uid.color = color.attrs['argb']
+                            elif color and 'value' in color.attrs:
+                                mission_uid.color = color.attrs['value']
+                            if icon:
+                                mission_uid.iconset_path = icon['iconsetpath']
+                            if point:
+                                mission_uid.latitude = float(point.attrs['lat'])
+                                mission_uid.longitude = float(point.attrs['lon'])
+                            if contact:
+                                mission_uid.callsign = contact.attrs['callsign']
+
+                            try:
+                                self.db.session.add(mission_uid)
+                                self.db.session.commit()
+                            except sqlalchemy.exc.IntegrityError:
+                                self.db.session.rollback()
+                                self.db.session.execute(update(MissionUID).values(**mission_uid.serialize()))
+
+                            mission_change = MissionChange()
+                            mission_change.isFederatedChange = False
+                            mission_change.change_type = MissionChange.ADD_CONTENT
+                            mission_change.mission_name = destination.attrs['mission']
+                            mission_change.timestamp = datetime_from_iso8601_string(event.attrs['start'])
+                            mission_change.creator_uid = creator_uid
+                            mission_change.server_time = datetime_from_iso8601_string(event.attrs['start'])
+                            mission_change.mission_uid = event.attrs['uid']
+
+                            change_pk = self.db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
                             self.db.session.commit()
-                        except sqlalchemy.exc.IntegrityError:
-                            self.db.session.rollback()
-                            self.db.session.execute(update(MissionUID).values(**mission_uid.serialize()))
 
-                        mission_change = MissionChange()
-                        mission_change.isFederatedChange = False
-                        mission_change.change_type = MissionChange.ADD_CONTENT
-                        mission_change.mission_name = destination.attrs['mission']
-                        mission_change.timestamp = datetime_from_iso8601_string(event.attrs['start'])
-                        mission_change.creator_uid = self.uid
-                        mission_change.server_time = datetime_from_iso8601_string(event.attrs['start'])
-                        mission_change.mission_uid = event.attrs['uid']
-
-                        change_pk = self.db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
-                        self.db.session.commit()
-
-                        body = {'uid': uid, 'cot': tostring(
-                            generate_mission_change_cot(destination.attrs['mission'], mission, mission_change,
-                                                        cot_event=event)).decode('utf-8')}
-                        self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{mission.name}",
-                                                          body=json.dumps(body))
+                            body = {'uid': self.uid, 'cot': tostring(generate_mission_change_cot(destination.attrs['mission'], mission, mission_change, cot_event=event)).decode('utf-8')}
+                            mission_changes.append({"mission": mission.name, "message": body})
+                            self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{mission.name}", body=json.dumps(body))
 
         if not destinations and not self.is_ssl:
             # Publish all CoT messages received by TCP and that have no destination to the __ANON__ group
@@ -662,7 +673,7 @@ class ClientController(Thread):
 
         if not destinations:
             with self.app.app_context():
-                group_memberships = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id, direction=Group.IN)).all()
+                group_memberships = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id, direction=Group.IN, enabled=True)).all()
                 if not group_memberships:
                     # Default to the __ANON__ group if the user doesn't belong to any IN groups
                     self.rabbit_channel.basic_publish(exchange='groups', routing_key="__ANON__.OUT", body=json.dumps({'uid': self.uid, 'cot': str(event)}),
@@ -672,3 +683,9 @@ class ClientController(Thread):
                     membership = membership[0]
                     self.rabbit_channel.basic_publish(exchange='groups', routing_key=f"{membership.group.name}.{Group.OUT}", body=json.dumps({'uid': self.uid, 'cot': str(event)}),
                                                       properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
+
+        if mission_changes:
+            for change in mission_changes:
+                self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{change['mission']}",
+                                                  body=json.dumps(change['message']))
+                self.logger.warning(change['message']['cot'])

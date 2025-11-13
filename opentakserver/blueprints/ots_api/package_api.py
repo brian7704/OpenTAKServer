@@ -12,7 +12,7 @@ from werkzeug.datastructures import ImmutableMultiDict
 from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
 from opentakserver.forms.package_form import PackageForm, PackageUpdateForm
 from opentakserver.models.Packages import Packages
-from opentakserver.extensions import db
+from opentakserver.extensions import db, logger
 from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.blueprints.marti_api.certificate_enrollment_api import basic_auth
 
@@ -22,8 +22,10 @@ packages_blueprint = Blueprint('packages_api_blueprint', __name__)
 
 
 @packages_blueprint.route('/api/packages/<package_name>')
-def download_package(package_name):
-    if not basic_auth(request.headers.get('Authorization')):
+@packages_blueprint.route('/api/packages/<atak_version>/<package_name>')
+def download_package(package_name, atak_version=None):
+    cert = verify_client_cert()
+    if not cert:
         return '', 401
     return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages"), secure_filename(package_name))
 
@@ -43,6 +45,7 @@ def get_packages():
     query = search(query, Packages, 'apk_hash')
     query = search(query, Packages, 'tak_prereq')
     query = search(query, Packages, 'file_size')
+    query = search(query, Packages, 'atak_version')
 
     return paginate(query)
 
@@ -73,6 +76,9 @@ def head_product_infz_with_version(atak_version: str):
 
 @packages_blueprint.route('/api/packages/product.infz', methods=['GET'])
 def get_product_infz():
+    cert = verify_client_cert()
+    if not cert:
+        return '', 401
     return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages"), "product.infz")
 
 
@@ -154,6 +160,10 @@ def add_package():
 
     package = Packages()
     package.from_wtform(form)
+
+    existing_package = db.session.execute(db.session.query(Packages).filter_by(version=package.version)).first()
+    if existing_package:
+        return jsonify({'success': False, 'errors': [f"{package.name} version {package.version} is already on the server"]}), 400
 
     try:
         db.session.add(package)

@@ -3,16 +3,21 @@ import json
 import traceback
 import uuid
 
+import bleach
 import sqlalchemy.exc
 from flask import Blueprint, request, jsonify, current_app as app
 from flask_security import auth_required, current_user, roles_required, hash_password, verify_password
 from xml.etree.ElementTree import tostring
 import pika
+from sqlalchemy import or_
 
 from opentakserver.blueprints.marti_api.mission_marti_api import invite, generate_mission_delete_cot, generate_new_mission_cot, generate_invitation_cot
 from opentakserver.extensions import db, logger
 from opentakserver.blueprints.ots_api.api import search, paginate
 from opentakserver.models.EUD import EUD
+from opentakserver.models.Group import Group
+from opentakserver.models.GroupMission import GroupMission
+from opentakserver.models.GroupUser import GroupUser
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionInvitation import MissionInvitation
 from opentakserver.models.MissionRole import MissionRole
@@ -23,11 +28,19 @@ data_sync_api = Blueprint("data_sync_api", __name__)
 @data_sync_api.route('/api/missions')
 @auth_required()
 def get_missions():
-    query = db.session.query(Mission)
+    query: db.Query = db.session.query(Mission)
     query = search(query, Mission, 'name')
     query = search(query, Mission, 'guid')
     query = search(query, Mission, 'tool')
-    query = search(query, Mission, 'group')
+
+    # Only show users missions that belong to the same groups they belong to
+    if not current_user.has_role("administrator"):
+        group_filters = []
+        groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=current_user.id, direction=Group.IN)).scalars()
+        for group in groups:
+            group_filters.append(GroupMission.group_id == group.group_id)
+        if group_filters:
+            query = query.outerjoin(GroupMission).where(or_(*group_filters))
 
     return paginate(query)
 
@@ -40,6 +53,9 @@ def create_edit_mission():
     if not mission_name or not creator_uid:
         return jsonify({'success': False, 'error': 'Please provide a mission name and creator UID'}), 400
 
+    mission_name = bleach.clean(mission_name)
+    creator_uid = bleach.clean(creator_uid)
+
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
 
     # Creates a new mission
@@ -48,8 +64,10 @@ def create_edit_mission():
         if not eud:
             return jsonify({'success': False, 'error': f"Invalid UID: {creator_uid}"}), 400
 
+        groups = None
+        mission_groups = []
+
         mission = Mission()
-        mission.group = "__ANON__"
         mission.create_time = datetime.datetime.now(datetime.timezone.utc)
         mission.guid = str(uuid.uuid4())
         mission.creator_uid = creator_uid
@@ -57,6 +75,38 @@ def create_edit_mission():
         for key in request.json.keys():
             if key == 'password' and request.json.get('password'):
                 mission.password = hash_password(request.json.get('password'))
+            elif key == 'groups':
+                group_ids = request.json.get('groups')
+                groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=current_user.id, enabled=True, direction=Group.IN)).scalars()
+
+                # Make sure the user is a member of the IN group that they want the mission to be associated with. Also allow
+                # administrators to associate a mission with any group
+                for group_id in group_ids:
+                    user_in_group = False
+
+                    if not current_user.has_role("administrator"):
+                        for group in groups:
+                            if group.id == group_id:
+                                user_in_group = True
+                                break
+
+                    if not user_in_group and not current_user.has_role("administrator"):
+                        group = db.session.execute(db.session.query(Group).filter_by(id=group_id)).first()
+                        if group:
+                            return jsonify({"success": False, "error": f"User is not a member of {group[0].name}"}), 403
+                        else:
+                            return jsonify({"success": False, "error": f"Invalid group ID: {group_id}"}), 400
+
+                    group_id = int(group_id)
+                    group = db.session.execute(db.session.query(Group).filter_by(id=group_id)).first()
+                    if not group:
+                        continue
+
+                    group_mission = GroupMission()
+                    group_mission.mission_name = mission_name
+                    group_mission.group_id = group_id
+                    mission_groups.append(group_mission)
+
             elif hasattr(mission, key):
                 setattr(mission, key, request.json[key])
             else:
@@ -82,6 +132,10 @@ def create_edit_mission():
             db.session.add(role)
             db.session.add(invitation)
             db.session.commit()
+
+            for group in mission_groups:
+                db.session.add(group)
+            db.session.commit()
         except sqlalchemy.exc.IntegrityError as e:
             logger.error(f"Failed to add mission: {e}")
             logger.debug(mission.serialize())
@@ -92,9 +146,10 @@ def create_edit_mission():
         rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
         channel = rabbit_connection.channel()
 
-        channel.basic_publish(exchange="missions", routing_key="missions",
-                              body=json.dumps({'uid': app.config.get("OTS_NODE_ID"),
-                                               'cot': tostring(generate_new_mission_cot(mission)).decode('utf-8')}))
+        for group in groups:
+            logger.error(f"Publishing to {group.group.name}.{group.direction}")
+            channel.basic_publish(exchange="groups", routing_key=f"{group.group.name}.{group.direction}", body=json.dumps(
+                {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(generate_new_mission_cot(mission)).decode('utf-8')}))
 
         channel.basic_publish(exchange="dms", routing_key=creator_uid,
                               body=json.dumps({'uid': creator_uid,
@@ -103,14 +158,10 @@ def create_edit_mission():
 
         return jsonify({'success': True})
 
-    mission = mission[0]
-    for key in request.json:
-        if hasattr(mission, key):
-            setattr(mission, key, request.json.get(key))
-        else:
-            return jsonify({'success': False, 'error': f"Invalid property: {key}"}), 400
+    # Update an existing mission
 
     # Checks if current user is the mission creator
+    mission = mission[0]
     is_user_mission_creator = False
     for eud in current_user.euds:
         if eud.uid == mission.creator_uid:
@@ -118,13 +169,34 @@ def create_edit_mission():
             break
 
     # Only allows admins and the mission creator to change existing missions
-    if current_user.has_role('administrator') or is_user_mission_creator:
-        db.session.execute(sqlalchemy.update(Mission).where(name=mission_name).values(**mission.serialize()))
-        db.session.commit()
+    if not current_user.has_role('administrator') and not is_user_mission_creator:
+        return jsonify({'success': False, 'error': 'Only an admin or the mission creator can change this mission'}), 403
 
-        return jsonify({'success': True})
+    for key in request.json:
+        if key == 'groups':
+            db.session.execute(sqlalchemy.delete(GroupMission).filter_by(mission_name=mission_name))
+            db.session.commit()
 
-    return jsonify({'success': False, 'error': 'Only an admin or the mission creator can change this mission'}), 403
+            for group_id in request.json.get('groups'):
+                group_id = int(group_id)
+                group = db.session.execute(db.session.query(Group).filter_by(id=group_id)).first()
+                if not group:
+                    continue
+
+                group_mission = GroupMission()
+                group_mission.mission_name = mission_name
+                group_mission.group_id = group_id
+                db.session.add(group_mission)
+            db.session.commit()
+        elif hasattr(mission, key):
+            setattr(mission, key, request.json.get(key))
+        else:
+            return jsonify({'success': False, 'error': f"Invalid property: {key}"}), 400
+
+    db.session.execute(sqlalchemy.update(Mission).filter(Mission.name == mission_name).values(**mission.serialize()))
+    db.session.commit()
+
+    return jsonify({'success': True})
 
 
 @data_sync_api.route('/api/missions', methods=['DELETE'])
@@ -134,11 +206,14 @@ def delete_mission():
     if not mission_name:
         return jsonify({'success': False, 'error': 'Please specify a mission name'}), 404
 
+    mission_name = bleach.clean(mission_name)
+
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
     mission = mission[0]
 
+    db.session.execute(sqlalchemy.delete(GroupMission).filter_by(mission_name=mission_name))
     db.session.delete(mission)
     db.session.commit()
 
