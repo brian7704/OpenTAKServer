@@ -1,4 +1,7 @@
+from typing import Any
 from gevent import monkey
+
+from opentakserver.telemetry.logs import ConsoleSinkOpts, FileSinkOpts, LoggingOptions, setup_logging
 monkey.patch_all()
 
 from opentakserver.models.Group import Group, GroupTypeEnum
@@ -177,51 +180,65 @@ def create_groups(app: Flask):
         logger.error(f"Failed to create groups: {e}")
         logger.debug(traceback.format_exc())
 
+def is_first_run(cfg: dict[str, Any]):
+    # existence of config file is used to determine whether OTS has been run before
+    return not os.path.exists(os.path.join(cfg.get("OTS_DATA_FOLDER"), "config.yml"))
 
-def setup_logging(app):
-    level = logging.INFO
-    if app.config.get("DEBUG"):
-        level = logging.DEBUG
-    logger.setLevel(level)
 
-    if sys.stdout.isatty():
-        color_log_handler = colorlog.StreamHandler()
-        color_log_formatter = colorlog.ColoredFormatter(
-            '%(log_color)s[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
-        color_log_handler.setFormatter(color_log_formatter)
-        logger.addHandler(color_log_handler)
-        logger.info("Added color logger")
+def get_config() -> dict[str, Any]:
+    config = DefaultConfig.to_dict()
+    if is_first_run(config):
+        DefaultConfig.to_file()  # persist default settings
+    else:
+        filepath = os.path.join(config.get("OTS_DATA_FOLDER"), "config.yml")
+        with open(filepath, "r") as f:
+            config = yaml.safe_load(f)
+            # TODO: validation with fast fail?
+    return config
 
-    os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs"), exist_ok=True)
-    fh = TimedRotatingFileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'opentakserver.log'),
-                                  when=app.config.get("OTS_LOG_ROTATE_WHEN"), interval=app.config.get("OTS_LOG_ROTATE_INTERVAL"),
-                                  backupCount=app.config.get("OTS_BACKUP_COUNT"))
-    fh.setFormatter(logging.Formatter("[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))
-    logger.addHandler(fh)
+
+def configure_logging(cfg: dict[str, Any]) -> LoggingOptions:
+    opts = LoggingOptions()
+    if cfg.get("DEBUG"):
+        opts.level = "DEBUG"
+    else:
+        opts.level = cfg.get("OTS_LOG_LEVEL")
+
+    # file
+    if cfg.get("OTS_LOG_FILE_ENABLED", True):
+        opts.file = FileSinkOpts(
+            backup_count=cfg.get("OTS_BACKUP_COUNT"),
+            directory=cfg.get("OTS_DATA_FOLDER"),
+            name="opentakserver.log",
+            format=cfg.get("OTS_LOG_FILE_FORMAT"),
+            rotate_interval=cfg.get("OTS_LOG_ROTATE_INTERVAL"),
+            rotate_when=cfg.get("OTS_LOG_ROTATE_WHEN"),
+            level=cfg.get("OTS_LOG_FILE_LEVEL"),
+        )
+
+    # console
+    if cfg.get("OTS_LOG_CONSOLE_ENABLED", True):
+        opts.console = ConsoleSinkOpts(
+            format=cfg.get("OTS_LOG_CONSOLE_FORMAT"),
+            level=cfg.get("OTS_LOG_CONSOLE_LEVEL"),
+        )
+
+    # otel
+    opts.otel_enabled = cfg.get("OTS_LOG_OTEL_ENABLE")
+    return opts
 
 
 def create_app(cli=True):
+    # get config and setup logger
+    config = get_config()
+    logger = setup_logging(configure_logging(config))
+
+    # then setup app
     app = Flask(__name__)
-    app.config.from_object(DefaultConfig)
-    setup_logging(app)
+    app.config.from_mapping(config)
 
     if not cli:
-        # Load config.yml if it exists
-        if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
-            app.config.from_file(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), load=yaml.safe_load)
-        else:
-            # First run, created config.yml based on default settings
-            logger.info("Creating config.yml")
-            with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), "w") as config:
-                conf = {}
-                for option in DefaultConfig.__dict__:
-                    # Fix the sqlite DB path on Windows
-                    if option == "SQLALCHEMY_DATABASE_URI" and platform.system() == "Windows" and DefaultConfig.__dict__[option].startswith("sqlite"):
-                        conf[option] = DefaultConfig.__dict__[option].replace("////", "///").replace("\\", "/")
-                    elif option.isupper():
-                        conf[option] = DefaultConfig.__dict__[option]
-                config.write(yaml.safe_dump(conf))
-
+        if is_first_run(config):
             create_groups(app)
 
         # Try to set the MediaMTX token

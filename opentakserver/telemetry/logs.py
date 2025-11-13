@@ -40,13 +40,12 @@ class ConsoleSinkOpts:
     format: Literal["ndjson", "ots", "plain"]
 
     level: str = "INFO"
-    enabled: bool = True
 
 
 @dataclass
 class LoggingOptions:
-    file: Optional[FileSinkOpts]
-    console: Optional[ConsoleSinkOpts]
+    file: Optional[FileSinkOpts] = None
+    console: Optional[ConsoleSinkOpts] = None
     otel_enabled: bool = True
     level: str = "INFO"
 
@@ -122,7 +121,7 @@ def setup_logging(opts: LoggingOptions) -> logging.Logger:
     logger.handlers.clear()
 
     # Console handler
-    if opts.console is not None and opts.console.enabled:
+    if opts.console is not None:
         ch = colorlog.StreamHandler()
         _set_formatter(ch, opts.console.format)
         _set_level(ch, opts.console.level)
