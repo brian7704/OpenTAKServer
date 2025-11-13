@@ -24,6 +24,7 @@ from xml.etree.ElementTree import tostring, Element, fromstring, SubElement
 from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
 from opentakserver.functions import iso8601_string_from_datetime, datetime_from_iso8601_string
 from opentakserver.extensions import db, logger
+from opentakserver.blueprints.federation.federation_helper import queue_mission_change_for_federation, should_federate_mission_change
 from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
 from opentakserver.models.Group import Group
@@ -373,6 +374,10 @@ def put_mission(mission_name: str):
 
             db.session.add(mission_change)
             db.session.commit()
+
+            # Queue mission change for federation if enabled
+            if should_federate_mission_change(mission_change):
+                queue_mission_change_for_federation(mission_change.id)
 
             event = generate_new_mission_cot(mission)
 
@@ -1262,6 +1267,10 @@ def mission_contents(mission_name: str):
                 db.session.commit()
                 change_pk = change_pk.inserted_primary_key[0]
 
+                # Queue mission change for federation if enabled
+                if should_federate_mission_change(mission_change):
+                    queue_mission_change_for_federation(change_pk)
+
             mission_uid.uid = uid
             mission_uid.timestamp = datetime.datetime.now(datetime.timezone.utc)
             mission_uid.creator_uid = request.args.get('creatorUid')
@@ -1401,6 +1410,10 @@ def delete_content(mission_name: str):
 
     db.session.add(mission_change)
     db.session.commit()
+
+    # Queue mission change for federation if enabled
+    if should_federate_mission_change(mission_change):
+        queue_mission_change_for_federation(mission_change.id)
 
     return jsonify({"version": "3", "type": "Mission", "data": [mission.to_json()], "nodeId": app.config.get("OTS_NODE_ID")})
 

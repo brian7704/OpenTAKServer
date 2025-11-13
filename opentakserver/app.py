@@ -254,6 +254,9 @@ def create_app(cli=True):
         from opentakserver.blueprints.scheduled_jobs import scheduler_blueprint
         app.register_blueprint(scheduler_blueprint)
 
+        from opentakserver.blueprints.federation import federation_blueprint
+        app.register_blueprint(federation_blueprint)
+
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
     else:
@@ -290,6 +293,9 @@ def create_app(cli=True):
 
         from opentakserver.blueprints.scheduled_jobs import scheduler_blueprint
         app.register_blueprint(scheduler_blueprint)
+
+        from opentakserver.blueprints.federation import federation_blueprint
+        app.register_blueprint(federation_blueprint)
 
     return app
 
@@ -386,6 +392,22 @@ def main(app):
 
             db.session.commit()
 
+    # Initialize Federation Service
+    if app.config.get("OTS_ENABLE_FEDERATION"):
+        try:
+            logger.info("Starting Federation Service")
+            from opentakserver.blueprints.federation.federation_service import FederationService
+            app.federation_service = FederationService(app.config, app)
+            app.federation_service.start()
+            logger.info("Federation Service started successfully")
+        except BaseException as e:
+            logger.error(f"Failed to start Federation Service: {e}")
+            logger.debug(traceback.format_exc())
+            app.federation_service = None
+    else:
+        logger.info("Federation Service disabled")
+        app.federation_service = None
+
     app.start_time = datetime.now(timezone.utc)
 
     try:
@@ -395,6 +417,9 @@ def main(app):
         logger.warning("Caught CTRL+C, exiting...")
         if app.config.get("OTS_ENABLE_PLUGINS"):
             app.plugin_manager.stop_plugins()
+        if app.federation_service:
+            logger.info("Stopping Federation Service...")
+            app.federation_service.stop()
 
 
 def start():
