@@ -133,7 +133,7 @@ def get_repository_inf():
     if not cert:
         return '', 401
 
-    versions = Packages.query.distinct(Packages.atak_version).where(Packages.atak_version != None).all()
+    versions = Packages.query.distinct(Packages.atak_version).where(Packages.atak_version is not None).all()
     if not versions:
         return "", 404
 
@@ -161,7 +161,7 @@ def add_package():
     package = Packages()
     package.from_wtform(form)
 
-    existing_package = db.session.execute(db.session.query(Packages).filter_by(version=package.version)).first()
+    existing_package = db.session.execute(db.session.query(Packages).filter_by(version=package.version, atak_version=package.atak_version)).first()
     if existing_package:
         return jsonify({'success': False, 'errors': [f"{package.name} version {package.version} is already on the server"]}), 400
 
