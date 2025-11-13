@@ -44,6 +44,13 @@ services:
     ports:
       - "5432:5432"
 
+  aspire-dashboard:
+    container_name: aspire-dashboard
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    ports:
+      - "18888:18888" # Dashboard UI
+      - "4317:18889" # OTLP endpoint for receiving telemetry
+
 volumes:
   rabbitmq-data:
   rabbitmq-etc:

@@ -1,4 +1,5 @@
-from contextvars import ContextVar
+from contextvars import ContextVar, Token
+from heapq import merge
 import logging
 import os
 import sys
@@ -11,16 +12,12 @@ from flask import current_app
 
 
 def get_service_context() -> dict:
-    # service
-    entry_point = os.path.basename(
-        sys.argv[0]
-    )  # TODO: make this more reliable. if script name is changed, this breaks
-
-    service_name = os.environ.get(
-        "OTEL_SERVICE_NAME", entry_point
-    )  # https://opentelemetry.io/docs/languages/sdk-configuration/general/#otel_service_name
-
-    service_version = metadata.version(__package__ or entry_point)
+    # Determine a stable service name and version. Prefer env override.
+    service_name = os.environ.get("OTEL_SERVICE_NAME","opentakserver")
+    try:
+        service_version = metadata.version(service_name)
+    except metadata.PackageNotFoundError:
+        service_version = ""
 
     return {
         "service.name": service_name,
@@ -76,7 +73,7 @@ class LogCtx:
     def __init__(self, logger: Optional[logging.Logger] = None, **context):
         self.logger = logger or logging.getLogger()
         self.new_context = context
-        self.token = {}
+        self.token: Token[Dict[str, Any]]
         self.adapter = None
 
     def __enter__(self):
@@ -86,12 +83,17 @@ class LogCtx:
 
         # save old context and set new
         self.token = LogCtx._log_context.set(merged)
-
         # create adapter with merged context
         self.adapter = logging.LoggerAdapter(self.logger, merged)
         return self.adapter
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # restore previous context
-        LogCtx._log_context.reset(self.token)  # type: ignore
+        # restore previous context (if set) and clear adapter to avoid leaking it
+        try:
+            current = LogCtx._log_context.get()
+            LogCtx._log_context.reset(self.token)  # type: ignore
+            new = LogCtx._log_context.get()
+        finally:
+            # remove references so adapter/context don't leak after exit
+            self.adapter = logging.LoggerAdapter(self.logger,new)
         return False

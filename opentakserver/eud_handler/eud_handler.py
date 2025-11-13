@@ -2,6 +2,9 @@ import os
 import platform
 import sys
 from logging.handlers import TimedRotatingFileHandler
+from opentakserver.telemetry.context import LogCtx
+from opentakserver.telemetry.logs import ConsoleSinkOpts, FileSinkOpts, LoggingOptions, setup_logging
+from typing import Any
 
 import flask_wtf
 import sqlalchemy
@@ -52,51 +55,62 @@ def args():
     return parser.parse_args()
 
 
-def setup_logging(app):
-    level = logging.INFO
-    if app.config.get("DEBUG"):
-        level = logging.DEBUG
-    logger.setLevel(level)
-
-    if sys.stdout.isatty():
-        color_log_handler = colorlog.StreamHandler()
-        color_log_formatter = colorlog.ColoredFormatter(
-            '%(log_color)s[%(asctime)s] - eud_handler[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s',
-            datefmt="%Y-%m-%d %H:%M:%S")
-        color_log_handler.setFormatter(color_log_formatter)
-        logger.addHandler(color_log_handler)
-
-    os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs"), exist_ok=True)
-    fh = TimedRotatingFileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'opentakserver.log'),
-                                  when=app.config.get("OTS_LOG_ROTATE_WHEN"),
-                                  interval=app.config.get("OTS_LOG_ROTATE_INTERVAL"),
-                                  backupCount=app.config.get("OTS_BACKUP_COUNT"))
-    fh.setFormatter(logging.Formatter(
-        "[%(asctime)s] - eud_handler[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))
-    logger.addHandler(fh)
+def is_first_run(cfg: dict[str, Any]):
+    # existence of config file is used to determine whether OTS has been run before
+    return not os.path.exists(os.path.join(cfg.get("OTS_DATA_FOLDER"), "config.yml"))
 
 
-def create_app():
-    app = Flask(__name__)
-    app.config.from_object(DefaultConfig)
-
-    # Load config.yml if it exists
-    if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
-        app.config.from_file(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), load=yaml.safe_load)
+def get_config() -> dict[str, Any]:
+    config = DefaultConfig.to_dict()
+    if is_first_run(config):
+        DefaultConfig.to_file()  # persist default settings
     else:
-        # First run, created config.yml based on default settings
-        logger.info("Creating config.yml")
-        with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), "w") as config:
-            conf = {}
-            for option in DefaultConfig.__dict__:
-                # Fix the sqlite DB path on Windows
-                if option == "SQLALCHEMY_DATABASE_URI" and platform.system() == "Windows" and DefaultConfig.__dict__[option].startswith("sqlite"):
-                    conf[option] = DefaultConfig.__dict__[option].replace("////", "///").replace("\\", "/")
-                elif option.isupper():
-                    conf[option] = DefaultConfig.__dict__[option]
-            config.write(yaml.safe_dump(conf))
+        filepath = os.path.join(config.get("OTS_DATA_FOLDER"), "config.yml")
+        with open(filepath, "r") as f:
+            config = yaml.safe_load(f)
+            # TODO: validation with fast fail?
+    return config
 
-    setup_logging(app)
+
+def configure_logging(cfg: dict[str, Any]) -> LoggingOptions:
+    opts = LoggingOptions()
+    if cfg.get("DEBUG"):
+        opts.level = "DEBUG"
+    else:
+        opts.level = cfg.get("OTS_LOG_LEVEL")
+
+    # file
+    if cfg.get("OTS_LOG_FILE_ENABLED", True):
+        opts.file = FileSinkOpts(
+            backup_count=cfg.get("OTS_BACKUP_COUNT"),
+            directory=cfg.get("OTS_DATA_FOLDER"),
+            name="opentakserver.log",
+            format=cfg.get("OTS_LOG_FILE_FORMAT"),
+            rotate_interval=cfg.get("OTS_LOG_ROTATE_INTERVAL"),
+            rotate_when=cfg.get("OTS_LOG_ROTATE_WHEN"),
+            level=cfg.get("OTS_LOG_FILE_LEVEL"),
+        )
+
+    # console
+    if cfg.get("OTS_LOG_CONSOLE_ENABLED", True):
+        opts.console = ConsoleSinkOpts(
+            format=cfg.get("OTS_LOG_CONSOLE_FORMAT"),
+            level=cfg.get("OTS_LOG_CONSOLE_LEVEL"),
+        )
+
+    # otel
+    opts.otel_enabled = cfg.get("OTS_LOG_OTEL_ENABLE")
+    return opts
+
+
+def create_app(cli=True):
+    # get config and setup logger
+    config = get_config()
+    logger = setup_logging(configure_logging(config))
+
+    # then setup app
+    app = Flask(__name__)
+    app.config.from_mapping(config)
     db.init_app(app)
 
     if app.config.get("OTS_ENABLE_LDAP"):

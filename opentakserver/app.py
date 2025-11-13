@@ -1,6 +1,7 @@
 from typing import Any
 from gevent import monkey
 
+from opentakserver.telemetry.context import LogCtx
 from opentakserver.telemetry.logs import ConsoleSinkOpts, FileSinkOpts, LoggingOptions, setup_logging
 monkey.patch_all()
 
@@ -234,8 +235,11 @@ def create_app(cli=True):
     logger = setup_logging(configure_logging(config))
 
     # then setup app
-    app = Flask(__name__)
-    app.config.from_mapping(config)
+    with LogCtx(somerandom="test") as log:
+        log.info("creating app")
+        app = Flask(__name__)
+        app.config.from_mapping(config)
+    log.info("created app")
 
     if not cli:
         if is_first_run(config):

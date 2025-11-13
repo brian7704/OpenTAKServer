@@ -8,6 +8,15 @@ red() { printf "\033[0;31m[$(basename "$0")] %s\033[0m\n" "$1"; }
 grn() { printf "\033[0;32m[$(basename "$0")] %s\033[0m\n" "$1"; }
 yel() { printf "\033[0;33m[$(basename "$0")] %s\033[0m\n" "$1"; }
 
+# ensure dependencies (tmux optional)
+deps=( "docker" "docker compose" "poetry" )
+for dep in "${deps[@]}"; do
+    if ! command -v $dep &> /dev/null; then
+        echo "$dep could not be found, please install it."
+        exit 1
+    fi
+done
+
 # parse args
 if [[ "$1" == "clean" ]]; then
     purp "Cleaning up development environment..."
@@ -26,14 +35,6 @@ if [[ "$1" == "clean" ]]; then
 
 elif [[ "$1" == "start" ]]; then
     service="$2"
-    # ensure dependencies (tmux optional)
-    deps=( "docker" "docker compose" "poetry" )
-    for dep in "${deps[@]}"; do
-        if ! command -v $dep &> /dev/null; then
-            echo "$dep could not be found, please install it."
-            exit 1
-        fi
-    done
 
     purp "Starting docker containers..."
     if ! docker compose up -d; then
@@ -84,7 +85,7 @@ elif [[ "$1" == "start" ]]; then
 
     # start services: use tmux if available, otherwise prompt which single service to run
     SESSION="OTS"
-    source .env.dev
+    export $(cat .env.dev | xargs)
 
     if [[ -z "$service" ]] && command -v tmux &>/dev/null; then
         if tmux has-session -t "$SESSION" 2>/dev/null; then
@@ -95,7 +96,7 @@ elif [[ "$1" == "start" ]]; then
         tmux new-session -d -s "$SESSION"
         tmux rename-window -t "$SESSION:0" 'server'
 
-        # server
+        # # server
         tmux send-keys -t "$SESSION" 'poetry run opentakserver' C-m
 
         # workers window with two panes
