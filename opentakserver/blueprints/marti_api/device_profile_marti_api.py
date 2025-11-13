@@ -35,8 +35,6 @@ def get_ldap_attributes(prefs: Element):
             if field.lower() == app.config.get("OTS_LDAP_COLOR_ATTRIBUTE").lower():
                 team = SubElement(prefs, "entry", {"key": "locationTeam", "class": "class java.lang.String"})
                 team.text = user_info[field][0]
-                logger.warning(tostring(team))
-                logger.warning(tostring(prefs))
 
             elif field.lower() == app.config.get("OTS_LDAP_ROLE_ATTRIBUTE").lower():
                 role = SubElement(prefs, "entry", {"key": "atakRoleType", "class": "class java.lang.String"})
@@ -158,8 +156,6 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
     zipf.writestr("MANIFEST/manifest.xml", tostring(manifest))
 
     zipf.writestr("5c2bfcae3d98c9f4d262172df99ebac5/preference.pref", tostring(prefs))
-
-    logger.warning(tostring(prefs))
 
     with open(os.path.join(app.config.get("OTS_CA_FOLDER"), 'truststore-root.p12'), 'rb') as truststore:
         zipf.writestr("5c2bfcae3d98c9f4d262172df99ebac5/truststore-root.p12", truststore.read())

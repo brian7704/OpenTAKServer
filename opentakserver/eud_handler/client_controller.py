@@ -372,7 +372,7 @@ class ClientController(Thread):
                             self.logger.debug(f"{self.callsign} doesn't belong to any groups, adding them to the __ANON__ group")
                             self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid, routing_key="__ANON__.OUT")
                             if {"exchange": "groups", "routing_key": "__ANON__.OUT", "queue": self.uid} not in self.bound_queues:
-                                self.bound_queues.append({"exchange": "groups", "routing_key": "__ANON__.OUT"})
+                                self.bound_queues.append({"exchange": "groups", "routing_key": "__ANON__.OUT", "queue": self.uid})
 
                         elif group_memberships and self.is_ssl:
                             for membership in group_memberships:

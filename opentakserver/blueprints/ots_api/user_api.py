@@ -251,7 +251,6 @@ def get_all_users():
 
     for user in users:
         user = user[0]
-        logger.info(user)
         return_value.append(user.serialize())
 
     return return_value
