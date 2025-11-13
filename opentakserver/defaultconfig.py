@@ -64,8 +64,15 @@ class DefaultConfig:
 
     # LDAP user attributes with this prefix can be used to control ATAK settings for a specific user
     OTS_LDAP_PREFERENCE_ATTRIBUTE_PREFIX = "ots_"
-
     OTS_LDAP_GROUP_PREFIX = "ots_"
+
+    # Flask-LDAP3-Login settings
+    LDAP_HOST = "127.0.0.1"
+    LDAP_BASE_DN = ""
+    LDAP_USER_DN = ""
+    LDAP_GROUP_DN = ""
+    LDAP_BIND_USER_DN = "cn=admin,ou=users=dc=example,dc=com"
+    LDAP_BIND_USER_PASSWORD = "password"
 
     # See https://docs.python.org/3/library/logging.handlers.html#logging.handlers.TimedRotatingFileHandler
     OTS_LOG_ROTATE_WHEN = os.getenv("OTS_LOG_ROTATE_WHEN", "midnight")
