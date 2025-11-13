@@ -55,6 +55,9 @@ tldextract = "5.1.2"
 unishox2-py3 = "1.0.0"
 yt-dlp = "*"
 zope-event = "5.1.1"
+python-json-logger = "^4.0.0"
+opentelemetry-sdk = "^1.38.0"
+opentelemetry-exporter-otlp = "^1.38.0"
 
 [tool.poetry-dynamic-versioning]
 enable = true
