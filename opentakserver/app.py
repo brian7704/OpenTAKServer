@@ -1,4 +1,7 @@
 from gevent import monkey
+
+from opentakserver.models.role import Role
+
 monkey.patch_all()
 
 from opentakserver.models.Group import Group, GroupTypeEnum
@@ -50,6 +53,7 @@ from opentakserver.models.WebAuthn import WebAuthn
 
 from opentakserver.controllers.meshtastic_controller import MeshtasticController
 from opentakserver.certificate_authority import CertificateAuthority
+from opentakserver.models.RoleUser import RoleUser
 
 try:
     from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
@@ -343,7 +347,9 @@ def main(app):
             name="administrator", permissions={"administrator"}
         )
 
-        if not app.security.datastore.find_user(username="administrator"):
+        # Make sure at least one admin user exists
+        admin_user = db.session.execute(db.session.query(Role).join(RoleUser).where(Role.name == "administrator")).scalar()
+        if not admin_user:
             logger.info("Creating administrator account. The password is 'password'")
             app.security.datastore.create_user(username="administrator",
                                                password=hash_password("password"), roles=["administrator"])

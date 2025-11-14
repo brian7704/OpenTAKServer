@@ -532,7 +532,6 @@ class ClientController(Thread):
                     self.logger.debug(f"Unbound {self.uid} from mission.{mission[0].name}")
 
             for bind in self.bound_queues:
-                self.logger.info(f"Unbinding {bind}")
                 self.rabbit_channel.queue_unbind(exchange=bind['exchange'], queue=bind['queue'], routing_key=bind['routing_key'])
 
     def send_disconnect_cot(self):

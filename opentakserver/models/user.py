@@ -19,6 +19,7 @@ class User(db.Model, fsqla.FsUserMixin):
     mission_invitations = relationship("MissionInvitation", back_populates="user")
     tokens = relationship("Token", back_populates="user")
     groups = relationship("Group", secondary="groups_users", viewonly=True, back_populates="users", cascade="all, delete")
+    roles = relationship("Role", secondary="roles_users", viewonly=True, back_populates="users", cascade="all, delete")
 
     def serialize(self):
         return {
