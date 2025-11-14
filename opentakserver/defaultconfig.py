@@ -39,6 +39,19 @@ class DefaultConfig:
     OTS_SSL_CERT_HEADER = os.getenv("OTS_SSL_CERT_HEADER", "X-Ssl-Cert")
     OTS_NODE_ID = os.getenv("OTS_NODE_ID", ''.join(random.choices(string.ascii_lowercase + string.digits, k=32)))
 
+    # Federation Settings
+    OTS_ENABLE_FEDERATION = os.getenv("OTS_ENABLE_FEDERATION", "False").lower() in ["true", "1", "yes"]
+    OTS_FEDERATION_V1_PORT = int(os.getenv("OTS_FEDERATION_V1_PORT", 9000))  # Legacy federation protocol
+    OTS_FEDERATION_V2_PORT = int(os.getenv("OTS_FEDERATION_V2_PORT", 9001))  # Current federation protocol
+    OTS_FEDERATION_BIND_ADDRESS = os.getenv("OTS_FEDERATION_BIND_ADDRESS", "0.0.0.0")
+    OTS_FEDERATION_CERT_FILE = os.getenv("OTS_FEDERATION_CERT_FILE", os.path.join(OTS_DATA_FOLDER, "federation", "server.crt"))
+    OTS_FEDERATION_KEY_FILE = os.getenv("OTS_FEDERATION_KEY_FILE", os.path.join(OTS_DATA_FOLDER, "federation", "server.key"))
+    OTS_FEDERATION_CA_FILE = os.getenv("OTS_FEDERATION_CA_FILE", os.path.join(OTS_DATA_FOLDER, "federation", "ca.crt"))
+    OTS_FEDERATION_TRUSTSTORE_DIR = os.getenv("OTS_FEDERATION_TRUSTSTORE_DIR", os.path.join(OTS_DATA_FOLDER, "federation", "truststore"))
+    OTS_FEDERATION_RETRY_INTERVAL = int(os.getenv("OTS_FEDERATION_RETRY_INTERVAL", 60))  # Seconds between retry attempts
+    OTS_FEDERATION_MAX_RETRIES = int(os.getenv("OTS_FEDERATION_MAX_RETRIES", 5))  # Max retry attempts before giving up
+    OTS_FEDERATION_HEARTBEAT_INTERVAL = int(os.getenv("OTS_FEDERATION_HEARTBEAT_INTERVAL", 30))  # Seconds between heartbeats
+
     # Certificate Authority Settings
     OTS_CA_NAME = os.getenv("OTS_CA_NAME", "OpenTAKServer-CA")
     OTS_CA_FOLDER = os.getenv("OTS_CA_FOLDER", os.path.join(OTS_DATA_FOLDER, "ca"))
