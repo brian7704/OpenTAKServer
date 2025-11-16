@@ -1,0 +1,50 @@
+# docker compose file for server side deps
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672" # AMQP
+      - "15672:15672" # Management UI
+      - "1883:1883" # MQTT
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit mqtt.listeners.tcp.default=1883"
+      RABBITMQ_ENABLED_PLUGINS_FILE: /etc/rabbitmq/enabled_plugins
+    # enable the management UI
+    command: >
+      bash -c "echo '[rabbitmq_management, rabbitmq_mqtt].' > /etc/rabbitmq/enabled_plugins &&
+               rabbitmq-server"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - rabbitmq-etc:/etc/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  ots-db:
+    image: postgis/postgis:18-3.6
+    container_name: ots-db
+    hostname: ots-db
+    restart: unless-stopped
+    env_file:
+      - .env.dev
+    volumes:
+      - ots-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 1s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+volumes:
+  rabbitmq-data:
+  rabbitmq-etc:
+  ots-db-data:
