@@ -36,13 +36,11 @@ def get_all_groups():
     if not app.config.get("OTS_ENABLE_LDAP"):
         user = app.security.datastore.find_user(username=username)
         groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id)).scalars()
-        logger.warning(groups)
 
         number_of_groups = 0
 
         if groups:
             for group in groups:
-                logger.warning(group.to_json())
                 if group.direction == Group.IN:
                     response['data'].append(group.group.to_marti_json_in())
                 else:
@@ -77,7 +75,6 @@ def get_all_groups():
             elif group['cn'].lower().endswith("_read"):
                 response['data'].append(g.to_marti_json_out())
 
-    logger.warning(response)
     return jsonify(response)
 
 
