@@ -270,6 +270,9 @@ def get_missions():
                 logger.info(group.group.id)
             if group_filters:
                 query = query.outerjoin(GroupMission).where(or_(*group_filters))
+            else:
+                # If a user isn't in a group, only show them __ANON__ missions
+                query.outerjoin(GroupMission).where(GroupMission.group_id == 1)
 
         missions = db.session.execute(query).scalars()
         for mission in missions:
@@ -352,6 +355,25 @@ def put_mission(mission_name: str):
     try:
         db.session.add(mission)
         # Will raise IntegrityError if the mission exists, meaning we should update it
+        db.session.commit()
+
+        groups = request.args.get('group')
+        if groups:
+            for group_name in groups.split(","):
+                group = db.session.execute(db.session.query(Group).filter_by(name=group_name)).scalar()
+                if not group:
+                    return jsonify({"success": False, "error": f"Group not found: {group_name}"}), 404
+                group_mission = GroupMission()
+                group_mission.group_id = group.id
+                group_mission.mission_name = mission.name
+                db.session.add(group_mission)
+        else:
+            # Default to the __ANON__ group
+            group_mission = GroupMission()
+            group_mission.group_id = 1
+            group_mission.mission_name = mission.name
+            db.session.add(group_mission)
+
         db.session.commit()
 
         if new_mission:
