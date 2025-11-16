@@ -36,12 +36,30 @@ def get_all_groups():
     if not app.config.get("OTS_ENABLE_LDAP"):
         user = app.security.datastore.find_user(username=username)
         groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id)).scalars()
+        logger.warning(groups)
 
-        for group in groups:
-            if group.direction == Group.IN:
-                response['data'].append(group.group.to_marti_json_in())
-            else:
-                response['data'].append(group.group.to_marti_json_out())
+        number_of_groups = 0
+
+        if groups:
+            for group in groups:
+                logger.warning(group.to_json())
+                if group.direction == Group.IN:
+                    response['data'].append(group.group.to_marti_json_in())
+                else:
+                    response['data'].append(group.group.to_marti_json_out())
+                number_of_groups += 1
+
+        # If a user is not assigned to any groups, default them to the __ANON__ group
+        if not groups or not number_of_groups:
+            logger.info(f"{username} has no groups, defaulting to __ANON__")
+            group = Group()
+            group.name = "__ANON__"
+            group.created = datetime.datetime.now(datetime.timezone.utc)
+            group.type = Group.SYSTEM
+            group.bitpos = 2
+
+            response['data'].append(group.to_marti_json_out())
+            response['data'].append(group.to_marti_json_in())
 
     else:
         groups = ldap_manager.get_user_groups(username)
@@ -59,6 +77,7 @@ def get_all_groups():
             elif group['cn'].lower().endswith("_read"):
                 response['data'].append(g.to_marti_json_out())
 
+    logger.warning(response)
     return jsonify(response)
 
 
