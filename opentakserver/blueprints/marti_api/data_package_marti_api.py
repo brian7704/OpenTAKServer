@@ -194,10 +194,13 @@ def get_data_package():
             keywords = dp.keywords.split(',')
 
         try:
+            expiration = None
+            if dp.expiration:
+                expiration = int(dp.expiration)
             return_value["data"].append({"filename": dp.filename, "keywords": keywords, "mimeType": dp.mime_type,
                                          "name": dp.filename, "submissionTime": iso8601_string_from_datetime(dp.submission_time),
                                         "submitter": submission_user, "uid": dp.hash, "creatorUid": dp.creator_uid, "hash": dp.hash,
-                                         "size": dp.size, "tool": dp.tool, "groups": [], "expiration": int(dp.expiration),
+                                         "size": dp.size, "tool": dp.tool, "groups": [], "expiration": expiration,
                                          "latitude": 0, "longitude": 0, "altitude": 0})
         except BaseException as e:
             logger.error(f"Data package GET failed: {e}")
