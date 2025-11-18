@@ -139,7 +139,8 @@ def get_repository_inf():
 
     response = ""
     for version in versions:
-        response += version.atak_version + "\n"
+        if version.atak_version:
+            response += version.atak_version + "\n"
 
     return response, 200
 
