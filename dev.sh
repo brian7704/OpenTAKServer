@@ -95,6 +95,9 @@ elif [[ "$1" == "start" ]]; then
         fi
         tmux new-session -d -s "$SESSION"
         tmux rename-window -t "$SESSION:0" 'server'
+        tmux split-window -t "$SESSION:server" -v
+        export aspire_url=$(docker compose logs aspire-dashboard | grep -Po "(?<=Login to the dashboard at )http(s)?://[^:/]+(:[0-9]+)?/login\?t=[^ ]+")
+        tmux send-keys -t "$SESSION:server.0" "echo 'Opening Aspire Dashboard at ${aspire_url}'; xdg-open ${aspire_url}" C-m
 
         # # server
         tmux send-keys -t "$SESSION" 'poetry run opentakserver' C-m

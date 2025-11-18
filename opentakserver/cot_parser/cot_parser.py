@@ -845,11 +845,6 @@ def get_config() -> dict[str, Any]:
 def create_app(cli=True):
     # get config and setup logger
     config = get_config()
-    logger, meter = setup_telemetry(TelemetryOpts(
-        logging=configure_logging(config),
-        metrics=configure_metrics(config),
-        tracing=configure_tracing(config)
-        ),__name__)
 
     # then setup app
     app = Flask(__name__)

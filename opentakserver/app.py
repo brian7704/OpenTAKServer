@@ -373,8 +373,7 @@ def main(app):
         host = app.config.get("OTS_LISTENER_ADDRESS")
         port = app.config.get("OTS_LISTENER_PORT")
         logger.info(f"starting API listening on {host}:{port}")
-        socketio.run(app, host=host, port=port,
-                     debug=app.config.get("DEBUG"), log_output=app.config.get("DEBUG"), use_reloader=False)
+        socketio.run(app, host=host, port=port, use_reloader=False)
     except KeyboardInterrupt:
         logger.warning("Caught CTRL+C, exiting...")
         if app.config.get("OTS_ENABLE_PLUGINS"):
