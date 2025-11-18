@@ -1,7 +1,7 @@
-from gevent import monkey
+from gevent import monkey,greenlet
+monkey.patch_all()
 
 from opentakserver.telemetry.context import LogCtx
-monkey.patch_all()
 from opentakserver.extensions import logger, db, socketio, mail, apscheduler, ldap_manager
 
 from typing import Any
@@ -115,7 +115,7 @@ def init_extensions(app):
     params = pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
     with LogCtx(rabbitmq_params={"host":params.host,"port":params.port,"vhost":params.virtual_host,"ssl": bool(params.ssl_options)}):
         logger.info(f"connecting to rabbitmq on {params}")
-        rabbit_connection = pika.BlockingConnection()
+        rabbit_connection = pika.BlockingConnection(params)
 
         channel = rabbit_connection.channel()
         channel.exchange_declare('dms', durable=True, exchange_type='direct')
@@ -372,7 +372,7 @@ def main(app):
     try:
         host = app.config.get("OTS_LISTENER_ADDRESS")
         port = app.config.get("OTS_LISTENER_PORT")
-        logger.info(f"starting API listing on {host}:{port}")
+        logger.info(f"starting API listening on {host}:{port}")
         socketio.run(app, host=host, port=port,
                      debug=app.config.get("DEBUG"), log_output=app.config.get("DEBUG"), use_reloader=False)
     except KeyboardInterrupt:
@@ -381,6 +381,7 @@ def main(app):
             app.plugin_manager.stop_plugins()
 
 def start():
+    monkey.patch_all()
     logger.info(f"starting OpenTAKServer {opentakserver.__version__}")
     app = create_app(cli=False)
     main(app)

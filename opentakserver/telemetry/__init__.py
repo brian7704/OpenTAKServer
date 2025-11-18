@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import Optional
 from opentelemetry.metrics._internal import Meter
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
-from opentelemetry.instrumentation.threading import ThreadingInstrumentor
 
 from opentakserver.telemetry.logs import LoggingOptions, setup_logging
 from opentakserver.telemetry.metrics import MetricsOptions, setup_metrics
@@ -28,6 +27,5 @@ def setup_telemetry(opts:TelemetryOpts,service_name:str="") -> tuple[logging.Log
     
     # --- Auto instrumentation ---
     LoggingInstrumentor().instrument()
-    ThreadingInstrumentor().instrument()
     
     return logger,meter

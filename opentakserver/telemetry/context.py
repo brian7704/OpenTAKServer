@@ -90,8 +90,8 @@ class LogCtx:
     For example:
     ```python
     
-    with LogCtx({"somekey":"somevalue"}) as log:
-        log.info("i have extra context")
+    with LogCtx({"somekey":"somevalue"}):
+        logging.info("i have extra context")
 
     logging.info("but not me")
     ```

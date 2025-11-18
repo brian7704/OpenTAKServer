@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Any
 
+import colorlog
 from flask_ldap3_login import LDAP3LoginManager
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
