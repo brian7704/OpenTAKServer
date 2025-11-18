@@ -1,9 +1,9 @@
 import os
 import platform
 import sys
-from logging.handlers import TimedRotatingFileHandler
-from opentakserver.telemetry.context import LogCtx
-from opentakserver.telemetry.logs import ConsoleSinkOpts, FileSinkOpts, LoggingOptions, setup_logging
+from opentakserver.telemetry import TelemetryOpts, setup_telemetry
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+
 from typing import Any
 
 import flask_wtf
@@ -48,6 +48,8 @@ from flask import Flask, jsonify
 import logging
 import argparse
 
+from opentakserver.telemetry.ots import configure_logging, configure_metrics, configure_tracing
+
 
 def args():
     parser = argparse.ArgumentParser()
@@ -72,45 +74,20 @@ def get_config() -> dict[str, Any]:
     return config
 
 
-def configure_logging(cfg: dict[str, Any]) -> LoggingOptions:
-    opts = LoggingOptions()
-    if cfg.get("DEBUG"):
-        opts.level = "DEBUG"
-    else:
-        opts.level = cfg.get("OTS_LOG_LEVEL")
-
-    # file
-    if cfg.get("OTS_LOG_FILE_ENABLED", True):
-        opts.file = FileSinkOpts(
-            backup_count=cfg.get("OTS_BACKUP_COUNT"),
-            directory=cfg.get("OTS_DATA_FOLDER"),
-            name="opentakserver.log",
-            format=cfg.get("OTS_LOG_FILE_FORMAT"),
-            rotate_interval=cfg.get("OTS_LOG_ROTATE_INTERVAL"),
-            rotate_when=cfg.get("OTS_LOG_ROTATE_WHEN"),
-            level=cfg.get("OTS_LOG_FILE_LEVEL"),
-        )
-
-    # console
-    if cfg.get("OTS_LOG_CONSOLE_ENABLED", True):
-        opts.console = ConsoleSinkOpts(
-            format=cfg.get("OTS_LOG_CONSOLE_FORMAT"),
-            level=cfg.get("OTS_LOG_CONSOLE_LEVEL"),
-        )
-
-    # otel
-    opts.otel_enabled = cfg.get("OTS_LOG_OTEL_ENABLE")
-    return opts
-
 
 def create_app(cli=True):
     # get config and setup logger
     config = get_config()
-    logger = setup_logging(configure_logging(config))
+    logger, meter = setup_telemetry(TelemetryOpts(
+        logging=configure_logging(config),
+        metrics=configure_metrics(config),
+        tracing=configure_tracing(config)
+        ),__name__)
 
     # then setup app
     app = Flask(__name__)
     app.config.from_mapping(config)
+    FlaskInstrumentor.instrument_app(app)
     db.init_app(app)
 
     if app.config.get("OTS_ENABLE_LDAP"):

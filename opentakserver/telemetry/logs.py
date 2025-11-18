@@ -2,12 +2,13 @@ from contextvars import ContextVar, Token
 from dataclasses import dataclass
 import datetime
 import sys
-from typing import Any, Dict, Literal, Optional, TypedDict
+from typing import Any, Callable, Dict, Literal, Optional, TypedDict
 
 import logging
 import logging.handlers
 import os
 
+from click import Context
 import colorlog
 
 from pythonjsonlogger.json import JsonFormatter
@@ -41,9 +42,9 @@ class ConsoleSinkOpts:
 
     level: str = "INFO"
 
-
 @dataclass
 class LoggingOptions:
+    service_name: str = "opentakserver"
     file: Optional[FileSinkOpts] = None
     console: Optional[ConsoleSinkOpts] = None
     otel_enabled: bool = True
@@ -53,11 +54,12 @@ class LoggingOptions:
 class ContextFilter(logging.Filter):
     """Add context to non-otel log handlers"""
 
-    def __init__(self):
+    def __init__(self,context_getter:Callable[[],dict]):
         super().__init__()
-        self.context = get_context()
+        self.context_getter = context_getter
 
     def filter(self, record):
+        self.context = self.context_getter()
         for key, value in self.context.items():
             setattr(record, key.replace(".", "_"), value)
         return True
@@ -119,6 +121,8 @@ def setup_logging(opts: LoggingOptions) -> logging.Logger:
             handler.setLevel(logLevel)
 
     logger.handlers.clear()
+    
+    logger.addFilter(ContextFilter(lambda : get_context(opts.service_name)))
 
     # Console handler
     if opts.console is not None:
@@ -147,7 +151,7 @@ def setup_logging(opts: LoggingOptions) -> logging.Logger:
 
     # OTel handler
     if opts.otel_enabled:
-        provider = LoggerProvider(resource=Resource.create(get_context()))
+        provider = LoggerProvider(resource=Resource.create(get_context(opts.service_name)))
         exporter = OTLPLogExporter()
         provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
         set_logger_provider(provider)

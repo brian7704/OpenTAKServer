@@ -11,18 +11,24 @@ import socket
 from flask import current_app
 
 
-def get_service_context() -> dict:
-    # Determine a stable service name and version. Prefer env override.
-    service_name = os.environ.get("OTEL_SERVICE_NAME","opentakserver")
+def get_service_context(service_name:str = "") -> dict:
+    if service_name == "":
+        # Determine a stable service name and version. Prefer env override.
+        service_name = os.environ.get("OTEL_SERVICE_NAME","opentakserver")
+        
     try:
         service_version = metadata.version(service_name)
     except metadata.PackageNotFoundError:
+        try:
+            service_version = metadata.version("opentakserver")
+        except metadata.PackageNotFoundError:
+            service_version = ""
         service_version = ""
 
     return {
         "service.name": service_name,
         "service.namespace": "OpenTakServer",
-        "service.instance.id": uuid.uuid4(),
+        "service.instance.id": str(uuid.uuid4()),
         "service.version": service_version,
     }
 
@@ -46,54 +52,92 @@ def get_deployment_context() -> dict:
     return {"deployment.environment.name": deployment_env}
 
 
-def get_context():
+def get_context(service_name:str) -> dict:
     """Gather ambient context about the running service. use this data to enrich telemetry context."""
 
     ctx = {}
-    ctx.update(get_service_context())
+    ctx.update(get_service_context(service_name))
     ctx.update(get_deployment_context())
     return ctx
 
+
+# thread local context var
+_log_context: ContextVar[Dict[str, Any]] = ContextVar("log_context", default={})
+
+# A filter instance shared across LogCtx usages; it reads the ContextVar at
+# emit time and injects values into the LogRecord.
+class _RecordFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        ctx = _log_context.get() or {}
+        if not ctx:
+            return True
+        # inject keys directly onto the record when possible, otherwise
+        # stash them under `ots_context` to avoid clobbering LogRecord attrs.
+        for k, v in ctx.items():
+            if hasattr(record, k):
+                oc = getattr(record, "ots_context", None)
+                if oc is None:
+                    oc = {}
+                    setattr(record, "ots_context", oc)
+                oc[k] = v
+            else:
+                setattr(record, k, v)
+        return True
 
 class LogCtx:
     """Context manager for logging metadata.
 
     For example:
     ```python
+    
     with LogCtx({"somekey":"somevalue"}) as log:
         log.info("i have extra context")
 
-    log.info("but not me")
+    logging.info("but not me")
     ```
     """
 
-    # thread local context var
-    _log_context: ContextVar[Dict[str, Any]] = ContextVar("log_context", default={})
+    
+
+    _filter = _RecordFilter()
+    _filter_refcount = 0
 
     def __init__(self, logger: Optional[logging.Logger] = None, **context):
+        # logger is kept only for rare internal use; callers should use
+        # logging.getLogger() and rely on the filter to inject context.
         self.logger = logger or logging.getLogger()
         self.new_context = context
-        self.token: Token[Dict[str, Any]]
-        self.adapter = None
+        self.token: Optional[Token[Dict[str, Any]]] = None
 
     def __enter__(self):
-        # merge with existing context
-        existing = LogCtx._log_context.get()
+        # merge with existing context and set it
+        existing = _log_context.get() or {}
         merged = {**existing, **self.new_context}
+        self.token = _log_context.set(merged)
 
-        # save old context and set new
-        self.token = LogCtx._log_context.set(merged)
-        # create adapter with merged context
-        self.adapter = logging.LoggerAdapter(self.logger, merged)
-        return self.adapter
+        # ensure our filter is attached to the root logger (only once)
+        root = logging.getLogger()
+        if LogCtx._filter_refcount == 0:
+            root.addFilter(LogCtx._filter)
+        LogCtx._filter_refcount += 1
+
+        return None
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # restore previous context (if set) and clear adapter to avoid leaking it
-        try:
-            current = LogCtx._log_context.get()
-            LogCtx._log_context.reset(self.token)  # type: ignore
-            new = LogCtx._log_context.get()
-        finally:
-            # remove references so adapter/context don't leak after exit
-            self.adapter = logging.LoggerAdapter(self.logger,new)
+        # restore previous context
+        if self.token is not None:
+            try:
+                _log_context.reset(self.token)  # type: ignore
+            except Exception:
+                pass
+
+        # detach our filter if no active contexts remain
+        LogCtx._filter_refcount = max(0, LogCtx._filter_refcount - 1)
+        if LogCtx._filter_refcount == 0:
+            try:
+                logging.getLogger().removeFilter(LogCtx._filter)
+            except Exception:
+                pass
+
+        self.token = None
         return False

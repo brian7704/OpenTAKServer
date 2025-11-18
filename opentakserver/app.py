@@ -1,22 +1,19 @@
-from typing import Any
 from gevent import monkey
 
 from opentakserver.telemetry.context import LogCtx
-from opentakserver.telemetry.logs import ConsoleSinkOpts, FileSinkOpts, LoggingOptions, setup_logging
 monkey.patch_all()
+from opentakserver.extensions import logger, db, socketio, mail, apscheduler, ldap_manager
 
+from typing import Any
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentakserver.models.Group import Group, GroupTypeEnum
-
 from opentakserver.UsernameValidator import UsernameValidator
 
-import sys
 import traceback
-import logging
 
 from flask_migrate import Migrate, upgrade
 from opentakserver.PasswordValidator import PasswordValidator
 
-import platform
 import requests
 from sqlalchemy import insert
 import sqlite3
@@ -29,10 +26,8 @@ import yaml
 
 from opentakserver.EmailValidator import EmailValidator
 
-from logging.handlers import TimedRotatingFileHandler
 import os
 
-import colorlog
 from werkzeug.middleware.proxy_fix import ProxyFix
 from datetime import datetime, timezone
 import sqlalchemy
@@ -48,7 +43,6 @@ from flask_security.models import fsqla_v3 as fsqla
 from flask_security.signals import user_registered
 
 import opentakserver
-from opentakserver.extensions import logger, db, socketio, mail, apscheduler, ldap_manager
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.models.WebAuthn import WebAuthn
 
@@ -58,31 +52,29 @@ from opentakserver.certificate_authority import CertificateAuthority
 try:
     from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
 except ModuleNotFoundError:
-    print("Mumble auth not supported on this platform")
+    logger.warning("Mumble auth not supported on this platform")
 
 
 def init_extensions(app):
+    logger.info("setting up extensions")
     db.init_app(app)
+    logger.info("initalized sqlalchemy, checking migrations...")
     Migrate(app, db)
-
-    logger.info(f"OpenTAKServer {opentakserver.__version__}")
-    logger.info("Loading the database...")
+    logger.info("migrations applied")
+    
     with app.app_context():
         upgrade(directory=os.path.join(os.path.dirname(os.path.realpath(opentakserver.__file__)), 'migrations'))
-        # Flask-Migrate does weird things to the logger
-        logger.disabled = False
-        logger.parent.handlers.pop()
-        if app.config.get("DEBUG"):
-            logger.setLevel(logging.DEBUG)
-        else:
-            logger.setLevel(logging.INFO)
-
+    
+    logger.info("finished applying migrations")
+    
+    logger.info("applying extension config")
     # Handle config options that can't be serialized to yaml
     app.config.update({"SCHEDULER_JOBSTORES": {'default': SQLJobStore(url=app.config.get("SQLALCHEMY_DATABASE_URI"))}})
     identity_attributes = [{"username": {"mapper": uia_username_mapper, "case_insensitive": True}}]
 
     # Don't allow registration unless email is enabled
     if app.config.get("OTS_ENABLE_EMAIL"):
+        logger.info("email is enabled, configuring...")
         identity_attributes.append({"email": {"mapper": uia_email_mapper, "case_insensitive": True}})
         app.config.update({
             "SECURITY_REGISTERABLE": True,
@@ -91,6 +83,7 @@ def init_extensions(app):
             "SECURITY_TWO_FACTOR_ENABLED_METHODS": ["authenticator", "email"]
         })
     else:
+        logger.info("email is not configured")
         app.config.update({
             "SECURITY_REGISTERABLE": False,
             "SECURITY_CONFIRMABLE": False,
@@ -105,35 +98,41 @@ def init_extensions(app):
 
     app.config.update({"SECURITY_USER_IDENTITY_ATTRIBUTES": identity_attributes})
 
+    logger.info("creating local cert authority")
     ca = CertificateAuthority(logger, app)
     ca.create_ca()
 
+    logger.info("setting up security headers")
     cors = CORS(app, resources={r"/api/*": {"origins": "*"}, r"/Marti/*": {"origins": "*"}, r"/*": {"origins": "*"}},
                 supports_credentials=True)
     flask_wtf.CSRFProtect(app)
 
-    socketio_logger = False
-    if app.config.get("DEBUG"):
-        socketio_logger = logger
+    socketio_logger = logger
     socketio.init_app(app, logger=socketio_logger, ping_timeout=1, message_queue="amqp://" + app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"))
-
+    
     rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
     rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
-    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
+    params = pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
+    with LogCtx(rabbitmq_params={"host":params.host,"port":params.port,"vhost":params.virtual_host,"ssl": bool(params.ssl_options)}):
+        logger.info(f"connecting to rabbitmq on {params}")
+        rabbit_connection = pika.BlockingConnection()
 
-    channel = rabbit_connection.channel()
-    channel.exchange_declare('dms', durable=True, exchange_type='direct')
-    channel.exchange_declare('cot_parser', durable=True, exchange_type='direct')
-    channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
-    channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
-    channel.exchange_declare("groups", durable=True, exchange_type='topic')  # For channels/groups
-    channel.close()
-    rabbit_connection.close()
+        channel = rabbit_connection.channel()
+        channel.exchange_declare('dms', durable=True, exchange_type='direct')
+        channel.exchange_declare('cot_parser', durable=True, exchange_type='direct')
+        channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
+        channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
+        channel.exchange_declare("groups", durable=True, exchange_type='topic')  # For channels/groups
+        channel.close()
+        rabbit_connection.close()
+        logger.info("rabbitmq setup conmpleted")
 
     if not apscheduler.running:
+        logger.info("starting apsscheduler")
         apscheduler.init_app(app)
         apscheduler.start(paused=False)
 
+    logger.info("setting up flask security")
     try:
         fsqla.FsModels.set_db_info(db)
     except sqlalchemy.exc.InvalidRequestError:
@@ -146,6 +145,7 @@ def init_extensions(app):
     app.security = Security(app, user_datastore, mail_util_cls=EmailValidator, password_util_cls=PasswordValidator, username_util_cls=UsernameValidator)
 
     mail.init_app(app)
+    logger.info("successfully initalized extensions")
 
 
 def create_groups(app: Flask):
@@ -185,7 +185,6 @@ def is_first_run(cfg: dict[str, Any]):
     # existence of config file is used to determine whether OTS has been run before
     return not os.path.exists(os.path.join(cfg.get("OTS_DATA_FOLDER"), "config.yml"))
 
-
 def get_config() -> dict[str, Any]:
     config = DefaultConfig.to_dict()
     if is_first_run(config):
@@ -197,49 +196,12 @@ def get_config() -> dict[str, Any]:
             # TODO: validation with fast fail?
     return config
 
-
-def configure_logging(cfg: dict[str, Any]) -> LoggingOptions:
-    opts = LoggingOptions()
-    if cfg.get("DEBUG"):
-        opts.level = "DEBUG"
-    else:
-        opts.level = cfg.get("OTS_LOG_LEVEL")
-
-    # file
-    if cfg.get("OTS_LOG_FILE_ENABLED", True):
-        opts.file = FileSinkOpts(
-            backup_count=cfg.get("OTS_BACKUP_COUNT"),
-            directory=cfg.get("OTS_DATA_FOLDER"),
-            name="opentakserver.log",
-            format=cfg.get("OTS_LOG_FILE_FORMAT"),
-            rotate_interval=cfg.get("OTS_LOG_ROTATE_INTERVAL"),
-            rotate_when=cfg.get("OTS_LOG_ROTATE_WHEN"),
-            level=cfg.get("OTS_LOG_FILE_LEVEL"),
-        )
-
-    # console
-    if cfg.get("OTS_LOG_CONSOLE_ENABLED", True):
-        opts.console = ConsoleSinkOpts(
-            format=cfg.get("OTS_LOG_CONSOLE_FORMAT"),
-            level=cfg.get("OTS_LOG_CONSOLE_LEVEL"),
-        )
-
-    # otel
-    opts.otel_enabled = cfg.get("OTS_LOG_OTEL_ENABLE")
-    return opts
-
-
 def create_app(cli=True):
-    # get config and setup logger
     config = get_config()
-    logger = setup_logging(configure_logging(config))
-
     # then setup app
-    with LogCtx(somerandom="test") as log:
-        log.info("creating app")
-        app = Flask(__name__)
-        app.config.from_mapping(config)
-    log.info("created app")
+    app = Flask(__name__)
+    app.config.from_mapping(config)
+    FlaskInstrumentor.instrument_app(app)
 
     if not cli:
         if is_first_run(config):
@@ -314,14 +276,12 @@ def create_app(cli=True):
 
     return app
 
-
 @user_registered.connect_via(current_app)
 def user_registered_sighandler(app, user, confirmation_token, **kwargs):
     default_role = app.security.datastore.find_or_create_role(
         name="user", permissions={"user-read", "user-write"}
     )
     app.security.datastore.add_role_to_user(user, default_role)
-
 
 def main(app):
     with app.app_context():
@@ -410,14 +370,17 @@ def main(app):
     app.start_time = datetime.now(timezone.utc)
 
     try:
-        socketio.run(app, host=app.config.get("OTS_LISTENER_ADDRESS"), port=app.config.get("OTS_LISTENER_PORT"),
+        host = app.config.get("OTS_LISTENER_ADDRESS")
+        port = app.config.get("OTS_LISTENER_PORT")
+        logger.info(f"starting API listing on {host}:{port}")
+        socketio.run(app, host=host, port=port,
                      debug=app.config.get("DEBUG"), log_output=app.config.get("DEBUG"), use_reloader=False)
     except KeyboardInterrupt:
         logger.warning("Caught CTRL+C, exiting...")
         if app.config.get("OTS_ENABLE_PLUGINS"):
             app.plugin_manager.stop_plugins()
 
-
 def start():
+    logger.info(f"starting OpenTAKServer {opentakserver.__version__}")
     app = create_app(cli=False)
     main(app)
