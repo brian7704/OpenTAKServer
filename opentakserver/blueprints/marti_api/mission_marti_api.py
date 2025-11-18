@@ -267,7 +267,6 @@ def get_missions():
             groups = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id, direction=Group.IN)).scalars()
             for group in groups:
                 group_filters.append(GroupMission.group_id == group.group.id)
-                logger.info(group.group.id)
             if group_filters:
                 query = query.outerjoin(GroupMission).where(or_(*group_filters))
             else:
