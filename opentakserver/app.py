@@ -1,9 +1,7 @@
 from gevent import monkey
-
-from opentakserver.models.role import Role
-
 monkey.patch_all()
 
+from opentakserver.models.role import Role
 from opentakserver.models.Group import Group, GroupTypeEnum
 
 from opentakserver.UsernameValidator import UsernameValidator
