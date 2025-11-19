@@ -1262,26 +1262,16 @@ def mission_contents(mission_name: str):
 
     if 'uids' in body:
         for uid in body['uids']:
+            create_mission_change = False
+            mission_change = None
+
             mission_uid = db.session.execute(db.session.query(MissionUID).filter_by(uid=uid)).first()
             if mission_uid:
                 mission_uid = mission_uid[0]
                 change_pk = mission_uid.mission_change_id
-                mission_change = None
             else:
                 mission_uid = MissionUID()
-
-                mission_change = MissionChange()
-                mission_change.isFederatedChange = False
-                mission_change.change_type = MissionChange.ADD_CONTENT
-                mission_change.mission_name = mission_name
-                mission_change.timestamp = datetime.datetime.now(datetime.timezone.utc)
-                mission_change.creator_uid = request.args.get('creatorUid')
-                mission_change.server_time = datetime.datetime.now(datetime.timezone.utc)
-                mission_change.mission_uid = uid
-
-                change_pk = db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
-                db.session.commit()
-                change_pk = change_pk.inserted_primary_key[0]
+                create_mission_change = True
 
             mission_uid.uid = uid
             mission_uid.timestamp = datetime.datetime.now(datetime.timezone.utc)
@@ -1320,6 +1310,19 @@ def mission_contents(mission_name: str):
 
             try:
                 db.session.add(mission_uid)
+
+                if create_mission_change:
+                    mission_change = MissionChange()
+                    mission_change.isFederatedChange = False
+                    mission_change.change_type = MissionChange.ADD_CONTENT
+                    mission_change.mission_name = mission_name
+                    mission_change.timestamp = datetime.datetime.now(datetime.timezone.utc)
+                    mission_change.creator_uid = request.args.get('creatorUid')
+                    mission_change.server_time = datetime.datetime.now(datetime.timezone.utc)
+                    mission_change.mission_uid = uid
+
+                    db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
+
                 db.session.commit()
             except sqlalchemy.exc.IntegrityError:
                 db.session.rollback()

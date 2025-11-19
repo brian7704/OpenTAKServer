@@ -595,9 +595,10 @@ class ClientController(Thread):
                     self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['callsign'],
                                                       body=json.dumps({'uid': self.uid, 'cot': str(event)}))
 
-                elif 'uid' in destination.attrs:
-                    self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['uid'],
-                                                      body=json.dumps({'uid': self.uid, 'cot': str(event)}))
+                # TODO: See if removing this causes issues. Removing it fixed an issue with Data Sync on iTAK
+                #elif 'uid' in destination.attrs:
+                #    self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['uid'],
+                #                                      body=json.dumps({'uid': self.uid, 'cot': str(event)}))
                 # For data sync missions
                 elif 'mission' in destination.attrs:
                     with self.app.app_context():
