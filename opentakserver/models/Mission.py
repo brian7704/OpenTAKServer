@@ -83,7 +83,7 @@ class Mission(db.Model):
             'bbox': self.bbox or "",
             'path': self.path or "",
             'classification': self.classification or "",
-            'tool': self.tool or "",
+            'tool': self.tool or "public",
             'defaultRole': self.default_role or "",
             'keywords': self.keywords if self.keywords else [],
             'creatorUid': self.creator_uid or "",

@@ -1122,12 +1122,18 @@ def upload_content():
     :return: flask.Response
     """
 
+    cert = verify_client_cert()
+    if not cert:
+        return jsonify({"success": False, "error": "Missing or invalid certificate"}), 400
+
+    username = cert.get_subject().commonName
+
     file_name = bleach.clean(request.args.get('name')) if 'name' in request.args else None
     keywords = request.args.getlist('keywords')
 
     if 'creatorUid' in request.args:
         creator_uid = request.args.get('creatorUid')
-    # iTAK uses CreatorUid instead of creatorUid
+    # Older versions of iTAK use CreatorUid instead of creatorUid
     elif 'CreatorUid' in request.args:
         creator_uid = request.args.get('CreatorUid')
     else:
@@ -1156,7 +1162,7 @@ def upload_content():
         content.mime_type = request.content_type
         content.filename = file_name
         content.submission_time = datetime.datetime.now(datetime.timezone.utc)
-        content.submitter = current_user.username if current_user.is_authenticated else "anonymous"
+        content.submitter = username or "anonymous"
         content.uid = str(uuid.uuid4())
         content.creator_uid = creator_uid
         content.size = request.content_length
@@ -1166,14 +1172,23 @@ def upload_content():
         content_pk = db.session.execute(insert(MissionContent).values(**content.serialize()))
         content_pk = content_pk.inserted_primary_key[0]
         db.session.commit()
+
     else:
         content = content[0]
         content_pk = content.id
+
+        # For some reason iTAK changes file names to a timestamp with the format YYYYMMDD-HHMMSS so the file name in the DB
+        # needs to be updated
+        if file_name != content.filename:
+            content.filename = file_name
+            db.session.add(content)
+            db.session.commit()
 
     # Save the content even if it exists in the database in case it was deleted from disk
     os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'missions'), exist_ok=True)
     with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'missions', file_name), 'wb') as f:
         f.write(file)
+        f.flush()
 
     response = {
         "UID": content.uid, "SubmissionDateTime": iso8601_string_from_datetime(content.submission_time), "MIMEType": content.mime_type,
@@ -1238,6 +1253,8 @@ def mission_contents(mission_name: str):
 
                 db.session.add(mission_content_mission)
 
+            mission_change = db.session.execute(db.session.query(MissionChange).filter_by(content_uid=content.uid, mission_name=mission_name)).first()
+            if not mission_change:
                 mission_change = MissionChange()
                 mission_change.isFederatedChange = False
                 mission_change.change_type = MissionChange.ADD_CONTENT
@@ -1262,16 +1279,11 @@ def mission_contents(mission_name: str):
 
     if 'uids' in body:
         for uid in body['uids']:
-            create_mission_change = False
-            mission_change = None
-
-            mission_uid = db.session.execute(db.session.query(MissionUID).filter_by(uid=uid)).first()
+            mission_uid = db.session.execute(db.session.query(MissionUID).filter_by(uid=uid, mission_name=mission_name)).first()
             if mission_uid:
                 mission_uid = mission_uid[0]
-                change_pk = mission_uid.mission_change_id
             else:
                 mission_uid = MissionUID()
-                create_mission_change = True
 
             mission_uid.uid = uid
             mission_uid.timestamp = datetime.datetime.now(datetime.timezone.utc)
@@ -1308,38 +1320,38 @@ def mission_contents(mission_name: str):
                 if contact and 'callsign' in contact.attrs:
                     mission_uid.callsign = contact.attrs['callsign']
 
+            mission_change = MissionChange()
+            mission_change.isFederatedChange = False
+            mission_change.change_type = MissionChange.ADD_CONTENT
+            mission_change.mission_name = mission_name
+            mission_change.timestamp = datetime.datetime.now(datetime.timezone.utc)
+            mission_change.creator_uid = request.args.get('creatorUid')
+            mission_change.server_time = datetime.datetime.now(datetime.timezone.utc)
+            mission_change.mission_uid = uid
+
+            db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
+
+            event = generate_mission_change_cot(mission_name, mission, mission_change, mission_uid=mission_uid)
+
+            body = json.dumps({'uid': mission_change.creator_uid, 'cot': tostring(event).decode('utf-8')})
+            logger.warning(f"{body}")
+            rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"),
+                                                       app.config.get("OTS_RABBITMQ_PASSWORD"))
+            rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+            rabbit_connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
+            channel = rabbit_connection.channel()
+            channel.basic_publish("missions", routing_key=f"missions.{mission_name}", body=body)
+            channel.close()
+            rabbit_connection.close()
+
             try:
                 db.session.add(mission_uid)
-
-                if create_mission_change:
-                    mission_change = MissionChange()
-                    mission_change.isFederatedChange = False
-                    mission_change.change_type = MissionChange.ADD_CONTENT
-                    mission_change.mission_name = mission_name
-                    mission_change.timestamp = datetime.datetime.now(datetime.timezone.utc)
-                    mission_change.creator_uid = request.args.get('creatorUid')
-                    mission_change.server_time = datetime.datetime.now(datetime.timezone.utc)
-                    mission_change.mission_uid = uid
-
-                    db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
-
                 db.session.commit()
             except sqlalchemy.exc.IntegrityError:
                 db.session.rollback()
                 db.session.execute(update(MissionUID).where(MissionUID.uid == mission_uid.uid).values(**mission_uid.serialize()))
                 db.session.commit()
-
-            if mission_change:
-                event = generate_mission_change_cot(mission_name, mission, mission_change, mission_uid=mission_uid)
-
-                body = json.dumps({'uid': mission_change.creator_uid, 'cot': tostring(event).decode('utf-8')})
-                rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
-                rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
-                rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
-                channel = rabbit_connection.channel()
-                channel.basic_publish("missions", routing_key=f"missions.{mission_name}", body=body)
-                channel.close()
-                rabbit_connection.close()
 
     db.session.commit()
 
