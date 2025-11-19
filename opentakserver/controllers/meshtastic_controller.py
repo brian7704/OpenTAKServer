@@ -404,7 +404,7 @@ class MeshtasticController(RabbitMQClient):
                             unishox2.decompress(pb.chat.to, len(pb.chat.to)), e))
                         self.logger.error(traceback.format_exc())
                 else:
-                    self.rabbit_channel.basic_publish(exchange='cot_controller', routing_key='', body=message,
+                    self.rabbit_channel.basic_publish(exchange='groups', routing_key='__ANON__.OUT', body=message,
                                                       properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
         except BaseException as e:
             self.logger.error(str(e))
