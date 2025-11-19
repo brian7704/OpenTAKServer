@@ -75,7 +75,7 @@ class Mission(db.Model):
 
     def to_json(self):
         url = request.url_root.replace("http://", "").replace("https://", "").replace("/", "")
-        json = {
+        json: dict = {
             'name': self.name,
             'description': self.description or "",
             'chatRoom': self.chat_room or "",

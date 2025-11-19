@@ -83,10 +83,15 @@ class Group(db.Model):
         group_name = remove_read.sub("", self.name)
         group_name = remove_write.sub("", group_name)
 
+        created: str 
+        created_str = iso8601_string_from_datetime(self.created or datetime.datetime.now(tz=datetime.timezone.utc))
+        if created_str:
+            created = created_str.split("T")[0]
+
         return {
             'name': group_name,
             'direction': Group.IN,
-            'created': iso8601_string_from_datetime(self.created or datetime.datetime.now(tz=datetime.timezone.utc)).split("T")[0],
+            'created': created,
             'type': self.type,
             'bitpos': self.bitpos,
             'active': True,

@@ -57,7 +57,7 @@ class MissionRole(db.Model):
         }
 
     def to_json(self):
-        json = {
+        json: dict = {
             'clientUid': self.clientUid,
             'username': self.username,
             'createTime': iso8601_string_from_datetime(self.createTime),

@@ -55,6 +55,7 @@ from opentakserver.controllers.meshtastic_controller import MeshtasticController
 from opentakserver.certificate_authority import CertificateAuthority
 from opentakserver.models.RoleUser import RoleUser
 
+
 try:
     from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
 except ModuleNotFoundError:

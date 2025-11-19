@@ -9,14 +9,14 @@ from flask_apscheduler import APScheduler
 
 logger = colorlog.getLogger('OpenTAKServer')
 
-mail = Mail()
+mail: Mail = Mail()
 
-apscheduler = APScheduler()
+apscheduler: APScheduler = APScheduler()
 
 db = SQLAlchemy(model_class=Base)
 
-socketio = SocketIO(async_mode='gevent')
+socketio: SocketIO = SocketIO(async_mode='gevent')
 
-migrate = Migrate()
+migrate: Migrate = Migrate()
 
-ldap_manager = LDAP3LoginManager()
+ldap_manager: LDAP3LoginManager = LDAP3LoginManager()
