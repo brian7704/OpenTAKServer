@@ -573,6 +573,7 @@ class ClientController(Thread):
         if not self.rabbit_channel or not self.rabbit_channel.is_open:
             self.cached_messages.append(event)
             self.logger.error("RabbitMQ channel is closed, not publishing cot")
+            self.rabbit_channel.open()
             return
 
         # Route all CoTs to the cot exchange for cot_parser and any plugins to receive
