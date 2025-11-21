@@ -270,11 +270,15 @@ def delete_group():
             {'success': False, 'error': 'LDAP is enabled, please use your LDAP server to delete groups'}), 400
 
     if "group_name" not in request.args.keys() or not request.args.get("group_name"):
-        return jsonify({'success': False, 'error': 'Missing name'}), 400
+        return jsonify({'success': False, 'error': 'Missing group name'}), 400
+
+    group_name = bleach.clean(request.args.get("group_name"))
+    if group_name == "__ANON__":
+        return jsonify({'success': False, 'error': 'The __ANON__ group cannot be deleted'}), 400
 
     try:
         group = db.session.execute(
-            db.session.query(Group).filter_by(name=bleach.clean(request.args.get("group_name")))).first()
+            db.session.query(Group).filter_by(name=group_name)).first()
         if not group:
             return jsonify({"success": False, "error": f"No such group: {request.args.get('group_name')}"}), 404
 

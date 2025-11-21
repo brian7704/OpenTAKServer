@@ -12,6 +12,7 @@ from threading import Thread
 
 import bleach
 import sqlalchemy
+from flask import Flask
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import verify_password
 from flask_socketio import SocketIO
@@ -39,7 +40,7 @@ from opentakserver.models.Team import Team
 
 
 class ClientController(Thread):
-    def __init__(self, address, port, sock, logger, app, is_ssl):
+    def __init__(self, address: str, port: int, sock: socket, logger, app: Flask, is_ssl: bool, socketio: SocketIO):
         Thread.__init__(self)
         self.address = address
         self.port = port
@@ -50,7 +51,7 @@ class ClientController(Thread):
         self.app = app
         self.db = db
         self.is_ssl = is_ssl
-        self.socketio = SocketIO(message_queue="amqp://" + app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"))
+        self.socketio = socketio
         self.bound_queues = []
 
         self.user = None
@@ -130,9 +131,13 @@ class ClientController(Thread):
         self.cached_messages.clear()
 
     def on_channel_close(self, channel: Channel, error):
-        if self.rabbit_connection.is_open:
-            self.logger.debug(f"RabbitMQ channel closed for {self.callsign}, attempting to re-open: {error}")
-            channel.open()
+        self.logger.error(f"RabbitMQ channel closed for {self.callsign}, shut it down")
+        if self.rabbit_connection and not self.rabbit_connection.is_closing and not self.rabbit_connection.is_closed:
+
+            self.rabbit_connection.close()
+        self.sock.shutdown(socket.SHUT_RDWR)
+        self.sock.close()
+        self.shutdown = True
 
     def on_close(self, connection, error):
         try:
@@ -187,6 +192,7 @@ class ClientController(Thread):
                                     eud = EUD()
                                     eud.uid = uid
                                     eud.user_id = self.user.id
+                                    eud.callsign = self.callsign
                                     self.db.session.add(eud)
                                     self.db.session.commit()
 
@@ -308,12 +314,21 @@ class ClientController(Thread):
     def close_connection(self):
         self.unbind_rabbitmq_queues()
         self.send_disconnect_cot()
+
+        if self.rabbit_channel and not self.rabbit_channel.is_closing and not self.rabbit_channel.is_closed:
+            try:
+                self.rabbit_channel.close()
+            except ValueError as e:
+                self.rabbit_connection.ioloop.stop()
+                self.rabbit_connection.close()
+
         self.sock.shutdown(socket.SHUT_RDWR)
         self.sock.close()
         self.shutdown = True
 
     def stop(self):
         self.shutdown = True
+        self.close_connection()
 
     def pong(self, event):
         if event.attrs.get('type') == 't-x-c-t':
@@ -349,7 +364,7 @@ class ClientController(Thread):
         contact = event.find('contact')
 
         # Only assume it's an EUD if it's got a <takv> tag
-        if takv and contact and uid and not uid.endswith('ping') and self.user:
+        if takv and contact and uid and not uid.endswith('ping') and (self.user or not self.is_ssl):
             self.uid = uid
             device = takv.attrs['device'] if 'device' in takv.attrs else ""
             operating_system = takv.attrs['os'] if 'os' in takv.attrs else ""
@@ -549,22 +564,22 @@ class ClientController(Thread):
             flow_tags = SubElement(detail, '_flow-tags_', {'TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0': iso8601_string_from_datetime(now)})
 
             message = json.dumps({'uid': self.uid, 'cot': tostring(event).decode('utf-8')})
-            if self.rabbit_channel:
+            if self.rabbit_channel and not self.rabbit_channel.is_closing and not self.rabbit_channel.is_closed and self.user:
                 with self.app.app_context():
-                    group_query = self.db.session.query(GroupUser).filter_by(user_id=self.user.id, enabled=True)
+                    group_query = self.db.session.query(GroupUser).filter_by(user_id=self.user.id, direction=Group.OUT, enabled=True)
                     groups = self.db.session.execute(group_query).all()
                     for group in groups:
                         group = group[0]
                         self.logger.debug(f"Publishing to group {group.group.name}.{group.direction}")
                         self.rabbit_channel.basic_publish(exchange="groups", routing_key=f"{group.group.name}.{group.direction}", body=message)
+            elif self.rabbit_channel and not self.rabbit_channel.is_closing and not self.rabbit_channel.is_closed:
+                self.rabbit_channel.basic_publish(exchange="groups", routing_key=f"__ANON__.{Group.OUT}", body=message)
 
             with self.app.app_context():
                 self.db.session.execute(update(EUD).filter(EUD.uid == self.uid).values(last_status='Disconnected', last_event_time=now))
                 self.db.session.commit()
 
         self.logger.info('{} disconnected'.format(self.address))
-        if self.rabbit_connection:
-            self.rabbit_connection.close()
 
     def route_cot(self, event):
         if not event:
@@ -591,13 +606,14 @@ class ClientController(Thread):
 
                 # ATAK and WinTAK use callsign, iTAK uses uid
                 if 'callsign' in destination.attrs and destination.attrs['callsign']:
-                    self.logger.warning(f"Publishing to dms {destination.attrs['callsign']}")
                     self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['callsign'],
                                                       body=json.dumps({'uid': self.uid, 'cot': str(event)}))
 
-                elif 'uid' in destination.attrs:
+                # iTAK uses its own UID in the <dest> tag when sending CoTs to a mission so we don't send those to the dms exchange
+                elif 'uid' in destination.attrs and destination['uid'] != self.uid:
                     self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['uid'],
                                                       body=json.dumps({'uid': self.uid, 'cot': str(event)}))
+
                 # For data sync missions
                 elif 'mission' in destination.attrs:
                     with self.app.app_context():
@@ -687,4 +703,3 @@ class ClientController(Thread):
             for change in mission_changes:
                 self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{change['mission']}",
                                                   body=json.dumps(change['message']))
-                self.logger.warning(change['message']['cot'])

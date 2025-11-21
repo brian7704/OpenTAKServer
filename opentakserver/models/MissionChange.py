@@ -61,6 +61,7 @@ class MissionChange(db.Model):
             "timestamp": iso8601_string_from_datetime(self.timestamp),
             "creatorUid": self.creator_uid if self.creator_uid else "",
             "serverTime": iso8601_string_from_datetime(self.server_time),
+            "missionGuid": self.mission_uid
         }
 
         if self.content_resource:
@@ -92,7 +93,7 @@ def generate_mission_change_cot(author_uid: str, mission: Mission, mission_chang
 
     detail = SubElement(event, "detail")
     mission_element = SubElement(detail, "mission",
-                                 {"type": MissionChange.CHANGE, "tool": "public", "name": mission.name,
+                                 {"type": mission_change.change_type, "tool": "public", "name": mission.name,
                                   "guid": mission.guid, "authorUid": mission_change.creator_uid})
     mission_changes_element = SubElement(mission_element, "MissionChanges")
     mission_change_element = SubElement(mission_changes_element, "MissionChange")

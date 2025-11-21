@@ -17,9 +17,6 @@ based on the API docs until I find an example of them actually being used by a T
 
 @cot_marti_api.route('/Marti/api/cot')
 def get_cots():
-    logger.debug(request.headers)
-    logger.debug(request.args)
-
     return '', 200
 
 

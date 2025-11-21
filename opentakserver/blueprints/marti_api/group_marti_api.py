@@ -212,15 +212,16 @@ def put_active_groups():
 
                 user_in_group = True
 
-        channel.close()
-        rabbit_connection.close()
-
         if not user_in_group:
             logger.warning(f"{username} is not in the {group_name} group")
             db.session.rollback()
+            channel.close()
+            rabbit_connection.close()
             return jsonify({"success": False, "error": f"{username} is not in the {group_name} group"}), 403
 
     try:
+        channel.close()
+        rabbit_connection.close()
         db.session.commit()
         return '', 200
     except BaseException as e:

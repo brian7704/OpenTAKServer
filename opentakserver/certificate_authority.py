@@ -205,7 +205,7 @@ class CertificateAuthority:
         f.close()
 
         if server:
-            if re.match("^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$", common_name):
+            if re.match("^[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}$", common_name):
                 alt_name_field = "IP.1"
             else:
                 alt_name_field = "DNS.1"
