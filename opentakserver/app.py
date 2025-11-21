@@ -304,6 +304,53 @@ def user_registered_sighandler(app, user, confirmation_token, **kwargs):
     app.security.datastore.add_role_to_user(user, default_role)
 
 
+def create_default_groups(app):
+    with app.app_context():
+        if not app.config.get("OTS_ENABLE_LDAP"):
+            anon_group = db.session.execute(db.session.query(Group).filter_by(name="__ANON__")).first()
+            adsb_group = db.session.execute(db.session.query(Group).filter_by(name=app.config.get("OTS_ADSB_GROUP"))).first()
+            ais_group = db.session.execute(db.session.query(Group).filter_by(name=app.config.get("OTS_AIS_GROUP"))).first()
+            meshtastic_group = db.session.execute(db.session.query(Group).filter_by(name=app.config.get("OTS_MESHTASTIC_GROUP"))).first()
+
+            # Commit to DB after every one to ensure that get_next_bitpos works
+
+            if not anon_group:
+                logger.info("Creating the __ANON__ group")
+                anon_group = Group()
+                anon_group.name = "__ANON__"
+                anon_group.type = GroupTypeEnum.SYSTEM
+                anon_group.bitpos = 2
+                db.session.add(anon_group)
+                db.session.commit()
+
+            if not adsb_group:
+                logger.info(f"Creating the {app.config.get('OTS_ADSB_GROUP')} group")
+                adsb_group = Group()
+                adsb_group.name = app.config.get("OTS_ADSB_GROUP")
+                adsb_group.type = GroupTypeEnum.SYSTEM
+                adsb_group.bitpos = adsb_group.get_next_bitpos()
+                db.session.add(adsb_group)
+                db.session.commit()
+
+            if not ais_group:
+                logger.info(f"Creating the {app.config.get('OTS_AIS_GROUP')} group")
+                ais_group = Group()
+                ais_group.name = app.config.get("OTS_AIS_GROUP")
+                ais_group.type = GroupTypeEnum.SYSTEM
+                ais_group.bitpos = ais_group.get_next_bitpos()
+                db.session.add(ais_group)
+                db.session.commit()
+
+            if not meshtastic_group:
+                logger.info(f"Creating the {app.config.get('OTS_MESHTASTIC_GROUP')} group")
+                meshtastic_group = Group()
+                meshtastic_group.name = app.config.get("OTS_MESHTASTIC_GROUP")
+                meshtastic_group.type = GroupTypeEnum.SYSTEM
+                meshtastic_group.bitpos = meshtastic_group.get_next_bitpos()
+                db.session.add(meshtastic_group)
+                db.session.commit()
+
+
 def main(app):
     with app.app_context():
         # Download the icon sets if they aren't already in the DB
@@ -380,17 +427,9 @@ def main(app):
             logger.error(f"Failed to load plugins: {e}")
             logger.debug(traceback.format_exc())
 
-    with app.app_context():
-        if not app.config.get("OTS_ENABLE_LDAP") and not db.session.execute(db.session.query(Group)).first():
-            anon_in = Group()
-            anon_in.name = "__ANON__"
-            anon_in.type = GroupTypeEnum.SYSTEM
-            anon_in.bitpos = 2
-            db.session.add(anon_in)
-
-            db.session.commit()
-
     app.start_time = datetime.now(timezone.utc)
+
+    create_default_groups(app)
 
     try:
         socketio.run(app, host=app.config.get("OTS_LISTENER_ADDRESS"), port=app.config.get("OTS_LISTENER_PORT"),

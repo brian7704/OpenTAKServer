@@ -83,6 +83,9 @@ class DefaultConfig:
     OTS_AIRPLANES_LIVE_LON = -73.986939
     OTS_AIRPLANES_LIVE_RADIUS = 10
 
+    OTS_ADSB_GROUP = "ADS-B"
+    OTS_AIS_GROUP = "AIS"
+
     OTS_ENABLE_PLUGINS = True
     OTS_PLUGIN_REPO = "https://repo.opentakserver.io/brian/prod/"
     OTS_PLUGIN_PREFIXES = ["ots-", "ots_"]
@@ -108,6 +111,7 @@ class DefaultConfig:
     OTS_MESHTASTIC_PUBLISH_INTERVAL = 30
     OTS_MESHTASTIC_DOWNLINK_CHANNELS = []
     OTS_MESHTASTIC_NODEINFO_INTERVAL = 3
+    OTS_MESHTASTIC_GROUP = "Meshtastic"
 
     # Email settings
     OTS_ENABLE_EMAIL = os.getenv("OTS_ENABLE_EMAIL", "False").lower() in ["true", "1", "yes"]
