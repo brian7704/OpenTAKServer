@@ -187,7 +187,7 @@ def certificate():
                 cert.username = username
                 cert.expiration_date = datetime.datetime.today() + datetime.timedelta(
                     days=app.config.get("OTS_CA_EXPIRATION_TIME"))
-                cert.server_address = urlparse(request.url_root).hostname
+                cert.server_address = app.config.get("OTS_CONFIG_DP_SERVER_ADDRESS") or urlparse(request.url_root).hostname 
                 cert.server_port = app.config.get("OTS_SSL_STREAMING_PORT")
                 cert.truststore_filename = truststore_filename
                 cert.user_cert_filename = user_filename
