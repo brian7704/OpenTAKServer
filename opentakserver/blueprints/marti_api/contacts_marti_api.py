@@ -7,9 +7,6 @@ contacts_api = Blueprint("contacts_api", __name__)
 
 @contacts_api.route('/Marti/api/contacts/all')
 def get_all_contacts():
-    logger.info(request.headers)
-    logger.info(request.data)
-
     euds = db.session.execute(db.session.query(EUD)).all()
 
     response = []
