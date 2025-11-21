@@ -12,6 +12,7 @@ from threading import Thread
 
 import bleach
 import sqlalchemy
+from flask import Flask
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import verify_password
 from flask_socketio import SocketIO
@@ -39,7 +40,7 @@ from opentakserver.models.Team import Team
 
 
 class ClientController(Thread):
-    def __init__(self, address, port, sock, logger, app, is_ssl):
+    def __init__(self, address: str, port: int, sock: socket, logger, app: Flask, is_ssl: bool, socketio: SocketIO):
         Thread.__init__(self)
         self.address = address
         self.port = port
@@ -50,7 +51,7 @@ class ClientController(Thread):
         self.app = app
         self.db = db
         self.is_ssl = is_ssl
-        self.socketio = SocketIO(message_queue="amqp://" + app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"))
+        self.socketio = socketio
         self.bound_queues = []
 
         self.user = None
@@ -313,13 +314,13 @@ class ClientController(Thread):
     def close_connection(self):
         self.unbind_rabbitmq_queues()
         self.send_disconnect_cot()
-        self.rabbit_connection.ioloop.stop()
 
         if self.rabbit_channel and not self.rabbit_channel.is_closing and not self.rabbit_channel.is_closed:
             try:
                 self.rabbit_channel.close()
-            except ValueError:
-                pass
+            except ValueError as e:
+                self.rabbit_connection.ioloop.stop()
+                self.rabbit_connection.close()
 
         self.sock.shutdown(socket.SHUT_RDWR)
         self.sock.close()

@@ -2,6 +2,7 @@ import os
 import socket
 import ssl
 import traceback
+from flask_socketio import SocketIO
 
 from opentakserver.eud_handler.client_controller import ClientController
 
@@ -16,6 +17,7 @@ class SocketServer:
         self.socket = None
         self.clients = []
         self.app_context = app_context
+        self.socketio = SocketIO(message_queue="amqp://" + self.app_context.app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"))
 
     def run(self):
         if self.ssl:
@@ -36,7 +38,7 @@ class SocketServer:
                 else:
                     self.logger.info("New TCP connection from {}".format(addr[0]))
 
-                new_thread = ClientController(addr[0], addr[1], sock, self.logger, self.app_context.app, self.ssl)
+                new_thread = ClientController(addr[0], addr[1], sock, self.logger, self.app_context.app, self.ssl, self.socketio)
                 new_thread.daemon = True
                 new_thread.start()
                 self.clients.append(new_thread)
@@ -89,6 +91,8 @@ class SocketServer:
             self.logger.warning("Shutting down SSL server")
         else:
             self.logger.warning("Shutting down TCP server")
+
+        self.socketio.stop()
 
         self.shutdown = True
         for client in self.clients:
