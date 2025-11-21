@@ -154,10 +154,10 @@ def certificate():
             ca = CertificateAuthority(logger, app)
             filenames = ca.issue_certificate(username, False)
 
+            file_details = []
             for filename in filenames:
-                file_hash = hashlib.sha256(
-                    open(os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', username, filename),
-                         'rb').read()).hexdigest()
+                file_path = os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', username, filename)
+                file_hash = hashlib.sha256(open(file_path, 'rb').read()).hexdigest()
 
                 data_package = DataPackage()
                 data_package.filename = filename
@@ -165,8 +165,7 @@ def certificate():
                 data_package.creator_uid = request.json['uid'] if 'uid' in request.json.keys() else None
                 data_package.submission_time = datetime.datetime.now(datetime.timezone.utc)
                 data_package.mime_type = "application/x-zip-compressed"
-                data_package.size = os.path.getsize(
-                    os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', username, filename))
+                data_package.size = os.path.getsize(file_path)
                 data_package.hash = file_hash
                 data_package.submission_user = current_user.id
 
@@ -179,8 +178,7 @@ def certificate():
                     return ({'success': False, 'error': 'Certificate already exists for {}'.format(username)}, 400,
                             {'Content-Type': 'application/json'})
 
-                copyfile(os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', username, "{}".format(filename)),
-                         os.path.join(app.config.get("UPLOAD_FOLDER"), "{}.zip".format(file_hash)))
+                copyfile(file_path, os.path.join(app.config.get("UPLOAD_FOLDER"), "{}.zip".format(file_hash)))
 
                 cert = Certificate()
                 cert.common_name = username
@@ -196,8 +194,10 @@ def certificate():
 
                 db.session.add(cert)
                 db.session.commit()
+                
+                file_details.append({'filename': filename, 'hash': file_hash})
 
-            return {'success': True}, 200, {'Content-Type': 'application/json'}
+            return {'success': True, 'files': file_details}, 200, {'Content-Type': 'application/json'}
         except BaseException as e:
             logger.error(traceback.format_exc())
             return {'success': False, 'error': str(e)}, 500, {'Content-Type': 'application/json'}
