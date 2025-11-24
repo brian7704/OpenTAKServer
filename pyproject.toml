@@ -1,6 +1,6 @@
 [project]
 name = "OpenTAKServer"
-version = "0.0.0"
+version = "1.6.1"
 description = "A server for ATAK, WinTAK, and iTAK"
 authors = [{ name = "OpenTAKServer", email = "opentakserver@gmail.com" }]
 requires-python = ">=3.10"
