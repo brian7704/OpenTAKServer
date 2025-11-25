@@ -14,13 +14,18 @@ from sqlalchemy import or_
 from opentakserver.blueprints.marti_api.mission_marti_api import invite, generate_mission_delete_cot, generate_new_mission_cot, generate_invitation_cot
 from opentakserver.extensions import db, logger
 from opentakserver.blueprints.ots_api.api import search, paginate
+from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
 from opentakserver.models.Group import Group
 from opentakserver.models.GroupMission import GroupMission
 from opentakserver.models.GroupUser import GroupUser
 from opentakserver.models.Mission import Mission
+from opentakserver.models.MissionChange import MissionChange
+from opentakserver.models.MissionContentMission import MissionContentMission
 from opentakserver.models.MissionInvitation import MissionInvitation
+from opentakserver.models.MissionLogEntry import MissionLogEntry
 from opentakserver.models.MissionRole import MissionRole
+from opentakserver.models.MissionUID import MissionUID
 
 data_sync_api = Blueprint("data_sync_api", __name__)
 
@@ -213,8 +218,15 @@ def delete_mission():
         return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
     mission = mission[0]
 
-    db.session.execute(sqlalchemy.delete(GroupMission).filter_by(mission_name=mission_name))
-    db.session.delete(mission)
+    db.session.execute(sqlalchemy.delete(GroupMission).where(GroupMission.mission_name == mission_name))
+    db.session.execute(sqlalchemy.delete(MissionContentMission).where(MissionContentMission.mission_name == mission_name))
+    db.session.execute(sqlalchemy.delete(MissionChange).where(MissionChange.mission_name == mission_name))
+    db.session.execute(sqlalchemy.delete(CoT).where(CoT.mission_name == mission_name))
+    db.session.execute(sqlalchemy.delete(MissionInvitation).where(MissionInvitation.mission_name == mission_name))
+    db.session.execute(sqlalchemy.delete(MissionLogEntry).where(MissionLogEntry.mission_name == mission_name))
+    db.session.execute(sqlalchemy.delete(MissionRole).where(MissionRole.mission_name == mission_name))
+    db.session.execute(sqlalchemy.delete(MissionUID).where(MissionUID.mission_name == mission_name))
+    db.session.execute(sqlalchemy.delete(Mission).where(Mission.name == mission_name))
     db.session.commit()
 
     rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
