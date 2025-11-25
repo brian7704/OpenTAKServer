@@ -24,7 +24,7 @@ flask-cors = "6.0.1"
 flask-ldap3-login = "1.0.2"
 flask-mailman = "1.1.1"
 flask-migrate = "4.1.0"
-Flask-Security-Too = {version="5.6.2", extras=["common", "mfa"]}
+Flask-Security-Too = {version="5.7.1", extras=["common", "mfa"]}
 flask-socketio = "5.5.1"
 flask-sqlalchemy = "3.1.1"
 gevent = "25.8.1"
