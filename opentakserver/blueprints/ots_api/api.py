@@ -84,18 +84,33 @@ def change_config_setting(setting, value):
 
 @api_blueprint.route('/files/api/config')
 def cloudtak_config():
+    """Required by CloudTAK, returns the following
+
+    .. code-block:: json
+
+        {"uploadSizeLimit": 400}
+    """
     return jsonify({'uploadSizeLimit': 400})
 
 
 # Simple health check for docker
 @api_blueprint.route('/api/health')
 def health():
+    """Health check for Docker, returns the following
+
+    .. code-block:: json
+        {"status": "healthy"}
+    """
     return jsonify({'status': 'healthy'})
 
 
 @api_blueprint.route('/api/status')
 @auth_required()
 def status():
+    """Server status used on the Dashboard page of the web UI
+
+    :rtype: dict
+    """
     now = datetime.datetime.now(datetime.timezone.utc)
     system_boot_time = datetime.datetime.fromtimestamp(psutil.boot_time(), datetime.datetime.now().astimezone().tzinfo)
     system_uptime = now - system_boot_time
@@ -215,12 +230,25 @@ def certificate():
 @api_blueprint.route('/api/me')
 @auth_required()
 def me():
+    """Get the details of the currently logged in user
+
+    :rtype: User
+    """
     return jsonify(current_user.to_json())
 
 
 @api_blueprint.route('/api/cot', methods=['GET'])
 @auth_required()
 def query_cot():
+    """Get CoT messages. All parameters are optional.
+
+    :param how: The how attribute of the CoT message, i.e. ``m-g``, ``h-g-i-g-o``
+    :param type: The type attribute of the CoT message, i.e. ``a-f-G-U-C``
+    :param sender_callsign: The callsign of the EUD that sent the CoT message
+    :param sender_uid: The UID of the EUD that sent the CoT message
+    :param page: The page number
+    :param per_page: The number of results per page
+    """
     query = db.session.query(CoT)
     query = search(query, CoT, 'how')
     query = search(query, CoT, 'type')
@@ -233,6 +261,14 @@ def query_cot():
 @api_blueprint.route("/api/alerts", methods=['GET'])
 @auth_required()
 def query_alerts():
+    """Get alerts. All parameters are optional.
+
+    :param uid: The alert's UID
+    :param sender_uid: The UID of the EUD that sent the alert
+    :param alert_type: The type of alert
+    :param page: The page number
+    :param per_page: The number of results per page
+    """
     query = db.session.query(Alert)
     query = search(query, Alert, 'uid')
     query = search(query, Alert, 'sender_uid')
@@ -244,6 +280,13 @@ def query_alerts():
 @api_blueprint.route("/api/point", methods=['GET'])
 @auth_required()
 def query_points():
+    """Query points. All parameters are optional.
+
+    :param uid: The point's UID
+    :param callsign: The point's callsign
+    :param page: The page number
+    :param per_page: The number of results per page
+    """
     query = db.session.query(Point)
 
     query = search(query, EUD, 'uid')
@@ -304,6 +347,14 @@ def rabbitmq_auth(path):
 @api_blueprint.route('/api/eud')
 @auth_required()
 def get_euds():
+    """Query EUDS. All parameters are optional.
+
+    :param callsign: The EUD's callsign
+    :param uid: The EUD's callsign
+    :param username: The username that the EUD belongs to
+    :param page: The page number
+    :param per_page: The number of results per page
+    """
     query = db.session.query(EUD)
 
     if 'username' in request.args.keys():
@@ -318,6 +369,7 @@ def get_euds():
 
 @api_blueprint.route('/api/truststore')
 def get_truststore():
+    """Downloads the server's truststore with no authentication required."""
     filename = f"truststore_root_{urlparse(request.url_root).hostname}.p12"
     return send_from_directory(app.config.get("OTS_CA_FOLDER"), 'truststore-root.p12', download_name=filename,
                                as_attachment=True)
@@ -326,6 +378,7 @@ def get_truststore():
 @api_blueprint.route('/api/map_state')
 @auth_required()
 def get_map_state():
+    """Gets the latest data to be displayed on the web UI's map"""
     try:
         results = {'euds': [], 'markers': [], 'rb_lines': [], 'casevacs': []}
 
@@ -358,6 +411,12 @@ def get_map_state():
 @api_blueprint.route('/api/icon')
 @auth_required()
 def get_icon():
+    """Query map icons. All parameters are optional.
+
+    :param filename:
+    :param groupName:
+    :param type2525b:
+    """
     query = db.session.query(Icon)
     query = search(query, Icon, 'filename')
     query = search(query, Icon, 'groupName')
@@ -369,5 +428,9 @@ def get_icon():
 @api_blueprint.route('/api/itak_qr_string')
 @auth_required()
 def get_settings():
+    """The iTAK QR string in the following format:
+
+    ``OpenTAKServer_SERVER-ADDRESS,SERVER-ADDRESS,8089,SSL``
+    """
     url = urlparse(request.url_root).hostname
     return "OpenTAKServer_{},{},{},SSL".format(url, url, app.config.get("OTS_SSL_STREAMING_PORT"))

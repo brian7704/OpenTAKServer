@@ -41,7 +41,7 @@ from flask import Flask, current_app
 from flask_cors import CORS
 
 from flask_security import Security, SQLAlchemyUserDatastore, hash_password, uia_username_mapper, uia_email_mapper
-from flask_security.models import fsqla_v3 as fsqla
+from flask_security.models import fsqla_v3 as fsqla, fsqla_v3
 from flask_security.signals import user_registered
 
 import opentakserver
@@ -51,7 +51,6 @@ from opentakserver.models.WebAuthn import WebAuthn
 
 from opentakserver.controllers.meshtastic_controller import MeshtasticController
 from opentakserver.certificate_authority import CertificateAuthority
-from opentakserver.models.RoleUser import RoleUser
 
 
 try:
@@ -394,7 +393,7 @@ def main(app):
         )
 
         # Make sure at least one admin user exists
-        admin_user = db.session.execute(db.session.query(Role).join(RoleUser).where(Role.name == "administrator")).scalar()
+        admin_user = db.session.execute(db.session.query(Role).join(fsqla_v3.FsModels.roles_users).where(Role.name == "administrator")).scalar()
         if not admin_user:
             logger.info("Creating administrator account. The password is 'password'")
             app.security.datastore.create_user(username="administrator",

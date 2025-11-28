@@ -104,7 +104,7 @@ class Mission(db.Model):
         }
 
         for group in self.groups:
-            json['groups'].append(group.name)
+            json['groups'].append({"id": group.id, "name": group.name})
 
         if self.default_role == MissionRole.MISSION_SUBSCRIBER or not self.default_role:
             json['defaultRole'] = MissionRole.SUBSCRIBER_ROLE

@@ -676,7 +676,7 @@ class ClientController(Thread):
                             change_pk = self.db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
                             self.db.session.commit()
 
-                            body = {'uid': self.uid, 'cot': tostring(generate_mission_change_cot(destination.attrs['mission'], mission, mission_change, cot_event=event)).decode('utf-8')}
+                            body = {'uid': self.app.config.get("OTS_NODE_ID"), 'cot': tostring(generate_mission_change_cot(destination.attrs['mission'], mission, mission_change, cot_event=event)).decode('utf-8')}
                             mission_changes.append({"mission": mission.name, "message": body})
                             self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{mission.name}", body=json.dumps(body))
 
