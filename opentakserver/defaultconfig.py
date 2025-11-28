@@ -21,6 +21,7 @@ class DefaultConfig:
     OTS_SSL_STREAMING_PORT = int(os.getenv("OTS_SSL_STREAMING_PORT", 8089))
     OTS_BACKUP_COUNT = int(os.getenv("OTS_BACKUP_COUNT", 7))
     OTS_ENABLE_CHANNELS = os.getenv("OTS_ENABLE_CHANNELS", "True").lower() in ["true", "1", "yes"]
+    OTS_CONFIG_DP_SERVER_ADDRESS = ""
 
     # RabbitMQ Settings
     OTS_RABBITMQ_SERVER_ADDRESS = os.getenv("OTS_RABBITMQ_SERVER_ADDRESS", "127.0.0.1")

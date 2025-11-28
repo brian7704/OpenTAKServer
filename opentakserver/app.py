@@ -52,6 +52,7 @@ from opentakserver.models.WebAuthn import WebAuthn
 from opentakserver.controllers.meshtastic_controller import MeshtasticController
 from opentakserver.certificate_authority import CertificateAuthority
 
+
 try:
     from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
 except ModuleNotFoundError:
