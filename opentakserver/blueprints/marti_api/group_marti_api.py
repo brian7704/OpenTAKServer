@@ -158,6 +158,7 @@ def put_active_bits():
 
 @group_api.route('/Marti/api/groups/active', methods=['PUT'])
 def put_active_groups():
+    logger.info(request.args)
     uid = request.args.get("clientUid")
     if not uid:
         logger.error("clientUid required")
