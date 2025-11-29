@@ -6,6 +6,7 @@ import uuid
 import bleach
 import sqlalchemy.exc
 from flask import Blueprint, request, jsonify, current_app as app
+from flask_babel import gettext
 from flask_security import auth_required, current_user, roles_required, hash_password, verify_password
 from xml.etree.ElementTree import tostring
 import pika
@@ -115,7 +116,7 @@ def create_edit_mission():
             elif hasattr(mission, key):
                 setattr(mission, key, request.json[key])
             else:
-                return jsonify({'success': False, 'error': f"Invalid property: {key}"}), 400
+                return jsonify({'success': False, 'error': gettext("Invalid property: %(key)s", key=key)}), 400
 
         mission.password_protected = (mission.password != '' and mission.password is not None)
 
@@ -144,7 +145,7 @@ def create_edit_mission():
         except sqlalchemy.exc.IntegrityError as e:
             logger.error(f"Failed to add mission: {e}")
             logger.debug(mission.serialize())
-            return jsonify({'success': False, 'error': f"Failed to add mission: {e}"}), 400
+            return jsonify({'success': False, 'error': gettext("Failed to add mission: %(e)s", e=str(e))}), 400
 
         rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
         rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
@@ -175,7 +176,7 @@ def create_edit_mission():
 
     # Only allows admins and the mission creator to change existing missions
     if not current_user.has_role('administrator') and not is_user_mission_creator:
-        return jsonify({'success': False, 'error': 'Only an admin or the mission creator can change this mission'}), 403
+        return jsonify({'success': False, 'error': gettext(u'Only an admin or the mission creator can change this mission')}), 403
 
     for key in request.json:
         if key == 'groups':
@@ -196,7 +197,7 @@ def create_edit_mission():
         elif hasattr(mission, key):
             setattr(mission, key, request.json.get(key))
         else:
-            return jsonify({'success': False, 'error': f"Invalid property: {key}"}), 400
+            return jsonify({'success': False, 'error': gettext(u"Invalid property: %(key)s")}), 400
 
     db.session.execute(sqlalchemy.update(Mission).filter(Mission.name == mission_name).values(**mission.serialize()))
     db.session.commit()
@@ -209,13 +210,13 @@ def create_edit_mission():
 def delete_mission():
     mission_name = request.args.get('name')
     if not mission_name:
-        return jsonify({'success': False, 'error': 'Please specify a mission name'}), 404
+        return jsonify({'success': False, 'error': gettext(u'Please specify a mission name')}), 404
 
     mission_name = bleach.clean(mission_name)
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
-        return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
+        return jsonify({'success': False, 'error': gettext(u"Mission %(mission_name)s not found", mission_name=mission_name)}), 404
     mission = mission[0]
 
     db.session.execute(sqlalchemy.delete(GroupMission).where(GroupMission.mission_name == mission_name))
@@ -249,15 +250,15 @@ def invite_eud():
     eud_uid = request.json['uid']
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
-        return jsonify({'success': False, 'error': f"Mission not found: {mission_name}"}), 404
+        return jsonify({'success': False, 'error': gettext(u"Mission not found: %(mission_name)s", mission_name=mission_name)}), 404
     mission = mission[0]
 
     # If the user isn't an admin an the mission is password protected, verify the password
     if mission.password_protected and not current_user.has_role("administrator") and not request.json.get('password'):
-        return jsonify({'success': False, 'error': "Please provide the mission password"}), 403
+        return jsonify({'success': False, 'error': gettext(u"Please provide the mission password")}), 403
 
     elif (mission.password_protected and not current_user.has_role('administrator')
           and not verify_password(request.json.get('password'), mission.password)):
-        return jsonify({'success': False, 'error': 'Invalid password'}), 401
+        return jsonify({'success': False, 'error': gettext(u'Invalid password')}), 401
 
     return invite(mission_name, 'clientuid', eud_uid)

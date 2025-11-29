@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import bleach
 import jwt
 from flask import jsonify, request, current_app as app, Blueprint
+from flask_babel import gettext
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_login import current_user
 from flask_security import auth_required, verify_password
@@ -165,7 +166,7 @@ def get_atak_qr_strings():
         response["qr_string"] = f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={token[0].username}&token={token[0].generate_token()}"
         return jsonify(response)
     else:
-        return jsonify({'success': False, 'error': f"No token found for {username}"}), 404
+        return jsonify({'success': False, 'error': gettext(u"No token found for %s(username)s", username=username)}), 404
 
 
 @token_api_blueprint.route("/api/atak_qr_string", methods=["DELETE"])
@@ -190,4 +191,4 @@ def delete_token():
     except BaseException as e:
         logger.error(f"Failed to delete token: {e}")
         logger.debug(traceback.format_exc())
-        return jsonify({"success": False, "error": f"Failed to delete token: {e}"}), 500
+        return jsonify({"success": False, "error": gettext(u"Failed to delete token: %(e)s", e=str(e))}), 500
