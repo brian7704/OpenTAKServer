@@ -233,8 +233,9 @@ def create_app(cli=True):
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
     else:
-        from opentakserver.blueprints.cli import ots
+        from opentakserver.blueprints.cli import ots, translate
         app.cli.add_command(ots, name="ots")
+        app.cli.add_command(translate, name="translate")
 
         if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
             app.config.from_file(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), load=yaml.safe_load)
