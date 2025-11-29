@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-11-29 11:41-0500\n"
+"POT-Creation-Date: 2025-11-29 23:25+0000\n"
 "PO-Revision-Date: 2025-11-29 11:41-0500\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: de\n"
@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.17.0\n"
+"Generated-By: Babel 2.10.3\n"
 
 #: blueprints/ots_api/api.py:166
 #, python-format
@@ -31,6 +31,10 @@ msgstr ""
 #: blueprints/ots_api/api.py:218
 msgid "Please specify a callsign"
 msgstr ""
+
+#: blueprints/ots_api/api.py:437
+msgid "This is a test"
+msgstr "Dies ist ein Test"
 
 #: blueprints/ots_api/casevac_api.py:140
 #, python-format
@@ -89,7 +93,7 @@ msgstr ""
 msgid "Group %(group_name)s not found"
 msgstr ""
 
-#: blueprints/ots_api/group_api.py:176
+#: blueprints/ots_api/group_api.py:177
 #, python-format
 msgid "Failed to remove %(username)s from %(group_name)s: %(e)s"
 msgstr ""
@@ -153,7 +157,7 @@ msgstr ""
 msgid "No such group: %(group_name)s"
 msgstr ""
 
-#: blueprints/ots_api/group_api.py:295
+#: blueprints/ots_api/group_api.py:296
 #, python-format
 msgid "Failed to delete %(group_name)s: %(e)s"
 msgstr ""
