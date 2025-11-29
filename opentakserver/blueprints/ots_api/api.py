@@ -15,7 +15,7 @@ import sqlalchemy.exc
 from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import auth_required, current_user, verify_password
-from flask_babel import gettext, ngettext, lazy_gettext
+from flask_babel import gettext
 from sqlalchemy import select
 
 from opentakserver.extensions import logger, db, ldap_manager

@@ -11,6 +11,8 @@ class DefaultConfig:
     SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_hex())
     DEBUG = os.getenv("DEBUG", "False").lower() in ["true", "1", "yes"]
 
+    OTS_LANGUAGES = ['de', 'fr', 'pt', 'es', 'da', 'uk', 'en']
+
     OTS_DATA_FOLDER = os.getenv("OTS_DATA_FOLDER", os.path.join(Path.home(), "ots"))
     OTS_LISTENER_ADDRESS = os.getenv("OTS_LISTENER_ADDRESS", "127.0.0.1")
     OTS_LISTENER_PORT = int(os.getenv("OTS_LISTENER_PORT", 8081))
