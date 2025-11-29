@@ -4,6 +4,7 @@ import traceback
 from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify, current_app as app, send_from_directory
+from flask_babel import gettext
 from flask_security import auth_required
 from sqlalchemy import update
 from werkzeug.datastructures import ImmutableMultiDict
@@ -32,7 +33,7 @@ def edit_data_package():
     data_package = data_package[0]
 
     if data_package.filename.endswith("_CONFIG.zip"):
-        return jsonify({'success': False, 'error': "Server connection data packages can't be installed on enrollment or connection"}), 400
+        return jsonify({'success': False, 'error': gettext(u"Server connection data packages can't be installed on enrollment or connection")}), 400
 
     if form.install_on_enrollment.data is not None:
         data_package.install_on_enrollment = form.install_on_enrollment.data
@@ -58,7 +59,7 @@ def delete_data_package():
     query = search(query, DataPackage, 'hash')
     data_package = db.session.execute(query).first()
     if not data_package:
-        return jsonify({'success': False, 'error': 'Invalid/unknown hash'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Invalid/unknown hash')}), 400
 
     try:
         logger.warning("Deleting data package {} - {}".format(data_package[0].filename, data_package[0].hash))
@@ -99,8 +100,7 @@ def data_packages():
 @auth_required()
 def data_package_download():
     if 'hash' not in request.args.keys():
-        return ({'success': False, 'error': 'Please provide a data package hash'}, 400,
-                {'Content-Type': 'application/json'})
+        return jsonify({'success': False, 'error': gettext(u'Please provide a data package hash')}), 400
 
     file_hash = request.args.get('hash')
 
@@ -110,8 +110,7 @@ def data_package_download():
     data_package = db.session.execute(query).first()
 
     if not data_package:
-        return ({'success': False, 'error': "Data package with hash '{}' not found".format(file_hash)}, 404,
-                {'Content-Type': 'application/json'})
+        return jsonify({'success': False, 'error': gettext(u"Data package with hash '%(hash)s' not found", hash=file_hash)}), 404
 
     download_name = data_package[0].filename
     name, extension = os.path.splitext(download_name)

@@ -72,9 +72,9 @@ def new_atak_qr_string():
     only works if your server has a Let's Encrypt certificate. Params are sent as JSON.
 
     :param username:
-    :param exp: - The expiration time in unix epoch seconds i.e.1764260510
-    :param nbf: - Not Before, the token will not be valid until this date in unix epoch seconds.
-    :param max: - The maximum number of uses for this token.
+    :param exp: The expiration time in unix epoch seconds i.e.1764260510
+    :param nbf: Not Before, the token will not be valid until this date in unix epoch seconds.
+    :param max: The maximum number of uses for this token.
 
     :return: String in the format of tak://com.atakmap.app/enroll?host=server_address.com&username=your_username&token=jwt_token
     """

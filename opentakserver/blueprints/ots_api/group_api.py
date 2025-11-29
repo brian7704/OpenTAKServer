@@ -4,6 +4,7 @@ import bleach
 import pika
 import sqlalchemy.exc
 from flask import Blueprint, request, jsonify, current_app as app, Response
+from flask_babel import gettext
 from flask_login import current_user
 from flask_security import roles_required, auth_required
 
@@ -32,7 +33,7 @@ def get_groups():
 
     if app.config.get("OTS_ENABLE_LDAP"):
         return jsonify(
-            {"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
+            {"success": False, "error": gettext(u"LDAP is enabled. Please view and edit groups on your LDAP server")}), 400
 
     query = db.session.query(Group)
     query = search(query, Group, 'name')
@@ -102,7 +103,7 @@ def get_group_members():
     """
     if app.config.get("OTS_ENABLE_LDAP"):
         return jsonify(
-            {"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
+            {"success": False, "error": gettext(u"LDAP is enabled. Please view and edit groups on your LDAP server")}), 400
 
     group_name = request.args.get("name")
     if not group_name:
@@ -128,29 +129,29 @@ def get_group_members():
 def remove_user_from_group():
     if app.config.get("OTS_ENABLE_LDAP"):
         return jsonify(
-            {"success": False, "error": "LDAP is enabled. Please view and edit groups on your LDAP server"}), 400
+            {"success": False, "error": gettext(u"LDAP is enabled. Please view and edit groups on your LDAP server")}), 400
 
     username = request.args.get("username")
     group_name = request.args.get("group_name")
     direction = request.args.get("direction")
 
     if not username or not group_name or not direction:
-        return jsonify({"success": False, "error": "Please provide the username, group name, and direction"}), 400
+        return jsonify({"success": False, "error": gettext(u"Please provide the username, group name, and direction")}), 400
 
     username = bleach.clean(username)
     group_name = bleach.clean(group_name)
     direction = bleach.clean(direction)
 
     if direction != Group.IN and direction != Group.OUT:
-        return jsonify({"success": False, "error": f"Invalid direction: {direction}"})
+        return jsonify({"success": False, "error": gettext(u"Invalid direction: %(direction)s", direction=direction)}), 400
 
     user = app.security.datastore.find_user(username=username)
     if not user:
-        return jsonify({"success": False, "error": f"User {username} not found"}), 404
+        return jsonify({"success": False, "error": gettext(u"User %s(username)s not found", username=username)}), 404
 
     group = db.session.execute(db.session.query(Group).filter_by(name=group_name)).first()
     if not group:
-        return jsonify({"success": False, "error": f"Group {group_name} not found"}), 404
+        return jsonify({"success": False, "error": gettext(u"Group %(group_name)s not found")}), 404
 
     try:
         GroupUser.query.filter_by(group_id=group[0].id, user_id=user.id, direction=direction).delete()
@@ -172,7 +173,8 @@ def remove_user_from_group():
     except BaseException as e:
         logger.error(f"Failed to remove {username} from {group_name}: {e}")
         logger.debug(traceback.format_exc())
-        return jsonify({"success": False, "error": f"Failed to remove {username} from {group_name}: {e}"}), 500
+        return jsonify({"success": False, "error": gettext(u"Failed to remove %(username)s from %(group_name)s: %(e)s",
+                                                           username=username, group_name=group_name, e=str(e))}), 500
 
 
 @group_api.route('/api/groups', methods=["POST"])
@@ -184,10 +186,10 @@ def add_group():
     :rtype: Response
     """
     if app.config.get("OTS_ENABLE_LDAP"):
-        return jsonify({'success': False, 'error': 'LDAP is enabled, please use your LDAP server to add groups'}), 400
+        return jsonify({'success': False, 'error': gettext(u'LDAP is enabled, please use your LDAP server to add groups')}), 400
 
     if "name" not in request.json.keys():
-        return jsonify({'success': False, 'error': 'Missing name'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Missing name')}), 400
 
     name = bleach.clean(request.json.get("name"))
     description = bleach.clean(request.json.get("description")) if "description" in request.json.keys() else None
@@ -203,12 +205,12 @@ def add_group():
             db.session.add(group)
             db.session.commit()
         else:
-            return jsonify({'success': False, 'error': f"{name} group already exists"}), 400
+            return jsonify({'success': False, 'error': gettext("%(name)s group already exists", name=name)}), 400
 
     except BaseException as e:
         logger.error(f"Failed to add {name} group: {e}")
         logger.debug(traceback.format_exc())
-        return jsonify({'success': False, "error": f"Failed to add {name} group: {e}"}), 500
+        return jsonify({'success': False, "error": gettext(u"Failed to add %(name)s group: %(e)s", name=name, e=str(e))}), 500
 
     return jsonify({'success': True})
 
@@ -227,26 +229,26 @@ def add_user_to_group():
 
     if app.config.get("OTS_ENABLE_LDAP"):
         return jsonify(
-            {'success': False, 'error': 'LDAP is enabled, please use your LDAP server to add users to groups'}), 400
+            {'success': False, 'error': gettext(u'LDAP is enabled, please use your LDAP server to add users to groups')}), 400
 
     users = request.json.get("users")
     group_name = request.json.get("group_name")
     direction = request.json.get("direction")
 
     if users is None or group_name is None or direction is None:
-        return jsonify({"success": False, "error": "Please provide a list of users, group name, and direction"}), 400
+        return jsonify({"success": False, "error": gettext(u"Please provide a list of users, group name, and direction")}), 400
 
     if direction != "IN" and direction != "OUT":
-        return jsonify({"success": False, "error": "Direction must be IN or OUT"}), 400
+        return jsonify({"success": False, "error": gettext(u"Direction must be IN or OUT")}), 400
 
     for username in users:
         user = app.security.datastore.find_user(username=username)
         if not user:
-            return jsonify({"success": False, "error": f"User {users} does not exist"}), 400
+            return jsonify({"success": False, "error": gettext(u"User %(username)s does not exist", username=username)}), 400
 
         group = db.session.execute(db.session.query(Group).filter_by(name=group_name)).first()
         if not group:
-            return jsonify({"success": False, "error": f"Group {group_name} does not exist"}), 400
+            return jsonify({"success": False, "error": gettext(u"Group %(group_name)s does not exist", group_name=group_name)}), 400
 
         membership = GroupUser()
         membership.user_id = user.id
@@ -267,20 +269,20 @@ def add_user_to_group():
 def delete_group():
     if app.config.get("OTS_ENABLE_LDAP"):
         return jsonify(
-            {'success': False, 'error': 'LDAP is enabled, please use your LDAP server to delete groups'}), 400
+            {'success': False, 'error': gettext(u'LDAP is enabled, please use your LDAP server to delete groups')}), 400
 
     if "group_name" not in request.args.keys() or not request.args.get("group_name"):
-        return jsonify({'success': False, 'error': 'Missing group name'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Missing group name')}), 400
 
     group_name = bleach.clean(request.args.get("group_name"))
     if group_name == "__ANON__":
-        return jsonify({'success': False, 'error': 'The __ANON__ group cannot be deleted'}), 400
+        return jsonify({'success': False, 'error': gettext(u'The __ANON__ group cannot be deleted')}), 400
 
     try:
         group = db.session.execute(
             db.session.query(Group).filter_by(name=group_name)).first()
         if not group:
-            return jsonify({"success": False, "error": f"No such group: {request.args.get('group_name')}"}), 404
+            return jsonify({"success": False, "error": gettext(u"No such group: %(group_name)s", group_name=request.args.get('group_name'))}), 404
 
         group = group[0]
 
@@ -290,6 +292,7 @@ def delete_group():
     except BaseException as e:
         logger.error(f"Failed to delete {request.args.get('group_name')}: {e}")
         logger.debug(traceback.format_exc())
-        return jsonify({'success': False, 'error': f"Failed to delete {request.args.get('group_name')}: {e}"}), 500
+        return jsonify({'success': False, 'error': gettext(u"Failed to delete %(group_name)s: %(e)s",
+                                                           group_name=request.args.get('group_name'), e=str(e))}), 500
 
     return jsonify({'success': True})

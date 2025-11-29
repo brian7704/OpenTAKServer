@@ -4,6 +4,7 @@ from uuid import UUID
 import pika
 import sqlalchemy.exc
 from flask import Blueprint, request, jsonify
+from flask_babel import gettext
 from flask_security import auth_required
 from sqlalchemy import insert, update
 
@@ -136,7 +137,7 @@ def delete_casevac():
     query = search(query, CasEvac, 'uid')
     casevac = db.session.execute(query).first()
     if not casevac:
-        return jsonify({'success': False, 'error': f'Unknown UID: {uid}'}), 404
+        return jsonify({'success': False, 'error': gettext(u'Unknown UID: %(uid)s', uid=uid)}), 404
 
     casevac = casevac[0]
 
