@@ -7,6 +7,7 @@ import sqlalchemy
 from OpenSSL import crypto
 from bs4 import BeautifulSoup
 from flask import request, Blueprint, jsonify, current_app as app
+from flask_babel import gettext
 from werkzeug.datastructures import ImmutableMultiDict
 
 from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
@@ -124,7 +125,7 @@ def get_videos():
     cert = verify_client_cert()
     if not cert:
         # Shouldn't ever get here since nginx already verifies the cert
-        return jsonify({'success': False, 'error': 'Invalid Certificate'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Invalid Certificate')}), 400
     username = None
     for a in cert.get_subject().get_components():
         if a[0].decode('UTF-8') == 'CN':
@@ -192,10 +193,10 @@ def get_video(uid):
 
     video = db.session.query(VideoStream).filter_by(uid=uid).scalar()
     if not video:
-        return jsonify({'success': False, 'error': 'Video not found'}), 404
+        return jsonify({'success': False, 'error': gettext(u'Video not found')}), 404
     user = db.session.execute(db.session.query(User).filter_by(username=username)).first()
     if not user:
-        return jsonify({'success': False, 'error': f'User {username} not found'}), 401
+        return jsonify({'success': False, 'error': gettext(u'User %(username)s not found', username=username)}), 401
     user = user[0]
     return video.to_marti_json(user), 200
 
@@ -204,7 +205,7 @@ def get_video(uid):
 def delete_video(uid):
     video_stream = db.session.execute(db.session.query(VideoStream).filter_by(uid=uid))
     if not video_stream:
-        return jsonify({'success': False, 'error': f'Video stream with uid {uid} not found'}), 404
+        return jsonify({'success': False, 'error': gettext(u'Video stream with uid %(uid)s not found', uid=uid)}), 404
 
     video_stream = video_stream[0]
 

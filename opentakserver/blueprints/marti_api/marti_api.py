@@ -6,6 +6,7 @@ from urllib.parse import urlparse, unquote
 from OpenSSL import crypto
 from OpenSSL.crypto import X509
 from flask import request, Blueprint, current_app as app, jsonify, send_from_directory
+from flask_babel import gettext
 from flask_security import current_user
 from simplekml import Kml, GxTrack, IconStyle, Icon, Style, GxMultiTrack, Document
 
@@ -88,7 +89,7 @@ def atak_track_history():
 
         eud = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()
         if not eud:
-            return jsonify({'success': False, 'error': f"No such UID: {uid}"}), 400
+            return jsonify({'success': False, 'error': gettext("No such UID: %(uid)s", uid=uid)}), 400
         eud: EUD = eud[0]
 
         icon = Icon(href=f"files/team_{eud.team.name.lower().replace(' ', '')}.png")

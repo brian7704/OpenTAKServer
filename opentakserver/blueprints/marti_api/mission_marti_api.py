@@ -14,6 +14,7 @@ import bleach
 import sqlalchemy.exc
 from bs4 import BeautifulSoup
 from flask import Blueprint, request, current_app as app, jsonify, Response
+from flask_babel import gettext
 from flask_security import current_user, hash_password, verify_password
 from sqlalchemy import update, insert, or_
 from werkzeug.utils import secure_filename
@@ -226,11 +227,11 @@ def get_mission_by_guid(mission_guid: str):
     password = request.args.get('password')
     mission = db.session.execute(db.session.query(Mission).filter_by(guid=mission_guid)).first()
     if not mission:
-        return jsonify({'success': False, 'error': f'No mission found with guid: {mission_guid}'}), 404
+        return jsonify({'success': False, 'error': gettext(u'No mission found with guid: %(mission_guid)s', mission_guid=mission_guid)}), 404
     mission = mission[0]
 
     if mission.password_protected and not verify_password(password, mission.password):
-        return jsonify({'success': False, 'error': 'Invalid password'}), 401
+        return jsonify({'success': False, 'error': gettext(u'Invalid password')}), 401
 
     return jsonify({'version': "3", 'type': 'Mission', 'data': [mission.to_json()], 'nodeId': app.config.get("OTS_NODE_ID")})
 
@@ -315,7 +316,7 @@ def put_mission(mission_name: str):
     """ Used by the Data Sync plugin to create or change a mission """
     cert = verify_client_cert()
     if not cert:
-        return jsonify({"success": False, "error": "Missions are only supported on SSL connections"}), 400
+        return jsonify({"success": False, "error": gettext(u"Missions are only supported on SSL connections")}), 400
 
     username = cert.get_subject().commonName
     user = app.security.datastore.find_user(username=username)
@@ -323,11 +324,12 @@ def put_mission(mission_name: str):
     new_mission = True
 
     if not mission_name or not request.args.get('creatorUid'):
-        return jsonify({'success': False, 'error': 'Please provide a mission name and creatorUid'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Please provide a mission name and creatorUid')}), 400
 
     eud = db.session.execute(db.session.query(EUD).filter_by(uid=request.args.get('creatorUid'))).first()
     if not eud:
-        return jsonify({'success': False, 'error': f"Invalid creatorUid: {request.args.get('creatorUid')}"}), 400
+        return jsonify({'success': False, 'error': gettext(u"Invalid creatorUid: %(creator_uid)s",
+                                                           creator_uid=request.args.get('creatorUid'))}), 400
     eud = eud[0]
 
     password = None
@@ -361,7 +363,7 @@ def put_mission(mission_name: str):
             for group_name in groups.split(","):
                 group = db.session.execute(db.session.query(Group).filter_by(name=group_name)).scalar()
                 if not group:
-                    return jsonify({"success": False, "error": f"Group not found: {group_name}"}), 404
+                    return jsonify({"success": False, "error": gettext("Group not found: %(group_name)s", group_name=group_name)}), 404
                 group_mission = GroupMission()
                 group_mission.group_id = group.id
                 group_mission.mission_name = mission.name
@@ -417,7 +419,7 @@ def put_mission(mission_name: str):
     except BaseException as e:
         logger.error(f"Failed to add mission: {e}")
         logger.debug(traceback.format_exc())
-        return jsonify({'success': False, 'error': f"Failed to add mission: {e}"}), 500
+        return jsonify({'success': False, 'error': gettext("Failed to add mission: %(e)s", e=str(e))}), 500
 
     token = generate_token(mission, mission.creator_uid)
     mission_json = mission.to_json()
@@ -438,14 +440,14 @@ def put_mission(mission_name: str):
 def get_mission(mission_name: str):
     """ Used by the Data Sync plugin to get a feed's metadata """
     if not mission_name:
-        return jsonify({'success': False, 'error': 'Invalid mission name'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Invalid mission name')}), 400
 
     mission_name = bleach.clean(mission_name)
 
     try:
         mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
         if not mission:
-            return jsonify({'success': False, 'error': f'Mission {mission_name} not found'}), 404
+            return jsonify({'success': False, 'error': gettext('Mission %(mission_name)S not found', mission_name=mission_name)}), 404
 
         return jsonify({'version': "3", 'type': 'Mission', 'data': [mission[0].to_json()], 'nodeId': app.config.get("OTS_NODE_ID")})
     except BaseException as e:
@@ -464,7 +466,7 @@ def delete_mission(mission_name: str):
     if "iTAK" not in request.user_agent.string:
         token = verify_token()
         if not token or token['MISSION_NAME'] != mission_name:
-            return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+            return jsonify({'success': False, 'error': gettext(u'Missing or invalid token')}), 401
         eud_uid = token['sub']
     else:
         # cert_is_valid will either be True or flask.Response. If it's flask.Response it indicates an error
@@ -486,7 +488,7 @@ def delete_mission(mission_name: str):
                 break
 
         if not can_delete:
-            return jsonify({'success': False, 'error': 'Only mission owners can delete missions'}), 403
+            return jsonify({'success': False, 'error': gettext(u'Only mission owners can delete missions')}), 403
 
         db.session.delete(mission)
         db.session.commit()
@@ -503,7 +505,7 @@ def delete_mission(mission_name: str):
 
         return jsonify({'success': True})
     else:
-        return jsonify({'success': False, 'error': f'Mission {mission_name} not found'}), 404
+        return jsonify({'success': False, 'error': gettext(u'Mission %(mission_name)s not found', mission_name=mission_name)}), 404
 
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/password', methods=['PUT', 'DELETE'])
@@ -512,7 +514,7 @@ def set_password(mission_name: str):
     if "iTAK" not in request.user_agent.string:
         token = verify_token()
         if not token or token['MISSION_NAME'] != mission_name:
-            return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+            return jsonify({'success': False, 'error': gettext(u'Missing or invalid token')}), 401
         eud_uid = token['sub']
     else:
         # cert_is_valid will either be True or flask.Response. If it's flask.Response it indicates an error
@@ -522,11 +524,11 @@ def set_password(mission_name: str):
         eud_uid = role.clientUid
 
     if request.method == 'PUT' and 'password' not in request.args:
-        return jsonify({'success': False, 'error': 'Please provide the password'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Please provide the password')}), 400
 
     role = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name, clientUid=eud_uid)).first()
     if not role or role[0].role_type != MissionRole.MISSION_OWNER:
-        return jsonify({'success': False, 'error': "You do not have permission to change this mission's password"}), 403
+        return jsonify({'success': False, 'error': gettext(u"You do not have permission to change this mission's password")}), 403
 
     creator_uid = request.args.get('creatorUid')
 
@@ -548,7 +550,7 @@ def invite(mission_name: str, invitation_type: str, invitee: str):
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
-        return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
+        return jsonify({'success': False, 'error': gettext(u"Mission %(mission_name)s not found", mission_name=mission_name)}), 404
 
     mission = mission[0]
 
@@ -558,31 +560,31 @@ def invite(mission_name: str, invitation_type: str, invitee: str):
     if invitation_type.lower() == "clientuid":
         eud = db.session.execute(db.session.query(EUD).filter_by(uid=invitee)).first()
         if not eud:
-            return jsonify({'success': False, 'error': f"No EUD found with UID {invitee}"}), 404
+            return jsonify({'success': False, 'error': gettext(u"No EUD found with UID %(invitee)s", invitee=invitee)}), 404
         invitation.client_uid = invitee
 
     elif invitation_type == "callsign":
         eud = db.session.execute(db.session.query(EUD).filter_by(callsign=invitee)).first()
         if not eud:
-            return jsonify({'success': False, 'error': f"No EUD found with callsign {invitee}"}), 404
+            return jsonify({'success': False, 'error': gettext(u"No EUD found with callsign %(invitee)s", invitee=invitee)}), 404
         invitation.callsign = invitee
 
     elif invitation_type.lower() == "username":
         eud = db.session.execute(db.session.query(User).filter_by(username=invitee)).first()
         if not eud:
-            return jsonify({'success': False, 'error': f"No user found with username {invitee}"}), 404
+            return jsonify({'success': False, 'error': gettext(u"No user found with username %(invitee)s", invitee=invitee)}), 404
         invitation.username = invitee
 
     elif invitation_type == "group":
         group = db.session.execute(db.session.query(Group).filter_by(group_name=invitee)).first()
         if not group:
-            return jsonify({'success': False, 'error': f"No group found: {invitee}"}), 404
+            return jsonify({'success': False, 'error': gettext(u"No group found: %(invitee)s", invitee=invitee)}), 404
         invitation.group_name = invitee
 
     elif invitation_type == "team":
         team = db.session.execute(db.session.query(Team).filter_by(name=invitee)).first()
         if not team:
-            return jsonify({'success': False, 'error': f"Team not found: {invitee}"}), 404
+            return jsonify({'success': False, 'error': gettext(u"Team not found: %(invitee)s", invitee=invitee)}), 404
         invitation.team_name = invitee
 
     db.session.add(invitation)
@@ -609,12 +611,12 @@ def delete_invitation(mission_name: str, invitation_type: str, invitee: str):
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
-        return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
+        return jsonify({'success': False, 'error': gettext(u"Mission %(mission_name)s not found", mission_name=mission_name)}), 404
 
     mission = mission[0]
 
     if invitation_type.lower() not in ['clientuid', 'callsign', 'username', 'group', 'team']:
-        return jsonify({'success': False, 'error': f"Invalid invitation type: {invitation_type}"}), 400
+        return jsonify({'success': False, 'error': gettext(u"Invalid invitation type: %(invitation_type)s", invitation_type=invitation_type)}), 400
 
     # Doing it like this because I can select an EUD, user, group, or team and automatically
     # get all of their invitations
@@ -649,7 +651,7 @@ def invite_json(mission_name: str):
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
-        return jsonify({'success': False, 'error': f"Mission not found: {mission_name}"}), 404
+        return jsonify({'success': False, 'error': gettext(u"Mission not found: %(mission_name)s", mission_name=mission_name)}), 404
     mission = mission[0]
 
     rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
@@ -673,7 +675,7 @@ def invite_json(mission_name: str):
         elif invitee['type'].lower() == 'team':
             invitation.team = invitee['invitee']
         else:
-            return jsonify({'success': False, 'error': f"Invalid invitation type: {invitation['type']}"}), 400
+            return jsonify({'success': False, 'error': gettext(u"Invalid invitation type: %(invitation)s", invitation=invitation['type'])}), 400
 
         db.session.add(invitation)
         db.session.commit()
@@ -727,7 +729,7 @@ def change_eud_role(mission_name: str):
     if "iTAK" not in request.user_agent.string:
         token = verify_token()
         if not token or token['MISSION_NAME'] != mission_name:
-            return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+            return jsonify({'success': False, 'error': gettext(u'Missing or invalid token')}), 401
         eud_uid = token['sub']
     else:
         # cert_is_valid will either be True or flask.Response. If it's flask.Response it indicates an error
@@ -738,25 +740,25 @@ def change_eud_role(mission_name: str):
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
-        return jsonify({'success': False, 'error': f"No such mission found: {mission_name}"}), 404
+        return jsonify({'success': False, 'error': gettext(u"No such mission found: %(mission_name)s", mission_name=mission_name)}), 404
     mission = mission[0]
 
     role = db.session.execute(db.session.query(MissionRole).filter_by(clientUid=eud_uid, role_type=MissionRole.MISSION_OWNER)).first()
     if not role:
-        return jsonify({'success': False, 'error': 'Only mission owners can change EUD roles'}), 403
+        return jsonify({'success': False, 'error': gettext(u'Only mission owners can change EUD roles')}), 403
 
     client_uid = request.args.get('clientUid')
     if not client_uid:
-        return jsonify({'success': False, 'error': 'Please provide a UID'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Please provide a UID')}), 400
 
     eud = db.session.execute(db.session.query(EUD).filter_by(uid=client_uid)).first()
     if not eud:
-        return jsonify({'success': False, 'error': f'Invalid UID: {client_uid}'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Invalid UID: %(client_uid)s', client_uid=client_uid)}), 400
     eud = eud[0]
 
     new_role = request.args.get('role')
     if new_role and new_role not in [MissionRole.MISSION_OWNER, MissionRole.MISSION_SUBSCRIBER, MissionRole.MISSION_READ_ONLY]:
-        return jsonify({'success': False, 'error': f"Invalid role: {new_role}"})
+        return jsonify({'success': False, 'error': gettext(u"Invalid role: %(new_role)s", new_role=new_role)})
     elif new_role:
         r = db.session.execute(db.session.query(MissionRole).filter_by(clientUid=client_uid, mission_name=mission_name)).all()
         for role in r:
@@ -816,7 +818,7 @@ def get_role_by_guid(mission_guid: str):
 
     mission = db.session.execute(db.session.query(Mission).filter_by(guid=mission_guid)).first()
     if not mission:
-        return jsonify({'success': False, 'error': f'No mission found with guid: {mission_guid}'}), 404
+        return jsonify({'success': False, 'error': gettext(u'No mission found with guid: %(mission_guid)s', mission_guid=mission_guid)}), 404
     mission = mission[0]
 
     response = {"version": "3", "type": "com.bbn.marti.sync.model.MissionRole", "data": mission.roles[0].to_json()['role'], "nodeId": app.config.get("OTS_NODE_ID")}
@@ -849,7 +851,7 @@ def put_mission_keywords(mission_name):
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
-        return jsonify({'success': False, 'error': f"Cannot find mission {mission_name}"}), 404
+        return jsonify({'success': False, 'error': gettext(u"Cannot find mission %(mission_name)s", mission_name=mission_name)}), 404
     mission = mission[0]
 
     new_keywords = request.json
@@ -880,9 +882,9 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
         mission = None
 
     if not mission and mission_name:
-        return jsonify({'success': False, 'error': f"Cannot find mission {mission_name}"}), 404
+        return jsonify({'success': False, 'error': gettext(u"Cannot find mission %(mission_name)s", mission_name=mission_name)}), 404
     if not mission and mission_guid:
-        return jsonify({'success': False, 'error': f"Cannot find mission {mission_guid}"}), 404
+        return jsonify({'success': False, 'error': gettext(u"Cannot find mission %(mission_guid)s", mission_guid=mission_guid)}), 404
 
     mission = mission[0]
     group_filters = []
@@ -898,7 +900,7 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
     mission_groups = db.session.execute(query).scalars()
 
     if not mission_groups:
-        return jsonify({"success": False, "error": f"{username} and mission {mission_name} are not in the same group"}), 403
+        return jsonify({"success": False, "error": gettext(u"{username} and mission %(mission_name)s are not in the same group", mission_name=mission_name)}), 403
 
     response = {
         "version": "3", "type": "com.bbn.marti.sync.model.MissionSubscription", "data": {}, "nodeId": app.config.get("OTS_NODE_ID")
@@ -908,7 +910,7 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
     if 'Authorization' in request.headers:
         token = verify_token()
         if not token or token['MISSION_NAME'] != mission_name:
-            return jsonify({'success': False, 'error': 'Invalid token'}), 400
+            return jsonify({'success': False, 'error': gettext(u'Invalid token')}), 400
 
         eud = db.session.execute(db.session.query(EUD).filter_by(uid=token['sub'])).first()[0]
         uid = token['sub']
@@ -939,17 +941,17 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
     # If no token is sent, this is a new subscription request
     else:
         if "uid" not in request.args:
-            return jsonify({'success': False, 'error': 'Missing UID'}), 400
+            return jsonify({'success': False, 'error': gettext(u'Missing UID')}), 400
 
         uid = bleach.clean(request.args.get("uid"))
         eud = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()
         if not eud:
-            return jsonify({'success': False, 'error': f"Invalid UID: {uid}"}), 400
+            return jsonify({'success': False, 'error': gettext(u"Invalid UID: %(uid)s", uid=uid)}), 400
         eud = eud[0]
 
         if mission.password_protected:
             if not verify_password(request.args.get('password', ''), mission.password):
-                return jsonify({'success': False, 'error': 'Invalid password'}), 401
+                return jsonify({'success': False, 'error': gettext(u'Invalid password')}), 401
 
         role = db.session.execute(db.session.query(MissionRole).filter_by(mission_name=mission_name, clientUid=uid)).first()
         if not role:
@@ -999,7 +1001,7 @@ def mission_unsubscribe(mission_name: str):
     if "iTAK" not in request.user_agent.string:
         token = verify_token()
         if not token or token['MISSION_NAME'] != mission_name:
-            return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+            return jsonify({'success': False, 'error': gettext(u'Missing or invalid token')}), 401
         eud_uid = token['sub']
     else:
         # cert_is_valid will either be True or flask.Response. If it's flask.Response it indicates an error
@@ -1058,7 +1060,7 @@ def create_log_entry():
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=request.json['missionNames'][0])).first()
     if not mission:
-        return jsonify({'success': False, 'error': f"Mission not found: {request.json['missionNames'][0]}"}), 404
+        return jsonify({'success': False, 'error': gettext(u"Mission not found: %(mission_name)s", mission_name=request.json['missionNames'][0])}), 404
 
     log_entry = MissionLogEntry()
     log_entry.content = request.json.get('content')
@@ -1099,7 +1101,7 @@ def mission_log(mission_name):
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
-        return jsonify({'success': False, 'error': f"Mission {mission_name} not found"}), 404
+        return jsonify({'success': False, 'error': gettext(u"Mission %(mission_name)s not found", mission_name=mission_name)}), 404
     mission = mission[0]
 
     response = {
@@ -1124,7 +1126,7 @@ def upload_content():
 
     cert = verify_client_cert()
     if not cert:
-        return jsonify({"success": False, "error": "Missing or invalid certificate"}), 400
+        return jsonify({"success": False, "error": gettext(u"Missing or invalid certificate")}), 400
 
     username = cert.get_subject().commonName
 
@@ -1140,7 +1142,7 @@ def upload_content():
         creator_uid = None
 
     if not file_name:
-        return jsonify({'success': False, 'error': 'File name cannot be blank'}), 400
+        return jsonify({'success': False, 'error': gettext(u'File name cannot be blank')}), 400
 
     filename, extension = os.path.splitext(secure_filename(file_name))
 
@@ -1150,7 +1152,7 @@ def upload_content():
 
     if extension.replace('.', '').lower() not in app.config.get("ALLOWED_EXTENSIONS"):
         logger.error(f"{extension} is not an allowed file extension")
-        return jsonify({'success': False, 'error': f'{extension} is not an allowed file extension'}), 400
+        return jsonify({'success': False, 'error': gettext(u'%(extension)s is not an allowed file extension', extension=extension)}), 400
 
     file = request.data
     sha256 = hashlib.sha256()
@@ -1207,7 +1209,7 @@ def add_content_keywords(content_hash: str):
     keywords = request.json
     content = db.session.execute(db.session.query(MissionContent).filter_by(hash=content_hash)).first()
     if not content:
-        return jsonify({'success': False, 'error': f"No content found with hash: {content_hash}"})
+        return jsonify({'success': False, 'error': gettext(u"No content found with hash: %(content_hash)s", content_hash=content_hash)}), 400
     content: MissionContent = content[0]
     current_keywords = content.keywords if content.keywords else []
 
@@ -1232,7 +1234,7 @@ def mission_contents(mission_name: str):
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
         logger.error(f"No such mission: {mission_name}")
-        return jsonify({'success': False, 'error': f"No such mission: {mission_name}"}), 404
+        return jsonify({'success': False, 'error': gettext(u"No such mission: %(mission_name)s", mission_name=mission_name)}), 404
 
     mission = mission[0]
 
@@ -1241,7 +1243,7 @@ def mission_contents(mission_name: str):
             content = db.session.execute(db.session.query(MissionContent).filter_by(hash=content_hash)).first()
             if not content:
                 logger.error(f"No such file with hash {content_hash}")
-                return jsonify({'success': False, 'error': f"No such file with hash {content_hash}"}), 404
+                return jsonify({'success': False, 'error': gettext(u"No such file with hash %(content_hash)s", content_hash=content_hash)}), 404
 
             content: MissionContent = content[0]
 
@@ -1363,7 +1365,7 @@ def delete_content(mission_name: str):
     if "iTAK" not in request.user_agent.string:
         token = verify_token()
         if not token or token['MISSION_NAME'] != mission_name:
-            return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+            return jsonify({'success': False, 'error': gettext(u'Missing or invalid token')}), 401
         eud_uid = token['sub']
     else:
         # cert_is_valid will either be True or flask.Response. If it's flask.Response it indicates an error
@@ -1374,7 +1376,7 @@ def delete_content(mission_name: str):
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
-        return jsonify({'success': False, 'error': f'Mission {mission_name} not found'}), 404
+        return jsonify({'success': False, 'error': gettext(u'Mission %(mission_name)s not found', mission_name=mission_name)}), 404
     mission = mission[0]
 
     mission_change = MissionChange()
@@ -1390,7 +1392,7 @@ def delete_content(mission_name: str):
     if 'uid' in request.args:
         mission_uid = db.session.execute(db.session.query(MissionUID).filter_by(uid=request.args.get('uid'))).first()
         if not mission_uid:
-            return jsonify({'success': False, 'error': f"UID {request.args.get('uid')} not found"}), 404
+            return jsonify({'success': False, 'error': gettext(u"UID %(uid)s not found", uid=request.args.get('uid'))}), 404
         else:
             mission_uid = mission_uid[0]
             mission_uid.mission_name = None
@@ -1407,7 +1409,7 @@ def delete_content(mission_name: str):
     if 'hash' in request.args:
         content = db.session.execute(db.session.query(MissionContent).filter_by(hash=request.args.get('hash'))).first()
         if not content:
-            return jsonify({'success': False, 'error': f"No content found with hash {request.args.get('hash')}"}), 404
+            return jsonify({'success': False, 'error': gettext(u"No content found with hash %(hash)s", hash=request.args.get('hash'))}), 404
         content = content[0]
 
         mission_change.content_uid = content.uid
@@ -1421,7 +1423,7 @@ def delete_content(mission_name: str):
         except BaseException as e:
             logger.error(f"Failed to delete content with hash {request.args.get('hash')}: {e}")
             logger.debug(traceback.format_exc())
-            return jsonify({'success': False, 'error': f"Failed to delete content with hash {request.args.get('hash')}: {e}"}), 500
+            return jsonify({'success': False, 'error': gettext(u"Failed to delete content with hash %(hash)s: %(e)s", hash=request.args.get('hash'), e=str(e))}), 500
 
     event = generate_mission_change_cot(eud_uid, mission, mission_change, content=content, mission_uid=mission_uid, cot_event=cot_event)
     body = {'uid': app.config.get("OTS_NODE_ID"), 'cot': tostring(event).decode('utf-8')}
@@ -1445,7 +1447,7 @@ def delete_content(mission_name: str):
 def add_content(mission_name):
     client_uid = request.args.get('clientUid')
     if 'Authorization' not in request.headers or not verify_token():
-        return jsonify({'success': False, 'error': 'Missing or invalid token'}), 401
+        return jsonify({'success': False, 'error': gettext(u'Missing or invalid token')}), 401
 
     return '', 200
 
