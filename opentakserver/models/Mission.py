@@ -116,3 +116,12 @@ class Mission(db.Model):
             json['defaultRole'] = MissionRole.READ_ONLY_ROLE
 
         return json
+
+    def to_marti_json(self):
+        return_value = self.to_json()
+
+        return_value['groups'] = []
+        for group in self.groups:
+            return_value['groups'].append(group.name)
+
+        return return_value

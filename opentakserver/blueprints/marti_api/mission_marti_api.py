@@ -279,7 +279,7 @@ def get_missions():
                 continue
             if tool and tool.lower() != "public" and mission.tool != tool:
                 continue
-            response['data'].append(mission.to_json())
+            response['data'].append(mission.to_marti_json())
 
     except BaseException as e:
         logger.error(f"Failed to get missions: {e}")
