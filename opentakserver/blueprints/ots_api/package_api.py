@@ -162,7 +162,7 @@ def add_package():
     package = Packages()
     package.from_wtform(form)
 
-    existing_package = db.session.execute(db.session.query(Packages).filter_by(version=package.version, atak_version=package.atak_version)).first()
+    existing_package = db.session.execute(db.session.query(Packages).filter_by(version=package.version, package_name=package.package_name)).first()
     if existing_package:
         return jsonify({'success': False, 'errors': [f"{package.name} version {package.version} is already on the server"]}), 400
 
