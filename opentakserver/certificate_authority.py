@@ -258,6 +258,7 @@ class CertificateAuthority:
         return os.path.exists(os.path.join(self.app.config.get("OTS_CA_FOLDER"), 'ca.pem'))
 
     def generate_zip(self, common_name):
+        server_address = self.app.config.get("OTS_CONFIG_DP_SERVER_ADDRESS") or urlparse(request.url_root).hostname 
         truststore = os.path.join(self.app.config.get("OTS_CA_FOLDER"), 'truststore-root.p12')
         user_p12 = os.path.join(self.app.config.get("OTS_CA_FOLDER"), "certs", common_name,
                                 "{}.p12".format(common_name))
@@ -316,16 +317,16 @@ class CertificateAuthority:
                     </MissionPackageManifest>
                     """)
 
-        pref = pref_file_template.render(server=urlparse(request.url_root).hostname,
+        pref = pref_file_template.render(server=server_address,
                                          marti_port=self.app.config.get('OTS_MARTI_HTTPS_PORT'),
                                          server_filename="truststore-root.p12",
                                          user_filename=f"{common_name}.p12",
                                          cert_password=self.app.config.get("OTS_CA_PASSWORD"),
                                          ssl_port=self.app.config.get("OTS_SSL_STREAMING_PORT"))
-        man = manifest_file_template.render(uid=random_id, server=urlparse(request.url_root).hostname,
+        man = manifest_file_template.render(uid=random_id, server=server_address,
                                             server_filename="truststore-root.p12",
                                             user_filename=f"{common_name}.p12", folder=folder)
-        man_parent = manifest_file_parent_template.render(uid=new_uid, server=urlparse(request.url_root).hostname,
+        man_parent = manifest_file_parent_template.render(uid=new_uid, server=server_address,
                                                           folder=parent_folder,
                                                           internal_dp_name=common_name)
 
@@ -406,7 +407,7 @@ class CertificateAuthority:
 """)
 
         f = open(os.path.join(user_file_path, "config.pref"), 'w')
-        f.write(itak_preferences.render(server=urlparse(request.url_root).hostname,
+        f.write(itak_preferences.render(server=server_address,
                                         ssl_port=self.app.config.get("OTS_SSL_STREAMING_PORT"),
                                         cert_password=self.app.config.get("OTS_CA_PASSWORD"),
                                         common_name=common_name))

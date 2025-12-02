@@ -268,7 +268,7 @@ class CasEvac(db.Model):
             medevac.set("us_military", str(self.us_military))
         if self.epw is not None:
             medevac.set("epw", str(self.epw))
-        if self.freq != None:
+        if self.freq is not None:
             medevac.set("freq", str(self.freq))
         if self.extraction_equipment is not None:
             medevac.set("extraction_equipment", str(self.extraction_equipment).lower())
