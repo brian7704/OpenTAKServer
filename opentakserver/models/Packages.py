@@ -44,6 +44,7 @@ class Packages(db.Model):
     publish_time: Mapped[datetime] = mapped_column(DateTime)
     atak_version: Mapped[str] = mapped_column(String(255), nullable=True)
 
+
     def from_wtform(self, form: PackageForm):
         self.platform = form.platform.data
         self.plugin_type = form.plugin_type.data
@@ -79,6 +80,12 @@ class Packages(db.Model):
             if icon_extension == '.png':
                 self.icon = apk.get_file(apk.get_app_icon())
                 self.icon_filename = f"{self.package_name}.png"
+
+    def from_tak_gov(self, plugin: dict):
+        self.apk_hash = plugin['apk_hash']
+        self.file_size = plugin['apk_size_bytes']
+
+        self.platform = plugin['platform']
 
     def serialize(self):
         return {

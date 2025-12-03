@@ -32,6 +32,11 @@ class DefaultConfig:
     # How many CoT messages that cot_parser processes should prefetch. https://www.rabbitmq.com/docs/consumer-prefetch
     OTS_RABBITMQ_PREFETCH = 2
 
+    # TAK.gov account link settings
+    OTS_TAK_GOV_LINKED = False
+    OTS_TAK_GOV_ACCESS_TOKEN = ""
+    OTS_TAK_GOV_REFRESH_TOKEN = ""
+
     OTS_MEDIAMTX_ENABLE = os.getenv("OTS_MEDIAMTX_ENABLE", "True").lower() in ["true", "1", "yes"]
     OTS_MEDIAMTX_API_ADDRESS = os.getenv("OTS_MEDIAMTX_API_ADDRESS", "http://localhost:9997")
     OTS_MEDIAMTX_TOKEN = os.getenv("OTS_MEDIAMTX_TOKEN", secrets.token_urlsafe(30 * 3 // 4))

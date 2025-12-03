@@ -28,6 +28,7 @@ Flask-Security-Too = {version="5.7.1", extras=["common", "mfa"]}
 flask-socketio = "5.5.1"
 flask-sqlalchemy = "3.1.1"
 gevent = "25.5.1"
+httpx = "0.28.1"
 kombu = "5.6.0"
 lastversion = "*"
 lxml = "6.0.2"
