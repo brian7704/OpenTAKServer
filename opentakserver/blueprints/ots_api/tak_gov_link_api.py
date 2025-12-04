@@ -232,6 +232,12 @@ def download_plugin():
     tak_prerequisite = request.json.get('tak_prerequisite')
     atak_version = request.json.get('atak_version')
 
+    # Don't set an ATAK version for the plugin for ATAK < 5.5.0.
+    # ATAK 5.4.0 and below don't check for plugins for their specific version of ATAK
+    major, minor, patch = atak_version.split(".")
+    if int(major) < 5 or (int(major) == 5 and int(minor) < 5):
+        atak_version = None
+
     if not apk_url:
         return jsonify({"success": False, "error": "plugin_url is required"}), 400
 
