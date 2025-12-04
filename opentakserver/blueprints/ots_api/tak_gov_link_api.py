@@ -1,4 +1,7 @@
+import os
+import re
 import traceback
+from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify, current_app as app
 from flask_security import roles_required
@@ -7,7 +10,9 @@ import httpx
 
 from opentakserver import __version__ as version
 from opentakserver.blueprints.ots_api.api import change_config_setting
-from opentakserver.extensions import logger
+from opentakserver.blueprints.ots_api.package_api import create_product_infz
+from opentakserver.extensions import logger, db
+from opentakserver.models.Packages import Packages
 
 tak_gov_link_blueprint = Blueprint('tak_gov_link_blueprint', __name__)
 
@@ -29,6 +34,7 @@ def get_new_access_token():
         refresh_token = response_data["refresh_token"]
         expires_in = response_data["expires_in"]
         change_config_setting("OTS_TAK_GOV_REFRESH_TOKEN", refresh_token)
+        app.config["OTS_TAK_GOV_REFRESH_TOKEN"] = refresh_token
 
         return {"success": True, "access_token": access_token, "expires_in": expires_in}
     except BaseException as e:
@@ -97,6 +103,9 @@ def get_initial_tak_gov_token():
         change_config_setting("OTS_TAK_GOV_LINKED", True)
         change_config_setting("OTS_TAK_GOV_REFRESH_TOKEN", refresh_token)
 
+        app.config.update({"OTS_TAK_GOV_LINKED": True})
+        app.config.update({"OTS_TAK_GOV_REFRESH_TOKEN": refresh_token})
+
         return jsonify({"success": True, "access_token": access_token, "expires_in": expires_in})
     except BaseException as e:
         logger.error(f"Failed to get initial tak gov token: {e}")
@@ -146,8 +155,8 @@ def get_plugins_list():
         return jsonify(token), 500
 
     client = httpx.Client(http2=True)
-    HEADERS["Authentication"] = f"Bearer {app.config.get('OTS_TAK_GOV_LINKED')}"
-    params = {"product": "ATAK-MIL", "product_version": "5.5.0"}
+    HEADERS["Authorization"] = f"Bearer {token['access_token']}"
+    params = {"product": product, "product_version": product_version}
 
     try:
         response = client.get("https://tak.gov/eud_api/software/v1/plugins", params=params, headers=HEADERS)
@@ -167,6 +176,9 @@ def unlink_tak_gov_account():
     change_config_setting("OTS_TAK_GOV_LINKED", False)
     change_config_setting("OTS_TAK_GOV_REFRESH_TOKEN", None)
 
+    app.config.update({"OTS_TAK_GOV_LINKED": False})
+    app.config.update({"OTS_TAK_GOV_REFRESH_TOKEN": None})
+
     return jsonify({"success": True})
 
 
@@ -174,3 +186,104 @@ def unlink_tak_gov_account():
 @roles_required("administrator")
 def check_if_linked():
     return jsonify({"success": True, "tak_gov_account_linked": app.config.get('OTS_TAK_GOV_LINKED')})
+
+
+@tak_gov_link_blueprint.route('/api/takgov/icon')
+@roles_required("administrator")
+def get_plugin_icon():
+    """Downloads the plugin's icon from tak.gov's eud_api using the access_token
+
+    :return: The icon or an error message.
+    """
+    icon_url = request.args.get('icon_url')
+    if not icon_url:
+        return jsonify({"success": False, "error": "icon_link is required"}), 400
+    elif not icon_url.startswith("https://tak.gov/eud_api"):
+        return jsonify({"success": False, "error": "icon_link is invalid"}), 400
+
+    token = get_new_access_token()
+    if not token["success"]:
+        return jsonify(token), 500
+
+    client = httpx.Client(http2=True)
+    HEADERS["Authorization"] = f"Bearer {token['access_token']}"
+    response = client.get(icon_url, headers=HEADERS)
+    logger.warning(response.content)
+    logger.warning(response.text)
+    logger.warning(response.headers)
+
+    return response.content
+
+
+@tak_gov_link_blueprint.route('/api/takgov/plugin', methods=["POST"])
+@roles_required("administrator")
+def download_plugin():
+    apk_hash = request.json.get('apk_hash')
+    apk_size = request.json.get('apk_size_bytes')
+    apk_url = request.json.get('apk_url')
+    apk_type = request.json.get('apk_type')
+    description = request.json.get('description')
+    name = request.json.get('display_name')
+    platform = request.json.get('platform')
+    package_name = request.json.get('package_name')
+    plugin_version = request.json.get('version')
+    revision_code = request.json.get('revision_code')
+    os_requirement = request.json.get('os_requirement')
+    tak_prerequisite = request.json.get('tak_prerequisite')
+    atak_version = request.json.get('atak_version')
+
+    if not apk_url:
+        return jsonify({"success": False, "error": "plugin_url is required"}), 400
+
+    client = httpx.Client(http2=True)
+    token = get_new_access_token()
+    if not token["success"]:
+        return jsonify(token), 500
+
+    HEADERS["Authorization"] = f"Bearer {token['access_token']}"
+    response = client.get(apk_url, headers=HEADERS, follow_redirects=True)
+    if response.status_code != 200:
+        return jsonify(response.content), 500
+
+    content_disposition = response.headers.get("content-disposition")
+    filename = re.search(r'filename=\"(.+)\"', content_disposition).group(1)
+    with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", filename), "wb") as f:
+        f.write(response.content)
+
+    icon = None
+    icon_filename = None
+    icon_response = client.get(request.json.get('icon_url'), headers=HEADERS, follow_redirects=True)
+    # Some plugins don't have icons and will return a 404
+    if icon_response.status_code == 200:
+        icon = icon_response.content
+        content_disposition = icon_response.headers.get("content-disposition")
+        icon_filename = re.search(r'filename=\"(.+)\"', content_disposition).group(1)
+
+    plugin = Packages()
+    plugin.platform = platform
+    plugin.apk_hash = apk_hash
+    plugin.file_size = apk_size
+    plugin.package_name = package_name
+    plugin.version = plugin_version
+    plugin.description = description
+    plugin.name = name
+    plugin.revision_code = revision_code
+    plugin.os_requirement = os_requirement
+    plugin.plugin_type = apk_type
+    plugin.atak_version = atak_version
+    plugin.icon = icon
+    plugin.icon_filename = icon_filename
+    plugin.file_name = filename
+    plugin.publish_time = datetime.now(tz=timezone.utc)
+
+    try:
+        db.session.add(plugin)
+        db.session.commit()
+    except BaseException as e:
+        logger.error(f"Failed to add plugin to database: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({"success": False, "error": f"Failed to add plugin to database: {e}"}), 500
+
+    create_product_infz(atak_version)
+
+    return jsonify({"success": True})
