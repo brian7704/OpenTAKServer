@@ -235,6 +235,10 @@ def download_plugin():
     if not apk_url:
         return jsonify({"success": False, "error": "plugin_url is required"}), 400
 
+    exising_plugin = db.session.execute(db.session.query(Packages).filter_by(version=plugin_version, package_name=package_name)).first()
+    if exising_plugin:
+        return jsonify({"success": False, "error": f"Plugin {package_name} already exists"}), 400
+
     client = httpx.Client(http2=True)
     token = get_new_access_token()
     if not token["success"]:
