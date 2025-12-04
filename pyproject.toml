@@ -29,7 +29,7 @@ flask-socketio = "5.5.1"
 flask-sqlalchemy = "3.1.1"
 gevent = "25.5.1"
 httpx = {version = "0.28.1", extras = ["http2"]}
-kombu = "5.6.0"
+kombu = "5.6.1"
 lastversion = "*"
 lxml = "6.0.2"
 meshtastic = "2.7.5"
