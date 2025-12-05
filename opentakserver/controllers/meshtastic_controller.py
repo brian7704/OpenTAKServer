@@ -5,12 +5,15 @@ import traceback
 import uuid
 
 import pika
+import sqlalchemy.exc
 import unishox2
 import os
 
 from meshtastic import mqtt_pb2, portnums_pb2, mesh_pb2, protocols, BROADCAST_NUM
 
+from opentakserver.extensions import db, logger
 from opentakserver.models.Meshtastic import MeshtasticChannel
+from opentakserver.models.Team import Team
 from opentakserver.proto import atak_pb2
 from google.protobuf.json_format import MessageToJson
 from xml.etree.ElementTree import Element, SubElement, tostring
@@ -187,6 +190,31 @@ class MeshtasticController(RabbitMQClient):
             SubElement(detail, 'track', {'course': '0.0', 'speed': '0.0'})
             SubElement(detail, '__group', {'name': self.meshtastic_devices[from_id]['team'],
                                            'role': self.meshtastic_devices[from_id]['role']})
+
+            eud = EUD()
+            eud.uid = uid
+            eud.callsign = self.meshtastic_devices[from_id]['long_name']
+            eud.device = self.meshtastic_devices[from_id]['hw_model']
+            eud.os = "Meshtastic"
+            eud.platform = "Meshtastic"
+            eud.version = self.meshtastic_devices[from_id]['firmware_version']
+            eud.team_role = self.meshtastic_devices[from_id]['role']
+            eud.meshtastic_id = int(self.meshtastic_devices[from_id]['meshtastic_id'], 16)
+            eud.meshtastic_macaddr = self.meshtastic_devices[from_id]['macaddr']
+
+            with self.context:
+                team = db.session.execute(db.session.query(Team).filter_by(name=self.meshtastic_devices[from_id]['team'])).scalar()
+                if team:
+                    eud.team_id = team.id
+
+                try:
+                    db.session.add(eud)
+                    db.session.commit()
+                except sqlalchemy.exc.IntegrityError:
+                    db.session.rollback()
+                    db.session.execute(sqlalchemy.update(EUD).where(EUD.uid == uid).values(**eud.serialize()))
+                    db.session.commit()
+
         return event
 
     def position(self, pb, from_id, to_id, portnum):
@@ -405,7 +433,7 @@ class MeshtasticController(RabbitMQClient):
                         self.logger.error(traceback.format_exc())
                 else:
                     self.rabbit_channel.basic_publish(exchange='groups', routing_key=f"{self.context.app.config.get('OTS_MESHTASTIC_GROUP')}.OUT", body=message,properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
-                    self.rabbit_channel.basic_publish(exchange='cot', routing_key='', body=message,properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
+                    self.rabbit_channel.basic_publish(exchange='cot', routing_key='', body=message, properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
         except BaseException as e:
             self.logger.error(str(e))
             self.logger.error(traceback.format_exc())
