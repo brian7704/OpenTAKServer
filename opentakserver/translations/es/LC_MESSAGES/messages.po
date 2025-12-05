@@ -8,14 +8,16 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2025-11-29 23:25+0000\n"
-"PO-Revision-Date: 2025-11-29 10:53-0500\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"PO-Revision-Date: 2025-12-05 21:32+0000\n"
+"Last-Translator: Brian <opentakserver@gmail.com>\n"
+"Language-Team: Spanish <https://weblate.opentakserver.io/projects/"
+"opentakserver/opentakserver/es/>\n"
 "Language: es\n"
-"Language-Team: es <LL@li.org>\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.13.3\n"
 "Generated-By: Babel 2.10.3\n"
 
 #: blueprints/ots_api/api.py:166
@@ -30,26 +32,28 @@ msgstr ""
 
 #: blueprints/ots_api/api.py:218
 msgid "Please specify a callsign"
-msgstr ""
+msgstr "Por favor, especifique un indicativo"
 
 #: blueprints/ots_api/api.py:437
 msgid "This is a test"
-msgstr ""
+msgstr "Esta es una prueba"
 
 #: blueprints/ots_api/casevac_api.py:140
 #, python-format
 msgid "Unknown UID: %(uid)s"
-msgstr ""
+msgstr "UID desconocido: %(uid)s"
 
 #: blueprints/ots_api/data_package_api.py:36
 msgid ""
 "Server connection data packages can't be installed on enrollment or "
 "connection"
 msgstr ""
+"Los paquetes de datos de conexión del servidor no se pueden instalar durante "
+"la inscripción o la conexión"
 
 #: blueprints/ots_api/data_package_api.py:62
 msgid "Invalid/unknown hash"
-msgstr ""
+msgstr "Hash no válido o desconocido"
 
 #: blueprints/ots_api/data_package_api.py:103
 msgid "Please provide a data package hash"
@@ -302,4 +306,3 @@ msgstr ""
 #: blueprints/ots_api/video_api.py:76
 msgid "Recording not found"
 msgstr ""
-
