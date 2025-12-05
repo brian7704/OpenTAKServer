@@ -5,6 +5,7 @@ import pathlib
 
 import bleach
 from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
+from flask_babel import gettext
 from flask_security import auth_required
 
 from opentakserver.blueprints.ots_api.api import search, paginate
@@ -32,7 +33,7 @@ def thumbnail():
         return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "mediamtx", "recordings", path),
                                    "thumbnail.png")
 
-    return jsonify({"success": False, "error": "Please specify a valid path"}), 400
+    return jsonify({"success": False, "error": gettext(u"Please specify a valid path")}), 400
 
 
 @video_api_blueprint.route('/api/videos/recordings')
@@ -54,7 +55,7 @@ def download_recording():
     if recording_id.isdigit():
         recording_id = int(recording_id)
     else:
-        return jsonify({"success": False, "error": f"Invalid recording_id: {recording_id}"}), 400
+        return jsonify({"success": False, "error": gettext(u"Invalid recording_id: %(recording_id)s", recording_id=recording_id)}), 400
 
     try:
         recording = \
@@ -72,7 +73,7 @@ def download_recording():
             return '', 200
     except:
         logger.error(traceback.format_exc())
-        return jsonify({'success': False, 'error': 'Recording not found'}), 404
+        return jsonify({'success': False, 'error': gettext(u'Recording not found')}), 404
 
 
 @video_api_blueprint.route('/api/video_streams')

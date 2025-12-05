@@ -3,6 +3,7 @@ import os
 import traceback
 
 import sqlalchemy
+from flask_babel import gettext
 from meshtastic import channel_pb2, apponly_pb2
 
 import bleach
@@ -122,7 +123,7 @@ def get_channel():
 @auth_required()
 def delete_channel():
     if 'url' not in request.args.keys():
-        return jsonify({'success': False, 'error': "Please provide the URL of the channel to delete"}), 400
+        return jsonify({'success': False, 'error': gettext(u"Please provide the URL of the channel to delete")}), 400
 
     url = bleach.clean(request.args.get('url'))
 

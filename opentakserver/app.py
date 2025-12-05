@@ -37,7 +37,7 @@ import sqlalchemy
 import flask_wtf
 
 import pika
-from flask import Flask, current_app
+from flask import Flask, current_app, g, request
 from flask_cors import CORS
 
 from flask_security import Security, SQLAlchemyUserDatastore, hash_password, uia_username_mapper, uia_email_mapper
@@ -45,7 +45,7 @@ from flask_security.models import fsqla_v3 as fsqla, fsqla_v3
 from flask_security.signals import user_registered
 
 import opentakserver
-from opentakserver.extensions import logger, db, socketio, mail, apscheduler, ldap_manager
+from opentakserver.extensions import logger, db, socketio, mail, apscheduler, ldap_manager, babel
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.models.WebAuthn import WebAuthn
 
@@ -56,6 +56,16 @@ try:
     from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
 except ModuleNotFoundError:
     print("Mumble auth not supported on this platform")
+
+
+def get_locale():
+    return request.accept_languages.best_match(current_app.config.get("OTS_LANGUAGES"))
+
+
+def get_timezone():
+    user = getattr(g, 'user', None)
+    if user is not None:
+        return user.timezone
 
 
 def init_extensions(app):
@@ -144,40 +154,7 @@ def init_extensions(app):
 
     mail.init_app(app)
 
-
-def create_groups(app: Flask):
-    try:
-        with app.app_context():
-            public_group = Group()
-            public_group.name("__ANON__")
-            public_group.type = GroupTypeEnum.SYSTEM
-            public_group.bitpos = 2
-            public_group.description = "Default public group"
-
-            db.session.add(public_group)
-            db.session.commit()
-
-            adsb_group = Group()
-            adsb_group.name("ADS-B")
-            adsb_group.type = GroupTypeEnum.SYSTEM
-            adsb_group.bitpos = 3
-            adsb_group.description = "ADS-B data"
-
-            db.session.add(adsb_group)
-            db.session.commit()
-
-            ais_group = Group()
-            ais_group.name("AIS")
-            ais_group.type = GroupTypeEnum.SYSTEM
-            ais_group.bitpos = 4
-            ais_group.description = "AIS data"
-
-            db.session.add(ais_group)
-            db.session.commit()
-    except BaseException as e:
-        logger.error(f"Failed to create groups: {e}")
-        logger.debug(traceback.format_exc())
-
+    babel.init_app(app, locale_selector=get_locale, timezone_selector=get_timezone)
 
 def setup_logging(app):
     level = logging.INFO
@@ -223,8 +200,6 @@ def create_app(cli=True):
                         conf[option] = DefaultConfig.__dict__[option]
                 config.write(yaml.safe_dump(conf))
 
-            create_groups(app)
-
         # Try to set the MediaMTX token
         if app.config.get("OTS_MEDIAMTX_ENABLE"):
             try:
@@ -258,8 +233,9 @@ def create_app(cli=True):
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
     else:
-        from opentakserver.blueprints.cli import ots
+        from opentakserver.blueprints.cli import ots, translate
         app.cli.add_command(ots, name="ots")
+        app.cli.add_command(translate, name="translate")
 
         if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
             app.config.from_file(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), load=yaml.safe_load)

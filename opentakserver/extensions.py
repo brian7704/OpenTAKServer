@@ -1,4 +1,5 @@
 import colorlog
+from flask_babel import Babel
 from flask_ldap3_login import LDAP3LoginManager
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
@@ -20,3 +21,5 @@ socketio = SocketIO(async_mode='gevent')
 migrate = Migrate()
 
 ldap_manager = LDAP3LoginManager()
+
+babel = Babel()

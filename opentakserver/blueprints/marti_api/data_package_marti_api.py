@@ -10,6 +10,7 @@ import zipfile
 import bleach
 import sqlalchemy
 from flask import Blueprint, request, jsonify, current_app as app, send_from_directory
+from flask_babel import gettext
 from flask_login import current_user
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures.file_storage import FileStorage
@@ -41,7 +42,7 @@ def save_data_package_to_db(filename: str = None, sha256_hash: str = None, mimet
         db.session.rollback()
         logger.error("Failed to save data package: {}".format(e))
         logger.debug(traceback.format_exc())
-        return jsonify({'success': False, 'error': 'This data package has already been uploaded'}), 400
+        return jsonify({'success': False, 'error': gettext(u'This data package has already been uploaded')}), 400
 
 
 def create_data_package_zip(file: FileStorage | str) -> str:
@@ -110,7 +111,7 @@ def create_data_package_zip(file: FileStorage | str) -> str:
 @data_package_marti_api.route('/Marti/sync/missionupload', methods=['POST'])
 def data_package_share():
     if not len(request.files):
-        return {'error': 'no file'}, 400, {'Content-Type': 'application/json'}
+        return jsonify({'success': False, 'error': gettext(u'A file is required')}), 400
     for file in request.files:
         file = request.files[file]
 
@@ -123,7 +124,7 @@ def data_package_share():
 
         if extension.lower() not in app.config.get("ALLOWED_EXTENSIONS"):
             logger.info(f"file is {file.filename}, extension is {extension}, content-type {file.mimetype}")
-            return jsonify({'success': False, 'error': f'Invalid file extension: {extension}'}), 400
+            return jsonify({'success': False, 'error': gettext(u'Invalid file extension: %(extension)s', extension=extension)}), 400
 
         if extension != 'zip':
             file_hash = create_data_package_zip(file)
@@ -256,7 +257,7 @@ def download_data_package():
     elif os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "missions", file[0].filename)):
         return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "missions"), file[0].filename)
     else:
-        return jsonify({'success': False, 'error': f'File not found: {file[0].filename}'}), 404
+        return jsonify({'success': False, 'error': gettext(u'File not found: %(filename)s}', filename=file[0].filename)}), 404
 
 
 @data_package_marti_api.route('/Marti/sync/missionquery')
@@ -270,9 +271,9 @@ def data_package_query():
                                                                           app.config.get("OTS_MARTI_HTTPS_PORT"),
                                                                           request.args.get('hash')), 200
         else:
-            return {'error': '404'}, 404, {'Content-Type': 'application/json'}
+            return jsonify({'success': False, 'error': 'File not found'}), 404
     except sqlalchemy.exc.NoResultFound as e:
-        return {'error': '404'}, 404, {'Content-Type': 'application/json'}
+        return jsonify({'success': False, 'error': 'File not found'}), 404
 
 
 @data_package_marti_api.route('/Marti/api/files/metadata')

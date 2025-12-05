@@ -7,6 +7,7 @@ import uuid
 from urllib.parse import urlparse
 
 from ffmpeg import FFmpeg
+from flask_babel import gettext
 from flask_ldap3_login import AuthenticationResponseStatus
 from sqlalchemy import update
 from werkzeug.datastructures import ImmutableMultiDict
@@ -53,7 +54,7 @@ def mediamtx_webhook():
     token = request.args.get('token')
     if not token or bleach.clean(token) != app.config.get("OTS_MEDIAMTX_TOKEN"):
         logger.error('Invalid token')
-        return jsonify({'success': False, 'error': 'Invalid token'}), 401
+        return jsonify({'success': False, 'error': gettext(u'Invalid token')}), 401
 
     event = bleach.clean(request.args.get('event'))
     if event == 'init':
@@ -255,10 +256,10 @@ def add_update_stream():
         path = bleach.clean(request.json.get("path", ""))
 
         if not path:
-            return jsonify({'success': False, 'error': 'Please specify a path name'}), 400
+            return jsonify({'success': False, 'error': gettext(u'Please specify a path name')}), 400
 
         if path.startswith("/"):
-            return jsonify({'success': False, 'error': 'Path cannot begin with a slash'}), 400
+            return jsonify({'success': False, 'error': gettext(u'Path cannot begin with a slash')}), 400
 
         video = db.session.query(VideoStream).where(VideoStream.path == path).first()
         if not video and request.path.endswith('add'):
@@ -273,7 +274,7 @@ def add_update_stream():
             video.network_timeout = 10000
             video.generate_xml(urlparse(request.url_root).hostname)
         elif not video and request.path.endswith('update'):
-            return jsonify({'success': False, 'error': 'Path {} not found'.format(path)}), 400
+            return jsonify({'success': False, 'error': gettext(u'Path %(path)s not found', path=path)}), 400
 
         settings = json.loads(video.mediamtx_settings)
 
@@ -332,19 +333,19 @@ def delete_stream():
         path = bleach.clean(request.args.get("path", ""))
 
         if not path:
-            return jsonify({'success': False, 'error': 'Please specify a path name'}), 400
+            return jsonify({'success': False, 'error': gettext(u'Please specify a path name')}), 400
 
         r = requests.delete('{}/v3/config/paths/delete/{}'.format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"), path))
         logger.debug("Delete status code: {}".format(r.status_code))
         video = db.session.query(VideoStream).filter(VideoStream.path == path)
         if not video:
-            return jsonify({'success': False, 'error': 'Path {} not found'.format(path)}), 400
+            return jsonify({'success': False, 'error': gettext(u'Path %(path)s not found', path=path)}), 400
 
         video.delete()
         db.session.commit()
     except requests.exceptions.ConnectionError as e:
         logger.error(traceback.format_exc())
-        return jsonify({'success': False, 'error': 'MediaMTX is not running'}), 500
+        return jsonify({'success': False, 'error': gettext(u'MediaMTX is not running')}), 500
 
     if r.status_code != 404:
         return r.text, r.status_code

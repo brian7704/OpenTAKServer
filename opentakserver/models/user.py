@@ -4,6 +4,7 @@ from opentakserver.extensions import db
 from opentakserver.models.Group import Group
 # Leave this import here
 from opentakserver.models.Token import Token
+from opentakserver.models.WebAuthn import WebAuthn
 from sqlalchemy import String
 from flask_security.models import fsqla_v3 as fsqla
 from sqlalchemy.orm import relationship

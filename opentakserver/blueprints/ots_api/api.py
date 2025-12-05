@@ -1,4 +1,3 @@
-import jwt
 import datetime
 import hashlib
 import os
@@ -16,6 +15,7 @@ import sqlalchemy.exc
 from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import auth_required, current_user, verify_password
+from flask_babel import gettext
 from sqlalchemy import select
 
 from opentakserver.extensions import logger, db, ldap_manager
@@ -163,8 +163,7 @@ def certificate():
             user = app.security.datastore.find_user(username=username)
 
             if not user:
-                return ({'success': False, 'error': 'Invalid username: {}'.format(username)}, 400,
-                        {'Content-Type': 'application/json'})
+                return jsonify({'success': False, 'error': gettext(u'Invalid username: %(username)s', username=username)}), 400
 
             ca = CertificateAuthority(logger, app)
             filenames = ca.issue_certificate(username, False)
@@ -191,8 +190,7 @@ def certificate():
                 except sqlalchemy.exc.IntegrityError as e:
                     db.session.rollback()
                     logger.error(e)
-                    return ({'success': False, 'error': 'Certificate already exists for {}'.format(username)}, 400,
-                            {'Content-Type': 'application/json'})
+                    return jsonify({'success': False, 'error': gettext(u'Certificate already exists for %(username)s', username=username)}), 400
 
                 copyfile(os.path.join(app.config.get("OTS_CA_FOLDER"), 'certs', username, "{}".format(filename)),
                          os.path.join(app.config.get("UPLOAD_FOLDER"), "{}.zip".format(file_hash)))
@@ -212,13 +210,12 @@ def certificate():
                 db.session.add(cert)
                 db.session.commit()
 
-            return {'success': True}, 200, {'Content-Type': 'application/json'}
+            return jsonify({'success': True}), 200
         except BaseException as e:
             logger.error(traceback.format_exc())
-            return {'success': False, 'error': str(e)}, 500, {'Content-Type': 'application/json'}
+            return jsonify({'success': False, 'error': str(e)}), 500
     elif request.method == 'POST':
-        return ({'success': False, 'error': "Please specify a callsign"}, 400,
-                {'Content-Type': 'application/json'})
+        return jsonify({'success': False, 'error': gettext(u'Please specify a callsign')}), 400
     elif request.method == 'GET':
         query = db.session.query(Certificate)
         query = search(query, Certificate, 'callsign')
