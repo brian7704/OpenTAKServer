@@ -12,13 +12,12 @@ from sqlalchemy import insert, update
 from sqlalchemy.exc import IntegrityError
 import xml.etree.ElementTree as ET
 
-from opentakserver.blueprints.ots_api.api import search, paginate
+from opentakserver.blueprints.ots_api.api import search, paginate, route_cot
 from opentakserver.extensions import db, logger, socketio
 from opentakserver.functions import *
 from opentakserver.models.CoT import CoT
 from opentakserver.models.Marker import Marker
 from opentakserver.models.Point import Point
-from scripts.kraken_data2kml import longitude
 
 marker_api_blueprint = Blueprint('marker_api_blueprint', __name__)
 
@@ -134,6 +133,7 @@ def add_marker():
             channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
                 {'cot': ET.tostring(event).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
                                   properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+            route_cot(ET.tostring(event).decode('utf-8'), current_user)
             channel.close()
             rabbit_connection.close()
 
@@ -212,6 +212,7 @@ def delete_marker():
         channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
             {'cot': ET.tostring(event).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
                               properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+        route_cot(ET.tostring(event).decode('utf-8'), current_user)
         channel.close()
         rabbit_connection.close()
 

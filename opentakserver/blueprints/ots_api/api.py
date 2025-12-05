@@ -1,5 +1,6 @@
 import datetime
 import hashlib
+import json
 import os
 import platform
 import traceback
@@ -7,6 +8,7 @@ from shutil import copyfile
 
 from urllib.parse import urlparse
 
+import pika
 import yaml
 
 import bleach
@@ -25,6 +27,8 @@ from opentakserver.models.CasEvac import CasEvac
 from opentakserver.models.CoT import CoT
 from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.EUD import EUD
+from opentakserver.models.Group import Group
+from opentakserver.models.GroupUser import GroupUser
 from opentakserver.models.Token import Token
 from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.Point import Point
@@ -80,6 +84,34 @@ def change_config_setting(setting, value):
 
     except BaseException as e:
         logger.error("Failed to change setting {} to {} in config.yml: {}".format(setting, value, e))
+
+
+def route_cot(event: str, user: User):
+    """Used by API endpoints such as ``/api/markers`` to route CoT messages to the correct groups that a user belongs to.
+
+    :param event: The CoT to be routed as a string
+    :param user: The user object
+    :return: None
+    """
+
+    rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
+    channel = rabbit_connection.channel()
+
+    group_memberships = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id, direction=Group.IN, enabled=True)).all()
+    if not group_memberships:
+        # Default to the __ANON__ group if the user doesn't belong to any IN groups
+        channel.basic_publish(exchange='groups', routing_key="__ANON__.OUT", body=json.dumps({'uid': app.config['OTS_NODE_ID'], 'cot': str(event)}),
+                              properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+
+    for membership in group_memberships:
+        membership = membership[0]
+        channel.basic_publish(exchange='groups', routing_key=f"{membership.group.name}.{Group.OUT}",
+                              body=json.dumps({'uid': app.config['OTS_NODE_ID'], 'cot': str(event)}),
+                              properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+    channel.close()
+    rabbit_connection.close()
 
 
 @api_blueprint.route('/files/api/config')
