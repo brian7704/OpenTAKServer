@@ -147,7 +147,7 @@ def remove_user_from_group():
 
     user = app.security.datastore.find_user(username=username)
     if not user:
-        return jsonify({"success": False, "error": gettext(u"User %s(username)s not found", username=username)}), 404
+        return jsonify({"success": False, "error": gettext(u"User %(username)s not found", username=username)}), 404
 
     group = db.session.execute(db.session.query(Group).filter_by(name=group_name)).first()
     if not group:

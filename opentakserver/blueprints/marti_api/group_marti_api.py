@@ -220,7 +220,7 @@ def put_active_groups():
             db.session.rollback()
             channel.close()
             rabbit_connection.close()
-            return jsonify({"success": False, "error": gettext(u"%(username)s is not in the %(group_name) group", username=username, group_name=group_name)}), 403
+            return jsonify({"success": False, "error": gettext(u"%(username)s is not in the %(group_name)s group", username=username, group_name=group_name)}), 403
 
     try:
         channel.close()
