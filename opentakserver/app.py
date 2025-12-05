@@ -37,7 +37,7 @@ import sqlalchemy
 import flask_wtf
 
 import pika
-from flask import Flask, current_app, g, request
+from flask import Flask, current_app, g, request, session
 from flask_cors import CORS
 
 from flask_security import Security, SQLAlchemyUserDatastore, hash_password, uia_username_mapper, uia_email_mapper
@@ -59,6 +59,8 @@ except ModuleNotFoundError:
 
 
 def get_locale():
+    if 'language' in session:
+        return session['language']
     return request.accept_languages.best_match(current_app.config.get("OTS_LANGUAGES"))
 
 

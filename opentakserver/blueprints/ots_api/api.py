@@ -14,13 +14,13 @@ import yaml
 import bleach
 import psutil
 import sqlalchemy.exc
-from flask import current_app as app, request, Blueprint, jsonify, send_from_directory
+from flask import current_app as app, request, Blueprint, jsonify, send_from_directory, session
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import auth_required, current_user, verify_password
 from flask_babel import gettext
 from sqlalchemy import select
 
-from opentakserver.extensions import logger, db, ldap_manager
+from opentakserver.extensions import logger, db, ldap_manager, babel
 
 from opentakserver.models.Alert import Alert
 from opentakserver.models.CasEvac import CasEvac

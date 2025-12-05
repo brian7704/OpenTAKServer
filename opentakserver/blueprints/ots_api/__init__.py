@@ -17,6 +17,7 @@ from opentakserver.blueprints.ots_api.eud_stats_api import eud_stats_blueprint
 from opentakserver.blueprints.ots_api.plugin_api import plugin_blueprint
 from .ldap_api import ldap_blueprint
 from .tak_gov_link_api import tak_gov_link_blueprint
+from .language_api import language_api
 
 ots_api = Blueprint("ots_api", __name__)
 ots_api.register_blueprint(api_blueprint)
@@ -37,3 +38,4 @@ ots_api.register_blueprint(plugin_blueprint)
 ots_api.register_blueprint(token_api_blueprint)
 ots_api.register_blueprint(ldap_blueprint)
 ots_api.register_blueprint(tak_gov_link_blueprint)
+ots_api.register_blueprint(language_api)
