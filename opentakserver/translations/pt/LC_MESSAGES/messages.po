@@ -8,14 +8,16 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2025-11-29 23:25+0000\n"
-"PO-Revision-Date: 2025-11-29 10:53-0500\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"PO-Revision-Date: 2025-12-06 02:04+0000\n"
+"Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
+"Language-Team: Portuguese <https://weblate.opentakserver.io/projects/"
+"opentakserver/opentakserver/pt/>\n"
 "Language: pt\n"
-"Language-Team: pt <LL@li.org>\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Weblate 5.13.3\n"
 "Generated-By: Babel 2.10.3\n"
 
 #: blueprints/ots_api/api.py:166
@@ -30,39 +32,41 @@ msgstr ""
 
 #: blueprints/ots_api/api.py:218
 msgid "Please specify a callsign"
-msgstr ""
+msgstr "Por favor, especifique um indicativo de chamada"
 
 #: blueprints/ots_api/api.py:437
 msgid "This is a test"
-msgstr ""
+msgstr "Isto é um teste"
 
 #: blueprints/ots_api/casevac_api.py:140
 #, python-format
 msgid "Unknown UID: %(uid)s"
-msgstr ""
+msgstr "UID desconhecido: %(uid)s"
 
 #: blueprints/ots_api/data_package_api.py:36
 msgid ""
 "Server connection data packages can't be installed on enrollment or "
 "connection"
 msgstr ""
+"Não é possível instalar pacotes de dados de conexão com o servidor durante o "
+"registro ou a conexão"
 
 #: blueprints/ots_api/data_package_api.py:62
 msgid "Invalid/unknown hash"
-msgstr ""
+msgstr "Hash inválido/desconhecido"
 
 #: blueprints/ots_api/data_package_api.py:103
 msgid "Please provide a data package hash"
-msgstr ""
+msgstr "Por favor, forneça o hash do pacote de dados"
 
 #: blueprints/ots_api/data_package_api.py:113
 #, python-format
 msgid "Data package with hash '%(hash)s' not found"
-msgstr ""
+msgstr "Pacote de dados com hash '%(hash)s' não encontrado"
 
 #: blueprints/ots_api/device_profile_api.py:55
 msgid "Please specify the preference_key"
-msgstr ""
+msgstr "Por favor, especifique a chave de preferência"
 
 #: blueprints/ots_api/device_profile_api.py:61
 #, python-format
@@ -302,4 +306,3 @@ msgstr ""
 #: blueprints/ots_api/video_api.py:76
 msgid "Recording not found"
 msgstr ""
-
