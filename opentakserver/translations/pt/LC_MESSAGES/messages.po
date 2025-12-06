@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2025-11-29 23:25+0000\n"
-"PO-Revision-Date: 2025-12-06 02:38+0000\n"
+"PO-Revision-Date: 2025-12-07 04:43+0000\n"
 "Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
 "Language-Team: Portuguese <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/pt/>\n"
@@ -265,29 +265,30 @@ msgstr "O LDAP está habilitado. Utilize seu servidor LDAP para atribuir funçõ
 
 #: blueprints/ots_api/user_api.py:166
 msgid "Please specify a username and roles"
-msgstr ""
+msgstr "Por favor, especifique um nome de usuário e funções"
 
 #: blueprints/ots_api/user_api.py:211
 #, python-format
 msgid "EUD %(eud_uid)s not found"
-msgstr ""
+msgstr "EUD %(eud_uid)s não encontrado"
 
 #: blueprints/ots_api/user_api.py:213
 #, python-format
 msgid "%(uid)s is already assigned to another user"
-msgstr ""
+msgstr "%(uid)s já está atribuído a outro usuário"
 
 #: blueprints/ots_api/user_api.py:226 blueprints/ots_api/user_api.py:238
 msgid "LDAP is enabled, please use your LDAP server to manage users"
 msgstr ""
+"O LDAP está habilitado. Utilize seu servidor LDAP para gerenciar usuários"
 
 #: blueprints/ots_api/user_api.py:259
 msgid "LDAP is enabled, please use your LDAP server to manage groups"
-msgstr ""
+msgstr "O LDAP está habilitado; utilize seu servidor LDAP para gerenciar grupos"
 
 #: blueprints/ots_api/user_api.py:263
 msgid "Please provide a username"
-msgstr ""
+msgstr "Por favor, forneça um nome de usuário"
 
 #: blueprints/ots_api/user_api.py:269
 #, python-format
@@ -297,6 +298,7 @@ msgstr ""
 #: blueprints/ots_api/user_api.py:300
 msgid "Please provide a list of groups, a username, and a direction"
 msgstr ""
+"Por favor, forneça uma lista de grupos, um nome de usuário e uma direção"
 
 #: blueprints/ots_api/user_api.py:307
 #, python-format
