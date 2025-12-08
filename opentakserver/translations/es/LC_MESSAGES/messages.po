@@ -8,8 +8,8 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2025-11-29 23:25+0000\n"
-"PO-Revision-Date: 2025-12-05 21:32+0000\n"
-"Last-Translator: Brian <opentakserver@gmail.com>\n"
+"PO-Revision-Date: 2025-12-09 01:11+0000\n"
+"Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
 "Language-Team: Spanish <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/es/>\n"
 "Language: es\n"
@@ -23,12 +23,12 @@ msgstr ""
 #: blueprints/ots_api/api.py:166
 #, python-format
 msgid "Invalid username: %(username)s"
-msgstr ""
+msgstr "Nombre de usuario no válido: %(username)s"
 
 #: blueprints/ots_api/api.py:193
 #, python-format
 msgid "Certificate already exists for %(username)s"
-msgstr ""
+msgstr "El certificado ya existe para %(username)s"
 
 #: blueprints/ots_api/api.py:218
 msgid "Please specify a callsign"
@@ -57,252 +57,257 @@ msgstr "Hash no válido o desconocido"
 
 #: blueprints/ots_api/data_package_api.py:103
 msgid "Please provide a data package hash"
-msgstr ""
+msgstr "Proporcione un hash del paquete de datos"
 
 #: blueprints/ots_api/data_package_api.py:113
 #, python-format
 msgid "Data package with hash '%(hash)s' not found"
-msgstr ""
+msgstr "No se encontró el paquete de datos con hash '%(hash)s'"
 
 #: blueprints/ots_api/device_profile_api.py:55
 msgid "Please specify the preference_key"
-msgstr ""
+msgstr "Por favor especifique la clave de preferencia"
 
 #: blueprints/ots_api/device_profile_api.py:61
 #, python-format
 msgid "Unknown preference_key: %(preference_key)s"
-msgstr ""
+msgstr "preference_key desconocida: %(preference_key)s"
 
 #: blueprints/ots_api/group_api.py:36 blueprints/ots_api/group_api.py:106
 #: blueprints/ots_api/group_api.py:132
 msgid "LDAP is enabled. Please view and edit groups on your LDAP server"
-msgstr ""
+msgstr "LDAP está habilitado. Visualice y edite grupos en su servidor LDAP"
 
 #: blueprints/ots_api/group_api.py:139
 msgid "Please provide the username, group name, and direction"
-msgstr ""
+msgstr "Proporcione el nombre de usuario, el nombre del grupo y la dirección"
 
 #: blueprints/ots_api/group_api.py:146
 #, python-format
 msgid "Invalid direction: %(direction)s"
-msgstr ""
+msgstr "Dirección no válida: %(direction)s"
 
 #: blueprints/ots_api/group_api.py:150
 #, python-format
 msgid "User %s(username)s not found"
-msgstr ""
+msgstr "Usuario %s(nombre de usuario) no encontrado"
 
 #: blueprints/ots_api/group_api.py:154
 #, python-format
 msgid "Group %(group_name)s not found"
-msgstr ""
+msgstr "Grupo %(group_name)s no encontrado"
 
 #: blueprints/ots_api/group_api.py:177
 #, python-format
 msgid "Failed to remove %(username)s from %(group_name)s: %(e)s"
-msgstr ""
+msgstr "No se pudo eliminar %(username)s de %(group_name)s: %(e)s"
 
 #: blueprints/ots_api/group_api.py:189
 msgid "LDAP is enabled, please use your LDAP server to add groups"
-msgstr ""
+msgstr "LDAP está habilitado, utilice su servidor LDAP para agregar grupos"
 
 #: blueprints/ots_api/group_api.py:192
 msgid "Missing name"
-msgstr ""
+msgstr "Nombre faltante"
 
 #: blueprints/ots_api/group_api.py:208
 #, python-format
 msgid "%(name)s group already exists"
-msgstr ""
+msgstr "El grupo %(name)s ya existe"
 
 #: blueprints/ots_api/group_api.py:213
 #, python-format
 msgid "Failed to add %(name)s group: %(e)s"
-msgstr ""
+msgstr "No se pudo agregar el grupo %(name)s: %(e)s"
 
 #: blueprints/ots_api/group_api.py:232 blueprints/ots_api/user_api.py:293
 msgid "LDAP is enabled, please use your LDAP server to add users to groups"
 msgstr ""
+"LDAP está habilitado, utilice su servidor LDAP para agregar usuarios a grupos"
 
 #: blueprints/ots_api/group_api.py:239
 msgid "Please provide a list of users, group name, and direction"
-msgstr ""
+msgstr "Proporcione una lista de usuarios, nombre del grupo y dirección"
 
 #: blueprints/ots_api/group_api.py:242 blueprints/ots_api/user_api.py:303
 msgid "Direction must be IN or OUT"
-msgstr ""
+msgstr "La dirección debe ser IN o OUT"
 
 #: blueprints/ots_api/group_api.py:247 blueprints/ots_api/user_api.py:123
 #: blueprints/ots_api/user_api.py:145 blueprints/ots_api/user_api.py:180
 #: blueprints/ots_api/user_api.py:206
 #, python-format
 msgid "User %(username)s does not exist"
-msgstr ""
+msgstr "El usuario %(username)s no existe"
 
 #: blueprints/ots_api/group_api.py:251
 #, python-format
 msgid "Group %(group_name)s does not exist"
-msgstr ""
+msgstr "El grupo %(group_name)s no existe"
 
 #: blueprints/ots_api/group_api.py:272
 msgid "LDAP is enabled, please use your LDAP server to delete groups"
-msgstr ""
+msgstr "LDAP está habilitado, utilice su servidor LDAP para eliminar grupos"
 
 #: blueprints/ots_api/group_api.py:275
 msgid "Missing group name"
-msgstr ""
+msgstr "Nombre del grupo faltante"
 
 #: blueprints/ots_api/group_api.py:279
 msgid "The __ANON__ group cannot be deleted"
-msgstr ""
+msgstr "El grupo __ANON__ no se puede eliminar"
 
 #: blueprints/ots_api/group_api.py:285
 #, python-format
 msgid "No such group: %(group_name)s"
-msgstr ""
+msgstr "No existe tal grupo: %(group_name)s"
 
 #: blueprints/ots_api/group_api.py:296
 #, python-format
 msgid "Failed to delete %(group_name)s: %(e)s"
-msgstr ""
+msgstr "No se pudo eliminar %(group_name)s: %(e)s"
 
 #: blueprints/ots_api/user_api.py:24
 msgid "LDAP is enabled, please use your LDAP server to create users"
-msgstr ""
+msgstr "LDAP está habilitado, utilice su servidor LDAP para crear usuarios"
 
 #: blueprints/ots_api/user_api.py:35
 msgid "Passwords do not match"
-msgstr ""
+msgstr "Las contraseñas no coinciden"
 
 #: blueprints/ots_api/user_api.py:45 blueprints/ots_api/user_api.py:173
 #, python-format
 msgid "Role %(role)s does not exist"
-msgstr ""
+msgstr "El rol %(role)s no existe"
 
 #: blueprints/ots_api/user_api.py:48
 msgid "Only administrators can add users to the administrators role"
 msgstr ""
+"Sólo los administradores pueden agregar usuarios al rol de administradores"
 
 #: blueprints/ots_api/user_api.py:60
 #, python-format
 msgid "User %(username)s already exists"
-msgstr ""
+msgstr "El usuario %(username)s ya existe"
 
 #: blueprints/ots_api/user_api.py:67
 msgid "LDAP is enabled, please use your LDAP server to delete users"
-msgstr ""
+msgstr "LDAP está habilitado, utilice su servidor LDAP para eliminar usuarios"
 
 #: blueprints/ots_api/user_api.py:72
 msgid "You can't delete your own account"
-msgstr ""
+msgstr "No puedes eliminar tu propia cuenta"
 
 #: blueprints/ots_api/user_api.py:81
 #, python-format
 msgid "Failed to delete user: %(e)s"
-msgstr ""
+msgstr "No se pudo eliminar el usuario: %(e)s"
 
 #: blueprints/ots_api/user_api.py:91
 msgid "LDAP is enabled, please use your LDAP server to reset passwords"
 msgstr ""
+"LDAP está habilitado, utilice su servidor LDAP para restablecer las "
+"contraseñas"
 
 #: blueprints/ots_api/user_api.py:97
 msgid "Please specify a username and new password"
-msgstr ""
+msgstr "Por favor, especifique un nombre de usuario y una nueva contraseña"
 
 #: blueprints/ots_api/user_api.py:100
 #, python-format
 msgid "Your password must be at least %(characters)s characters long"
-msgstr ""
+msgstr "Su contraseña debe tener al menos %(characters)s caracteres"
 
 #: blueprints/ots_api/user_api.py:108
 #, python-format
 msgid "Could not find user %(username)s"
-msgstr ""
+msgstr "No se pudo encontrar el usuario %(username)s"
 
 #: blueprints/ots_api/user_api.py:115
 msgid "LDAP is enabled, please use your LDAP server to deactivate users"
-msgstr ""
+msgstr "LDAP está habilitado, utilice su servidor LDAP para desactivar usuarios"
 
 #: blueprints/ots_api/user_api.py:119
 msgid "Please specify the username to deactivate"
-msgstr ""
+msgstr "Por favor especifique el nombre de usuario a desactivar"
 
 #: blueprints/ots_api/user_api.py:130
 #, python-format
 msgid "%(username)s is already deactivated"
-msgstr ""
+msgstr "%(username)s ya está desactivado"
 
 #: blueprints/ots_api/user_api.py:137
 msgid "LDAP is enabled, please use your LDAP server to activate users"
-msgstr ""
+msgstr "LDAP está habilitado, utilice su servidor LDAP para activar usuarios"
 
 #: blueprints/ots_api/user_api.py:141
 msgid "Please specify the username to activate"
-msgstr ""
+msgstr "Por favor especifique el nombre de usuario para activar"
 
 #: blueprints/ots_api/user_api.py:152
 #, python-format
 msgid "%(username)s is already activated"
-msgstr ""
+msgstr "%(username)s ya está activado"
 
 #: blueprints/ots_api/user_api.py:159
 msgid "LDAP is enabled, please use your LDAP server to assign roles"
-msgstr ""
+msgstr "LDAP está habilitado, utilice su servidor LDAP para asignar roles"
 
 #: blueprints/ots_api/user_api.py:166
 msgid "Please specify a username and roles"
-msgstr ""
+msgstr "Por favor especifique un nombre de usuario y roles"
 
 #: blueprints/ots_api/user_api.py:211
 #, python-format
 msgid "EUD %(eud_uid)s not found"
-msgstr ""
+msgstr "EUD %(eud_uid)s no encontrado"
 
 #: blueprints/ots_api/user_api.py:213
 #, python-format
 msgid "%(uid)s is already assigned to another user"
-msgstr ""
+msgstr "%(uid)s ya está asignado a otro usuario"
 
 #: blueprints/ots_api/user_api.py:226 blueprints/ots_api/user_api.py:238
 msgid "LDAP is enabled, please use your LDAP server to manage users"
 msgstr ""
+"LDAP está habilitado, utilice su servidor LDAP para administrar usuarios"
 
 #: blueprints/ots_api/user_api.py:259
 msgid "LDAP is enabled, please use your LDAP server to manage groups"
-msgstr ""
+msgstr "LDAP está habilitado, utilice su servidor LDAP para administrar grupos"
 
 #: blueprints/ots_api/user_api.py:263
 msgid "Please provide a username"
-msgstr ""
+msgstr "Por favor proporcione un nombre de usuario"
 
 #: blueprints/ots_api/user_api.py:269
 #, python-format
 msgid "User %(username)s not found"
-msgstr ""
+msgstr "Usuario %(username)s no encontrado"
 
 #: blueprints/ots_api/user_api.py:300
 msgid "Please provide a list of groups, a username, and a direction"
-msgstr ""
+msgstr "Proporcione una lista de grupos, un nombre de usuario y una dirección"
 
 #: blueprints/ots_api/user_api.py:307
 #, python-format
 msgid "User %(username)s doesn't exist"
-msgstr ""
+msgstr "El usuario %(username)s no existe"
 
 #: blueprints/ots_api/user_api.py:313
 #, python-format
 msgid "Group %(group_name)s doesn't exist"
-msgstr ""
+msgstr "El grupo %(group_name)s no existe"
 
 #: blueprints/ots_api/video_api.py:36
 msgid "Please specify a valid path"
-msgstr ""
+msgstr "Por favor especifique una ruta válida"
 
 #: blueprints/ots_api/video_api.py:58
 #, python-format
 msgid "Invalid recording_id: %(recording_id)s"
-msgstr ""
+msgstr "recording_id no válido: %(recording_id)s"
 
 #: blueprints/ots_api/video_api.py:76
 msgid "Recording not found"
-msgstr ""
+msgstr "Grabación no encontrada"
