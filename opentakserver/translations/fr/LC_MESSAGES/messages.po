@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2025-11-29 23:25+0000\n"
-"PO-Revision-Date: 2025-12-09 01:42+0000\n"
+"PO-Revision-Date: 2025-12-09 04:14+0000\n"
 "Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
 "Language-Team: French <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/fr/>\n"
@@ -48,14 +48,16 @@ msgid ""
 "Server connection data packages can't be installed on enrollment or "
 "connection"
 msgstr ""
+"Les packages de données de connexion au serveur ne peuvent pas être "
+"installés lors de l'inscription ou de la connexion"
 
 #: blueprints/ots_api/data_package_api.py:62
 msgid "Invalid/unknown hash"
-msgstr ""
+msgstr "Hachage invalide/inconnu"
 
 #: blueprints/ots_api/data_package_api.py:103
 msgid "Please provide a data package hash"
-msgstr ""
+msgstr "Veuillez fournir le hachage du paquet de données"
 
 #: blueprints/ots_api/data_package_api.py:113
 #, python-format
