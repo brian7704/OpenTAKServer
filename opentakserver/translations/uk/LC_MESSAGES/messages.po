@@ -8,8 +8,8 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2025-11-29 23:25+0000\n"
-"PO-Revision-Date: 2025-12-05 21:32+0000\n"
-"Last-Translator: Brian <opentakserver@gmail.com>\n"
+"PO-Revision-Date: 2025-12-09 04:14+0000\n"
+"Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
 "Language-Team: Ukrainian <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/uk/>\n"
 "Language: uk\n"
@@ -92,7 +92,7 @@ msgstr "Недійсний напрямок: %(direction)s"
 #: blueprints/ots_api/group_api.py:150
 #, python-format
 msgid "User %s(username)s not found"
-msgstr ""
+msgstr "Користувач %(username)s не знайдено"
 
 #: blueprints/ots_api/group_api.py:154
 #, python-format
