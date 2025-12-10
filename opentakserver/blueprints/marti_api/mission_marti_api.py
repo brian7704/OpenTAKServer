@@ -982,6 +982,7 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
     rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
     rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
     channel = rabbit_connection.channel()
+    channel.queue_declare(queue=uid)
     channel.queue_bind(queue=uid, exchange="missions", routing_key=f"missions.{mission_name}")
     channel.close()
     rabbit_connection.close()
