@@ -133,11 +133,11 @@ class ClientController(Thread):
     def on_channel_close(self, channel: Channel, error):
         self.logger.error(f"RabbitMQ channel closed for {self.callsign}, shut it down")
         if self.rabbit_connection and not self.rabbit_connection.is_closing and not self.rabbit_connection.is_closed:
-
             self.rabbit_connection.close()
+
+        self.shutdown = True
         self.sock.shutdown(socket.SHUT_RDWR)
         self.sock.close()
-        self.shutdown = True
 
     def on_close(self, connection, error):
         try:
@@ -268,7 +268,9 @@ class ClientController(Thread):
 
                 data = self.sock.recv(65536)
                 if not data:
+                    # Occurs when an EUD disconnects
                     self.logger.warning("No Data Closing connection to {}".format(self.address))
+                    self.shutdown = True
                     self.close_connection()
                     break
 
@@ -322,13 +324,14 @@ class ClientController(Thread):
                 self.rabbit_connection.ioloop.stop()
                 self.rabbit_connection.close()
 
-        self.sock.shutdown(socket.SHUT_RDWR)
-        self.sock.close()
-        self.shutdown = True
+        if not self.shutdown:
+            self.shutdown = True
+            self.sock.shutdown(socket.SHUT_RDWR)
+            self.sock.close()
 
     def stop(self):
-        self.shutdown = True
         self.close_connection()
+        self.shutdown = True
 
     def pong(self, event):
         if event.attrs.get('type') == 't-x-c-t':
