@@ -85,7 +85,7 @@ msgstr ""
 
 #: blueprints/ots_api/group_api.py:150
 #, python-format
-msgid "User %s(username)s not found"
+msgid "User %(username)s not found"
 msgstr ""
 
 #: blueprints/ots_api/group_api.py:154

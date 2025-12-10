@@ -89,8 +89,8 @@ msgstr "Dirección no válida: %(direction)s"
 
 #: blueprints/ots_api/group_api.py:150
 #, python-format
-msgid "User %s(username)s not found"
-msgstr "Usuario %s(nombre de usuario) no encontrado"
+msgid "User %(username)s not found"
+msgstr "Usuario %(username)s no encontrado"
 
 #: blueprints/ots_api/group_api.py:154
 #, python-format

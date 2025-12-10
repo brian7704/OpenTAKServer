@@ -91,8 +91,8 @@ msgstr "Ungültige Richtung: %(direction)s"
 
 #: blueprints/ots_api/group_api.py:150
 #, python-format
-msgid "User %s(username)s not found"
-msgstr "Benutzer %s(Benutzername) nicht gefunden"
+msgid "User %(username)s not found"
+msgstr "Benutzer %(username)s nicht gefunden"
 
 #: blueprints/ots_api/group_api.py:154
 #, python-format

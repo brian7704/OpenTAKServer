@@ -91,7 +91,7 @@ msgstr "Недійсний напрямок: %(direction)s"
 
 #: blueprints/ots_api/group_api.py:150
 #, python-format
-msgid "User %s(username)s not found"
+msgid "User %(username)s not found"
 msgstr "Користувач %(username)s не знайдено"
 
 #: blueprints/ots_api/group_api.py:154
