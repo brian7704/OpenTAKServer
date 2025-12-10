@@ -1,6 +1,7 @@
 from gevent import monkey
 monkey.patch_all()
 
+import pytz
 from opentakserver.models.role import Role
 from opentakserver.models.Group import Group, GroupTypeEnum
 
@@ -61,13 +62,12 @@ except ModuleNotFoundError:
 def get_locale():
     if 'language' in session:
         return session['language']
-    return request.accept_languages.best_match(current_app.config.get("OTS_LANGUAGES"))
+    return request.accept_languages.best_match(current_app.config.get("OTS_LANGUAGES").keys())
 
 
 def get_timezone():
-    user = getattr(g, 'user', None)
-    if user is not None:
-        return user.timezone
+    # Always return UTC and let the frontend handle converting timezones
+    return pytz.timezone("UTC")
 
 
 def init_extensions(app):
@@ -157,6 +157,7 @@ def init_extensions(app):
     mail.init_app(app)
 
     babel.init_app(app, locale_selector=get_locale, timezone_selector=get_timezone)
+
 
 def setup_logging(app):
     level = logging.INFO

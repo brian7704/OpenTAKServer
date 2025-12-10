@@ -11,7 +11,14 @@ class DefaultConfig:
     SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_hex())
     DEBUG = os.getenv("DEBUG", "False").lower() in ["true", "1", "yes"]
 
-    OTS_LANGUAGES = ['de', 'fr', 'pt', 'es', 'da', 'uk', 'en']
+    OTS_LANGUAGES = {'US': {'name': 'English', 'language_code': 'en'},
+                     'DE': {'name': 'Deutsch', 'language_code': 'de'},
+                     'FR': {'name': 'Français', 'language_code': 'fr'},
+                     'PT': {'name': 'Português', 'language_code': 'pt'},
+                     'ES': {'name': 'Español', 'language_code': 'es'},
+                     'DK': {'name': 'dansk', 'language_code': 'da'},
+                     'UA': {'name': 'українська', 'language_code': 'uk'},
+                     }
 
     OTS_DATA_FOLDER = os.getenv("OTS_DATA_FOLDER", os.path.join(Path.home(), "ots"))
     OTS_LISTENER_ADDRESS = os.getenv("OTS_LISTENER_ADDRESS", "127.0.0.1")
@@ -56,7 +63,8 @@ class DefaultConfig:
     OTS_CA_CITY = os.getenv("OTS_CA_CITY", "YY")
     OTS_CA_ORGANIZATION = os.getenv("OTS_CA_ORGANIZATION", "ZZ")
     OTS_CA_ORGANIZATIONAL_UNIT = os.getenv("OTS_CA_ORGANIZATIONAL_UNIT", "OpenTAKServer")
-    OTS_CA_SUBJECT = os.getenv("OTS_CA_SUBJECT", f"/C={OTS_CA_COUNTRY}/ST={OTS_CA_STATE}/L={OTS_CA_CITY}/O={OTS_CA_ORGANIZATION}/OU={OTS_CA_ORGANIZATIONAL_UNIT}")
+    OTS_CA_SUBJECT = os.getenv("OTS_CA_SUBJECT",
+                               f"/C={OTS_CA_COUNTRY}/ST={OTS_CA_STATE}/L={OTS_CA_CITY}/O={OTS_CA_ORGANIZATION}/OU={OTS_CA_ORGANIZATIONAL_UNIT}")
 
     OTS_COT_PARSER_PROCESSES = int(os.getenv("OTS_COT_PARSER_PROCESSES", 1))
 
@@ -145,13 +153,15 @@ class DefaultConfig:
     OTS_DELETE_OLD_DATA_WEEKS = int(os.getenv("OTS_DELETE_OLD_DATA_WEEKS", 1))
 
     # flask-sqlalchemy
-    SQLALCHEMY_DATABASE_URI = os.getenv("SQLALCHEMY_DATABASE_URI", f"postgresql+psycopg://ots:POSTGRESQL_PASSWORD@127.0.0.1/ots")
+    SQLALCHEMY_DATABASE_URI = os.getenv("SQLALCHEMY_DATABASE_URI",
+                                        f"postgresql+psycopg://ots:POSTGRESQL_PASSWORD@127.0.0.1/ots")
     SQLALCHEMY_ECHO = os.getenv("SQLALCHEMY_ECHO", "False").lower() in ["true", "1", "yes"]
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = False
 
-    ALLOWED_EXTENSIONS = os.getenv("ALLOWED_EXTENSIONS", "zip,xml,txt,pdf,png,jpg,jpeg,gif,kml,kmz,p12,tif,sqlite").split(",")
+    ALLOWED_EXTENSIONS = os.getenv("ALLOWED_EXTENSIONS",
+                                   "zip,xml,txt,pdf,png,jpg,jpeg,gif,kml,kmz,p12,tif,sqlite").split(",")
 
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", os.path.join(OTS_DATA_FOLDER, "uploads"))
     if not os.path.exists(UPLOAD_FOLDER):
@@ -190,7 +200,8 @@ class DefaultConfig:
     SECURITY_REDIRECT_BEHAVIOR = 'spa'
     SECURITY_RESET_VIEW = '/reset'
     SECURITY_USERNAME_MIN_LENGTH = 1
-    SECURITY_MSG_USERNAME_DISALLOWED_CHARACTERS = ("Username can contain only letters, numbers, underscores, and periods", "error")
+    SECURITY_MSG_USERNAME_DISALLOWED_CHARACTERS = (
+    "Username can contain only letters, numbers, underscores, and periods", "error")
 
     SCHEDULER_API_ENABLED = False
     JOBS = [
