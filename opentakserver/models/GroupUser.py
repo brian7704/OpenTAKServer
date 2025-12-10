@@ -33,3 +33,11 @@ class GroupUser(db.Model):
             "bitpos": self.group.bitpos,
             "active": self.enabled
         }
+
+    def to_json(self):
+        return {
+            "username": self.user.username,
+            "group_name": self.group.name,
+            "direction": self.direction,
+            "active": self.enabled
+        }
