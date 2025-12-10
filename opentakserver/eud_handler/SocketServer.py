@@ -55,8 +55,8 @@ class SocketServer:
                     self.socket.close()
                     break
                 else:
-                    self.logger.warning(str(e))
-                    self.logger.warning(traceback.format_exc())
+                    self.logger.debug(str(e))
+                    self.logger.debug(traceback.format_exc())
             except BaseException as e:
                 self.logger.warning(str(e))
                 continue
