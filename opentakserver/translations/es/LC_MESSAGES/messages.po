@@ -280,11 +280,6 @@ msgstr "LDAP está habilitado, utilice su servidor LDAP para administrar grupos"
 msgid "Please provide a username"
 msgstr "Por favor proporcione un nombre de usuario"
 
-#: blueprints/ots_api/user_api.py:269
-#, python-format
-msgid "User %(username)s not found"
-msgstr "Usuario %(username)s no encontrado"
-
 #: blueprints/ots_api/user_api.py:300
 msgid "Please provide a list of groups, a username, and a direction"
 msgstr "Proporcione una lista de grupos, un nombre de usuario y una dirección"

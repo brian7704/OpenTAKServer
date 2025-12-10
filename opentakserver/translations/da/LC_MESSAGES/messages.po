@@ -271,11 +271,6 @@ msgstr ""
 msgid "Please provide a username"
 msgstr ""
 
-#: blueprints/ots_api/user_api.py:269
-#, python-format
-msgid "User %(username)s not found"
-msgstr ""
-
 #: blueprints/ots_api/user_api.py:300
 msgid "Please provide a list of groups, a username, and a direction"
 msgstr ""

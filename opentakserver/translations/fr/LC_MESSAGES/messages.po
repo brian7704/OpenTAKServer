@@ -87,11 +87,6 @@ msgstr ""
 msgid "Invalid direction: %(direction)s"
 msgstr ""
 
-#: blueprints/ots_api/group_api.py:150
-#, python-format
-msgid "User %(username)s not found"
-msgstr ""
-
 #: blueprints/ots_api/group_api.py:154
 #, python-format
 msgid "Group %(group_name)s not found"
