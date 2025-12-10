@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2025-11-29 23:25+0000\n"
-"PO-Revision-Date: 2025-12-09 04:14+0000\n"
+"PO-Revision-Date: 2025-12-10 17:28+0000\n"
 "Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
 "Language-Team: Ukrainian <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/uk/>\n"
@@ -256,12 +256,11 @@ msgstr ""
 "користувачів"
 
 #: blueprints/ots_api/user_api.py:141
-#, fuzzy
 msgid "Please specify the username to activate"
 msgstr "Будь ласка, вкажіть ім'я користувача для активації"
 
 #: blueprints/ots_api/user_api.py:152
-#, fuzzy, python-format
+#, python-format
 msgid "%(username)s is already activated"
 msgstr "%(username)s вже активовано"
 
