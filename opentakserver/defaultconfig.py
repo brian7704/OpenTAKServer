@@ -18,6 +18,8 @@ class DefaultConfig:
                      'ES': {'name': 'Español', 'language_code': 'es'},
                      'DK': {'name': 'dansk', 'language_code': 'da'},
                      'UA': {'name': 'українська', 'language_code': 'uk'},
+                     'KR': {'name': '한국어', 'language_code': 'ko'},
+                     'PL': {'name': 'Polski', 'language_code': 'pl'},
                      }
 
     OTS_DATA_FOLDER = os.getenv("OTS_DATA_FOLDER", os.path.join(Path.home(), "ots"))
