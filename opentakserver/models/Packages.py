@@ -44,7 +44,6 @@ class Packages(db.Model):
     publish_time: Mapped[datetime] = mapped_column(DateTime)
     atak_version: Mapped[str] = mapped_column(String(255), nullable=True)
 
-
     def from_wtform(self, form: PackageForm):
         self.platform = form.platform.data
         self.plugin_type = form.plugin_type.data

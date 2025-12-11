@@ -162,9 +162,14 @@ def add_package():
     package = Packages()
     package.from_wtform(form)
 
-    existing_package = db.session.execute(db.session.query(Packages).filter_by(version=package.version, package_name=package.package_name)).first()
+    existing_package = db.session.execute(db.session.query(Packages).filter_by(package_name=package.package_name, atak_version=package.atak_version)).scalar()
     if existing_package:
-        return jsonify({'success': False, 'errors': [f"{package.name} version {package.version} is already on the server"]}), 400
+        logger.warning(f"{package.name} version {package.version} for ATAK {package.atak_version} is already on the server and will be removed")
+
+        if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", existing_package.file_name)):
+            os.remove(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", existing_package.file_name))
+
+        db.session.delete(existing_package)
 
     try:
         db.session.add(package)

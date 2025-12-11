@@ -139,6 +139,7 @@ def get_new_tak_gov_token():
         logger.debug(traceback.format_exc())
         return jsonify({"success": False, "error": f"Failed to get new tak.gov token {e}"}), 500
 
+
 @tak_gov_link_blueprint.route('/api/takgov/plugins')
 @roles_required('administrator')
 def get_plugins_list():
