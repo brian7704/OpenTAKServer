@@ -94,6 +94,8 @@ def get_initial_tak_gov_token():
 
         payload = {"grant_type": "urn:ietf:params:oauth:grant-type:device_code", "device_code": device_code, "client_id": "tak-gov-eud"}
         r = client.post("https://auth.tak.gov/auth/realms/TPC/protocol/openid-connect/token", data=payload, headers=HEADERS)
+
+        logger.info(r.text)
         response_data = r.json()
 
         access_token = response_data["access_token"]
