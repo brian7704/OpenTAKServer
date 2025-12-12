@@ -75,6 +75,7 @@ def delete_user():
 
     try:
         user = app.security.datastore.find_user(username=username)
+        db.session.execute(sqlalchemy.delete(GroupUser).where(GroupUser.user_id == user.id))
         app.security.datastore.delete_user(user)
     except BaseException as e:
         logger.error(traceback.format_exc())
