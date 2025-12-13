@@ -385,20 +385,21 @@ class ClientController(Thread):
                     self.rabbit_channel.queue_declare(queue=self.uid)
 
                     with self.app.app_context():
-                        group_memberships = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id, direction=Group.OUT)).all()
-                        if not group_memberships or not self.is_ssl:
-                            self.logger.debug(f"{self.callsign} doesn't belong to any groups, adding them to the __ANON__ group")
-                            self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid, routing_key="__ANON__.OUT")
-                            if {"exchange": "groups", "routing_key": "__ANON__.OUT", "queue": self.uid} not in self.bound_queues:
-                                self.bound_queues.append({"exchange": "groups", "routing_key": "__ANON__.OUT", "queue": self.uid})
+                        if self.is_ssl:
+                            group_memberships = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id, direction=Group.OUT)).all()
+                            if not group_memberships:
+                                self.logger.debug(f"{self.callsign} doesn't belong to any groups, adding them to the __ANON__ group")
+                                self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid, routing_key="__ANON__.OUT")
+                                if {"exchange": "groups", "routing_key": "__ANON__.OUT", "queue": self.uid} not in self.bound_queues:
+                                    self.bound_queues.append({"exchange": "groups", "routing_key": "__ANON__.OUT", "queue": self.uid})
 
-                        elif group_memberships and self.is_ssl:
-                            for membership in group_memberships:
-                                membership = membership[0]
-                                self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid, routing_key=f"{membership.group.name}.OUT")
+                            elif group_memberships and self.is_ssl:
+                                for membership in group_memberships:
+                                    membership = membership[0]
+                                    self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid, routing_key=f"{membership.group.name}.OUT")
 
-                                if {"exchange": "groups", "routing_key": f"{membership.group.name}.OUT", "queue": self.uid} not in self.bound_queues:
-                                    self.bound_queues.append({"exchange": "groups", "routing_key": f"{membership.group.name}.OUT", "queue": self.uid})
+                                    if {"exchange": "groups", "routing_key": f"{membership.group.name}.OUT", "queue": self.uid} not in self.bound_queues:
+                                        self.bound_queues.append({"exchange": "groups", "routing_key": f"{membership.group.name}.OUT", "queue": self.uid})
 
                         self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.uid)
                         if {"exchange": "missions", "routing_key": "missions", "queue": self.uid} not in self.bound_queues:
