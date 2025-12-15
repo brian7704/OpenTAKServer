@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2025-12-10 20:20-0500\n"
-"PO-Revision-Date: 2025-12-14 05:43+0000\n"
+"PO-Revision-Date: 2025-12-16 15:43+0000\n"
 "Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
 "Language-Team: Polish <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/pl/>\n"
@@ -267,6 +267,7 @@ msgstr "Nie można znaleźć misji %(mission_guid)s"
 #, python-format
 msgid "%(username)s and mission %(mission_name)s are not in the same group"
 msgstr ""
+"%(username)s i misja %(mission_name)s nie znajdują się w tej samej grupie"
 
 #: blueprints/marti_api/mission_marti_api.py:913
 #: blueprints/ots_api/mediamtx_api.py:57
@@ -331,107 +332,109 @@ msgstr "Nieprawidłowy certyfikat"
 
 #: blueprints/marti_api/video_marti_api.py:196
 msgid "Video not found"
-msgstr ""
+msgstr "Nie znaleziono filmu"
 
 #: blueprints/marti_api/video_marti_api.py:199
 #: blueprints/ots_api/group_api.py:150 blueprints/ots_api/user_api.py:270
 #, python-format
 msgid "User %(username)s not found"
-msgstr ""
+msgstr "Użytkownik %(username)s nie został znaleziony"
 
 #: blueprints/marti_api/video_marti_api.py:208
 #, python-format
 msgid "Video stream with uid %(uid)s not found"
-msgstr ""
+msgstr "Nie znaleziono strumienia wideo o identyfikatorze UID %(uid)s"
 
 #: blueprints/ots_api/api.py:198
 #, python-format
 msgid "Invalid username: %(username)s"
-msgstr ""
+msgstr "Nieprawidłowa nazwa użytkownika: %(username)s"
 
 #: blueprints/ots_api/api.py:225
 #, python-format
 msgid "Certificate already exists for %(username)s"
-msgstr ""
+msgstr "Certyfikat już istnieje dla %(username)s"
 
 #: blueprints/ots_api/api.py:250
 msgid "Please specify a callsign"
-msgstr ""
+msgstr "Proszę podać znak wywoławczy"
 
 #: blueprints/ots_api/casevac_api.py:141
 #, python-format
 msgid "Unknown UID: %(uid)s"
-msgstr ""
+msgstr "Nieznany UID: %(uid)s"
 
 #: blueprints/ots_api/data_package_api.py:36
 msgid ""
 "Server connection data packages can't be installed on enrollment or "
 "connection"
 msgstr ""
+"Pakietów danych połączenia z serwerem nie można zainstalować podczas "
+"rejestracji lub połączenia"
 
 #: blueprints/ots_api/data_package_api.py:62
 msgid "Invalid/unknown hash"
-msgstr ""
+msgstr "Nieprawidłowy/nieznany hash"
 
 #: blueprints/ots_api/data_package_api.py:103
 msgid "Please provide a data package hash"
-msgstr ""
+msgstr "Proszę podać skrót pakietu danych"
 
 #: blueprints/ots_api/data_package_api.py:113
 #, python-format
 msgid "Data package with hash '%(hash)s' not found"
-msgstr ""
+msgstr "Nie znaleziono pakietu danych z hashem „%(hash)s”"
 
 #: blueprints/ots_api/device_profile_api.py:55
 msgid "Please specify the preference_key"
-msgstr ""
+msgstr "Proszę określić klucz preferencji"
 
 #: blueprints/ots_api/device_profile_api.py:61
 #, python-format
 msgid "Unknown preference_key: %(preference_key)s"
-msgstr ""
+msgstr "Nieznany klucz preferencji: %(preference_key)s"
 
 #: blueprints/ots_api/group_api.py:36 blueprints/ots_api/group_api.py:106
 #: blueprints/ots_api/group_api.py:132
 msgid "LDAP is enabled. Please view and edit groups on your LDAP server"
-msgstr ""
+msgstr "Protokół LDAP jest włączony. Przeglądaj i edytuj grupy na serwerze LDAP"
 
 #: blueprints/ots_api/group_api.py:139
 msgid "Please provide the username, group name, and direction"
-msgstr ""
+msgstr "Proszę podać nazwę użytkownika, nazwę grupy i kierunek"
 
 #: blueprints/ots_api/group_api.py:146
 #, python-format
 msgid "Invalid direction: %(direction)s"
-msgstr ""
+msgstr "Nieprawidłowy kierunek: %(direction)s"
 
 #: blueprints/ots_api/group_api.py:154
 #, python-format
 msgid "Group %(group_name)s not found"
-msgstr ""
+msgstr "Grupa %(group_name)s nie została znaleziona"
 
 #: blueprints/ots_api/group_api.py:177
 #, python-format
 msgid "Failed to remove %(username)s from %(group_name)s: %(e)s"
-msgstr ""
+msgstr "Nie udało się usunąć %(username)s z %(group_name)s: %(e)s"
 
 #: blueprints/ots_api/group_api.py:189
 msgid "LDAP is enabled, please use your LDAP server to add groups"
-msgstr ""
+msgstr "Protokół LDAP jest włączony. Użyj serwera LDAP, aby dodać grupy"
 
 #: blueprints/ots_api/group_api.py:192
 msgid "Missing name"
-msgstr ""
+msgstr "Brak nazwy"
 
 #: blueprints/ots_api/group_api.py:208
 #, python-format
 msgid "%(name)s group already exists"
-msgstr ""
+msgstr "Grupa %(name)s już istnieje"
 
 #: blueprints/ots_api/group_api.py:213
 #, python-format
 msgid "Failed to add %(name)s group: %(e)s"
-msgstr ""
+msgstr "Nie udało się dodać grupy %(name)s: %(e)s"
 
 #: blueprints/ots_api/group_api.py:232 blueprints/ots_api/user_api.py:294
 msgid "LDAP is enabled, please use your LDAP server to add users to groups"
@@ -726,4 +729,3 @@ msgstr ""
 
 #~ msgid "{username} and mission %(mission_name)s are not in the same group"
 #~ msgstr ""
-
