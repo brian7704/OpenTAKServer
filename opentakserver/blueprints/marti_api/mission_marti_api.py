@@ -900,7 +900,7 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
     mission_groups = db.session.execute(query).scalars()
 
     if not mission_groups:
-        return jsonify({"success": False, "error": gettext(u"{username} and mission %(mission_name)s are not in the same group", mission_name=mission_name)}), 403
+        return jsonify({"success": False, "error": gettext(u"%(username)s and mission %(mission_name)s are not in the same group", mission_name=mission_name)}), 403
 
     response = {
         "version": "3", "type": "com.bbn.marti.sync.model.MissionSubscription", "data": {}, "nodeId": app.config.get("OTS_NODE_ID")
