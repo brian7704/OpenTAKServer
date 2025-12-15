@@ -7,150 +7,153 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-12-15 09:57-0500\n"
-"PO-Revision-Date: 2025-12-10 20:20-0500\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"POT-Creation-Date: 2025-12-10 20:20-0500\n"
+"PO-Revision-Date: 2025-12-14 05:43+0000\n"
+"Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
+"Language-Team: Polish <https://weblate.opentakserver.io/projects/"
+"opentakserver/opentakserver/pl/>\n"
 "Language: pl\n"
-"Language-Team: pl <LL@li.org>\n"
-"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && "
-"(n%100<10 || n%100>=20) ? 1 : 2);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
+"|| n%100>=20) ? 1 : 2;\n"
+"X-Generator: Weblate 5.13.3\n"
 "Generated-By: Babel 2.15.0\n"
 
 #: blueprints/marti_api/cot_marti_api.py:31
 #, python-format
 msgid "No CoT found for UID %(uid)s"
-msgstr ""
+msgstr "Nie znaleziono CoT dla UID %(uid)s"
 
 #: blueprints/marti_api/cot_marti_api.py:50
 #, python-format
 msgid "Invalid secago value: %(sec_ago)s"
-msgstr ""
+msgstr "Nieprawidłowa wartość secago: %(sec_ago)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:45
 msgid "This data package has already been uploaded"
-msgstr ""
+msgstr "Ten pakiet danych został już przesłany"
 
 #: blueprints/marti_api/data_package_marti_api.py:114
 msgid "A file is required"
-msgstr ""
+msgstr "Wymagany jest plik"
 
 #: blueprints/marti_api/data_package_marti_api.py:127
 #, python-format
 msgid "Invalid file extension: %(extension)s"
-msgstr ""
+msgstr "Nieprawidłowe rozszerzenie pliku: %(extension)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:260
 #, python-format
 msgid "File not found: %(filename)s}"
-msgstr ""
+msgstr "Nie znaleziono pliku: %(filename)s}"
 
 #: blueprints/marti_api/group_marti_api.py:31
 msgid "Groups are only supported on SSL connections"
-msgstr ""
+msgstr "Grupy są obsługiwane tylko w przypadku połączeń SSL"
 
 #: blueprints/marti_api/group_marti_api.py:87
 #: blueprints/marti_api/group_marti_api.py:119
 msgid "Please specify a groupNameFilter"
-msgstr ""
+msgstr "Proszę określić filtr nazw grup"
 
 #: blueprints/marti_api/group_marti_api.py:92
 #: blueprints/marti_api/group_marti_api.py:124
 #, python-format
 msgid "Please specify a groupNameFilter that starts with %(prefix)s"
-msgstr ""
+msgstr "Proszę określić filtr nazwy grupy zaczynający się od %(prefix)s"
 
 #: blueprints/marti_api/group_marti_api.py:95
 #: blueprints/marti_api/group_marti_api.py:127
 msgid "groupNameFilter must end with either _READ or _WRITE"
-msgstr ""
+msgstr "groupNameFilter musi kończyć się znakiem _READ lub _WRITE"
 
 #: blueprints/marti_api/group_marti_api.py:167
 msgid "clientUid required"
-msgstr ""
+msgstr "wymagany identyfikator klienta"
 
 #: blueprints/marti_api/group_marti_api.py:189
 #: blueprints/ots_api/group_api.py:242 blueprints/ots_api/user_api.py:304
 msgid "Direction must be IN or OUT"
-msgstr ""
+msgstr "Kierunek musi być IN lub OUT"
 
 #: blueprints/marti_api/group_marti_api.py:194
 msgid "The active attribute must be true or false"
-msgstr ""
+msgstr "Atrybut aktywny musi być prawdziwy lub fałszywy"
 
 #: blueprints/marti_api/group_marti_api.py:199
 msgid "Group name is required"
-msgstr ""
+msgstr "Nazwa grupy jest wymagana"
 
 #: blueprints/marti_api/group_marti_api.py:223
 #, python-format
 msgid "%(username)s is not in the %(group_name)s group"
-msgstr ""
+msgstr "%(username)s nie należy do grupy %(group_name)s"
 
 #: blueprints/marti_api/group_marti_api.py:234
 #, python-format
 msgid "Failed to update group subscriptions for %(username)s: %(e)s"
 msgstr ""
+"Nie udało się zaktualizować subskrypcji grupowych dla %(username)s: %(e)s"
 
 #: blueprints/marti_api/group_marti_api.py:254
 msgid "Please provide a group name and direction"
-msgstr ""
+msgstr "Proszę podać nazwę grupy i kierunek"
 
 #: blueprints/marti_api/group_marti_api.py:261
 #, python-format
 msgid "No group found: %(group_name)s, %(direction)s"
-msgstr ""
+msgstr "Nie znaleziono grupy: %(group_name)s, %(direction)s"
 
 #: blueprints/marti_api/marti_api.py:92
 #, python-format
 msgid "No such UID: %(uid)s"
-msgstr ""
+msgstr "Brak takiego UID: %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:230
 #: blueprints/marti_api/mission_marti_api.py:821
 #, python-format
 msgid "No mission found with guid: %(mission_guid)s"
-msgstr ""
+msgstr "Nie znaleziono misji o identyfikatorze: %(mission_guid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:234
 #: blueprints/marti_api/mission_marti_api.py:954
 #: blueprints/ots_api/mission_api.py:262
 msgid "Invalid password"
-msgstr ""
+msgstr "Nieprawidłowe hasło"
 
 #: blueprints/marti_api/mission_marti_api.py:319
 msgid "Missions are only supported on SSL connections"
-msgstr ""
+msgstr "Misje są obsługiwane tylko w przypadku połączeń SSL"
 
 #: blueprints/marti_api/mission_marti_api.py:327
 msgid "Please provide a mission name and creatorUid"
-msgstr ""
+msgstr "Proszę podać nazwę misji i creatorUid"
 
 #: blueprints/marti_api/mission_marti_api.py:332
 #, python-format
 msgid "Invalid creatorUid: %(creator_uid)s"
-msgstr ""
+msgstr "Nieprawidłowy creatorUid: %(creator_uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:366
 #, python-format
 msgid "Group not found: %(group_name)s"
-msgstr ""
+msgstr "Nie znaleziono grupy: %(group_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:422
 #: blueprints/ots_api/mission_api.py:148
 #, python-format
 msgid "Failed to add mission: %(e)s"
-msgstr ""
+msgstr "Nie udało się dodać misji: %(e)s"
 
 #: blueprints/marti_api/mission_marti_api.py:443
 msgid "Invalid mission name"
-msgstr ""
+msgstr "Nieprawidłowa nazwa misji"
 
 #: blueprints/marti_api/mission_marti_api.py:450
 msgid "Mission %(mission_name)S not found"
-msgstr ""
+msgstr "Misja %(mission_name)S nie została znaleziona"
 
 #: blueprints/marti_api/mission_marti_api.py:469
 #: blueprints/marti_api/mission_marti_api.py:517
@@ -159,11 +162,11 @@ msgstr ""
 #: blueprints/marti_api/mission_marti_api.py:1369
 #: blueprints/marti_api/mission_marti_api.py:1451
 msgid "Missing or invalid token"
-msgstr ""
+msgstr "Brakujący lub nieprawidłowy token"
 
 #: blueprints/marti_api/mission_marti_api.py:491
 msgid "Only mission owners can delete missions"
-msgstr ""
+msgstr "Tylko właściciele misji mogą usuwać misje"
 
 #: blueprints/marti_api/mission_marti_api.py:508
 #: blueprints/marti_api/mission_marti_api.py:553
@@ -173,92 +176,92 @@ msgstr ""
 #: blueprints/ots_api/mission_api.py:219
 #, python-format
 msgid "Mission %(mission_name)s not found"
-msgstr ""
+msgstr "Misja %(mission_name)s nie została znaleziona"
 
 #: blueprints/marti_api/mission_marti_api.py:527
 msgid "Please provide the password"
-msgstr ""
+msgstr "Proszę podać hasło"
 
 #: blueprints/marti_api/mission_marti_api.py:531
 msgid "You do not have permission to change this mission's password"
-msgstr ""
+msgstr "Nie masz uprawnień do zmiany hasła tej misji"
 
 #: blueprints/marti_api/mission_marti_api.py:563
 #, python-format
 msgid "No EUD found with UID %(invitee)s"
-msgstr ""
+msgstr "Nie znaleziono EUD z UID %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:569
 #, python-format
 msgid "No EUD found with callsign %(invitee)s"
-msgstr ""
+msgstr "Nie znaleziono EUD o znaku wywoławczym %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:575
 #, python-format
 msgid "No user found with username %(invitee)s"
-msgstr ""
+msgstr "Nie znaleziono użytkownika o nazwie %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:581
 #, python-format
 msgid "No group found: %(invitee)s"
-msgstr ""
+msgstr "Nie znaleziono grupy: %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:587
 #, python-format
 msgid "Team not found: %(invitee)s"
-msgstr ""
+msgstr "Nie znaleziono zespołu: %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:619
 #, python-format
 msgid "Invalid invitation type: %(invitation_type)s"
-msgstr ""
+msgstr "Nieprawidłowy typ zaproszenia: %(invitation_type)s"
 
 #: blueprints/marti_api/mission_marti_api.py:654
 #: blueprints/marti_api/mission_marti_api.py:1064
 #: blueprints/ots_api/mission_api.py:253
 #, python-format
 msgid "Mission not found: %(mission_name)s"
-msgstr ""
+msgstr "Misja nie znaleziona: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:678
 #, python-format
 msgid "Invalid invitation type: %(invitation)s"
-msgstr ""
+msgstr "Nieprawidłowy typ zaproszenia: %(invitation)s"
 
 #: blueprints/marti_api/mission_marti_api.py:743
 #, python-format
 msgid "No such mission found: %(mission_name)s"
-msgstr ""
+msgstr "Nie znaleziono takiej misji: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:748
 msgid "Only mission owners can change EUD roles"
-msgstr ""
+msgstr "Tylko właściciele misji mogą zmieniać role EUD"
 
 #: blueprints/marti_api/mission_marti_api.py:752
 #: blueprints/ots_api/marker_api.py:54
 msgid "Please provide a UID"
-msgstr ""
+msgstr "Proszę podać UID"
 
 #: blueprints/marti_api/mission_marti_api.py:756
 #, python-format
 msgid "Invalid UID: %(client_uid)s"
-msgstr ""
+msgstr "Nieprawidłowy UID: %(client_uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:761
 #, python-format
 msgid "Invalid role: %(new_role)s"
-msgstr ""
+msgstr "Nieprawidłowa rola: %(new_role)s"
 
 #: blueprints/marti_api/mission_marti_api.py:854
 #: blueprints/marti_api/mission_marti_api.py:885
 #, python-format
 msgid "Cannot find mission %(mission_name)s"
-msgstr ""
+msgstr "Nie można znaleźć misji %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:887
 #, python-format
 msgid "Cannot find mission %(mission_guid)s"
-msgstr ""
+msgstr "Nie można znaleźć misji %(mission_guid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:903
 #, python-format
@@ -268,63 +271,63 @@ msgstr ""
 #: blueprints/marti_api/mission_marti_api.py:913
 #: blueprints/ots_api/mediamtx_api.py:57
 msgid "Invalid token"
-msgstr ""
+msgstr "Nieprawidłowy token"
 
 #: blueprints/marti_api/mission_marti_api.py:944
 msgid "Missing UID"
-msgstr ""
+msgstr "Brak UID"
 
 #: blueprints/marti_api/mission_marti_api.py:949
 #, python-format
 msgid "Invalid UID: %(uid)s"
-msgstr ""
+msgstr "Nieprawidłowy UID: %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1130
 msgid "Missing or invalid certificate"
-msgstr ""
+msgstr "Brakujący lub nieprawidłowy certyfikat"
 
 #: blueprints/marti_api/mission_marti_api.py:1146
 msgid "File name cannot be blank"
-msgstr ""
+msgstr "Nazwa pliku nie może być pusta"
 
 #: blueprints/marti_api/mission_marti_api.py:1156
 #, python-format
 msgid "%(extension)s is not an allowed file extension"
-msgstr ""
+msgstr "%(extension)s nie jest dozwolonym rozszerzeniem pliku"
 
 #: blueprints/marti_api/mission_marti_api.py:1213
 #, python-format
 msgid "No content found with hash: %(content_hash)s"
-msgstr ""
+msgstr "Nie znaleziono treści z hashem: %(content_hash)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1238
 #, python-format
 msgid "No such mission: %(mission_name)s"
-msgstr ""
+msgstr "Nie ma takiej misji: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1247
 #, python-format
 msgid "No such file with hash %(content_hash)s"
-msgstr ""
+msgstr "Nie ma takiego pliku z hashem %(content_hash)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1396
 #, python-format
 msgid "UID %(uid)s not found"
-msgstr ""
+msgstr "Nie znaleziono UID %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1413
 #, python-format
 msgid "No content found with hash %(hash)s"
-msgstr ""
+msgstr "Nie znaleziono treści z hashem %(hash)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1427
 #, python-format
 msgid "Failed to delete content with hash %(hash)s: %(e)s"
-msgstr ""
+msgstr "Nie udało się usunąć zawartości z hashem %(hash)s: %(e)s"
 
 #: blueprints/marti_api/video_marti_api.py:128
 msgid "Invalid Certificate"
-msgstr ""
+msgstr "Nieprawidłowy certyfikat"
 
 #: blueprints/marti_api/video_marti_api.py:196
 msgid "Video not found"
