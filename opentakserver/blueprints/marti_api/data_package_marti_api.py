@@ -223,7 +223,13 @@ def get_data_package():
 
 @data_package_marti_api.route('/Marti/sync/search', methods=['GET'])
 def data_package_search():
-    data_packages = db.session.execute(db.select(DataPackage)).scalars()
+    query = db.session.query(DataPackage)
+
+    data_package_uid = request.args.get("uid")
+    if data_package_uid:
+        query = query.where(DataPackage.hash == data_package_uid)
+
+    data_packages = db.session.execute(query).scalars()
     res = {'resultCount': 0, 'results': []}
     for dp in data_packages:
         submission_user = "anonymous"
