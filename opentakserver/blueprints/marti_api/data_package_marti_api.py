@@ -178,6 +178,7 @@ def data_package_metadata(file_hash):
 @data_package_marti_api.route('/Marti/api/sync/search', methods=['GET'])
 def get_data_package():
     data_package_hash = request.args.get("hash")
+    data_package_uid = request.args.get("uid")
 
     # TODO: Support keywords
     keyword = request.args.get("keyword")
@@ -185,6 +186,10 @@ def get_data_package():
     query = db.select(DataPackage)
     if data_package_hash:
         query = query.where(DataPackage.hash == data_package_hash)
+
+    # DataPackage uses the hash as the UID for some reason
+    if data_package_uid:
+        query = query.where(DataPackage.hash == data_package_uid)
 
     data_packages = db.session.execute(query).scalars()
     return_value = {"version": "3", "type": "gov.tak.api.comms.takserver.mission.data.Resource", "data": [],
