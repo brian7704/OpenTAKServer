@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2025-12-15 09:57-0500\n"
-"PO-Revision-Date: 2025-12-19 04:22+0000\n"
+"PO-Revision-Date: 2025-12-20 13:43+0000\n"
 "Last-Translator: Inco Mode <opentakserver.io@incomode.de>\n"
 "Language-Team: German <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/de/>\n"
@@ -28,7 +28,7 @@ msgstr "Kein CoT gefunden für UID: %(uid)s"
 #: blueprints/marti_api/cot_marti_api.py:50
 #, fuzzy, python-format
 msgid "Invalid secago value: %(sec_ago)s"
-msgstr "Ungültiger Benutzername: %(username)s"
+msgstr "Ungültiger secago Wert: %(sec_ago)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:45
 msgid "This data package has already been uploaded"
@@ -54,24 +54,23 @@ msgstr "Gruppen sind nur mit SSL Verbindungen unterstützt"
 
 #: blueprints/marti_api/group_marti_api.py:87
 #: blueprints/marti_api/group_marti_api.py:119
-#, fuzzy
 msgid "Please specify a groupNameFilter"
-msgstr "Bitte geben Sie einen Benutzernamen und die gewünschten Rollen an"
+msgstr "Bitte geben Sie einen Gruppennamen Filter an"
 
 #: blueprints/marti_api/group_marti_api.py:92
 #: blueprints/marti_api/group_marti_api.py:124
 #, python-format
 msgid "Please specify a groupNameFilter that starts with %(prefix)s"
-msgstr ""
+msgstr "Bitte wähle einen Gruppennamenfilter welcher mit %(prefix)s startet"
 
 #: blueprints/marti_api/group_marti_api.py:95
 #: blueprints/marti_api/group_marti_api.py:127
 msgid "groupNameFilter must end with either _READ or _WRITE"
-msgstr ""
+msgstr "Gruppennamenfilter muss entweder mit _READ oder _WRITE enden"
 
 #: blueprints/marti_api/group_marti_api.py:167
 msgid "clientUid required"
-msgstr ""
+msgstr "clientUid benötigt"
 
 #: blueprints/marti_api/group_marti_api.py:189
 #: blueprints/ots_api/group_api.py:242 blueprints/ots_api/user_api.py:304
@@ -107,9 +106,9 @@ msgid "No group found: %(group_name)s, %(direction)s"
 msgstr "Gruppe nicht gefunden: %(group_name)s, %(direction)s"
 
 #: blueprints/marti_api/marti_api.py:92
-#, fuzzy, python-format
+#, python-format
 msgid "No such UID: %(uid)s"
-msgstr "Unbekannte UID: %(uid)s"
+msgstr "UID nicht vorhanden: %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:230
 #: blueprints/marti_api/mission_marti_api.py:821
@@ -332,9 +331,8 @@ msgid "Invalid Certificate"
 msgstr "Ungültiges Zertifikat"
 
 #: blueprints/marti_api/video_marti_api.py:196
-#, fuzzy
 msgid "Video not found"
-msgstr "Aufnahme nicht gefunden"
+msgstr "Video nicht gefunden"
 
 #: blueprints/marti_api/video_marti_api.py:199
 #: blueprints/ots_api/group_api.py:150 blueprints/ots_api/user_api.py:270
@@ -495,9 +493,8 @@ msgid "This is a test"
 msgstr "Dies ist ein Test"
 
 #: blueprints/ots_api/marker_api.py:44
-#, fuzzy
 msgid "Please provide a latitude and longitude"
-msgstr "Bitte geben Sie einen Benutzernamen an"
+msgstr "Bitte geben Sie Längen- und Breitengrad an"
 
 #: blueprints/ots_api/marker_api.py:46
 #, python-format
@@ -510,32 +507,31 @@ msgid "Invalid longitude: %(longitude)s"
 msgstr "Ungültiger Längengrad: %(longitude)s"
 
 #: blueprints/ots_api/marker_api.py:51
-#, fuzzy, python-format
+#, python-format
 msgid "Failed to parse lat/lon: %(e)s"
-msgstr "Benutzer konnte nicht gelöscht werden: %(e)s"
+msgstr "Fehler beim Parsen der Längen- und Breitengrade: %(e)s"
 
 #: blueprints/ots_api/marker_api.py:56
-#, fuzzy
 msgid "Please provide a name"
-msgstr "Bitte geben Sie einen Benutzernamen an"
+msgstr "Bitte geben Sie einen Namen an"
 
 #: blueprints/ots_api/marker_api.py:62
 msgid "Invalid UID. UIDs need to be in UUID4 format"
-msgstr ""
+msgstr "Ungültige UID. UIDs müssen im UUID4-Format vorliegen"
 
 #: blueprints/ots_api/marker_api.py:71
 #, python-format
 msgid "Invalid type: %(cot_type)s"
-msgstr ""
+msgstr "Ungültiger Typ: %(cot_type)s"
 
 #: blueprints/ots_api/marker_api.py:179
-#, fuzzy, python-format
+#, python-format
 msgid "Failed to parse data: %(e)s"
-msgstr "Benutzer konnte nicht gelöscht werden: %(e)s"
+msgstr "Fehler beim Parsen der Daten: %(e)s"
 
 #: blueprints/ots_api/marker_api.py:187
 msgid "Please provide the UID of the marker to delete"
-msgstr ""
+msgstr "Bitte geben Sie die UID des zu löschenden Markers an"
 
 #: blueprints/ots_api/marker_api.py:194
 #, python-format
@@ -544,13 +540,12 @@ msgstr "Unbekannte UID"
 
 #: blueprints/ots_api/mediamtx_api.py:259
 #: blueprints/ots_api/mediamtx_api.py:336
-#, fuzzy
 msgid "Please specify a path name"
-msgstr "Bitte geben Sie einen gültigen Pfad an"
+msgstr "Bitte geben Sie einen Pfadnamen an"
 
 #: blueprints/ots_api/mediamtx_api.py:262
 msgid "Path cannot begin with a slash"
-msgstr ""
+msgstr "Der Pfad darf nicht mit einem Slash beginnen"
 
 #: blueprints/ots_api/mediamtx_api.py:277
 #: blueprints/ots_api/mediamtx_api.py:342
@@ -560,11 +555,11 @@ msgstr "Pfad %(path)s nicht gefunden"
 
 #: blueprints/ots_api/mediamtx_api.py:348
 msgid "MediaMTX is not running"
-msgstr ""
+msgstr "MediaMTX läuft nicht"
 
 #: blueprints/ots_api/meshtastic_api.py:126
 msgid "Please provide the URL of the channel to delete"
-msgstr ""
+msgstr "Bitte geben Sie die URL des zu löschenden Kanals an"
 
 #: blueprints/ots_api/mission_api.py:119 blueprints/ots_api/mission_api.py:200
 #, python-format
@@ -574,25 +569,24 @@ msgstr "Ungültige Eigenschaft: %(key)s"
 #: blueprints/ots_api/mission_api.py:179
 msgid "Only an admin or the mission creator can change this mission"
 msgstr ""
+"Nur ein Administrator oder der Missionsersteller kann diese Mission ändern"
 
 #: blueprints/ots_api/mission_api.py:213
-#, fuzzy
 msgid "Please specify a mission name"
-msgstr "Bitte geben Sie ein Rufzeichen an"
+msgstr "Bitte geben Sie ein Missionsnamen an"
 
 #: blueprints/ots_api/mission_api.py:258
-#, fuzzy
 msgid "Please provide the mission password"
-msgstr "Bitte geben Sie einen Benutzernamen an"
+msgstr "Bitte geben Sie einen Missionspasswort an"
 
 #: blueprints/ots_api/plugin_api.py:44
 msgid "Server plugins must be zip, whl, or tar.gz files"
-msgstr ""
+msgstr "Server-Plugins müssen im zip-, whl- oder tar.gz-Format vorliegen"
 
 #: blueprints/ots_api/plugin_api.py:54 blueprints/ots_api/plugin_api.py:75
 #: blueprints/ots_api/plugin_api.py:91 blueprints/ots_api/plugin_api.py:106
 msgid "Plugins are disabled"
-msgstr ""
+msgstr "Plugins sind deaktiviert"
 
 #: blueprints/ots_api/plugin_api.py:73
 #, python-format
@@ -602,12 +596,12 @@ msgstr "Plugin %(plugin_name)s nicht gefunden"
 #: blueprints/ots_api/token_api.py:169
 #, python-format
 msgid "No token found for %s(username)s"
-msgstr ""
+msgstr "Kein Token gefunden für %s(username)s"
 
 #: blueprints/ots_api/token_api.py:194
-#, fuzzy, python-format
+#, python-format
 msgid "Failed to delete token: %(e)s"
-msgstr "Benutzer konnte nicht gelöscht werden: %(e)s"
+msgstr "Token konnte nicht gelöscht werden: %(e)s"
 
 #: blueprints/ots_api/user_api.py:24
 msgid "LDAP is enabled, please use your LDAP server to create users"
