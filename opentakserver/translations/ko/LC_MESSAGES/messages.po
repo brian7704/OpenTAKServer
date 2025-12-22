@@ -8,8 +8,8 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2025-12-10 20:20-0500\n"
-"PO-Revision-Date: 2025-12-14 05:43+0000\n"
-"Last-Translator: Brian Park <imbrianp@gmail.com>\n"
+"PO-Revision-Date: 2025-12-20 13:43+0000\n"
+"Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
 "Language-Team: Korean <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/ko/>\n"
 "Language: ko\n"
@@ -75,11 +75,11 @@ msgstr "clientUid가 필요합니다"
 #: blueprints/marti_api/group_marti_api.py:189
 #: blueprints/ots_api/group_api.py:242 blueprints/ots_api/user_api.py:304
 msgid "Direction must be IN or OUT"
-msgstr ""
+msgstr "방향은 반드시 안쪽 또는 바깥쪽이어야 합니다"
 
 #: blueprints/marti_api/group_marti_api.py:194
 msgid "The active attribute must be true or false"
-msgstr ""
+msgstr "active 속성은 true 또는 false여야 합니다"
 
 #: blueprints/marti_api/group_marti_api.py:199
 msgid "Group name is required"
@@ -93,16 +93,16 @@ msgstr "%(username)s은/는 %(group_name)s 그룹에 속해 있지 않습니다"
 #: blueprints/marti_api/group_marti_api.py:234
 #, python-format
 msgid "Failed to update group subscriptions for %(username)s: %(e)s"
-msgstr ""
+msgstr "%(username)s에 대한 그룹 구독을 업데이트하는 데 실패했습니다: %(e)s"
 
 #: blueprints/marti_api/group_marti_api.py:254
 msgid "Please provide a group name and direction"
-msgstr ""
+msgstr "그룹 이름과 방향을 알려주세요"
 
 #: blueprints/marti_api/group_marti_api.py:261
 #, python-format
 msgid "No group found: %(group_name)s, %(direction)s"
-msgstr ""
+msgstr "%(group_name)s, %(direction)s 그룹을 찾을 수 없습니다"
 
 #: blueprints/marti_api/marti_api.py:92
 #, python-format
@@ -273,308 +273,310 @@ msgstr "잘못된 토큰"
 
 #: blueprints/marti_api/mission_marti_api.py:944
 msgid "Missing UID"
-msgstr ""
+msgstr "UID가 누락되었습니다"
 
 #: blueprints/marti_api/mission_marti_api.py:949
 #, python-format
 msgid "Invalid UID: %(uid)s"
-msgstr ""
+msgstr "잘못된 UID: %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1130
 msgid "Missing or invalid certificate"
-msgstr ""
+msgstr "인증서가 없거나 유효하지 않습니다"
 
 #: blueprints/marti_api/mission_marti_api.py:1146
 msgid "File name cannot be blank"
-msgstr ""
+msgstr "파일 이름은 비워둘 수 없습니다"
 
 #: blueprints/marti_api/mission_marti_api.py:1156
 #, python-format
 msgid "%(extension)s is not an allowed file extension"
-msgstr ""
+msgstr "%(extension)s는 허용되지 않는 파일 확장자입니다"
 
 #: blueprints/marti_api/mission_marti_api.py:1213
 #, python-format
 msgid "No content found with hash: %(content_hash)s"
-msgstr ""
+msgstr "해시값 %(content_hash)s에 해당하는 콘텐츠를 찾을 수 없습니다"
 
 #: blueprints/marti_api/mission_marti_api.py:1238
 #, python-format
 msgid "No such mission: %(mission_name)s"
-msgstr ""
+msgstr "해당 임무는 없습니다: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1247
 #, python-format
 msgid "No such file with hash %(content_hash)s"
-msgstr ""
+msgstr "해시값 %(content_hash)s를 가진 파일이 없습니다"
 
 #: blueprints/marti_api/mission_marti_api.py:1396
 #, python-format
 msgid "UID %(uid)s not found"
-msgstr ""
+msgstr "UID %(uid)s를 찾을 수 없습니다"
 
 #: blueprints/marti_api/mission_marti_api.py:1413
 #, python-format
 msgid "No content found with hash %(hash)s"
-msgstr ""
+msgstr "해시값 %(hash)s에 해당하는 콘텐츠를 찾을 수 없습니다"
 
 #: blueprints/marti_api/mission_marti_api.py:1427
-#, python-format
+#, fuzzy, python-format
 msgid "Failed to delete content with hash %(hash)s: %(e)s"
-msgstr ""
+msgstr "해시값 %(hash)s을 가진 콘텐츠를 삭제하는 데 실패했습니다: %(e)s"
 
 #: blueprints/marti_api/video_marti_api.py:128
 msgid "Invalid Certificate"
-msgstr ""
+msgstr "유효하지 않은 인증서"
 
 #: blueprints/marti_api/video_marti_api.py:196
 msgid "Video not found"
-msgstr ""
+msgstr "동영상을 찾을 수 없습니다"
 
 #: blueprints/marti_api/video_marti_api.py:199
 #: blueprints/ots_api/group_api.py:150 blueprints/ots_api/user_api.py:270
 #, python-format
 msgid "User %(username)s not found"
-msgstr ""
+msgstr "사용자 %(username)s를 찾을 수 없습니다"
 
 #: blueprints/marti_api/video_marti_api.py:208
 #, python-format
 msgid "Video stream with uid %(uid)s not found"
-msgstr ""
+msgstr "사용자 ID가 %(uid)s인 비디오 스트림을 찾을 수 없습니다"
 
 #: blueprints/ots_api/api.py:198
-#, python-format
+#, fuzzy, python-format
 msgid "Invalid username: %(username)s"
-msgstr ""
+msgstr "잘못된 사용자 이름: %(username)s"
 
 #: blueprints/ots_api/api.py:225
 #, python-format
 msgid "Certificate already exists for %(username)s"
-msgstr ""
+msgstr "%(username)s에 대한 인증서가 이미 존재합니다"
 
 #: blueprints/ots_api/api.py:250
 msgid "Please specify a callsign"
-msgstr ""
+msgstr "호출부호를 지정해 주세요"
 
 #: blueprints/ots_api/casevac_api.py:141
 #, python-format
 msgid "Unknown UID: %(uid)s"
-msgstr ""
+msgstr "알 수 없는 UID: %(uid)s"
 
 #: blueprints/ots_api/data_package_api.py:36
 msgid ""
 "Server connection data packages can't be installed on enrollment or "
 "connection"
-msgstr ""
+msgstr "서버 연결 데이터 패키지는 등록 또는 연결 시 설치할 수 없습니다"
 
 #: blueprints/ots_api/data_package_api.py:62
 msgid "Invalid/unknown hash"
-msgstr ""
+msgstr "유효하지 않거나 알 수 없는 해시"
 
 #: blueprints/ots_api/data_package_api.py:103
 msgid "Please provide a data package hash"
-msgstr ""
+msgstr "데이터 패키지 해시값을 제공해 주세요"
 
 #: blueprints/ots_api/data_package_api.py:113
 #, python-format
 msgid "Data package with hash '%(hash)s' not found"
-msgstr ""
+msgstr "해시값이 '%(hash)s'인 데이터 패키지를 찾을 수 없습니다"
 
 #: blueprints/ots_api/device_profile_api.py:55
 msgid "Please specify the preference_key"
-msgstr ""
+msgstr "preference_key를 지정해 주세요"
 
 #: blueprints/ots_api/device_profile_api.py:61
 #, python-format
 msgid "Unknown preference_key: %(preference_key)s"
-msgstr ""
+msgstr "알 수 없는 preference_key: %(preference_key)s"
 
 #: blueprints/ots_api/group_api.py:36 blueprints/ots_api/group_api.py:106
 #: blueprints/ots_api/group_api.py:132
 msgid "LDAP is enabled. Please view and edit groups on your LDAP server"
-msgstr ""
+msgstr "LDAP이 활성화되었습니다. LDAP 서버에서 그룹을 보고 편집하세요"
 
 #: blueprints/ots_api/group_api.py:139
 msgid "Please provide the username, group name, and direction"
-msgstr ""
+msgstr "사용자 이름, 그룹 이름 및 방향을 알려주세요"
 
 #: blueprints/ots_api/group_api.py:146
 #, python-format
 msgid "Invalid direction: %(direction)s"
-msgstr ""
+msgstr "잘못된 방향: %(direction)s"
 
 #: blueprints/ots_api/group_api.py:154
 #, python-format
 msgid "Group %(group_name)s not found"
-msgstr ""
+msgstr "그룹 %(group_name)s을 찾을 수 없습니다"
 
 #: blueprints/ots_api/group_api.py:177
-#, python-format
+#, fuzzy, python-format
 msgid "Failed to remove %(username)s from %(group_name)s: %(e)s"
-msgstr ""
+msgstr "%(group_name)s에서 %(username)s를 제거하는 데 실패했습니다: %(e)s"
 
 #: blueprints/ots_api/group_api.py:189
 msgid "LDAP is enabled, please use your LDAP server to add groups"
-msgstr ""
+msgstr "LDAP이 활성화되었습니다. 그룹을 추가하려면 LDAP 서버를 사용하십시오"
 
 #: blueprints/ots_api/group_api.py:192
 msgid "Missing name"
-msgstr ""
+msgstr "이름이 누락되었습니다"
 
 #: blueprints/ots_api/group_api.py:208
 #, python-format
 msgid "%(name)s group already exists"
-msgstr ""
+msgstr "%(name)s 그룹이 이미 존재합니다"
 
 #: blueprints/ots_api/group_api.py:213
 #, python-format
 msgid "Failed to add %(name)s group: %(e)s"
-msgstr ""
+msgstr "%(name)s 그룹을 추가하는 데 실패했습니다: %(e)s"
 
 #: blueprints/ots_api/group_api.py:232 blueprints/ots_api/user_api.py:294
 msgid "LDAP is enabled, please use your LDAP server to add users to groups"
-msgstr ""
+msgstr "LDAP이 활성화되어 있습니다. 그룹에 사용자를 추가하려면 LDAP 서버를 "
+"사용하십시오"
 
 #: blueprints/ots_api/group_api.py:239
 msgid "Please provide a list of users, group name, and direction"
-msgstr ""
+msgstr "사용자 목록, 그룹 이름 및 방향을 제공해 주십시오"
 
 #: blueprints/ots_api/group_api.py:247 blueprints/ots_api/user_api.py:124
 #: blueprints/ots_api/user_api.py:146 blueprints/ots_api/user_api.py:181
 #: blueprints/ots_api/user_api.py:207
 #, python-format
 msgid "User %(username)s does not exist"
-msgstr ""
+msgstr "사용자 %(username)s가 존재하지 않습니다"
 
 #: blueprints/ots_api/group_api.py:251
 #, python-format
 msgid "Group %(group_name)s does not exist"
-msgstr ""
+msgstr "그룹 %(group_name)s이 존재하지 않습니다"
 
 #: blueprints/ots_api/group_api.py:272
 msgid "LDAP is enabled, please use your LDAP server to delete groups"
-msgstr ""
+msgstr "LDAP이 활성화되어 있습니다. 그룹을 삭제하려면 LDAP 서버를 사용하십시오"
 
 #: blueprints/ots_api/group_api.py:275
 msgid "Missing group name"
-msgstr ""
+msgstr "그룹 이름이 누락되었습니다"
 
 #: blueprints/ots_api/group_api.py:279
 msgid "The __ANON__ group cannot be deleted"
-msgstr ""
+msgstr "__ANON__ 그룹은 삭제할 수 없습니다"
 
 #: blueprints/ots_api/group_api.py:285
 #, python-format
 msgid "No such group: %(group_name)s"
-msgstr ""
+msgstr "해당 그룹이 없습니다: %(group_name)s"
 
 #: blueprints/ots_api/group_api.py:296
 #, python-format
 msgid "Failed to delete %(group_name)s: %(e)s"
-msgstr ""
+msgstr "%(group_name)s 삭제 실패: %(e)s"
 
 #: blueprints/ots_api/language_api.py:12
 msgid "This is a test"
-msgstr ""
+msgstr "이것은 테스트입니다"
 
 #: blueprints/ots_api/marker_api.py:44
 msgid "Please provide a latitude and longitude"
-msgstr ""
+msgstr "위도와 경도를 입력해 주세요"
 
 #: blueprints/ots_api/marker_api.py:46
-#, python-format
+#, fuzzy, python-format
 msgid "Invalid latitude: %(latitude)s"
-msgstr ""
+msgstr "잘못된 위도: %(latitude)s"
 
 #: blueprints/ots_api/marker_api.py:48
-#, python-format
+#, fuzzy, python-format
 msgid "Invalid longitude: %(longitude)s"
-msgstr ""
+msgstr "잘못된 경도: %(longitude)s"
 
 #: blueprints/ots_api/marker_api.py:51
 #, python-format
 msgid "Failed to parse lat/lon: %(e)s"
-msgstr ""
+msgstr "위도/경도 구문 분석에 실패했습니다: %(e)s"
 
 #: blueprints/ots_api/marker_api.py:56
 msgid "Please provide a name"
-msgstr ""
+msgstr "이름을 입력해 주세요"
 
 #: blueprints/ots_api/marker_api.py:62
 msgid "Invalid UID. UIDs need to be in UUID4 format"
-msgstr ""
+msgstr "잘못된 UID입니다. UID는 UUID4 형식이어야 합니다"
 
 #: blueprints/ots_api/marker_api.py:71
 #, python-format
 msgid "Invalid type: %(cot_type)s"
-msgstr ""
+msgstr "잘못된 유형: %(cot_type)s"
 
 #: blueprints/ots_api/marker_api.py:179
 #, python-format
 msgid "Failed to parse data: %(e)s"
-msgstr ""
+msgstr "데이터 구문 분석에 실패했습니다: %(e)s"
 
 #: blueprints/ots_api/marker_api.py:187
 msgid "Please provide the UID of the marker to delete"
-msgstr ""
+msgstr "삭제할 마커의 UID를 입력해 주세요"
 
 #: blueprints/ots_api/marker_api.py:194
+#, fuzzy
 msgid "Unknown UID"
-msgstr ""
+msgstr "알 수 없는 UID"
 
 #: blueprints/ots_api/mediamtx_api.py:259
 #: blueprints/ots_api/mediamtx_api.py:336
 msgid "Please specify a path name"
-msgstr ""
+msgstr "경로명을 지정해 주세요"
 
 #: blueprints/ots_api/mediamtx_api.py:262
 msgid "Path cannot begin with a slash"
-msgstr ""
+msgstr "경로는 슬래시(/)로 시작할 수 없습니다"
 
 #: blueprints/ots_api/mediamtx_api.py:277
 #: blueprints/ots_api/mediamtx_api.py:342
 #, python-format
 msgid "Path %(path)s not found"
-msgstr ""
+msgstr "경로 %(path)s를 찾을 수 없습니다"
 
 #: blueprints/ots_api/mediamtx_api.py:348
 msgid "MediaMTX is not running"
-msgstr ""
+msgstr "MediaMTX가 실행 중이 아닙니다"
 
 #: blueprints/ots_api/meshtastic_api.py:126
 msgid "Please provide the URL of the channel to delete"
-msgstr ""
+msgstr "삭제할 채널의 URL을 제공해 주세요"
 
 #: blueprints/ots_api/mission_api.py:119 blueprints/ots_api/mission_api.py:200
 #, python-format
 msgid "Invalid property: %(key)s"
-msgstr ""
+msgstr "잘못된 속성: %(key)s"
 
 #: blueprints/ots_api/mission_api.py:179
 msgid "Only an admin or the mission creator can change this mission"
-msgstr ""
+msgstr "관리자 또는 임무 생성자만 이 임무를 변경할 수 있습니다"
 
 #: blueprints/ots_api/mission_api.py:213
 msgid "Please specify a mission name"
-msgstr ""
+msgstr "임무 이름을 명시해 주세요"
 
 #: blueprints/ots_api/mission_api.py:258
 msgid "Please provide the mission password"
-msgstr ""
+msgstr "미션 비밀번호를 입력해 주세요"
 
 #: blueprints/ots_api/plugin_api.py:44
 msgid "Server plugins must be zip, whl, or tar.gz files"
-msgstr ""
+msgstr "서버 플러그인은 zip, whl 또는 tar.gz 파일 형식이어야 합니다"
 
 #: blueprints/ots_api/plugin_api.py:54 blueprints/ots_api/plugin_api.py:75
 #: blueprints/ots_api/plugin_api.py:91 blueprints/ots_api/plugin_api.py:106
 msgid "Plugins are disabled"
-msgstr ""
+msgstr "플러그인이 비활성화되었습니다"
 
 #: blueprints/ots_api/plugin_api.py:73
 #, python-format
 msgid "Plugin %(plugin_name)s not found"
-msgstr ""
+msgstr "플러그인 %(plugin_name)s을 찾을 수 없습니다"
 
 #: blueprints/ots_api/token_api.py:169
 #, python-format
@@ -584,144 +586,143 @@ msgstr ""
 #: blueprints/ots_api/token_api.py:194
 #, python-format
 msgid "Failed to delete token: %(e)s"
-msgstr ""
+msgstr "토큰 삭제 실패: %(e)s"
 
 #: blueprints/ots_api/user_api.py:24
 msgid "LDAP is enabled, please use your LDAP server to create users"
-msgstr ""
+msgstr "LDAP이 활성화되어 있습니다. 사용자 생성을 위해 LDAP 서버를 사용하십시오"
 
 #: blueprints/ots_api/user_api.py:35
 msgid "Passwords do not match"
-msgstr ""
+msgstr "비밀번호가 일치하지 않습니다"
 
 #: blueprints/ots_api/user_api.py:45 blueprints/ots_api/user_api.py:174
 #, python-format
 msgid "Role %(role)s does not exist"
-msgstr ""
+msgstr "역할 %(role)s이 존재하지 않습니다"
 
 #: blueprints/ots_api/user_api.py:48
 msgid "Only administrators can add users to the administrators role"
-msgstr ""
+msgstr "관리자만 사용자를 관리자 역할에 추가할 수 있습니다"
 
 #: blueprints/ots_api/user_api.py:60
 #, python-format
 msgid "User %(username)s already exists"
-msgstr ""
+msgstr "사용자 %(username)s가 이미 존재합니다"
 
 #: blueprints/ots_api/user_api.py:67
 msgid "LDAP is enabled, please use your LDAP server to delete users"
-msgstr ""
+msgstr "LDAP이 활성화되어 있습니다. 사용자를 삭제하려면 LDAP 서버를 사용하십시오"
 
 #: blueprints/ots_api/user_api.py:72
 msgid "You can't delete your own account"
-msgstr ""
+msgstr "본인 계정은 삭제할 수 없습니다"
 
 #: blueprints/ots_api/user_api.py:82
 #, python-format
 msgid "Failed to delete user: %(e)s"
-msgstr ""
+msgstr "사용자 삭제에 실패했습니다: %(e)s"
 
 #: blueprints/ots_api/user_api.py:92
 msgid "LDAP is enabled, please use your LDAP server to reset passwords"
-msgstr ""
+msgstr "LDAP이 활성화되어 있습니다. 비밀번호를 재설정하려면 LDAP 서버를 사용하십시오"
 
 #: blueprints/ots_api/user_api.py:98
 msgid "Please specify a username and new password"
-msgstr ""
+msgstr "사용자 이름과 새 비밀번호를 입력해 주세요"
 
 #: blueprints/ots_api/user_api.py:101
 #, python-format
 msgid "Your password must be at least %(characters)s characters long"
-msgstr ""
+msgstr "비밀번호는 최소 %(characters)s자 이상이어야 합니다"
 
 #: blueprints/ots_api/user_api.py:109
 #, python-format
 msgid "Could not find user %(username)s"
-msgstr ""
+msgstr "사용자 %(username)s를 찾을 수 없습니다"
 
 #: blueprints/ots_api/user_api.py:116
 msgid "LDAP is enabled, please use your LDAP server to deactivate users"
-msgstr ""
+msgstr "LDAP이 활성화되어 있습니다. 사용자를 비활성화하려면 LDAP 서버를 사용하십시오"
 
 #: blueprints/ots_api/user_api.py:120
 msgid "Please specify the username to deactivate"
-msgstr ""
+msgstr "비활성화할 사용자 이름을 지정해 주세요"
 
 #: blueprints/ots_api/user_api.py:131
 #, python-format
 msgid "%(username)s is already deactivated"
-msgstr ""
+msgstr "%(username)s는 이미 비활성화되었습니다"
 
 #: blueprints/ots_api/user_api.py:138
 msgid "LDAP is enabled, please use your LDAP server to activate users"
-msgstr ""
+msgstr "LDAP이 활성화되었습니다. 사용자를 활성화하려면 LDAP 서버를 사용하십시오"
 
 #: blueprints/ots_api/user_api.py:142
 msgid "Please specify the username to activate"
-msgstr ""
+msgstr "활성화할 사용자 이름을 지정해 주세요"
 
 #: blueprints/ots_api/user_api.py:153
 #, python-format
 msgid "%(username)s is already activated"
-msgstr ""
+msgstr "%(username)s가 이미 활성화되었습니다"
 
 #: blueprints/ots_api/user_api.py:160
 msgid "LDAP is enabled, please use your LDAP server to assign roles"
-msgstr ""
+msgstr "LDAP이 활성화되어 있습니다. 역할을 할당하려면 LDAP 서버를 사용하십시오"
 
 #: blueprints/ots_api/user_api.py:167
 msgid "Please specify a username and roles"
-msgstr ""
+msgstr "사용자 이름과 역할을 지정해 주세요"
 
 #: blueprints/ots_api/user_api.py:212
 #, python-format
 msgid "EUD %(eud_uid)s not found"
-msgstr ""
+msgstr "EUD %(eud_uid)s를 찾을 수 없습니다"
 
 #: blueprints/ots_api/user_api.py:214
 #, python-format
 msgid "%(uid)s is already assigned to another user"
-msgstr ""
+msgstr "%(uid)s는 이미 다른 사용자에게 할당되었습니다"
 
 #: blueprints/ots_api/user_api.py:227 blueprints/ots_api/user_api.py:239
 msgid "LDAP is enabled, please use your LDAP server to manage users"
-msgstr ""
+msgstr "LDAP이 활성화되었습니다. 사용자 관리를 위해 LDAP 서버를 사용하십시오"
 
 #: blueprints/ots_api/user_api.py:260
 msgid "LDAP is enabled, please use your LDAP server to manage groups"
-msgstr ""
+msgstr "LDAP이 활성화되었습니다. 그룹 관리를 위해 LDAP 서버를 사용하십시오"
 
 #: blueprints/ots_api/user_api.py:264
 msgid "Please provide a username"
-msgstr ""
+msgstr "사용자 이름을 입력해 주세요"
 
 #: blueprints/ots_api/user_api.py:301
 msgid "Please provide a list of groups, a username, and a direction"
-msgstr ""
+msgstr "그룹 목록, 사용자 이름, 그리고 이동 방향을 알려주세요"
 
 #: blueprints/ots_api/user_api.py:308
 #, python-format
 msgid "User %(username)s doesn't exist"
-msgstr ""
+msgstr "사용자 %(username)s가 존재하지 않습니다"
 
 #: blueprints/ots_api/user_api.py:314
 #, python-format
 msgid "Group %(group_name)s doesn't exist"
-msgstr ""
+msgstr "그룹 %(group_name)s이 존재하지 않습니다"
 
 #: blueprints/ots_api/video_api.py:36
 msgid "Please specify a valid path"
-msgstr ""
+msgstr "유효한 경로를 지정해 주세요"
 
 #: blueprints/ots_api/video_api.py:58
 #, python-format
 msgid "Invalid recording_id: %(recording_id)s"
-msgstr ""
+msgstr "잘못된 recording_id: %(recording_id)s"
 
 #: blueprints/ots_api/video_api.py:76
 msgid "Recording not found"
-msgstr ""
+msgstr "녹음 파일을 찾을 수 없습니다"
 
 #~ msgid "{username} and mission %(mission_name)s are not in the same group"
 #~ msgstr ""
-

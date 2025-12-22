@@ -8,71 +8,70 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2025-12-15 09:57-0500\n"
-"PO-Revision-Date: 2025-12-10 17:28+0000\n"
+"PO-Revision-Date: 2025-12-21 14:43+0000\n"
 "Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
+"Language-Team: Ukrainian <https://weblate.opentakserver.io/projects/"
+"opentakserver/opentakserver/uk/>\n"
 "Language: uk\n"
-"Language-Team: Ukrainian "
-"<https://weblate.opentakserver.io/projects/opentakserver/opentakserver/uk/>"
-"\n"
-"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
-"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"X-Generator: Weblate 5.13.3\n"
 "Generated-By: Babel 2.15.0\n"
 
 #: blueprints/marti_api/cot_marti_api.py:31
-#, fuzzy, python-format
+#, python-format
 msgid "No CoT found for UID %(uid)s"
-msgstr "Невідомий UID: %(uid)s"
+msgstr "Не знайдено CoT для UID %(uid)s"
 
 #: blueprints/marti_api/cot_marti_api.py:50
-#, fuzzy, python-format
+#, python-format
 msgid "Invalid secago value: %(sec_ago)s"
-msgstr "Недійсне ім'я користувача: %(username)s"
+msgstr "Недійсне значення secago: %(sec_ago)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:45
 msgid "This data package has already been uploaded"
-msgstr ""
+msgstr "Цей пакет даних вже завантажено"
 
 #: blueprints/marti_api/data_package_marti_api.py:114
 msgid "A file is required"
-msgstr ""
+msgstr "Потрібен файл"
 
 #: blueprints/marti_api/data_package_marti_api.py:127
-#, fuzzy, python-format
+#, python-format
 msgid "Invalid file extension: %(extension)s"
-msgstr "Недійсний напрямок: %(direction)s"
+msgstr "Недійсне розширення файлу: %(extension)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:260
-#, fuzzy, python-format
+#, python-format
 msgid "File not found: %(filename)s}"
-msgstr "Не вдалося знайти користувача %(username)s"
+msgstr "Файл не знайдено: %(filename)s}"
 
 #: blueprints/marti_api/group_marti_api.py:31
 msgid "Groups are only supported on SSL connections"
-msgstr ""
+msgstr "Групи підтримуються лише через SSL-з'єднання"
 
 #: blueprints/marti_api/group_marti_api.py:87
 #: blueprints/marti_api/group_marti_api.py:119
-#, fuzzy
 msgid "Please specify a groupNameFilter"
-msgstr "Будь ласка, вкажіть ім'я користувача та ролі"
+msgstr "Будь ласка, вкажіть фільтр назви групи"
 
 #: blueprints/marti_api/group_marti_api.py:92
 #: blueprints/marti_api/group_marti_api.py:124
 #, python-format
 msgid "Please specify a groupNameFilter that starts with %(prefix)s"
-msgstr ""
+msgstr "Будь ласка, вкажіть groupNameFilter, який починається з %(prefix)s"
 
 #: blueprints/marti_api/group_marti_api.py:95
 #: blueprints/marti_api/group_marti_api.py:127
 msgid "groupNameFilter must end with either _READ or _WRITE"
-msgstr ""
+msgstr "groupNameFilter має закінчуватися на _READ або _WRITE"
 
 #: blueprints/marti_api/group_marti_api.py:167
 msgid "clientUid required"
-msgstr ""
+msgstr "clientUID обов'язковий"
 
 #: blueprints/marti_api/group_marti_api.py:189
 #: blueprints/ots_api/group_api.py:242 blueprints/ots_api/user_api.py:304
@@ -81,83 +80,80 @@ msgstr "Напрямок має бути IN або OUT"
 
 #: blueprints/marti_api/group_marti_api.py:194
 msgid "The active attribute must be true or false"
-msgstr ""
+msgstr "атрибут active має бути true або false"
 
 #: blueprints/marti_api/group_marti_api.py:199
 msgid "Group name is required"
-msgstr ""
+msgstr "Назва групи обов'язкова"
 
 #: blueprints/marti_api/group_marti_api.py:223
 #, python-format
 msgid "%(username)s is not in the %(group_name)s group"
-msgstr ""
+msgstr "%(username)s не належить до групи %(group_name)s"
 
 #: blueprints/marti_api/group_marti_api.py:234
-#, fuzzy, python-format
+#, python-format
 msgid "Failed to update group subscriptions for %(username)s: %(e)s"
-msgstr "Не вдалося видалити %(group_name)s: %(e)s"
+msgstr "Не вдалося оновити групові підписки для %(username)s: %(e)s"
 
 #: blueprints/marti_api/group_marti_api.py:254
-#, fuzzy
 msgid "Please provide a group name and direction"
-msgstr "Будь ласка, вкажіть ім'я користувача, назву групи та напрямок"
+msgstr "Будь ласка, вкажіть назву групи та напрямок"
 
 #: blueprints/marti_api/group_marti_api.py:261
-#, fuzzy, python-format
+#, python-format
 msgid "No group found: %(group_name)s, %(direction)s"
-msgstr "Немає такої групи: %(group_name)s"
+msgstr "Групу не знайдено: %(group_name)s, %(direction)s"
 
 #: blueprints/marti_api/marti_api.py:92
-#, fuzzy, python-format
+#, python-format
 msgid "No such UID: %(uid)s"
-msgstr "Невідомий UID: %(uid)s"
+msgstr "Немає такого UID: %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:230
 #: blueprints/marti_api/mission_marti_api.py:821
 #, python-format
 msgid "No mission found with guid: %(mission_guid)s"
-msgstr ""
+msgstr "Не знайдено місій з ідентифікатором гіда: %(mission_guid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:234
 #: blueprints/marti_api/mission_marti_api.py:954
 #: blueprints/ots_api/mission_api.py:262
 msgid "Invalid password"
-msgstr ""
+msgstr "Недійсний пароль"
 
 #: blueprints/marti_api/mission_marti_api.py:319
 msgid "Missions are only supported on SSL connections"
-msgstr ""
+msgstr "Місії підтримуються лише через SSL-з'єднання"
 
 #: blueprints/marti_api/mission_marti_api.py:327
-#, fuzzy
 msgid "Please provide a mission name and creatorUid"
-msgstr "Будь ласка, надайте список користувачів, назву групи та напрямок"
+msgstr "Будь ласка, вкажіть назву місії та creatorUID"
 
 #: blueprints/marti_api/mission_marti_api.py:332
-#, fuzzy, python-format
+#, python-format
 msgid "Invalid creatorUid: %(creator_uid)s"
-msgstr "Недійсний ідентифікатор запису: %(recording_id)s"
+msgstr "Недійсний creatorUid: %(creator_uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:366
-#, fuzzy, python-format
+#, python-format
 msgid "Group not found: %(group_name)s"
-msgstr "Немає такої групи: %(group_name)s"
+msgstr "Групу не знайдено: %(group_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:422
 #: blueprints/ots_api/mission_api.py:148
-#, fuzzy, python-format
+#, python-format
 msgid "Failed to add mission: %(e)s"
-msgstr "Не вдалося видалити користувача: %(e)s"
+msgstr "Не вдалося додати місію: %(e)s"
 
 #: blueprints/marti_api/mission_marti_api.py:443
-#, fuzzy
 msgid "Invalid mission name"
-msgstr "Відсутнє ім'я"
+msgstr "Недійсна назва місії"
 
 #: blueprints/marti_api/mission_marti_api.py:450
-#, fuzzy, python-format
+#, python-format
 msgid "Mission %(mission_name)S not found"
-msgstr "Користувач %(username)s не знайдено"
+msgstr "Місія %(mission_name)S не знайдена"
 
 #: blueprints/marti_api/mission_marti_api.py:469
 #: blueprints/marti_api/mission_marti_api.py:517
@@ -165,13 +161,12 @@ msgstr "Користувач %(username)s не знайдено"
 #: blueprints/marti_api/mission_marti_api.py:1005
 #: blueprints/marti_api/mission_marti_api.py:1369
 #: blueprints/marti_api/mission_marti_api.py:1451
-#, fuzzy
 msgid "Missing or invalid token"
-msgstr "Відсутнє ім'я"
+msgstr "Відсутній або недійсний токен"
 
 #: blueprints/marti_api/mission_marti_api.py:491
 msgid "Only mission owners can delete missions"
-msgstr ""
+msgstr "Тільки власники місій можуть видаляти місії"
 
 #: blueprints/marti_api/mission_marti_api.py:508
 #: blueprints/marti_api/mission_marti_api.py:553
@@ -179,168 +174,166 @@ msgstr ""
 #: blueprints/marti_api/mission_marti_api.py:1105
 #: blueprints/marti_api/mission_marti_api.py:1380
 #: blueprints/ots_api/mission_api.py:219
-#, fuzzy, python-format
+#, python-format
 msgid "Mission %(mission_name)s not found"
-msgstr "Користувач %(username)s не знайдено"
+msgstr "Місія %(mission_name)s не знайдена"
 
 #: blueprints/marti_api/mission_marti_api.py:527
-#, fuzzy
 msgid "Please provide the password"
-msgstr "Будь ласка, вкажіть ім'я користувача"
+msgstr "Будь ласка, вкажіть пароль"
 
 #: blueprints/marti_api/mission_marti_api.py:531
 msgid "You do not have permission to change this mission's password"
-msgstr ""
+msgstr "Ви не маєте дозволу змінювати пароль цієї місії"
 
 #: blueprints/marti_api/mission_marti_api.py:563
 #, python-format
 msgid "No EUD found with UID %(invitee)s"
-msgstr ""
+msgstr "Не знайдено EUD з UID %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:569
 #, python-format
 msgid "No EUD found with callsign %(invitee)s"
-msgstr ""
+msgstr "Не знайдено EUD з позивним %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:575
-#, python-format
+#, fuzzy, python-format
 msgid "No user found with username %(invitee)s"
-msgstr ""
+msgstr "Користувача з іменем користувача %(invitee)s не знайдено"
 
 #: blueprints/marti_api/mission_marti_api.py:581
 #, python-format
 msgid "No group found: %(invitee)s"
-msgstr ""
+msgstr "Групу не знайдено: %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:587
 #, python-format
 msgid "Team not found: %(invitee)s"
-msgstr ""
+msgstr "Команда не знайдена: %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:619
 #, fuzzy, python-format
 msgid "Invalid invitation type: %(invitation_type)s"
-msgstr "Недійсний напрямок: %(direction)s"
+msgstr "Недійсний тип запрошення: %(invitation_type)s"
 
 #: blueprints/marti_api/mission_marti_api.py:654
 #: blueprints/marti_api/mission_marti_api.py:1064
 #: blueprints/ots_api/mission_api.py:253
 #, python-format
 msgid "Mission not found: %(mission_name)s"
-msgstr ""
+msgstr "Місія не знайдена: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:678
 #, fuzzy, python-format
 msgid "Invalid invitation type: %(invitation)s"
-msgstr "Недійсний напрямок: %(direction)s"
+msgstr "Недійсний тип запрошення: %(invitation)s"
 
 #: blueprints/marti_api/mission_marti_api.py:743
 #, fuzzy, python-format
 msgid "No such mission found: %(mission_name)s"
-msgstr "Немає такої групи: %(group_name)s"
+msgstr "Такої місії не знайдено: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:748
 msgid "Only mission owners can change EUD roles"
-msgstr ""
+msgstr "Тільки власники місій можуть змінювати ролі EUD"
 
 #: blueprints/marti_api/mission_marti_api.py:752
 #: blueprints/ots_api/marker_api.py:54
 #, fuzzy
 msgid "Please provide a UID"
-msgstr "Будь ласка, вкажіть ім'я користувача"
+msgstr "Будь ласка, надайте UID"
 
 #: blueprints/marti_api/mission_marti_api.py:756
 #, fuzzy, python-format
 msgid "Invalid UID: %(client_uid)s"
-msgstr "Недійсний ідентифікатор запису: %(recording_id)s"
+msgstr "Недійсний UID: %(client_uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:761
 #, fuzzy, python-format
 msgid "Invalid role: %(new_role)s"
-msgstr "Недійсне ім'я користувача: %(username)s"
+msgstr "Недійсна роль: %(new_role)s"
 
 #: blueprints/marti_api/mission_marti_api.py:854
 #: blueprints/marti_api/mission_marti_api.py:885
 #, fuzzy, python-format
 msgid "Cannot find mission %(mission_name)s"
-msgstr "Не вдалося знайти користувача %(username)s"
+msgstr "Не вдається знайти місію %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:887
-#, python-format
+#, fuzzy, python-format
 msgid "Cannot find mission %(mission_guid)s"
-msgstr ""
+msgstr "Не вдається знайти місію %(mission_guid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:903
 #, python-format
 msgid "%(username)s and mission %(mission_name)s are not in the same group"
-msgstr ""
+msgstr "%(username)s та місія %(mission_name)s не належать до однієї групи"
 
 #: blueprints/marti_api/mission_marti_api.py:913
 #: blueprints/ots_api/mediamtx_api.py:57
 msgid "Invalid token"
-msgstr ""
+msgstr "Недійсний токен"
 
 #: blueprints/marti_api/mission_marti_api.py:944
 #, fuzzy
 msgid "Missing UID"
-msgstr "Відсутнє ім'я"
+msgstr "Відсутній UID"
 
 #: blueprints/marti_api/mission_marti_api.py:949
 #, fuzzy, python-format
 msgid "Invalid UID: %(uid)s"
-msgstr "Невідомий UID: %(uid)s"
+msgstr "Недійсний UID: %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1130
 msgid "Missing or invalid certificate"
-msgstr ""
+msgstr "Відсутній або недійсний сертифікат"
 
 #: blueprints/marti_api/mission_marti_api.py:1146
 msgid "File name cannot be blank"
-msgstr ""
+msgstr "Ім'я файлу не може бути порожнім"
 
 #: blueprints/marti_api/mission_marti_api.py:1156
 #, python-format
 msgid "%(extension)s is not an allowed file extension"
-msgstr ""
+msgstr "%(extension)s не є дозволеним розширенням файлу"
 
 #: blueprints/marti_api/mission_marti_api.py:1213
 #, python-format
 msgid "No content found with hash: %(content_hash)s"
-msgstr ""
+msgstr "Не знайдено вмісту з хешем: %(content_hash)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1238
 #, fuzzy, python-format
 msgid "No such mission: %(mission_name)s"
-msgstr "Немає такої групи: %(group_name)s"
+msgstr "Немає такої місії: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1247
 #, python-format
 msgid "No such file with hash %(content_hash)s"
-msgstr ""
+msgstr "Немає такого файлу з хешем %(content_hash)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1396
 #, fuzzy, python-format
 msgid "UID %(uid)s not found"
-msgstr "EUD %(eud_uid)s не знайдено"
+msgstr "UID %(uid)s не знайдено"
 
 #: blueprints/marti_api/mission_marti_api.py:1413
-#, python-format
+#, fuzzy, python-format
 msgid "No content found with hash %(hash)s"
-msgstr ""
+msgstr "Не знайдено вмісту з хешем %(hash)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1427
 #, fuzzy, python-format
 msgid "Failed to delete content with hash %(hash)s: %(e)s"
-msgstr "Не вдалося видалити %(group_name)s: %(e)s"
+msgstr "Не вдалося видалити вміст із хешем %(hash)s: %(e)s"
 
 #: blueprints/marti_api/video_marti_api.py:128
 msgid "Invalid Certificate"
-msgstr ""
+msgstr "Недійсний сертифікат"
 
 #: blueprints/marti_api/video_marti_api.py:196
-#, fuzzy
 msgid "Video not found"
-msgstr "Запис не знайдено"
+msgstr "Відео не знайдено"
 
 #: blueprints/marti_api/video_marti_api.py:199
 #: blueprints/ots_api/group_api.py:150 blueprints/ots_api/user_api.py:270
@@ -351,7 +344,7 @@ msgstr "Користувач %(username)s не знайдено"
 #: blueprints/marti_api/video_marti_api.py:208
 #, fuzzy, python-format
 msgid "Video stream with uid %(uid)s not found"
-msgstr "EUD %(eud_uid)s не знайдено"
+msgstr "Відеопотік з uid %(uid)s не знайдено"
 
 #: blueprints/ots_api/api.py:198
 #, python-format
@@ -499,117 +492,114 @@ msgstr "Це тест"
 #: blueprints/ots_api/marker_api.py:44
 #, fuzzy
 msgid "Please provide a latitude and longitude"
-msgstr "Будь ласка, вкажіть ім'я користувача"
+msgstr "Будь ласка, вкажіть широту та довготу"
 
 #: blueprints/ots_api/marker_api.py:46
 #, fuzzy, python-format
 msgid "Invalid latitude: %(latitude)s"
-msgstr "Недійсне ім'я користувача: %(username)s"
+msgstr "Недійсна широта: %(latitude)s"
 
 #: blueprints/ots_api/marker_api.py:48
-#, fuzzy, python-format
+#, python-format
 msgid "Invalid longitude: %(longitude)s"
-msgstr "Недійсний ідентифікатор запису: %(recording_id)s"
+msgstr "Недійсна довгота: %(longitude)s"
 
 #: blueprints/ots_api/marker_api.py:51
-#, fuzzy, python-format
+#, python-format
 msgid "Failed to parse lat/lon: %(e)s"
-msgstr "Не вдалося видалити користувача: %(e)s"
+msgstr "Не вдалося проаналізувати широту/довготу: %(e)s"
 
 #: blueprints/ots_api/marker_api.py:56
-#, fuzzy
 msgid "Please provide a name"
-msgstr "Будь ласка, вкажіть ім'я користувача"
+msgstr "Будь ласка, вкажіть ім'я"
 
 #: blueprints/ots_api/marker_api.py:62
 msgid "Invalid UID. UIDs need to be in UUID4 format"
-msgstr ""
+msgstr "Недійсний UID. UID мають бути у форматі UUID4"
 
 #: blueprints/ots_api/marker_api.py:71
 #, python-format
 msgid "Invalid type: %(cot_type)s"
-msgstr ""
+msgstr "Недійсний тип: %(cot_type)s"
 
 #: blueprints/ots_api/marker_api.py:179
-#, fuzzy, python-format
+#, python-format
 msgid "Failed to parse data: %(e)s"
-msgstr "Не вдалося видалити користувача: %(e)s"
+msgstr "Не вдалося проаналізувати дані: %(e)s"
 
 #: blueprints/ots_api/marker_api.py:187
 msgid "Please provide the UID of the marker to delete"
-msgstr ""
+msgstr "Будь ласка, вкажіть UID маркера, який потрібно видалити"
 
 #: blueprints/ots_api/marker_api.py:194
-#, fuzzy, python-format
+#, python-format
 msgid "Unknown UID"
-msgstr "Невідомий UID: %(uid)s"
+msgstr "Невідомий UID"
 
 #: blueprints/ots_api/mediamtx_api.py:259
 #: blueprints/ots_api/mediamtx_api.py:336
 #, fuzzy
 msgid "Please specify a path name"
-msgstr "Будь ласка, вкажіть дійсний шлях"
+msgstr "Будь ласка, вкажіть назву шляху"
 
 #: blueprints/ots_api/mediamtx_api.py:262
 msgid "Path cannot begin with a slash"
-msgstr ""
+msgstr "Шлях не може починатися зі скісну риску"
 
 #: blueprints/ots_api/mediamtx_api.py:277
 #: blueprints/ots_api/mediamtx_api.py:342
 #, fuzzy, python-format
 msgid "Path %(path)s not found"
-msgstr "Групу %(group_name)s не знайдено"
+msgstr "Шлях %(path)s не знайдено"
 
 #: blueprints/ots_api/mediamtx_api.py:348
 msgid "MediaMTX is not running"
-msgstr ""
+msgstr "MediaMTX не працює"
 
 #: blueprints/ots_api/meshtastic_api.py:126
 msgid "Please provide the URL of the channel to delete"
-msgstr ""
+msgstr "Будь ласка, надайте URL-адресу каналу, який потрібно видалити"
 
 #: blueprints/ots_api/mission_api.py:119 blueprints/ots_api/mission_api.py:200
 #, fuzzy, python-format
 msgid "Invalid property: %(key)s"
-msgstr "Недійсний напрямок: %(direction)s"
+msgstr "Недійсна властивість: %(key)s"
 
 #: blueprints/ots_api/mission_api.py:179
 msgid "Only an admin or the mission creator can change this mission"
-msgstr ""
+msgstr "Тільки адміністратор або автор місії може змінити цю місію"
 
 #: blueprints/ots_api/mission_api.py:213
-#, fuzzy
 msgid "Please specify a mission name"
-msgstr "Будь ласка, вкажіть позивний"
+msgstr "Будь ласка, вкажіть назву місії"
 
 #: blueprints/ots_api/mission_api.py:258
-#, fuzzy
 msgid "Please provide the mission password"
-msgstr "Будь ласка, вкажіть ім'я користувача"
+msgstr "Будь ласка, надайте пароль місії"
 
 #: blueprints/ots_api/plugin_api.py:44
 msgid "Server plugins must be zip, whl, or tar.gz files"
-msgstr ""
+msgstr "Плагіни сервера повинні бути у форматі zip, whl або tar.gz файлів"
 
 #: blueprints/ots_api/plugin_api.py:54 blueprints/ots_api/plugin_api.py:75
 #: blueprints/ots_api/plugin_api.py:91 blueprints/ots_api/plugin_api.py:106
 msgid "Plugins are disabled"
-msgstr ""
+msgstr "Плагіни вимкнено"
 
 #: blueprints/ots_api/plugin_api.py:73
 #, fuzzy, python-format
 msgid "Plugin %(plugin_name)s not found"
-msgstr "Користувач %(username)s не знайдено"
+msgstr "Плагін %(plugin_name)s не знайдено"
 
 #: blueprints/ots_api/token_api.py:169
 #, python-format
 msgid "No token found for %s(username)s"
-msgstr ""
+msgstr "Не знайдено токена для %s(ім'я користувача)"
 
 #: blueprints/ots_api/token_api.py:194
-#, fuzzy, python-format
+#, python-format
 msgid "Failed to delete token: %(e)s"
-msgstr "Не вдалося видалити користувача: %(e)s"
+msgstr "Не вдалося видалити токен: %(e)s"
 
 #: blueprints/ots_api/user_api.py:24
 msgid "LDAP is enabled, please use your LDAP server to create users"
@@ -762,4 +752,3 @@ msgstr "Недійсний ідентифікатор запису: %(recording_
 #: blueprints/ots_api/video_api.py:76
 msgid "Recording not found"
 msgstr "Запис не знайдено"
-

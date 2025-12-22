@@ -8,70 +8,69 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2025-12-15 09:57-0500\n"
-"PO-Revision-Date: 2025-12-10 17:28+0000\n"
+"PO-Revision-Date: 2025-12-21 14:43+0000\n"
 "Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
+"Language-Team: French <https://weblate.opentakserver.io/projects/"
+"opentakserver/opentakserver/fr/>\n"
 "Language: fr\n"
-"Language-Team: French "
-"<https://weblate.opentakserver.io/projects/opentakserver/opentakserver/fr/>"
-"\n"
-"Plural-Forms: nplurals=2; plural=n > 1;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
+"X-Generator: Weblate 5.13.3\n"
 "Generated-By: Babel 2.15.0\n"
 
 #: blueprints/marti_api/cot_marti_api.py:31
 #, fuzzy, python-format
 msgid "No CoT found for UID %(uid)s"
-msgstr "UID inconnu : %(uid)s"
+msgstr "Aucun CoT trouvé pour l'UID %(uid)s"
 
 #: blueprints/marti_api/cot_marti_api.py:50
 #, fuzzy, python-format
 msgid "Invalid secago value: %(sec_ago)s"
-msgstr "Nom d'utilisateur invalide : %(username)s"
+msgstr "valeur secago invalide : %(sec_ago)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:45
 msgid "This data package has already been uploaded"
-msgstr ""
+msgstr "Ce paquet de données a déjà été téléchargé"
 
 #: blueprints/marti_api/data_package_marti_api.py:114
 msgid "A file is required"
-msgstr ""
+msgstr "Un fichier est requis"
 
 #: blueprints/marti_api/data_package_marti_api.py:127
 #, fuzzy, python-format
 msgid "Invalid file extension: %(extension)s"
-msgstr "Direction invalide : %(direction)s"
+msgstr "Extension de fichier invalide : %(extension)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:260
-#, python-format
+#, fuzzy, python-format
 msgid "File not found: %(filename)s}"
-msgstr ""
+msgstr "Fichier introuvable : %(filename)s}"
 
 #: blueprints/marti_api/group_marti_api.py:31
 msgid "Groups are only supported on SSL connections"
-msgstr ""
+msgstr "Les groupes ne sont pris en charge que sur les connexions SSL"
 
 #: blueprints/marti_api/group_marti_api.py:87
 #: blueprints/marti_api/group_marti_api.py:119
-#, fuzzy
 msgid "Please specify a groupNameFilter"
-msgstr "Veuillez indiquer un indicatif d'appel"
+msgstr "Veuillez spécifier un filtre de nom de groupe"
 
 #: blueprints/marti_api/group_marti_api.py:92
 #: blueprints/marti_api/group_marti_api.py:124
 #, python-format
 msgid "Please specify a groupNameFilter that starts with %(prefix)s"
-msgstr ""
+msgstr "Veuillez spécifier un groupNameFilter qui commence par %(prefix)s"
 
 #: blueprints/marti_api/group_marti_api.py:95
 #: blueprints/marti_api/group_marti_api.py:127
 msgid "groupNameFilter must end with either _READ or _WRITE"
-msgstr ""
+msgstr "groupNameFilter doit se terminer par _READ ou _WRITE"
 
 #: blueprints/marti_api/group_marti_api.py:167
 msgid "clientUid required"
-msgstr ""
+msgstr "clientUid requis"
 
 #: blueprints/marti_api/group_marti_api.py:189
 #: blueprints/ots_api/group_api.py:242 blueprints/ots_api/user_api.py:304
@@ -80,85 +79,82 @@ msgstr "La direction doit être IN ou OUT"
 
 #: blueprints/marti_api/group_marti_api.py:194
 msgid "The active attribute must be true or false"
-msgstr ""
+msgstr "L'attribut actif doit être vrai ou faux"
 
 #: blueprints/marti_api/group_marti_api.py:199
 msgid "Group name is required"
-msgstr ""
+msgstr "Le nom du groupe est requis"
 
 #: blueprints/marti_api/group_marti_api.py:223
-#, python-format
+#, fuzzy, python-format
 msgid "%(username)s is not in the %(group_name)s group"
-msgstr ""
+msgstr "%(username)s ne fait pas partie du groupe %(group_name)s."
 
 #: blueprints/marti_api/group_marti_api.py:234
 #, fuzzy, python-format
 msgid "Failed to update group subscriptions for %(username)s: %(e)s"
-msgstr "Échec de la suppression de %(group_name)s : %(e)s"
+msgstr ""
+"Échec de la mise à jour des abonnements de groupe pour %(username)s : %(e)s"
 
 #: blueprints/marti_api/group_marti_api.py:254
 #, fuzzy
 msgid "Please provide a group name and direction"
-msgstr "Veuillez indiquer le nom d'utilisateur, le nom du groupe et l'orientation"
+msgstr "Veuillez indiquer le nom du groupe et la direction."
 
 #: blueprints/marti_api/group_marti_api.py:261
 #, fuzzy, python-format
 msgid "No group found: %(group_name)s, %(direction)s"
-msgstr "Groupe inexistant : %(group_name)s"
+msgstr "Aucun groupe trouvé : %(group_name)s, %(direction)s"
 
 #: blueprints/marti_api/marti_api.py:92
 #, fuzzy, python-format
 msgid "No such UID: %(uid)s"
-msgstr "UID inconnu : %(uid)s"
+msgstr "Aucun UID de ce type : %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:230
 #: blueprints/marti_api/mission_marti_api.py:821
 #, python-format
 msgid "No mission found with guid: %(mission_guid)s"
-msgstr ""
+msgstr "Aucune mission trouvée avec le GUID : %(mission_guid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:234
 #: blueprints/marti_api/mission_marti_api.py:954
 #: blueprints/ots_api/mission_api.py:262
 msgid "Invalid password"
-msgstr ""
+msgstr "Mot de passe invalide"
 
 #: blueprints/marti_api/mission_marti_api.py:319
 msgid "Missions are only supported on SSL connections"
-msgstr ""
+msgstr "Les missions ne sont prises en charge que sur les connexions SSL"
 
 #: blueprints/marti_api/mission_marti_api.py:327
-#, fuzzy
 msgid "Please provide a mission name and creatorUid"
-msgstr ""
-"Veuillez fournir une liste des utilisateurs, le nom du groupe et "
-"l'orientation"
+msgstr "Veuillez indiquer le nom de la mission et l'identifiant du créateur"
 
 #: blueprints/marti_api/mission_marti_api.py:332
-#, fuzzy, python-format
+#, python-format
 msgid "Invalid creatorUid: %(creator_uid)s"
-msgstr "Direction invalide : %(direction)s"
+msgstr "CreatorUid invalide : %(creator_uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:366
-#, fuzzy, python-format
+#, python-format
 msgid "Group not found: %(group_name)s"
-msgstr "Groupe inexistant : %(group_name)s"
+msgstr "Groupe introuvable : %(group_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:422
 #: blueprints/ots_api/mission_api.py:148
-#, fuzzy, python-format
+#, python-format
 msgid "Failed to add mission: %(e)s"
-msgstr "Échec de la suppression de l'utilisateur : %(e)s"
+msgstr "Échec de l'ajout de la mission : %(e)s"
 
 #: blueprints/marti_api/mission_marti_api.py:443
-#, fuzzy
 msgid "Invalid mission name"
-msgstr "Nom manquant"
+msgstr "Nom de mission invalide"
 
 #: blueprints/marti_api/mission_marti_api.py:450
 #, fuzzy, python-format
 msgid "Mission %(mission_name)S not found"
-msgstr "Groupe %(group_name)s introuvable"
+msgstr "Mission %(mission_name)S introuvable"
 
 #: blueprints/marti_api/mission_marti_api.py:469
 #: blueprints/marti_api/mission_marti_api.py:517
@@ -168,11 +164,11 @@ msgstr "Groupe %(group_name)s introuvable"
 #: blueprints/marti_api/mission_marti_api.py:1451
 #, fuzzy
 msgid "Missing or invalid token"
-msgstr "Nom manquant"
+msgstr "Jeton manquant ou invalide"
 
 #: blueprints/marti_api/mission_marti_api.py:491
 msgid "Only mission owners can delete missions"
-msgstr ""
+msgstr "Seuls les propriétaires de missions peuvent supprimer des missions"
 
 #: blueprints/marti_api/mission_marti_api.py:508
 #: blueprints/marti_api/mission_marti_api.py:553
@@ -182,67 +178,67 @@ msgstr ""
 #: blueprints/ots_api/mission_api.py:219
 #, fuzzy, python-format
 msgid "Mission %(mission_name)s not found"
-msgstr "Groupe %(group_name)s introuvable"
+msgstr "Mission %(mission_name)s introuvable"
 
 #: blueprints/marti_api/mission_marti_api.py:527
 #, fuzzy
 msgid "Please provide the password"
-msgstr "Veuillez fournir le hachage du paquet de données"
+msgstr "Veuillez fournir le mot de passe"
 
 #: blueprints/marti_api/mission_marti_api.py:531
 msgid "You do not have permission to change this mission's password"
-msgstr ""
+msgstr "Vous n'êtes pas autorisé à modifier le mot de passe de cette mission"
 
 #: blueprints/marti_api/mission_marti_api.py:563
-#, python-format
+#, fuzzy, python-format
 msgid "No EUD found with UID %(invitee)s"
-msgstr ""
+msgstr "Aucun EUD trouvé avec l'UID %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:569
-#, python-format
+#, fuzzy, python-format
 msgid "No EUD found with callsign %(invitee)s"
-msgstr ""
+msgstr "Aucun EUD trouvé avec l'indicatif d'appel %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:575
-#, python-format
+#, fuzzy, python-format
 msgid "No user found with username %(invitee)s"
-msgstr ""
+msgstr "Aucun utilisateur trouvé avec le nom d'utilisateur %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:581
 #, python-format
 msgid "No group found: %(invitee)s"
-msgstr ""
+msgstr "Aucun groupe trouvé : %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:587
-#, python-format
+#, fuzzy, python-format
 msgid "Team not found: %(invitee)s"
-msgstr ""
+msgstr "Équipe introuvable : %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:619
 #, fuzzy, python-format
 msgid "Invalid invitation type: %(invitation_type)s"
-msgstr "Direction invalide : %(direction)s"
+msgstr "Type d'invitation invalide : %(invitation_type)s"
 
 #: blueprints/marti_api/mission_marti_api.py:654
 #: blueprints/marti_api/mission_marti_api.py:1064
 #: blueprints/ots_api/mission_api.py:253
 #, python-format
 msgid "Mission not found: %(mission_name)s"
-msgstr ""
+msgstr "Mission introuvable : %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:678
 #, fuzzy, python-format
 msgid "Invalid invitation type: %(invitation)s"
-msgstr "Direction invalide : %(direction)s"
+msgstr "Type d'invitation invalide : %(invitation)s"
 
 #: blueprints/marti_api/mission_marti_api.py:743
-#, fuzzy, python-format
+#, python-format
 msgid "No such mission found: %(mission_name)s"
-msgstr "Groupe inexistant : %(group_name)s"
+msgstr "Mission introuvable : %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:748
 msgid "Only mission owners can change EUD roles"
-msgstr ""
+msgstr "Seuls les responsables de mission peuvent modifier les rôles EUD"
 
 #: blueprints/marti_api/mission_marti_api.py:752
 #: blueprints/ots_api/marker_api.py:54
@@ -759,4 +755,3 @@ msgstr ""
 #: blueprints/ots_api/video_api.py:76
 msgid "Recording not found"
 msgstr ""
-
