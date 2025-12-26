@@ -59,7 +59,10 @@ def link_tak_gov_account():
         payload = {"client_id": "tak-gov-eud", "scope": "openid offline_access email profile", "grant_type": "urn:ietf:params:oauth:grant-type:device_code"}
         response = client.post("https://auth.tak.gov/auth/realms/TPC/protocol/openid-connect/auth/device", headers=HEADERS, data=payload)
         if response.status_code != 200:
-            return jsonify({"success": False, "error": f"Failed to link tak.gov account: {response.text}"})
+            logger.info(f"Failed to get new access token: {response.text}")
+            logger.info(response.content)
+            logger.info(response.headers)
+            return jsonify({"success": False, "error": f"Failed to link tak.gov account: {response.text}"}), response.status_code
 
         response_data = response.json()
         device_code = response_data["device_code"]
