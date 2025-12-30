@@ -192,7 +192,7 @@ def edit_package():
     if not form.validate():
         return jsonify({'success': False, 'errors': form.errors}), 400
 
-    package = db.session.execute(db.session.query(Packages).filter_by(package_name=form.package_name.data)).first()
+    package = db.session.execute(db.session.query(Packages).filter_by(package_name=form.package_name.data, atak_version=form.atak_version.data)).first()
     if not package:
         return jsonify({'success': False, 'error': f"{form.package_name.data} not found"}), 404
 
@@ -201,7 +201,7 @@ def edit_package():
     package.install_on_connection = form.install_on_connection.data
     package.publish_time = datetime.datetime.now(datetime.timezone.utc)
 
-    db.session.execute(sqlalchemy.update(Packages).where(Packages.package_name == form.package_name.data).values(**package.serialize()))
+    db.session.execute(sqlalchemy.update(Packages).where(Packages.package_name == form.package_name.data).where(Packages.atak_version == form.atak_version.data).values(**package.serialize()))
     db.session.commit()
 
     return jsonify({'success': True})

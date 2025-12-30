@@ -259,7 +259,7 @@ def download_plugin():
     HEADERS["Authorization"] = f"Bearer {token['access_token']}"
     response = client.get(apk_url, headers=HEADERS, follow_redirects=True)
     if response.status_code != 200:
-        return jsonify(response.content), 500
+        return jsonify(response.content), response.status_code
 
     content_disposition = response.headers.get("content-disposition")
     filename = re.search(r'filename=\"(.+)\"', content_disposition).group(1)
