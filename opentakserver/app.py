@@ -136,6 +136,7 @@ def init_extensions(app):
     channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
     channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
     channel.exchange_declare("groups", durable=True, exchange_type='topic')  # For channels/groups
+    channel.exchange_declare("firehose", durable=True, exchange_type='fanout')  # A firehose of all CoT data
     channel.close()
     rabbit_connection.close()
 

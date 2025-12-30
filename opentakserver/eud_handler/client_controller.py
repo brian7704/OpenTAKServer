@@ -505,7 +505,6 @@ class ClientController(Thread):
                                'namespace': "/socket.io", 'room': None,
                                'skip_sid': None, 'callback': None, 'binary': False,
                                'host_id': uuid.uuid4().hex}
-                    logger.error(f"Publishing {json.dumps(message)}")
                     self.rabbit_channel.basic_publish(exchange="flask-socketio", routing_key="", body=json.dumps(message).encode(),
                                                       properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
@@ -606,8 +605,13 @@ class ClientController(Thread):
             self.logger.error("RabbitMQ channel is closed, not publishing cot")
             return
 
-        # Route all CoTs to the cot exchange for cot_parser and any plugins to receive
-        self.rabbit_channel.basic_publish(exchange='cot', body=json.dumps({'uid': self.uid, 'cot': str(event)}), routing_key='',
+        # Route all CoTs to the firehose exchange for plugins and users that connect directly to RabbitMQ
+        self.rabbit_channel.basic_publish(exchange='firehose', body=json.dumps({'uid': self.uid, 'cot': str(event)}), routing_key='',
+                                          properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
+
+        # Route all cots to the cot_parser direct exchange to be processed by a pool of cot_parser processes
+        self.rabbit_channel.basic_publish(exchange='cot_parser', body=json.dumps({'uid': self.uid, 'cot': str(event)}),
+                                          routing_key='cot_parser',
                                           properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
         mission_changes = []
