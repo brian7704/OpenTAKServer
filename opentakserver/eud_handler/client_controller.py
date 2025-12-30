@@ -15,7 +15,6 @@ import sqlalchemy
 from flask import Flask
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import verify_password
-from flask_socketio import SocketIO
 
 from bs4 import BeautifulSoup
 import pika
@@ -23,7 +22,7 @@ from meshtastic import mesh_pb2, portnums_pb2, BROADCAST_NUM, mqtt_pb2
 from pika.channel import Channel
 from sqlalchemy import select, update, insert
 
-from opentakserver.extensions import db, ldap_manager
+from opentakserver.extensions import db, ldap_manager, logger
 from opentakserver.functions import datetime_from_iso8601_string, iso8601_string_from_datetime
 from opentakserver.models.Chatrooms import Chatroom
 from opentakserver.models.EUD import EUD
@@ -31,16 +30,13 @@ from opentakserver.models.Group import Group
 from opentakserver.models.GroupUser import GroupUser
 from opentakserver.models.Meshtastic import MeshtasticChannel
 from opentakserver.models.Mission import Mission
-from opentakserver.models.CasEvac import CasEvac
-from opentakserver.models.GeoChat import GeoChat
-from opentakserver.models.ChatroomsUids import ChatroomsUids
 from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
 from opentakserver.models.MissionUID import MissionUID
 from opentakserver.models.Team import Team
 
 
 class ClientController(Thread):
-    def __init__(self, address: str, port: int, sock: socket, logger, app: Flask, is_ssl: bool, socketio: SocketIO):
+    def __init__(self, address: str, port: int, sock: socket, logger, app: Flask, is_ssl: bool):
         Thread.__init__(self)
         self.address = address
         self.port = port
@@ -51,8 +47,8 @@ class ClientController(Thread):
         self.app = app
         self.db = db
         self.is_ssl = is_ssl
-        self.socketio = socketio
         self.bound_queues = []
+        self.eud = None
 
         self.user = None
 
@@ -103,7 +99,7 @@ class ClientController(Thread):
         try:
             rabbit_credentials = pika.PlainCredentials(self.app.config.get("OTS_RABBITMQ_USERNAME"), self.app.config.get("OTS_RABBITMQ_PASSWORD"))
             rabbit_host = self.app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
-            self.rabbit_connection = pika.SelectConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials), self.on_connection_open)
+            self.rabbit_connection = pika.SelectConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials), self.on_connection_open, on_close_callback=self.on_close)
             self.rabbit_channel: Channel | None = None
             # Start the pika ioloop in a thread or else it blocks and we can't receive any CoT messages
             self.iothread = Thread(target=self.rabbit_connection.ioloop.start, name="IOLOOP")
@@ -114,21 +110,27 @@ class ClientController(Thread):
             self.logger.error("Failed to connect to rabbitmq: {}".format(e))
             return
 
-    def on_connection_open(self, connection):
+    def on_connection_open(self, connection: pika.SelectConnection):
         self.rabbit_connection.channel(on_open_callback=self.on_channel_open)
         self.rabbit_connection.add_on_close_callback(self.on_close)
 
     def on_channel_open(self, channel: Channel):
         self.logger.debug(f"Opening RabbitMQ channel for {self.callsign or self.address}")
         self.rabbit_channel = channel
-        # Remove the on_channel_close callback in case this channel is being reopened
-        self.rabbit_channel.callbacks.clear()
         self.rabbit_channel.add_on_close_callback(self.on_channel_close)
 
         for message in self.cached_messages:
             self.route_cot(message)
 
         self.cached_messages.clear()
+
+        # Publish the EUD info to flask-socketio for the web UI map
+        if self.eud:
+            message = {'method': 'emit', 'event': "eud", 'data': self.eud.to_json(),
+                       'namespace': "/socket.io", 'room': None,
+                       'skip_sid': [], 'callback': None, 'binary': False,
+                       'host_id': uuid.uuid4().hex}
+            self.rabbit_channel.basic_publish("flask-socketio", "", json.dumps(message))
 
     def on_channel_close(self, channel: Channel, error):
         self.logger.error(f"RabbitMQ channel closed for {self.callsign}, shut it down")
@@ -140,12 +142,8 @@ class ClientController(Thread):
         self.sock.close()
 
     def on_close(self, connection, error):
-        try:
-            if self.rabbit_connection:
-                self.rabbit_connection.ioloop.stop()
-                self.rabbit_connection = None
-        except BaseException as e:
-            self.logger.error(f"Failed to close ioloop: {e}")
+        # Stop the ioloop using add_callback_threadsafe because ioloop.stop() isn't threadsafe
+        connection.ioloop.add_callback_threadsafe(self.rabbit_connection.ioloop.stop)
         self.logger.info("Connection closed for {}: {}".format(self.address, error))
 
     def on_message(self, unused_channel, basic_deliver, properties, body):
@@ -318,16 +316,17 @@ class ClientController(Thread):
         self.send_disconnect_cot()
 
         if self.rabbit_channel and not self.rabbit_channel.is_closing and not self.rabbit_channel.is_closed:
-            try:
-                self.rabbit_channel.close()
-            except ValueError as e:
-                self.rabbit_connection.ioloop.stop()
-                self.rabbit_connection.close()
+            self.rabbit_channel.close()
 
         if not self.shutdown:
             self.shutdown = True
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
+
+        # Close this thread's DB session. This doesn't affect other EUD's threads
+        with self.app.app_context():
+            self.db.session.close()
+            self.db.engine.dispose()
 
     def stop(self):
         self.close_connection()
@@ -497,7 +496,17 @@ class ClientController(Thread):
                     self.db.session.commit()
 
                 self.send_meshtastic_node_info(eud)
-                self.socketio.emit('eud', eud.to_json(), namespace='/socket.io')
+
+                # If the RabbitMQ channel is open, publish the EUD info to socketio to be displayed on the web UI map.
+                # Also save the EUD's info for on_channel_open to publish
+                self.eud = eud
+                if self.rabbit_channel:
+                    message = {'method': 'emit', 'event': "eud", 'data': eud.to_json(),
+                               'namespace': "/socket.io", 'room': None,
+                               'skip_sid': None, 'callback': None, 'binary': False,
+                               'host_id': uuid.uuid4().hex}
+                    logger.error(f"Publishing {json.dumps(message)}")
+                    self.rabbit_channel.basic_publish(exchange="flask-socketio", routing_key="", body=json.dumps(message).encode())
 
     def send_meshtastic_node_info(self, eud):
         if self.app.config.get("OTS_ENABLE_MESHTASTIC") and eud.platform != "Meshtastic":
