@@ -130,7 +130,7 @@ class ClientController(Thread):
                        'namespace': "/socket.io", 'room': None,
                        'skip_sid': [], 'callback': None, 'binary': False,
                        'host_id': uuid.uuid4().hex}
-            self.rabbit_channel.basic_publish("flask-socketio", "", json.dumps(message))
+            self.rabbit_channel.basic_publish("flask-socketio", "", json.dumps(message), properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
     def on_channel_close(self, channel: Channel, error):
         self.logger.error(f"RabbitMQ channel closed for {self.callsign}, shut it down")
@@ -506,7 +506,8 @@ class ClientController(Thread):
                                'skip_sid': None, 'callback': None, 'binary': False,
                                'host_id': uuid.uuid4().hex}
                     logger.error(f"Publishing {json.dumps(message)}")
-                    self.rabbit_channel.basic_publish(exchange="flask-socketio", routing_key="", body=json.dumps(message).encode())
+                    self.rabbit_channel.basic_publish(exchange="flask-socketio", routing_key="", body=json.dumps(message).encode(),
+                                                      properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
     def send_meshtastic_node_info(self, eud):
         if self.app.config.get("OTS_ENABLE_MESHTASTIC") and eud.platform != "Meshtastic":
@@ -584,9 +585,11 @@ class ClientController(Thread):
                     for group in groups:
                         group = group[0]
                         self.logger.debug(f"Publishing to group {group.group.name}.{group.direction}")
-                        self.rabbit_channel.basic_publish(exchange="groups", routing_key=f"{group.group.name}.{group.direction}", body=message)
+                        self.rabbit_channel.basic_publish(exchange="groups", routing_key=f"{group.group.name}.{group.direction}", body=message,
+                                                          properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
             elif self.rabbit_channel and not self.rabbit_channel.is_closing and not self.rabbit_channel.is_closed:
-                self.rabbit_channel.basic_publish(exchange="groups", routing_key=f"__ANON__.{Group.OUT}", body=message)
+                self.rabbit_channel.basic_publish(exchange="groups", routing_key=f"__ANON__.{Group.OUT}", body=message,
+                                                  properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
             with self.app.app_context():
                 self.db.session.execute(update(EUD).filter(EUD.uid == self.uid).values(last_status='Disconnected', last_event_time=now))
@@ -620,12 +623,14 @@ class ClientController(Thread):
                 # ATAK and WinTAK use callsign, iTAK uses uid
                 if 'callsign' in destination.attrs and destination.attrs['callsign']:
                     self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['callsign'],
-                                                      body=json.dumps({'uid': self.uid, 'cot': str(event)}))
+                                                      body=json.dumps({'uid': self.uid, 'cot': str(event)}),
+                                                      properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
                 # iTAK uses its own UID in the <dest> tag when sending CoTs to a mission so we don't send those to the dms exchange
                 elif 'uid' in destination.attrs and destination['uid'] != self.uid:
                     self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['uid'],
-                                                      body=json.dumps({'uid': self.uid, 'cot': str(event)}))
+                                                      body=json.dumps({'uid': self.uid, 'cot': str(event)}),
+                                                      properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
                 # For data sync missions
                 elif 'mission' in destination.attrs:
@@ -640,7 +645,8 @@ class ClientController(Thread):
                         mission = mission[0]
                         self.rabbit_channel.basic_publish("missions",
                                                           routing_key=f"missions.{destination.attrs['mission']}",
-                                                          body=json.dumps({'uid': self.uid, 'cot': str(event)}))
+                                                          body=json.dumps({'uid': self.uid, 'cot': str(event)}),
+                                                          properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
                         mission_uid = self.db.session.execute(
                             self.db.session.query(MissionUID).filter_by(uid=event.attrs['uid'])).first()
@@ -715,4 +721,4 @@ class ClientController(Thread):
         if mission_changes:
             for change in mission_changes:
                 self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{change['mission']}",
-                                                  body=json.dumps(change['message']))
+                                                  body=json.dumps(change['message']), properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
