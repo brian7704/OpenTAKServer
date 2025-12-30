@@ -384,6 +384,15 @@ def get_euds():
     :param page: The page number
     :param per_page: The number of results per page
     """
+
+    if request.args.get("all"):
+        all_euds = []
+        euds = EUD.query.with_entities(EUD.uid, EUD.callsign).all()
+        for eud in euds:
+            if eud[0] and eud[1]:
+                all_euds.append({"uid": eud[0], "callsign": eud[1]})
+        return jsonify(all_euds)
+
     query = db.session.query(EUD)
 
     if 'username' in request.args.keys():
