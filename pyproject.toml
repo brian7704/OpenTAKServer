@@ -49,7 +49,7 @@ pytest = "8.3.3"
 pytest-cov = "6.0.0"
 python = ">=3.10, <3.15"
 python-ffmpeg = "2.0.12"
-python-socketio = {extras = ["client", "websocket_client", "asyncio_client"], version = "5.14.3"}
+python-socketio = {extras = ["client", "websocket_client", "asyncio_client"], version = "5.16.0"}
 pyOpenSSL = "25.3.0"
 pyotp = "2.9.0"
 PyYAML = "6.0.3"
