@@ -1,15 +1,24 @@
+import platform
 import secrets
 import string
 import random
+from typing import Any
 
 import pyotp
 from pathlib import Path
 import os
 
+import yaml
+
+
+def _ensure_bool(v: str) -> bool:
+    # helper to avoid repeating ourselves
+    return v.lower() in ["true", "1", "yes"]
+
 
 class DefaultConfig:
     SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_hex())
-    DEBUG = os.getenv("DEBUG", "False").lower() in ["true", "1", "yes"]
+    DEBUG = os.getenv("DEBUG", "False")
 
     OTS_LANGUAGES = {'US': {'name': 'English', 'language_code': 'en'},
                      'DE': {'name': 'Deutsch', 'language_code': 'de'},
@@ -28,11 +37,12 @@ class DefaultConfig:
     OTS_LISTENER_PORT = int(os.getenv("OTS_LISTENER_PORT", 8081))
     OTS_MARTI_HTTP_PORT = int(os.getenv("OTS_MARTI_HTTP_PORT", 8080))
     OTS_MARTI_HTTPS_PORT = int(os.getenv("OTS_MARTI_HTTPS_PORT", 8443))
-    OTS_ENABLE_TCP_STREAMING_PORT = os.getenv("OTS_ENABLE_TCP_STREAMING_PORT", "True").lower() in ["true", "1", "yes"]
+    OTS_ENABLE_TCP_STREAMING_PORT = _ensure_bool(
+        os.getenv("OTS_ENABLE_TCP_STREAMING_PORT", "True")
+    )
     OTS_TCP_STREAMING_PORT = int(os.getenv("OTS_TCP_STREAMING_PORT", 8088))
     OTS_SSL_STREAMING_PORT = int(os.getenv("OTS_SSL_STREAMING_PORT", 8089))
-    OTS_BACKUP_COUNT = int(os.getenv("OTS_BACKUP_COUNT", 7))
-    OTS_ENABLE_CHANNELS = os.getenv("OTS_ENABLE_CHANNELS", "True").lower() in ["true", "1", "yes"]
+    OTS_ENABLE_CHANNELS = _ensure_bool(os.getenv("OTS_ENABLE_CHANNELS", "True"))
 
     # RabbitMQ Settings
     OTS_RABBITMQ_SERVER_ADDRESS = os.getenv("OTS_RABBITMQ_SERVER_ADDRESS", "127.0.0.1")
@@ -40,7 +50,7 @@ class DefaultConfig:
     OTS_RABBITMQ_PASSWORD = os.getenv("OTS_RABBITMQ_PASSWORD", "guest")
     # Messages queued in RabbitMQ will auto-delete after 1 day if not consumed https://www.rabbitmq.com/docs/ttl
     # Set to '0' to disable auto-deletion
-    OTS_RABBITMQ_TTL = '86400000'
+    OTS_RABBITMQ_TTL = "86400000"
     # How many CoT messages that cot_parser processes should prefetch. https://www.rabbitmq.com/docs/consumer-prefetch
     OTS_RABBITMQ_PREFETCH = 2
 
@@ -49,12 +59,19 @@ class DefaultConfig:
     OTS_TAK_GOV_ACCESS_TOKEN = ""
     OTS_TAK_GOV_REFRESH_TOKEN = ""
 
-    OTS_MEDIAMTX_ENABLE = os.getenv("OTS_MEDIAMTX_ENABLE", "True").lower() in ["true", "1", "yes"]
-    OTS_MEDIAMTX_API_ADDRESS = os.getenv("OTS_MEDIAMTX_API_ADDRESS", "http://localhost:9997")
-    OTS_MEDIAMTX_TOKEN = os.getenv("OTS_MEDIAMTX_TOKEN", secrets.token_urlsafe(30 * 3 // 4))
+    OTS_MEDIAMTX_ENABLE = _ensure_bool(os.getenv("OTS_MEDIAMTX_ENABLE", "True"))
+    OTS_MEDIAMTX_API_ADDRESS = os.getenv(
+        "OTS_MEDIAMTX_API_ADDRESS", "http://localhost:9997"
+    )
+    OTS_MEDIAMTX_TOKEN = os.getenv(
+        "OTS_MEDIAMTX_TOKEN", secrets.token_urlsafe(30 * 3 // 4)
+    )
     OTS_SSL_VERIFICATION_MODE = int(os.getenv("OTS_SSL_VERIFICATION_MODE", 2))
     OTS_SSL_CERT_HEADER = os.getenv("OTS_SSL_CERT_HEADER", "X-Ssl-Cert")
-    OTS_NODE_ID = os.getenv("OTS_NODE_ID", ''.join(random.choices(string.ascii_lowercase + string.digits, k=32)))
+    OTS_NODE_ID = os.getenv(
+        "OTS_NODE_ID",
+        "".join(random.choices(string.ascii_lowercase + string.digits, k=32)),
+    )
 
     # Certificate Authority Settings
     OTS_CA_NAME = os.getenv("OTS_CA_NAME", "OpenTAKServer-CA")
@@ -92,9 +109,31 @@ class DefaultConfig:
     LDAP_BIND_USER_DN = "cn=admin,ou=users=dc=example,dc=com"
     LDAP_BIND_USER_PASSWORD = "password"
 
+    # Logging
+    OTS_LOG_LEVEL = os.getenv(
+        "OTS_LOG_LEVEL", os.getenv("LOG_LEVEL", "INFO")
+    )  # fallback to the well-known LOG_LEVEL
+    OTS_LOG_FILE_ENABLE = _ensure_bool(os.getenv("OTS_LOG_FILE_ENABLE", "True"))
+    OTS_LOG_FILE_LEVEL = os.getenv("OTS_LOG_FILE_LEVEL", "INFO")
+    OTS_LOG_FILE_FORMAT = os.getenv("OTS_LOG_FILE_FORMAT", "ots")
+
     # See https://docs.python.org/3/library/logging.handlers.html#logging.handlers.TimedRotatingFileHandler
     OTS_LOG_ROTATE_WHEN = os.getenv("OTS_LOG_ROTATE_WHEN", "midnight")
     OTS_LOG_ROTATE_INTERVAL = int(os.getenv("OTS_LOG_ROTATE_INTERVAL", 0))
+    OTS_BACKUP_COUNT = int(os.getenv("OTS_BACKUP_COUNT", 7))
+
+    OTS_LOG_CONSOLE_ENABLE = _ensure_bool(os.getenv("OTS_LOG_CONSOLE_ENABLE", "True"))
+    OTS_LOG_CONSOLE_LEVEL = os.getenv("OTS_LOG_CONSOLE_LEVEL", "INFO")
+    OTS_LOG_CONSOLE_FORMAT = os.getenv("OTS_LOG_CONSOLE_FORMAT", "ots")
+
+    # not enabled by default, unless OTEL_EXPORTER_OTLP_ENDPOINT is set.
+    OTS_LOG_OTEL_ENABLE = _ensure_bool(
+        os.getenv(
+            "OTS_LOG_OTEL_ENABLE",
+            str(os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT") is not None),
+        )
+    )
+    OTS_LOG_OTEL_LEVEL = os.getenv("OTS_LOG_OTEL_LEVEL", "INFO")
 
     # ADS-B Settings
     OTS_AIRPLANES_LIVE_LAT = 40.744213
@@ -132,11 +171,11 @@ class DefaultConfig:
     OTS_MESHTASTIC_GROUP = "Meshtastic"
 
     # Email settings
-    OTS_ENABLE_EMAIL = os.getenv("OTS_ENABLE_EMAIL", "False").lower() in ["true", "1", "yes"]
+    OTS_ENABLE_EMAIL = _ensure_bool(os.getenv("OTS_ENABLE_EMAIL", "False"))
     MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
     MAIL_PORT = int(os.getenv("MAIL_PORT", 587))
-    MAIL_USE_SSL = os.getenv("MAIL_USE_SSL", "False").lower() in ["true", "1", "yes"]
-    MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "True").lower() in ["true", "1", "yes"]
+    MAIL_USE_SSL = _ensure_bool(os.getenv("MAIL_USE_SSL", "False"))
+    MAIL_USE_TLS = _ensure_bool(os.getenv("MAIL_USE_TLS", "True"))
     MAIL_USERNAME = os.getenv("MAIL_USERNAME", None)
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", None)
     MAIL_DEBUG = False
@@ -171,7 +210,9 @@ class DefaultConfig:
         os.makedirs(UPLOAD_FOLDER)
 
     # Flask-Security-Too
-    SECURITY_PASSWORD_SALT = os.getenv("SECURITY_PASSWORD_SALT", str(secrets.SystemRandom().getrandbits(128)))
+    SECURITY_PASSWORD_SALT = os.getenv(
+        "SECURITY_PASSWORD_SALT", str(secrets.SystemRandom().getrandbits(128))
+    )
     REMEMBER_COOKIE_SAMESITE = "strict"
     SESSION_COOKIE_SAMESITE = "strict"
     SECURITY_USERNAME_ENABLE = True
@@ -192,7 +233,9 @@ class DefaultConfig:
     SECURITY_CONFIRMABLE = OTS_ENABLE_EMAIL
     SECURITY_RECOVERABLE = OTS_ENABLE_EMAIL
     SECURITY_TWO_FACTOR = True
-    SECURITY_TOTP_SECRETS = {1: os.getenv("SECURITY_TOTP_SECRET", pyotp.random_base32())}
+    SECURITY_TOTP_SECRETS = {
+        1: os.getenv("SECURITY_TOTP_SECRET", pyotp.random_base32())
+    }
     SECURITY_TOTP_ISSUER = os.getenv("SECURITY_TOTP_ISSUER", "OpenTAKServer")
     SECURITY_TWO_FACTOR_ENABLED_METHODS = ["authenticator", "email"]
     SECURITY_TWO_FACTOR_RESCUE_MAIL = MAIL_USERNAME
@@ -200,8 +243,8 @@ class DefaultConfig:
     SECURITY_CSRF_PROTECT_MECHANISMS = ["session", "basic"]
     SECURITY_LOGIN_WITHOUT_CONFIRMATION = True
     SECURITY_POST_CONFIRM_VIEW = "/login"
-    SECURITY_REDIRECT_BEHAVIOR = 'spa'
-    SECURITY_RESET_VIEW = '/reset'
+    SECURITY_REDIRECT_BEHAVIOR = "spa"
+    SECURITY_RESET_VIEW = "/reset"
     SECURITY_USERNAME_MIN_LENGTH = 1
     SECURITY_MSG_USERNAME_DISALLOWED_CHARACTERS = (
     "Username can contain only letters, numbers, underscores, and periods", "error")
@@ -214,7 +257,7 @@ class DefaultConfig:
             "trigger": "interval",
             "seconds": 0,
             "minutes": 1,
-            "next_run_time": None
+            "next_run_time": None,
         },
         {
             "id": "delete_video_recordings",
@@ -222,7 +265,7 @@ class DefaultConfig:
             "trigger": "interval",
             "seconds": 0,
             "minutes": 1,
-            "next_run_time": None
+            "next_run_time": None,
         },
         {
             "id": "purge_data",
@@ -231,7 +274,7 @@ class DefaultConfig:
             "day": "*",
             "hour": 0,
             "minute": 0,
-            "next_run_time": None
+            "next_run_time": None,
         },
         {
             "id": "ais",
@@ -239,7 +282,7 @@ class DefaultConfig:
             "trigger": "interval",
             "seconds": 0,
             "minutes": 1,
-            "next_run_time": None
+            "next_run_time": None,
         },
         {
             "id": "delete_old_data",
@@ -247,6 +290,33 @@ class DefaultConfig:
             "trigger": "interval",
             "seconds": 0,
             "minutes": 1,
-            "next_run_time": None
-        }
+            "next_run_time": None,
+        },
     ]
+
+    @staticmethod
+    def to_dict() -> dict[str, Any]:
+        conf = {}
+        for option in DefaultConfig.__dict__:
+            # Fix the sqlite DB path on Windows
+            if (
+                option == "SQLALCHEMY_DATABASE_URI"
+                and platform.system() == "Windows"
+                and DefaultConfig.__dict__[option].startswith("sqlite")
+            ):
+                conf[option] = (
+                    DefaultConfig.__dict__[option]
+                    .replace("////", "///")
+                    .replace("\\", "/")
+                )
+            elif option.isupper():
+                conf[option] = DefaultConfig.__dict__[option]
+        return conf
+
+    @staticmethod
+    def to_file():
+        conf = DefaultConfig.to_dict()
+        with open(
+            os.path.join(conf.get("OTS_DATA_FOLDER"), "config.yml"), "w"
+        ) as config:
+            config.write(yaml.safe_dump(conf))
