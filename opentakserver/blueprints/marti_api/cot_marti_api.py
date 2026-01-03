@@ -2,6 +2,7 @@ import datetime
 from xml.etree.ElementTree import Element, fromstring, tostring
 
 from flask import Blueprint, request, jsonify
+from flask_babel import gettext
 
 from opentakserver.functions import datetime_from_iso8601_string
 from opentakserver.extensions import db, logger
@@ -17,9 +18,6 @@ based on the API docs until I find an example of them actually being used by a T
 
 @cot_marti_api.route('/Marti/api/cot')
 def get_cots():
-    logger.debug(request.headers)
-    logger.debug(request.args)
-
     return '', 200
 
 
@@ -30,7 +28,7 @@ def get_cot(uid):
 
     cot = db.session.execute(db.session.query(CoT).filter_by(uid=uid)).first()
     if not cot:
-        return jsonify({'success': False, 'error': f"No CoT found for UID {uid}"}), 404
+        return jsonify({'success': False, 'error': gettext(u"No CoT found for UID %(uid)s", uid=uid)}), 404
 
     return cot[0].xml
 
@@ -49,7 +47,7 @@ def get_all_cot(uid):
         try:
             query = query.filter(CoT.start >= datetime.timedelta(seconds=int(sec_ago)))
         except ValueError:
-            return jsonify({'success': False, 'error': f'Invalid secago value: {sec_ago}'}), 400
+            return jsonify({'success': False, 'error': gettext(u'Invalid secago value: %(sec_ago)s', sec_ago=sec_ago)}), 400
     if start:
         query = query.filter(CoT.start >= datetime_from_iso8601_string(start))
     if end:

@@ -83,7 +83,7 @@ class Mission(db.Model):
             'bbox': self.bbox or "",
             'path': self.path or "",
             'classification': self.classification or "",
-            'tool': self.tool or "",
+            'tool': self.tool or "public",
             'defaultRole': self.default_role or "",
             'keywords': self.keywords if self.keywords else [],
             'creatorUid': self.creator_uid or "",
@@ -104,7 +104,7 @@ class Mission(db.Model):
         }
 
         for group in self.groups:
-            json['groups'].append(group.name)
+            json['groups'].append({"id": group.id, "name": group.name})
 
         if self.default_role == MissionRole.MISSION_SUBSCRIBER or not self.default_role:
             json['defaultRole'] = MissionRole.SUBSCRIBER_ROLE
@@ -116,3 +116,12 @@ class Mission(db.Model):
             json['defaultRole'] = MissionRole.READ_ONLY_ROLE
 
         return json
+
+    def to_marti_json(self):
+        return_value = self.to_json()
+
+        return_value['groups'] = []
+        for group in self.groups:
+            return_value['groups'].append(group.name)
+
+        return return_value

@@ -10,6 +10,7 @@ import zipfile
 import bleach
 import sqlalchemy
 from flask import Blueprint, request, jsonify, current_app as app, send_from_directory
+from flask_babel import gettext
 from flask_login import current_user
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures.file_storage import FileStorage
@@ -17,14 +18,15 @@ from werkzeug.datastructures.file_storage import FileStorage
 from xml.etree.ElementTree import Element, tostring, SubElement
 
 from opentakserver.extensions import logger, db
-from opentakserver.functions import iso8601_string_from_datetime
+from opentakserver.functions import iso8601_string_from_datetime, format_bytes
 from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.MissionContent import MissionContent
 
 data_package_marti_api = Blueprint('data_package_marti_api', __name__)
 
 
-def save_data_package_to_db(filename: str = None, sha256_hash: str = None, mimetype: str = "application/zip", file_size: int = 0):
+def save_data_package_to_db(filename: str = None, sha256_hash: str = None, mimetype: str = "application/zip",
+                            file_size: int = 0):
     try:
         data_package = DataPackage()
         data_package.filename = filename
@@ -40,7 +42,7 @@ def save_data_package_to_db(filename: str = None, sha256_hash: str = None, mimet
         db.session.rollback()
         logger.error("Failed to save data package: {}".format(e))
         logger.debug(traceback.format_exc())
-        return jsonify({'success': False, 'error': 'This data package has already been uploaded'}), 400
+        return jsonify({'success': False, 'error': gettext(u'This data package has already been uploaded')}), 400
 
 
 def create_data_package_zip(file: FileStorage | str) -> str:
@@ -51,7 +53,8 @@ def create_data_package_zip(file: FileStorage | str) -> str:
     else:
         filename, extension = os.path.splitext(secure_filename(file.filename))
 
-    zipf = zipfile.ZipFile(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{filename}.zip"), "a", zipfile.ZIP_DEFLATED, False)
+    zipf = zipfile.ZipFile(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{filename}.zip"), "a", zipfile.ZIP_DEFLATED,
+                           False)
 
     # Use the md5 of the uploaded file as its folder name in the data package zip
     md5 = hashlib.md5()
@@ -77,7 +80,8 @@ def create_data_package_zip(file: FileStorage | str) -> str:
     SubElement(config, "Parameter", {"name": "name", "value": secure_filename(filename + extension)})
 
     contents = SubElement(manifest, "Contents")
-    content = SubElement(contents, "Content", {"ignore": "false", "zipEntry": f"{md5_hash}/{secure_filename(filename + extension)}"})
+    content = SubElement(contents, "Content",
+                         {"ignore": "false", "zipEntry": f"{md5_hash}/{secure_filename(filename + extension)}"})
 
     extension = extension.lower().replace(".", "")
     if extension == 'kml' or extension == 'kmz':
@@ -97,7 +101,8 @@ def create_data_package_zip(file: FileStorage | str) -> str:
     sha256.update(zip_file_bytes)
     data_package_hash = sha256.hexdigest()
 
-    os.rename(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{filename}.zip"), os.path.join(app.config.get("UPLOAD_FOLDER"), f"{data_package_hash}.zip"))
+    os.rename(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{filename}.zip"),
+              os.path.join(app.config.get("UPLOAD_FOLDER"), f"{data_package_hash}.zip"))
     save_data_package_to_db(f"{filename}.zip", data_package_hash, "application/zip", len(zip_file_bytes))
 
     return data_package_hash
@@ -106,7 +111,7 @@ def create_data_package_zip(file: FileStorage | str) -> str:
 @data_package_marti_api.route('/Marti/sync/missionupload', methods=['POST'])
 def data_package_share():
     if not len(request.files):
-        return {'error': 'no file'}, 400, {'Content-Type': 'application/json'}
+        return jsonify({'success': False, 'error': gettext(u'A file is required')}), 400
     for file in request.files:
         file = request.files[file]
 
@@ -119,7 +124,7 @@ def data_package_share():
 
         if extension.lower() not in app.config.get("ALLOWED_EXTENSIONS"):
             logger.info(f"file is {file.filename}, extension is {extension}, content-type {file.mimetype}")
-            return jsonify({'success': False, 'error': f'Invalid file extension: {extension}'}), 400
+            return jsonify({'success': False, 'error': gettext(u'Invalid file extension: %(extension)s', extension=extension)}), 400
 
         if extension != 'zip':
             file_hash = create_data_package_zip(file)
@@ -173,6 +178,7 @@ def data_package_metadata(file_hash):
 @data_package_marti_api.route('/Marti/api/sync/search', methods=['GET'])
 def get_data_package():
     data_package_hash = request.args.get("hash")
+    data_package_uid = request.args.get("uid")
 
     # TODO: Support keywords
     keyword = request.args.get("keyword")
@@ -180,6 +186,10 @@ def get_data_package():
     query = db.select(DataPackage)
     if data_package_hash:
         query = query.where(DataPackage.hash == data_package_hash)
+
+    # DataPackage uses the hash as the UID for some reason
+    if data_package_uid:
+        query = query.where(DataPackage.hash == data_package_uid)
 
     data_packages = db.session.execute(query).scalars()
     return_value = {"version": "3", "type": "gov.tak.api.comms.takserver.mission.data.Resource", "data": [],
@@ -194,10 +204,15 @@ def get_data_package():
             keywords = dp.keywords.split(',')
 
         try:
+            expiration = None
+            if dp.expiration:
+                expiration = int(dp.expiration)
             return_value["data"].append({"filename": dp.filename, "keywords": keywords, "mimeType": dp.mime_type,
-                                         "name": dp.filename, "submissionTime": iso8601_string_from_datetime(dp.submission_time),
-                                        "submitter": submission_user, "uid": dp.hash, "creatorUid": dp.creator_uid, "hash": dp.hash,
-                                         "size": dp.size, "tool": dp.tool, "groups": [], "expiration": int(dp.expiration),
+                                         "name": dp.filename,
+                                         "submissionTime": iso8601_string_from_datetime(dp.submission_time),
+                                         "submitter": submission_user, "uid": dp.hash, "creatorUid": dp.creator_uid,
+                                         "hash": dp.hash,
+                                         "size": dp.size, "tool": dp.tool, "groups": [], "expiration": expiration,
                                          "latitude": 0, "longitude": 0, "altitude": 0})
         except BaseException as e:
             logger.error(f"Data package GET failed: {e}")
@@ -208,7 +223,13 @@ def get_data_package():
 
 @data_package_marti_api.route('/Marti/sync/search', methods=['GET'])
 def data_package_search():
-    data_packages = db.session.execute(db.select(DataPackage)).scalars()
+    query = db.session.query(DataPackage)
+
+    data_package_uid = request.args.get("uid")
+    if data_package_uid:
+        query = query.where(DataPackage.hash == data_package_uid)
+
+    data_packages = db.session.execute(query).scalars()
     res = {'resultCount': 0, 'results': []}
     for dp in data_packages:
         submission_user = "anonymous"
@@ -242,11 +263,12 @@ def download_data_package():
 
     filename, extension = os.path.splitext(secure_filename(file[0].filename))
     if os.path.exists(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{file_hash}{extension}")):
-        return send_from_directory(app.config.get("UPLOAD_FOLDER"), f"{file_hash}{extension}", download_name=file[0].filename)
+        return send_from_directory(app.config.get("UPLOAD_FOLDER"), f"{file_hash}{extension}",
+                                   download_name=file[0].filename)
     elif os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "missions", file[0].filename)):
         return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "missions"), file[0].filename)
     else:
-        return jsonify({'success': False, 'error': f'File not found: {file[0].filename}'}), 404
+        return jsonify({'success': False, 'error': gettext(u'File not found: %(filename)s}', filename=file[0].filename)}), 404
 
 
 @data_package_marti_api.route('/Marti/sync/missionquery')
@@ -260,6 +282,40 @@ def data_package_query():
                                                                           app.config.get("OTS_MARTI_HTTPS_PORT"),
                                                                           request.args.get('hash')), 200
         else:
-            return {'error': '404'}, 404, {'Content-Type': 'application/json'}
+            return jsonify({'success': False, 'error': 'File not found'}), 404
     except sqlalchemy.exc.NoResultFound as e:
-        return {'error': '404'}, 404, {'Content-Type': 'application/json'}
+        return jsonify({'success': False, 'error': 'File not found'}), 404
+
+
+@data_package_marti_api.route('/Marti/api/files/metadata')
+def get_metadata():
+    mission_package = request.args.get('missionPackage')
+    page = request.args.get('page')
+    limit = request.args.get('limit')
+    mission = request.args.get('mission')
+    name = request.args.get('name')
+    sort = request.args.get('sort')
+    setting = request.args.get('setting')
+
+    query = db.session.query(DataPackage)
+    if name:
+        query = query.filter_by(filename=bleach.clean(name))
+
+    data_packages = db.session.execute(query).scalars()
+
+    response = {"version": "3", "type": "gov.tak.api.comms.takserver.mission.data.Resource", "data": [],
+                "nodeId": app.config.get("OTS_NODE_ID")}
+    for dp in data_packages:
+        response['data'].append({
+            "Name": dp.filename,
+            "User": dp.user.username if dp.user else None,
+            "Creator": dp.eud.callsign if dp.eud else None,
+            "Size": format_bytes(dp.size),
+            "Time": iso8601_string_from_datetime(dp.submission_time),
+            "MimeType": dp.mime_type,
+            "Keywords": dp.keywords,
+            "Expiration": dp.expiration,
+            "Hash": dp.hash
+        })
+
+    return jsonify(response)

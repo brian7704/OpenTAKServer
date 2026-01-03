@@ -16,6 +16,7 @@ class SocketServer:
         self.socket = None
         self.clients = []
         self.app_context = app_context
+        #self.socketio = SocketIO(message_queue="amqp://" + self.app_context.app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"), async_mode='gevent')
 
     def run(self):
         if self.ssl:
@@ -53,10 +54,11 @@ class SocketServer:
                     self.socket.close()
                     break
                 else:
-                    self.logger.warning(str(e))
-                    self.logger.warning(traceback.format_exc())
+                    self.logger.debug(str(e))
+                    self.logger.debug(traceback.format_exc())
             except BaseException as e:
                 self.logger.warning(str(e))
+                self.logger.debug(traceback.format_exc())
                 continue
 
         if self.ssl:

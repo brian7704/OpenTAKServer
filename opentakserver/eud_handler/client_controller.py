@@ -12,9 +12,9 @@ from threading import Thread
 
 import bleach
 import sqlalchemy
+from flask import Flask
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import verify_password
-from flask_socketio import SocketIO
 
 from bs4 import BeautifulSoup
 import pika
@@ -22,7 +22,7 @@ from meshtastic import mesh_pb2, portnums_pb2, BROADCAST_NUM, mqtt_pb2
 from pika.channel import Channel
 from sqlalchemy import select, update, insert
 
-from opentakserver.extensions import db, ldap_manager
+from opentakserver.extensions import db, ldap_manager, logger
 from opentakserver.functions import datetime_from_iso8601_string, iso8601_string_from_datetime
 from opentakserver.models.Chatrooms import Chatroom
 from opentakserver.models.EUD import EUD
@@ -30,16 +30,13 @@ from opentakserver.models.Group import Group
 from opentakserver.models.GroupUser import GroupUser
 from opentakserver.models.Meshtastic import MeshtasticChannel
 from opentakserver.models.Mission import Mission
-from opentakserver.models.CasEvac import CasEvac
-from opentakserver.models.GeoChat import GeoChat
-from opentakserver.models.ChatroomsUids import ChatroomsUids
 from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
 from opentakserver.models.MissionUID import MissionUID
 from opentakserver.models.Team import Team
 
 
 class ClientController(Thread):
-    def __init__(self, address, port, sock, logger, app, is_ssl):
+    def __init__(self, address: str, port: int, sock: socket, logger, app: Flask, is_ssl: bool):
         Thread.__init__(self)
         self.address = address
         self.port = port
@@ -50,8 +47,8 @@ class ClientController(Thread):
         self.app = app
         self.db = db
         self.is_ssl = is_ssl
-        self.socketio = SocketIO(message_queue="amqp://" + app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"))
         self.bound_queues = []
+        self.eud = None
 
         self.user = None
 
@@ -102,7 +99,7 @@ class ClientController(Thread):
         try:
             rabbit_credentials = pika.PlainCredentials(self.app.config.get("OTS_RABBITMQ_USERNAME"), self.app.config.get("OTS_RABBITMQ_PASSWORD"))
             rabbit_host = self.app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
-            self.rabbit_connection = pika.SelectConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials), self.on_connection_open)
+            self.rabbit_connection = pika.SelectConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials), self.on_connection_open, on_close_callback=self.on_close)
             self.rabbit_channel: Channel | None = None
             # Start the pika ioloop in a thread or else it blocks and we can't receive any CoT messages
             self.iothread = Thread(target=self.rabbit_connection.ioloop.start, name="IOLOOP")
@@ -113,15 +110,13 @@ class ClientController(Thread):
             self.logger.error("Failed to connect to rabbitmq: {}".format(e))
             return
 
-    def on_connection_open(self, connection):
+    def on_connection_open(self, connection: pika.SelectConnection):
         self.rabbit_connection.channel(on_open_callback=self.on_channel_open)
         self.rabbit_connection.add_on_close_callback(self.on_close)
 
     def on_channel_open(self, channel: Channel):
         self.logger.debug(f"Opening RabbitMQ channel for {self.callsign or self.address}")
         self.rabbit_channel = channel
-        # Remove the on_channel_close callback in case this channel is being reopened
-        self.rabbit_channel.callbacks.clear()
         self.rabbit_channel.add_on_close_callback(self.on_channel_close)
 
         for message in self.cached_messages:
@@ -129,18 +124,26 @@ class ClientController(Thread):
 
         self.cached_messages.clear()
 
+        # Publish the EUD info to flask-socketio for the web UI map
+        if self.eud:
+            message = {'method': 'emit', 'event': "eud", 'data': self.eud.to_json(),
+                       'namespace': "/socket.io", 'room': None,
+                       'skip_sid': [], 'callback': None, 'binary': False,
+                       'host_id': uuid.uuid4().hex}
+            self.rabbit_channel.basic_publish("flask-socketio", "", json.dumps(message), properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
+
     def on_channel_close(self, channel: Channel, error):
-        if self.rabbit_connection.is_open:
-            self.logger.debug(f"RabbitMQ channel closed for {self.callsign}, attempting to re-open: {error}")
-            channel.open()
+        self.logger.error(f"RabbitMQ channel closed for {self.callsign}, shut it down")
+        if self.rabbit_connection and not self.rabbit_connection.is_closing and not self.rabbit_connection.is_closed:
+            self.rabbit_connection.close()
+
+        self.shutdown = True
+        self.sock.shutdown(socket.SHUT_RDWR)
+        self.sock.close()
 
     def on_close(self, connection, error):
-        try:
-            if self.rabbit_connection:
-                self.rabbit_connection.ioloop.stop()
-                self.rabbit_connection = None
-        except BaseException as e:
-            self.logger.error(f"Failed to close ioloop: {e}")
+        # Stop the ioloop using add_callback_threadsafe because ioloop.stop() isn't threadsafe
+        connection.ioloop.add_callback_threadsafe(self.rabbit_connection.ioloop.stop)
         self.logger.info("Connection closed for {}: {}".format(self.address, error))
 
     def on_message(self, unused_channel, basic_deliver, properties, body):
@@ -187,6 +190,7 @@ class ClientController(Thread):
                                     eud = EUD()
                                     eud.uid = uid
                                     eud.user_id = self.user.id
+                                    eud.callsign = self.callsign
                                     self.db.session.add(eud)
                                     self.db.session.commit()
 
@@ -262,7 +266,9 @@ class ClientController(Thread):
 
                 data = self.sock.recv(65536)
                 if not data:
+                    # Occurs when an EUD disconnects
                     self.logger.warning("No Data Closing connection to {}".format(self.address))
+                    self.shutdown = True
                     self.close_connection()
                     break
 
@@ -308,11 +314,22 @@ class ClientController(Thread):
     def close_connection(self):
         self.unbind_rabbitmq_queues()
         self.send_disconnect_cot()
-        self.sock.shutdown(socket.SHUT_RDWR)
-        self.sock.close()
-        self.shutdown = True
+
+        if self.rabbit_channel and not self.rabbit_channel.is_closing and not self.rabbit_channel.is_closed:
+            self.rabbit_channel.close()
+
+        if not self.shutdown:
+            self.shutdown = True
+            self.sock.shutdown(socket.SHUT_RDWR)
+            self.sock.close()
+
+        # Close this thread's DB session. This doesn't affect other EUD's threads
+        with self.app.app_context():
+            self.db.session.close()
+            self.db.engine.dispose()
 
     def stop(self):
+        self.close_connection()
         self.shutdown = True
 
     def pong(self, event):
@@ -349,7 +366,7 @@ class ClientController(Thread):
         contact = event.find('contact')
 
         # Only assume it's an EUD if it's got a <takv> tag
-        if takv and contact and uid and not uid.endswith('ping') and self.user:
+        if takv and contact and uid and not uid.endswith('ping') and (self.user or not self.is_ssl):
             self.uid = uid
             device = takv.attrs['device'] if 'device' in takv.attrs else ""
             operating_system = takv.attrs['os'] if 'os' in takv.attrs else ""
@@ -367,20 +384,21 @@ class ClientController(Thread):
                     self.rabbit_channel.queue_declare(queue=self.uid)
 
                     with self.app.app_context():
-                        group_memberships = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id, direction=Group.OUT)).all()
-                        if not group_memberships or not self.is_ssl:
-                            self.logger.debug(f"{self.callsign} doesn't belong to any groups, adding them to the __ANON__ group")
-                            self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid, routing_key="__ANON__.OUT")
-                            if {"exchange": "groups", "routing_key": "__ANON__.OUT", "queue": self.uid} not in self.bound_queues:
-                                self.bound_queues.append({"exchange": "groups", "routing_key": "__ANON__.OUT"})
+                        if self.is_ssl:
+                            group_memberships = db.session.execute(db.session.query(GroupUser).filter_by(user_id=self.user.id, direction=Group.OUT)).all()
+                            if not group_memberships:
+                                self.logger.debug(f"{self.callsign} doesn't belong to any groups, adding them to the __ANON__ group")
+                                self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid, routing_key="__ANON__.OUT")
+                                if {"exchange": "groups", "routing_key": "__ANON__.OUT", "queue": self.uid} not in self.bound_queues:
+                                    self.bound_queues.append({"exchange": "groups", "routing_key": "__ANON__.OUT", "queue": self.uid})
 
-                        elif group_memberships and self.is_ssl:
-                            for membership in group_memberships:
-                                membership = membership[0]
-                                self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid, routing_key=f"{membership.group.name}.OUT")
+                            elif group_memberships and self.is_ssl:
+                                for membership in group_memberships:
+                                    membership = membership[0]
+                                    self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid, routing_key=f"{membership.group.name}.OUT")
 
-                                if {"exchange": "groups", "routing_key": f"{membership.group.name}.OUT", "queue": self.uid} not in self.bound_queues:
-                                    self.bound_queues.append({"exchange": "groups", "routing_key": f"{membership.group.name}.OUT", "queue": self.uid})
+                                    if {"exchange": "groups", "routing_key": f"{membership.group.name}.OUT", "queue": self.uid} not in self.bound_queues:
+                                        self.bound_queues.append({"exchange": "groups", "routing_key": f"{membership.group.name}.OUT", "queue": self.uid})
 
                         self.rabbit_channel.queue_bind(exchange='missions', routing_key="missions", queue=self.uid)
                         if {"exchange": "missions", "routing_key": "missions", "queue": self.uid} not in self.bound_queues:
@@ -478,7 +496,17 @@ class ClientController(Thread):
                     self.db.session.commit()
 
                 self.send_meshtastic_node_info(eud)
-                self.socketio.emit('eud', eud.to_json(), namespace='/socket.io')
+
+                # If the RabbitMQ channel is open, publish the EUD info to socketio to be displayed on the web UI map.
+                # Also save the EUD's info for on_channel_open to publish
+                self.eud = eud
+                if self.rabbit_channel:
+                    message = {'method': 'emit', 'event': "eud", 'data': eud.to_json(),
+                               'namespace': "/socket.io", 'room': None,
+                               'skip_sid': None, 'callback': None, 'binary': False,
+                               'host_id': uuid.uuid4().hex}
+                    self.rabbit_channel.basic_publish(exchange="flask-socketio", routing_key="", body=json.dumps(message).encode(),
+                                                      properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
     def send_meshtastic_node_info(self, eud):
         if self.app.config.get("OTS_ENABLE_MESHTASTIC") and eud.platform != "Meshtastic":
@@ -532,7 +560,6 @@ class ClientController(Thread):
                     self.logger.debug(f"Unbound {self.uid} from mission.{mission[0].name}")
 
             for bind in self.bound_queues:
-                self.logger.info(f"Unbinding {bind}")
                 self.rabbit_channel.queue_unbind(exchange=bind['exchange'], queue=bind['queue'], routing_key=bind['routing_key'])
 
     def send_disconnect_cot(self):
@@ -550,22 +577,24 @@ class ClientController(Thread):
             flow_tags = SubElement(detail, '_flow-tags_', {'TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0': iso8601_string_from_datetime(now)})
 
             message = json.dumps({'uid': self.uid, 'cot': tostring(event).decode('utf-8')})
-            if self.rabbit_channel:
+            if self.rabbit_channel and not self.rabbit_channel.is_closing and not self.rabbit_channel.is_closed and self.user:
                 with self.app.app_context():
-                    group_query = self.db.session.query(GroupUser).filter_by(user_id=self.user.id, enabled=True)
+                    group_query = self.db.session.query(GroupUser).filter_by(user_id=self.user.id, direction=Group.OUT, enabled=True)
                     groups = self.db.session.execute(group_query).all()
                     for group in groups:
                         group = group[0]
                         self.logger.debug(f"Publishing to group {group.group.name}.{group.direction}")
-                        self.rabbit_channel.basic_publish(exchange="groups", routing_key=f"{group.group.name}.{group.direction}", body=message)
+                        self.rabbit_channel.basic_publish(exchange="groups", routing_key=f"{group.group.name}.{group.direction}", body=message,
+                                                          properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
+            elif self.rabbit_channel and not self.rabbit_channel.is_closing and not self.rabbit_channel.is_closed:
+                self.rabbit_channel.basic_publish(exchange="groups", routing_key=f"__ANON__.{Group.OUT}", body=message,
+                                                  properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
             with self.app.app_context():
                 self.db.session.execute(update(EUD).filter(EUD.uid == self.uid).values(last_status='Disconnected', last_event_time=now))
                 self.db.session.commit()
 
         self.logger.info('{} disconnected'.format(self.address))
-        if self.rabbit_connection:
-            self.rabbit_connection.close()
 
     def route_cot(self, event):
         if not event:
@@ -576,8 +605,13 @@ class ClientController(Thread):
             self.logger.error("RabbitMQ channel is closed, not publishing cot")
             return
 
-        # Route all CoTs to the cot exchange for cot_parser and any plugins to receive
-        self.rabbit_channel.basic_publish(exchange='cot', body=json.dumps({'uid': self.uid, 'cot': str(event)}), routing_key='',
+        # Route all CoTs to the firehose exchange for plugins and users that connect directly to RabbitMQ
+        self.rabbit_channel.basic_publish(exchange='firehose', body=json.dumps({'uid': self.uid, 'cot': str(event)}), routing_key='',
+                                          properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
+
+        # Route all cots to the cot_parser direct exchange to be processed by a pool of cot_parser processes
+        self.rabbit_channel.basic_publish(exchange='cot_parser', body=json.dumps({'uid': self.uid, 'cot': str(event)}),
+                                          routing_key='cot_parser',
                                           properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
         mission_changes = []
@@ -592,13 +626,16 @@ class ClientController(Thread):
 
                 # ATAK and WinTAK use callsign, iTAK uses uid
                 if 'callsign' in destination.attrs and destination.attrs['callsign']:
-                    self.logger.warning(f"Publishing to dms {destination.attrs['callsign']}")
                     self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['callsign'],
-                                                      body=json.dumps({'uid': self.uid, 'cot': str(event)}))
+                                                      body=json.dumps({'uid': self.uid, 'cot': str(event)}),
+                                                      properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
-                elif 'uid' in destination.attrs:
+                # iTAK uses its own UID in the <dest> tag when sending CoTs to a mission so we don't send those to the dms exchange
+                elif 'uid' in destination.attrs and destination['uid'] != self.uid:
                     self.rabbit_channel.basic_publish(exchange='dms', routing_key=destination.attrs['uid'],
-                                                      body=json.dumps({'uid': self.uid, 'cot': str(event)}))
+                                                      body=json.dumps({'uid': self.uid, 'cot': str(event)}),
+                                                      properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
+
                 # For data sync missions
                 elif 'mission' in destination.attrs:
                     with self.app.app_context():
@@ -612,7 +649,8 @@ class ClientController(Thread):
                         mission = mission[0]
                         self.rabbit_channel.basic_publish("missions",
                                                           routing_key=f"missions.{destination.attrs['mission']}",
-                                                          body=json.dumps({'uid': self.uid, 'cot': str(event)}))
+                                                          body=json.dumps({'uid': self.uid, 'cot': str(event)}),
+                                                          properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))
 
                         mission_uid = self.db.session.execute(
                             self.db.session.query(MissionUID).filter_by(uid=event.attrs['uid'])).first()
@@ -661,7 +699,7 @@ class ClientController(Thread):
                             change_pk = self.db.session.execute(insert(MissionChange).values(**mission_change.serialize()))
                             self.db.session.commit()
 
-                            body = {'uid': self.uid, 'cot': tostring(generate_mission_change_cot(destination.attrs['mission'], mission, mission_change, cot_event=event)).decode('utf-8')}
+                            body = {'uid': self.app.config.get("OTS_NODE_ID"), 'cot': tostring(generate_mission_change_cot(destination.attrs['mission'], mission, mission_change, cot_event=event)).decode('utf-8')}
                             mission_changes.append({"mission": mission.name, "message": body})
                             self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{mission.name}", body=json.dumps(body))
 
@@ -687,5 +725,4 @@ class ClientController(Thread):
         if mission_changes:
             for change in mission_changes:
                 self.rabbit_channel.basic_publish("missions", routing_key=f"missions.{change['mission']}",
-                                                  body=json.dumps(change['message']))
-                self.logger.warning(change['message']['cot'])
+                                                  body=json.dumps(change['message']), properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")))

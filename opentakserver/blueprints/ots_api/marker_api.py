@@ -6,12 +6,13 @@ from uuid import UUID, uuid4
 import bleach
 import pika
 from flask import Blueprint, request, jsonify, current_app as app
+from flask_babel import gettext
 from flask_security import auth_required, current_user
 from sqlalchemy import insert, update
 from sqlalchemy.exc import IntegrityError
 import xml.etree.ElementTree as ET
 
-from opentakserver.blueprints.ots_api.api import search, paginate
+from opentakserver.blueprints.ots_api.api import search, paginate, route_cot
 from opentakserver.extensions import db, logger, socketio
 from opentakserver.functions import *
 from opentakserver.models.CoT import CoT
@@ -40,25 +41,25 @@ def add_marker():
 
     try:
         if 'latitude' not in request.json.keys() or 'longitude' not in request.json.keys():
-            return jsonify({'success': False, 'error': 'Please provide a latitude and longitude'}), 400
+            return jsonify({'success': False, 'error': gettext(u'Please provide a latitude and longitude')}), 400
         elif float(request.json['latitude']) < -90 or float(request.json['latitude']) > 90:
-            return jsonify({'success': False, 'error': f"Invalid latitude: {request.json['latitude']}"}), 400
+            return jsonify({'success': False, 'error': gettext(u"Invalid latitude: %(latitude)s", latitude=request.json['latitude'])}), 400
         elif float(request.json['longitude']) < -180 or float(request.json['longitude']) > 180:
-            return jsonify({'success': False, 'error': f"Invalid longitude: {request.json['longitude']}"}), 400
+            return jsonify({'success': False, 'error': gettext(u"Invalid longitude: %(longitude)s", longitude=request.json['longitude'])}), 400
     except BaseException as e:
         logger.error(f"Failed to parse lat/lon: {e}")
-        return jsonify({'success': False, 'error': f"Failed to parse lat/lon: {e}"}), 400
+        return jsonify({'success': False, 'error': gettext(u"Failed to parse lat/lon: %(e)s", e=str(e))}), 400
 
     if 'uid' not in request.json.keys():
-        return jsonify({'success': False, 'error': 'Please provide a UID'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Please provide a UID')}), 400
     elif 'name' not in request.json.keys():
-        return jsonify({'success': False, 'error': 'Please provide a name'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Please provide a name')}), 400
 
     try:
         UUID(request.json['uid'], version=4)
         marker.uid = request.json['uid']
     except ValueError:
-        return jsonify({'success': False, 'error': "Invalid UID. UIDs need to be in UUID4 format"}), 400
+        return jsonify({'success': False, 'error': gettext(u"Invalid UID. UIDs need to be in UUID4 format")}), 400
 
     cot_type = request.json['type'] if 'type' in request.json.keys() else 'a-u-G'
 
@@ -67,7 +68,7 @@ def add_marker():
     marker.mil_std_2525c = cot_type_to_2525c(cot_type)
 
     if not marker.affiliation or not marker.battle_dimension:
-        return jsonify({'success': False, 'error': f"Invalid type: {cot_type}"}), 400
+        return jsonify({'success': False, 'error': gettext(u"Invalid type: %(cot_type)s", cot_type=cot_type)}), 400
 
     if 'name' in request.json.keys():
         marker.callsign = bleach.clean(request.json['name'])
@@ -132,6 +133,7 @@ def add_marker():
             channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
                 {'cot': ET.tostring(event).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
                                   properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+            route_cot(ET.tostring(event).decode('utf-8'), current_user)
             channel.close()
             rabbit_connection.close()
 
@@ -174,7 +176,7 @@ def add_marker():
     except BaseException as e:
         logger.error(f"Failed to parse data: {e}")
         logger.error(traceback.format_exc())
-        return jsonify({'success': False, 'error': f"Failed to parse data: {e}"}), 400
+        return jsonify({'success': False, 'error': gettext(u"Failed to parse data: %(e)s", e=str(e))}), 400
 
 
 @marker_api_blueprint.route('/api/markers', methods=['DELETE'])
@@ -182,14 +184,14 @@ def add_marker():
 def delete_marker():
     uid = request.args.get('uid')
     if not uid:
-        return jsonify({'success': False, 'error': 'Please provide the UID of the marker to delete'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Please provide the UID of the marker to delete')}), 400
 
     with app.app_context():
         query = db.session.query(Marker)
         query = search(query, Marker, 'uid')
         marker = db.session.execute(query).first()
         if not marker:
-            return jsonify({'success': False, 'error': 'Unknown UID'}), 404
+            return jsonify({'success': False, 'error': gettext(u'Unknown UID')}), 404
 
         marker = marker[0]
         now = datetime.now(timezone.utc)
@@ -210,6 +212,7 @@ def delete_marker():
         channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
             {'cot': ET.tostring(event).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
                               properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+        route_cot(ET.tostring(event).decode('utf-8'), current_user)
         channel.close()
         rabbit_connection.close()
 

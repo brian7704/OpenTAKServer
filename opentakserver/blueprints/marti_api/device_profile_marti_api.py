@@ -1,6 +1,7 @@
 import datetime
 import io
 import os
+import re
 import traceback
 import uuid
 import zipfile
@@ -12,7 +13,8 @@ from flask import Blueprint, request, current_app as app, Response
 from werkzeug.wsgi import FileWrapper
 
 import opentakserver
-from opentakserver.extensions import db, logger
+from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
+from opentakserver.extensions import db, logger, ldap_manager
 from opentakserver.models.DeviceProfiles import DeviceProfiles
 from opentakserver.models.Packages import Packages
 from opentakserver.models.DataPackage import DataPackage
@@ -20,13 +22,63 @@ from opentakserver.models.DataPackage import DataPackage
 device_profile_marti_api_blueprint = Blueprint('device_profile_marti_api_blueprint', __name__)
 
 
+def get_ldap_attributes(prefs: Element):
+    if app.config.get("OTS_ENABLE_LDAP"):
+        cert = verify_client_cert()
+        if not cert:
+            return
+
+        username = cert.get_subject().commonName
+        user_info = ldap_manager.get_user_info_for_username(username)
+
+        for field in user_info:
+            if field.lower() == app.config.get("OTS_LDAP_COLOR_ATTRIBUTE").lower():
+                team = SubElement(prefs, "entry", {"key": "locationTeam", "class": "class java.lang.String"})
+                team.text = user_info[field][0]
+
+            elif field.lower() == app.config.get("OTS_LDAP_ROLE_ATTRIBUTE").lower():
+                role = SubElement(prefs, "entry", {"key": "atakRoleType", "class": "class java.lang.String"})
+                role.text = user_info[field][0]
+
+            elif field.lower() == app.config.get("OTS_LDAP_CALLSIGN_ATTRIBUTE").lower():
+                callsign = SubElement(prefs, "entry", {"key": "locationCallsign", "class": "class java.lang.String"})
+                callsign.text = user_info[field][0]
+
+            elif field.lower().startswith(app.config.get("OTS_LDAP_PREFERENCE_ATTRIBUTE_PREFIX").lower()):
+                # Remove prefix, case insensitive
+                remove_prefix = re.compile(re.escape(app.config.get("OTS_LDAP_PREFERENCE_ATTRIBUTE_PREFIX")), re.IGNORECASE)
+                attribute = remove_prefix.sub("", field)
+                subelement = SubElement(prefs, "entry", {"key": attribute, "class": "class java.lang.String"})
+                subelement.text = user_info[field][0]
+
+
 def create_profile_zip(enrollment=True, syncSecago=-1):
     # preference.pref
     prefs = Element("preferences")
     pref = SubElement(prefs, "preference", {"version": "1", "name": "com.atakmap.app_preferences"})
 
-    enable_update_server = SubElement(pref, "entry",
-                                      {"key": "appMgmtEnableUpdateServer", "class": "class java.lang.Boolean"})
+    get_ldap_attributes(pref)
+
+    plugins = None
+    data_packages = None
+    device_profiles = None
+    zip_buffer = io.BytesIO()
+    zipf = zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False)
+
+    # MANIFEST file
+    manifest = Element("MissionPackageManifest", {"version": "2"})
+    config = SubElement(manifest, "Configuration")
+    SubElement(config, "Parameter", {"name": "uid", "value": str(uuid.uuid4())})
+    SubElement(config, "Parameter", {"name": "name", "value": "Device Profile"})
+    SubElement(config, "Parameter", {"name": "onReceiveDelete", "value": "true"})
+
+    contents = SubElement(manifest, "Contents")
+    SubElement(contents, "Content", {"ignore": "false", "zipEntry": "5c2bfcae3d98c9f4d262172df99ebac5/preference.pref"})
+    SubElement(contents, "Content",
+               {"ignore": "false", "zipEntry": "5c2bfcae3d98c9f4d262172df99ebac5/truststore-root.p12"})
+
+
+    enable_update_server = SubElement(pref, "entry", {"key": "appMgmtEnableUpdateServer", "class": "class java.lang.Boolean"})
     enable_update_server.text = "true"
 
     update_server_address = SubElement(pref, "entry", {"key": "atakUpdateServerUrl", "class": "class java.lang.String"})
@@ -53,35 +105,19 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
     enable_channels = SubElement(pref, "entry", {'key': 'prefs_enable_channels', 'class': 'class java.lang.String'})
     enable_channels.text = "true" if app.config.get("OTS_ENABLE_CHANNELS") else "false"
 
-    # MANIFEST file
-    manifest = Element("MissionPackageManifest", {"version": "2"})
-    config = SubElement(manifest, "Configuration")
-    SubElement(config, "Parameter", {"name": "uid", "value": str(uuid.uuid4())})
-    SubElement(config, "Parameter", {"name": "name", "value": "Device Profile"})
-    SubElement(config, "Parameter", {"name": "onReceiveDelete", "value": "true"})
-
-    contents = SubElement(manifest, "Contents")
-    SubElement(contents, "Content", {"ignore": "false", "zipEntry": "5c2bfcae3d98c9f4d262172df99ebac5/preference.pref"})
-    SubElement(contents, "Content",
-               {"ignore": "false", "zipEntry": "5c2bfcae3d98c9f4d262172df99ebac5/truststore-root.p12"})
-
-    zip_buffer = io.BytesIO()
-    zipf = zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False)
-
-    # Add the maps to the zip
-    if app.config.get("OTS_PROFILE_MAP_SOURCES") and enrollment:
-        maps_path = os.path.join(os.path.dirname(opentakserver.__file__), "maps")
-        for root, dirs, map_files in os.walk(maps_path):
-            for map in map_files:
-                zipf.writestr(f"maps/{map}", open(os.path.join(maps_path, map), 'r').read())
-                SubElement(contents, "Content", {"ignore": "false", "zipEntry": f"maps/{map}"})
-
-    plugins = None
     if enrollment:
-        device_profiles = db.session.execute(
-            db.session.query(DeviceProfiles).filter_by(enrollment=True, active=True)).all()
-        plugins = db.session.execute(db.session.query(Packages).filter_by(install_on_enrollment=True)).all()
-        data_packages = db.session.execute(db.session.query(DataPackage).filter_by(install_on_enrollment=True)).all()
+        # Add the maps to the zip
+        if app.config.get("OTS_PROFILE_MAP_SOURCES") and enrollment:
+            maps_path = os.path.join(os.path.dirname(opentakserver.__file__), "maps")
+            for root, dirs, map_files in os.walk(maps_path):
+                for map in map_files:
+                    zipf.writestr(f"maps/{map}", open(os.path.join(maps_path, map), 'r').read())
+                    SubElement(contents, "Content", {"ignore": "false", "zipEntry": f"maps/{map}"})
+
+            device_profiles = db.session.execute(
+                db.session.query(DeviceProfiles).filter_by(enrollment=True, active=True)).all()
+            plugins = db.session.execute(db.session.query(Packages).filter_by(install_on_enrollment=True)).all()
+            data_packages = db.session.execute(db.session.query(DataPackage).filter_by(install_on_enrollment=True)).all()
     elif syncSecago > 0:
         publish_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=syncSecago)
 
@@ -142,6 +178,7 @@ def enrollment_profile():
 
 
 # EUDs hit this endpoint when the app connects to the server if repoStartupSync is enabled
+@device_profile_marti_api_blueprint.route('/api/connection')
 @device_profile_marti_api_blueprint.route('/Marti/api/device/profile/connection')
 def connection_profile():
     try:

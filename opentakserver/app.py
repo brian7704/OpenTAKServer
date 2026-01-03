@@ -1,6 +1,8 @@
 from gevent import monkey,greenlet
 monkey.patch_all()
 
+import pytz
+from opentakserver.models.role import Role
 from opentakserver.telemetry.context import LogCtx
 from opentakserver.extensions import logger, db, socketio, mail, apscheduler, ldap_manager
 
@@ -35,14 +37,15 @@ import sqlalchemy
 import flask_wtf
 
 import pika
-from flask import Flask, current_app
+from flask import Flask, current_app, g, request, session
 from flask_cors import CORS
 
 from flask_security import Security, SQLAlchemyUserDatastore, hash_password, uia_username_mapper, uia_email_mapper
-from flask_security.models import fsqla_v3 as fsqla
+from flask_security.models import fsqla_v3 as fsqla, fsqla_v3
 from flask_security.signals import user_registered
 
 import opentakserver
+from opentakserver.extensions import logger, db, socketio, mail, apscheduler, ldap_manager, babel
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.models.WebAuthn import WebAuthn
 
@@ -53,6 +56,16 @@ try:
     from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
 except ModuleNotFoundError:
     logger.warning("Mumble auth not supported on this platform")
+
+def get_locale():
+    if 'language' in session:
+        return session['language']
+    return request.accept_languages.best_match(current_app.config.get("OTS_LANGUAGES").keys())
+
+
+def get_timezone():
+    # Always return UTC and let the frontend handle converting timezones
+    return pytz.timezone("UTC")
 
 
 def init_extensions(app):
@@ -123,6 +136,7 @@ def init_extensions(app):
         channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
         channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
         channel.exchange_declare("groups", durable=True, exchange_type='topic')  # For channels/groups
+        channel.exchange_declare("firehose", durable=True, exchange_type='fanout')  # A firehose of all CoT data
         channel.close()
         rabbit_connection.close()
         logger.info("rabbitmq setup conmpleted")
@@ -145,7 +159,6 @@ def init_extensions(app):
     app.security = Security(app, user_datastore, mail_util_cls=EmailValidator, password_util_cls=PasswordValidator, username_util_cls=UsernameValidator)
 
     mail.init_app(app)
-    logger.info("successfully initalized extensions")
 
 
 def create_groups(app: Flask):
@@ -240,8 +253,9 @@ def create_app(cli=True):
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
     else:
-        from opentakserver.blueprints.cli import ots
+        from opentakserver.blueprints.cli import ots, translate
         app.cli.add_command(ots, name="ots")
+        app.cli.add_command(translate, name="translate")
 
         if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
             app.config.from_file(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), load=yaml.safe_load)
@@ -282,6 +296,54 @@ def user_registered_sighandler(app, user, confirmation_token, **kwargs):
         name="user", permissions={"user-read", "user-write"}
     )
     app.security.datastore.add_role_to_user(user, default_role)
+
+
+def create_default_groups(app):
+    with app.app_context():
+        if not app.config.get("OTS_ENABLE_LDAP"):
+            anon_group = db.session.execute(db.session.query(Group).filter_by(name="__ANON__")).first()
+            adsb_group = db.session.execute(db.session.query(Group).filter_by(name=app.config.get("OTS_ADSB_GROUP"))).first()
+            ais_group = db.session.execute(db.session.query(Group).filter_by(name=app.config.get("OTS_AIS_GROUP"))).first()
+            meshtastic_group = db.session.execute(db.session.query(Group).filter_by(name=app.config.get("OTS_MESHTASTIC_GROUP"))).first()
+
+            # Commit to DB after every one to ensure that get_next_bitpos works
+
+            if not anon_group:
+                logger.info("Creating the __ANON__ group")
+                anon_group = Group()
+                anon_group.name = "__ANON__"
+                anon_group.type = GroupTypeEnum.SYSTEM
+                anon_group.bitpos = 2
+                db.session.add(anon_group)
+                db.session.commit()
+
+            if not adsb_group:
+                logger.info(f"Creating the {app.config.get('OTS_ADSB_GROUP')} group")
+                adsb_group = Group()
+                adsb_group.name = app.config.get("OTS_ADSB_GROUP")
+                adsb_group.type = GroupTypeEnum.SYSTEM
+                adsb_group.bitpos = adsb_group.get_next_bitpos()
+                db.session.add(adsb_group)
+                db.session.commit()
+
+            if not ais_group:
+                logger.info(f"Creating the {app.config.get('OTS_AIS_GROUP')} group")
+                ais_group = Group()
+                ais_group.name = app.config.get("OTS_AIS_GROUP")
+                ais_group.type = GroupTypeEnum.SYSTEM
+                ais_group.bitpos = ais_group.get_next_bitpos()
+                db.session.add(ais_group)
+                db.session.commit()
+
+            if not meshtastic_group:
+                logger.info(f"Creating the {app.config.get('OTS_MESHTASTIC_GROUP')} group")
+                meshtastic_group = Group()
+                meshtastic_group.name = app.config.get("OTS_MESHTASTIC_GROUP")
+                meshtastic_group.type = GroupTypeEnum.SYSTEM
+                meshtastic_group.bitpos = meshtastic_group.get_next_bitpos()
+                db.session.add(meshtastic_group)
+                db.session.commit()
+
 
 def main(app):
     with app.app_context():
@@ -324,7 +386,9 @@ def main(app):
             name="administrator", permissions={"administrator"}
         )
 
-        if not app.security.datastore.find_user(username="administrator"):
+        # Make sure at least one admin user exists
+        admin_user = db.session.execute(db.session.query(Role).join(fsqla_v3.FsModels.roles_users).where(Role.name == "administrator")).scalar()
+        if not admin_user:
             logger.info("Creating administrator account. The password is 'password'")
             app.security.datastore.create_user(username="administrator",
                                                password=hash_password("password"), roles=["administrator"])
@@ -357,17 +421,9 @@ def main(app):
             logger.error(f"Failed to load plugins: {e}")
             logger.debug(traceback.format_exc())
 
-    with app.app_context():
-        if not app.config.get("OTS_ENABLE_LDAP") and not db.session.execute(db.session.query(Group)).first():
-            anon_in = Group()
-            anon_in.name = "__ANON__"
-            anon_in.type = GroupTypeEnum.SYSTEM
-            anon_in.bitpos = 2
-            db.session.add(anon_in)
-
-            db.session.commit()
-
     app.start_time = datetime.now(timezone.utc)
+
+    create_default_groups(app)
 
     try:
         host = app.config.get("OTS_LISTENER_ADDRESS")

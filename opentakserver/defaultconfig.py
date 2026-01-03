@@ -20,6 +20,18 @@ class DefaultConfig:
     SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_hex())
     DEBUG = os.getenv("DEBUG", "False")
 
+    OTS_LANGUAGES = {'US': {'name': 'English', 'language_code': 'en'},
+                     'DE': {'name': 'Deutsch', 'language_code': 'de'},
+                     'FR': {'name': 'Français', 'language_code': 'fr'},
+                     'PT': {'name': 'Português', 'language_code': 'pt'},
+                     'ES': {'name': 'Español', 'language_code': 'es'},
+                     'DK': {'name': 'dansk', 'language_code': 'da'},
+                     'UA': {'name': 'українська', 'language_code': 'uk'},
+                     'KR': {'name': '한국어', 'language_code': 'ko'},
+                     'PL': {'name': 'Polski', 'language_code': 'pl'},
+                     'BR': {'name': 'Português', 'language_code': 'pt_BR'},
+                     }
+
     OTS_DATA_FOLDER = os.getenv("OTS_DATA_FOLDER", os.path.join(Path.home(), "ots"))
     OTS_LISTENER_ADDRESS = os.getenv("OTS_LISTENER_ADDRESS", "127.0.0.1")
     OTS_LISTENER_PORT = int(os.getenv("OTS_LISTENER_PORT", 8081))
@@ -41,6 +53,11 @@ class DefaultConfig:
     OTS_RABBITMQ_TTL = "86400000"
     # How many CoT messages that cot_parser processes should prefetch. https://www.rabbitmq.com/docs/consumer-prefetch
     OTS_RABBITMQ_PREFETCH = 2
+
+    # TAK.gov account link settings
+    OTS_TAK_GOV_LINKED = False
+    OTS_TAK_GOV_ACCESS_TOKEN = ""
+    OTS_TAK_GOV_REFRESH_TOKEN = ""
 
     OTS_MEDIAMTX_ENABLE = _ensure_bool(os.getenv("OTS_MEDIAMTX_ENABLE", "True"))
     OTS_MEDIAMTX_API_ADDRESS = os.getenv(
@@ -65,13 +82,9 @@ class DefaultConfig:
     OTS_CA_STATE = os.getenv("OTS_CA_STATE", "XX")
     OTS_CA_CITY = os.getenv("OTS_CA_CITY", "YY")
     OTS_CA_ORGANIZATION = os.getenv("OTS_CA_ORGANIZATION", "ZZ")
-    OTS_CA_ORGANIZATIONAL_UNIT = os.getenv(
-        "OTS_CA_ORGANIZATIONAL_UNIT", "OpenTAKServer"
-    )
-    OTS_CA_SUBJECT = os.getenv(
-        "OTS_CA_SUBJECT",
-        f"/C={OTS_CA_COUNTRY}/ST={OTS_CA_STATE}/L={OTS_CA_CITY}/O={OTS_CA_ORGANIZATION}/OU={OTS_CA_ORGANIZATIONAL_UNIT}",
-    )
+    OTS_CA_ORGANIZATIONAL_UNIT = os.getenv("OTS_CA_ORGANIZATIONAL_UNIT", "OpenTAKServer")
+    OTS_CA_SUBJECT = os.getenv("OTS_CA_SUBJECT",
+                               f"/C={OTS_CA_COUNTRY}/ST={OTS_CA_STATE}/L={OTS_CA_CITY}/O={OTS_CA_ORGANIZATION}/OU={OTS_CA_ORGANIZATIONAL_UNIT}")
 
     OTS_COT_PARSER_PROCESSES = int(os.getenv("OTS_COT_PARSER_PROCESSES", 1))
 
@@ -86,8 +99,15 @@ class DefaultConfig:
 
     # LDAP user attributes with this prefix can be used to control ATAK settings for a specific user
     OTS_LDAP_PREFERENCE_ATTRIBUTE_PREFIX = "ots_"
-
     OTS_LDAP_GROUP_PREFIX = "ots_"
+
+    # Flask-LDAP3-Login settings
+    LDAP_HOST = "127.0.0.1"
+    LDAP_BASE_DN = ""
+    LDAP_USER_DN = ""
+    LDAP_GROUP_DN = ""
+    LDAP_BIND_USER_DN = "cn=admin,ou=users=dc=example,dc=com"
+    LDAP_BIND_USER_PASSWORD = "password"
 
     # Logging
     OTS_LOG_LEVEL = os.getenv(
@@ -120,6 +140,9 @@ class DefaultConfig:
     OTS_AIRPLANES_LIVE_LON = -73.986939
     OTS_AIRPLANES_LIVE_RADIUS = 10
 
+    OTS_ADSB_GROUP = "ADS-B"
+    OTS_AIS_GROUP = "AIS"
+
     OTS_ENABLE_PLUGINS = True
     OTS_PLUGIN_REPO = "https://repo.opentakserver.io/brian/prod/"
     OTS_PLUGIN_PREFIXES = ["ots-", "ots_"]
@@ -145,6 +168,7 @@ class DefaultConfig:
     OTS_MESHTASTIC_PUBLISH_INTERVAL = 30
     OTS_MESHTASTIC_DOWNLINK_CHANNELS = []
     OTS_MESHTASTIC_NODEINFO_INTERVAL = 3
+    OTS_MESHTASTIC_GROUP = "Meshtastic"
 
     # Email settings
     OTS_ENABLE_EMAIL = _ensure_bool(os.getenv("OTS_ENABLE_EMAIL", "False"))
@@ -171,18 +195,15 @@ class DefaultConfig:
     OTS_DELETE_OLD_DATA_WEEKS = int(os.getenv("OTS_DELETE_OLD_DATA_WEEKS", 1))
 
     # flask-sqlalchemy
-    SQLALCHEMY_DATABASE_URI = os.getenv(
-        "SQLALCHEMY_DATABASE_URI",
-        f"postgresql+psycopg://ots:POSTGRESQL_PASSWORD@127.0.0.1/ots",
-    )
-    SQLALCHEMY_ECHO = _ensure_bool(os.getenv("SQLALCHEMY_ECHO", "False"))
+    SQLALCHEMY_DATABASE_URI = os.getenv("SQLALCHEMY_DATABASE_URI",
+                                        f"postgresql+psycopg://ots:POSTGRESQL_PASSWORD@127.0.0.1/ots")
+    SQLALCHEMY_ECHO = os.getenv("SQLALCHEMY_ECHO", "False").lower() in ["true", "1", "yes"]
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = False
 
-    ALLOWED_EXTENSIONS = os.getenv(
-        "ALLOWED_EXTENSIONS", "zip,xml,txt,pdf,png,jpg,jpeg,gif,kml,kmz,p12,tif,sqlite"
-    ).split(",")
+    ALLOWED_EXTENSIONS = os.getenv("ALLOWED_EXTENSIONS",
+                                   "zip,xml,txt,pdf,png,jpg,jpeg,gif,kml,kmz,p12,tif,sqlite").split(",")
 
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", os.path.join(OTS_DATA_FOLDER, "uploads"))
     if not os.path.exists(UPLOAD_FOLDER):
@@ -207,6 +228,7 @@ class DefaultConfig:
     SECURITY_CHANGE_URL = "/password/change"
     SECURITY_RESET_URL = "/password/reset"
     SECURITY_PASSWORD_LENGTH_MIN = 8
+    SECURITY_PASSWORD_CONFIRM_REQUIRED = False
     SECURITY_REGISTERABLE = OTS_ENABLE_EMAIL
     SECURITY_CONFIRMABLE = OTS_ENABLE_EMAIL
     SECURITY_RECOVERABLE = OTS_ENABLE_EMAIL
@@ -225,9 +247,7 @@ class DefaultConfig:
     SECURITY_RESET_VIEW = "/reset"
     SECURITY_USERNAME_MIN_LENGTH = 1
     SECURITY_MSG_USERNAME_DISALLOWED_CHARACTERS = (
-        "Username can contain only letters, numbers, underscores, and periods",
-        "error",
-    )
+    "Username can contain only letters, numbers, underscores, and periods", "error")
 
     SCHEDULER_API_ENABLED = False
     JOBS = [

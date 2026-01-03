@@ -1,6 +1,7 @@
 import traceback
 
 from flask import Blueprint, request, jsonify
+from flask_babel import gettext
 from flask_security import auth_required, roles_required
 from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
@@ -51,13 +52,13 @@ def add_device_profile():
 def delete_device_profile():
     preference_key = request.args.get('preference_key')
     if not preference_key:
-        return jsonify({'success': False, 'error': 'Please specify the preference_key'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Please specify the preference_key')}), 400
     try:
         query = db.session.query(DeviceProfiles)
         query = search(query, DeviceProfiles, 'preference_key')
         preference = db.session.execute(query).first()
         if not preference:
-            return jsonify({'success': False, 'error': f'Unknown preference_key: {preference_key}'}), 404
+            return jsonify({'success': False, 'error': gettext(u'Unknown preference_key: %(preference_key)s', preference_key=preference_key)}), 404
 
         db.session.delete(preference[0])
         db.session.commit()

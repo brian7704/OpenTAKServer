@@ -80,6 +80,12 @@ class Packages(db.Model):
                 self.icon = apk.get_file(apk.get_app_icon())
                 self.icon_filename = f"{self.package_name}.png"
 
+    def from_tak_gov(self, plugin: dict):
+        self.apk_hash = plugin['apk_hash']
+        self.file_size = plugin['apk_size_bytes']
+
+        self.platform = plugin['platform']
+
     def serialize(self):
         return {
             'platform': self.platform,

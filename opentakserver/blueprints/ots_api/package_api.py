@@ -133,13 +133,14 @@ def get_repository_inf():
     if not cert:
         return '', 401
 
-    versions = Packages.query.distinct(Packages.atak_version).where(Packages.atak_version != None).all()
+    versions = Packages.query.distinct(Packages.atak_version).where(Packages.atak_version is not None).all()
     if not versions:
         return "", 404
 
     response = ""
     for version in versions:
-        response += version.atak_version + "\n"
+        if version.atak_version:
+            response += version.atak_version + "\n"
 
     return response, 200
 
@@ -161,9 +162,14 @@ def add_package():
     package = Packages()
     package.from_wtform(form)
 
-    existing_package = db.session.execute(db.session.query(Packages).filter_by(version=package.version)).first()
+    existing_package = db.session.execute(db.session.query(Packages).filter_by(package_name=package.package_name, atak_version=package.atak_version)).scalar()
     if existing_package:
-        return jsonify({'success': False, 'errors': [f"{package.name} version {package.version} is already on the server"]}), 400
+        logger.warning(f"{package.name} version {package.version} for ATAK {package.atak_version} is already on the server and will be removed")
+
+        if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", existing_package.file_name)):
+            os.remove(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", existing_package.file_name))
+
+        db.session.delete(existing_package)
 
     try:
         db.session.add(package)
@@ -186,7 +192,7 @@ def edit_package():
     if not form.validate():
         return jsonify({'success': False, 'errors': form.errors}), 400
 
-    package = db.session.execute(db.session.query(Packages).filter_by(package_name=form.package_name.data)).first()
+    package = db.session.execute(db.session.query(Packages).filter_by(package_name=form.package_name.data, atak_version=form.atak_version.data)).first()
     if not package:
         return jsonify({'success': False, 'error': f"{form.package_name.data} not found"}), 404
 
@@ -195,7 +201,7 @@ def edit_package():
     package.install_on_connection = form.install_on_connection.data
     package.publish_time = datetime.datetime.now(datetime.timezone.utc)
 
-    db.session.execute(sqlalchemy.update(Packages).where(Packages.package_name == form.package_name.data).values(**package.serialize()))
+    db.session.execute(sqlalchemy.update(Packages).where(Packages.package_name == form.package_name.data).where(Packages.atak_version == form.atak_version.data).values(**package.serialize()))
     db.session.commit()
 
     return jsonify({'success': True})

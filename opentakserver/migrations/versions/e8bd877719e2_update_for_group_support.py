@@ -34,7 +34,7 @@ def upgrade():
         batch_op.add_column(sa.Column('name', sa.String(length=255), nullable=False))
         batch_op.add_column(sa.Column('distinguishedName', sa.String(length=255), nullable=True))
         batch_op.add_column(sa.Column('type', sa.String(length=255), nullable=False))
-        batch_op.add_column(sa.Column('description', sa.String(), nullable=True))
+        batch_op.add_column(sa.Column('description', sa.String(length=255), nullable=True))
         batch_op.drop_column('group_type')
         batch_op.drop_column('group_name')
 

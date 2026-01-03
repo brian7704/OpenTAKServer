@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import bleach
 import jwt
 from flask import jsonify, request, current_app as app, Blueprint
+from flask_babel import gettext
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_login import current_user
 from flask_security import auth_required, verify_password
@@ -21,6 +22,15 @@ token_api_blueprint = Blueprint('token_api_blueprint', __name__)
 
 @token_api_blueprint.route("/oauth/token", methods=['GET', 'POST'])
 def cloudtak_oauth_token():
+    """
+    Provides an OAuth token for TAKX and CloudTAK
+
+    :param username:
+    :param password:
+
+    :return: jwt
+    """
+
     username = bleach.clean(request.args.get("username"))
     password = bleach.clean(request.args.get("password"))
 
@@ -58,6 +68,17 @@ def cloudtak_oauth_token():
 @token_api_blueprint.route("/api/atak_qr_string", methods=['POST'])
 @auth_required()
 def new_atak_qr_string():
+    """
+    Generates a QR string for ATAK certificate enrollment. ATAK certificate enrollment via QR code
+    only works if your server has a Let's Encrypt certificate. Params are sent as JSON.
+
+    :param username:
+    :param exp: The expiration time in unix epoch seconds i.e.1764260510
+    :param nbf: Not Before, the token will not be valid until this date in unix epoch seconds.
+    :param max: The maximum number of uses for this token.
+
+    :return: String in the format of tak://com.atakmap.app/enroll?host=server_address.com&username=your_username&token=jwt_token
+    """
     try:
         username = request.json.get("username") or current_user.username
         if username != current_user.username and not current_user.has_role("administrator"):
@@ -121,6 +142,12 @@ def new_atak_qr_string():
 @token_api_blueprint.route("/api/atak_qr_string", methods=['GET'])
 @auth_required()
 def get_atak_qr_strings():
+    """
+    Returns an existing ATAK QR string
+
+    :return: String in the format of tak://com.atakmap.app/enroll?host=server_address.com&username=your_username&token=jwt_token
+    """
+
     query = db.session.query(Token)
 
     if current_user.has_role("administrator") and request.args.get("username"):
@@ -139,12 +166,18 @@ def get_atak_qr_strings():
         response["qr_string"] = f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={token[0].username}&token={token[0].generate_token()}"
         return jsonify(response)
     else:
-        return jsonify({'success': False, 'error': f"No token found for {username}"}), 404
+        return jsonify({'success': False, 'error': gettext(u"No token found for %s(username)s", username=username)}), 404
 
 
 @token_api_blueprint.route("/api/atak_qr_string", methods=["DELETE"])
 @auth_required()
 def delete_token():
+    """ Deletes a token
+
+    :parameter username:
+
+    :return: 200 on success
+    """
     try:
         if current_user.has_role("administrator") and request.args.get("username"):
             username = request.args.get("username")
@@ -158,4 +191,4 @@ def delete_token():
     except BaseException as e:
         logger.error(f"Failed to delete token: {e}")
         logger.debug(traceback.format_exc())
-        return jsonify({"success": False, "error": f"Failed to delete token: {e}"}), 500
+        return jsonify({"success": False, "error": gettext(u"Failed to delete token: %(e)s", e=str(e))}), 500

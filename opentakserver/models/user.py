@@ -4,6 +4,7 @@ from opentakserver.extensions import db
 from opentakserver.models.Group import Group
 # Leave this import here
 from opentakserver.models.Token import Token
+from opentakserver.models.WebAuthn import WebAuthn
 from sqlalchemy import String
 from flask_security.models import fsqla_v3 as fsqla
 from sqlalchemy.orm import relationship
@@ -19,6 +20,7 @@ class User(db.Model, fsqla.FsUserMixin):
     mission_invitations = relationship("MissionInvitation", back_populates="user")
     tokens = relationship("Token", back_populates="user")
     groups = relationship("Group", secondary="groups_users", viewonly=True, back_populates="users", cascade="all, delete")
+    group_memberships = relationship("GroupUser", back_populates="user", cascade="all, delete")
 
     def serialize(self):
         return {
@@ -34,7 +36,8 @@ class User(db.Model, fsqla.FsUserMixin):
             'euds': [eud.serialize() for eud in self.euds],
             'video_streams': [v.serialize() for v in self.video_streams],
             'roles': [role.serialize() for role in self.roles],
-            'groups': [group.serialize() for group in self.groups]
+            'groups': [group.serialize() for group in self.groups],
+            'group_memberships': [membership.to_json() for membership in self.group_memberships]
         }
 
     def to_json(self):

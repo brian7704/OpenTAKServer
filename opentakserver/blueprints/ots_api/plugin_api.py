@@ -3,6 +3,7 @@ import os
 import traceback
 
 from flask import Blueprint, jsonify, current_app as app, request
+from flask_babel import gettext
 from flask_security import roles_required
 
 from opentakserver.extensions import logger
@@ -40,7 +41,7 @@ def upload_plugin():
                 extension = extension.replace(".", "")
 
                 if extension not in ["zip", "whl", "gz"]:
-                    return jsonify({"success": False, "error": "Server plugins must be zip, whl, or tar.gz files"}), 400
+                    return jsonify({"success": False, "error": gettext(u"Server plugins must be zip, whl, or tar.gz files")}), 400
 
                 file.save(os.path.join(app.config.get("UPLOAD_FOLDER"), sanitized_filename))
 
@@ -50,7 +51,7 @@ def upload_plugin():
                 logger.debug(traceback.format_exc())
                 return jsonify({"success": False, "error": e}), 500
     else:
-        return jsonify({'success': False, 'error': "Plugins are disabled"}), 400
+        return jsonify({'success': False, 'error': gettext(u"Plugins are disabled")}), 400
 
 
 @plugin_blueprint.route("/api/plugins/repo")
@@ -69,9 +70,9 @@ def get_plugin(plugin_name: str):
             plugin_metadata['enabled'] = app.plugin_manager.check_if_plugin_enabled(plugin.name.lower())
             return jsonify(plugin_metadata)
         else:
-            return jsonify({'success': False, 'error': f'Plugin {plugin_name} not found'}), 404
+            return jsonify({'success': False, 'error': gettext(u'Plugin %(plugin_name)s not found', plugin_name=plugin_name)}), 404
     else:
-        return jsonify({'success': False, 'error': 'Plugins are disabled'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Plugins are disabled')}), 400
 
 
 @plugin_blueprint.route("/api/plugins/<plugin_name>/disable", methods=["POST"])
@@ -87,7 +88,7 @@ def disable_plugin(plugin_name):
             logger.error(traceback.format_exc())
             return jsonify({'success': False, 'error': str(e)})
     else:
-        return jsonify({'success': False, 'error': 'Plugins are disabled'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Plugins are disabled')}), 400
 
 
 @plugin_blueprint.route("/api/plugins/<plugin_name>/enable", methods=["POST"])
@@ -102,4 +103,4 @@ def enable_plugin(plugin_name):
             logger.error(traceback.format_exc())
             return jsonify({'success': False, 'error': str(e)})
     else:
-        return jsonify({'success': False, 'error': 'Plugins are disabled'}), 400
+        return jsonify({'success': False, 'error': gettext(u'Plugins are disabled')}), 400

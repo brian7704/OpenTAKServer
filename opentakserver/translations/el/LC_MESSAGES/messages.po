@@ -1,0 +1,727 @@
+# Greek translations for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-01-02 23:01-0500\n"
+"PO-Revision-Date: 2026-01-02 23:02-0500\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: el\n"
+"Language-Team: el <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.15.0\n"
+
+#: blueprints/marti_api/cot_marti_api.py:31
+#, python-format
+msgid "No CoT found for UID %(uid)s"
+msgstr ""
+
+#: blueprints/marti_api/cot_marti_api.py:50
+#, python-format
+msgid "Invalid secago value: %(sec_ago)s"
+msgstr ""
+
+#: blueprints/marti_api/data_package_marti_api.py:45
+msgid "This data package has already been uploaded"
+msgstr ""
+
+#: blueprints/marti_api/data_package_marti_api.py:114
+msgid "A file is required"
+msgstr ""
+
+#: blueprints/marti_api/data_package_marti_api.py:127
+#, python-format
+msgid "Invalid file extension: %(extension)s"
+msgstr ""
+
+#: blueprints/marti_api/data_package_marti_api.py:271
+#, python-format
+msgid "File not found: %(filename)s}"
+msgstr ""
+
+#: blueprints/marti_api/group_marti_api.py:31
+msgid "Groups are only supported on SSL connections"
+msgstr ""
+
+#: blueprints/marti_api/group_marti_api.py:87
+#: blueprints/marti_api/group_marti_api.py:119
+msgid "Please specify a groupNameFilter"
+msgstr ""
+
+#: blueprints/marti_api/group_marti_api.py:92
+#: blueprints/marti_api/group_marti_api.py:124
+#, python-format
+msgid "Please specify a groupNameFilter that starts with %(prefix)s"
+msgstr ""
+
+#: blueprints/marti_api/group_marti_api.py:95
+#: blueprints/marti_api/group_marti_api.py:127
+msgid "groupNameFilter must end with either _READ or _WRITE"
+msgstr ""
+
+#: blueprints/marti_api/group_marti_api.py:167
+msgid "clientUid required"
+msgstr ""
+
+#: blueprints/marti_api/group_marti_api.py:189
+#: blueprints/ots_api/group_api.py:242 blueprints/ots_api/user_api.py:304
+msgid "Direction must be IN or OUT"
+msgstr ""
+
+#: blueprints/marti_api/group_marti_api.py:194
+msgid "The active attribute must be true or false"
+msgstr ""
+
+#: blueprints/marti_api/group_marti_api.py:199
+msgid "Group name is required"
+msgstr ""
+
+#: blueprints/marti_api/group_marti_api.py:223
+#, python-format
+msgid "%(username)s is not in the %(group_name)s group"
+msgstr ""
+
+#: blueprints/marti_api/group_marti_api.py:234
+#, python-format
+msgid "Failed to update group subscriptions for %(username)s: %(e)s"
+msgstr ""
+
+#: blueprints/marti_api/group_marti_api.py:254
+msgid "Please provide a group name and direction"
+msgstr ""
+
+#: blueprints/marti_api/group_marti_api.py:261
+#, python-format
+msgid "No group found: %(group_name)s, %(direction)s"
+msgstr ""
+
+#: blueprints/marti_api/marti_api.py:92
+#, python-format
+msgid "No such UID: %(uid)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:230
+#: blueprints/marti_api/mission_marti_api.py:823
+#, python-format
+msgid "No mission found with guid: %(mission_guid)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:234
+#: blueprints/marti_api/mission_marti_api.py:956
+#: blueprints/ots_api/mission_api.py:262
+msgid "Invalid password"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:319
+msgid "Missions are only supported on SSL connections"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:327
+msgid "Please provide a mission name and creatorUid"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:332
+#, python-format
+msgid "Invalid creatorUid: %(creator_uid)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:366
+#, python-format
+msgid "Group not found: %(group_name)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:422
+#: blueprints/ots_api/mission_api.py:148
+#, python-format
+msgid "Failed to add mission: %(e)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:445
+msgid "Invalid mission name"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:452
+msgid "Mission %(mission_name)S not found"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:471
+#: blueprints/marti_api/mission_marti_api.py:519
+#: blueprints/marti_api/mission_marti_api.py:734
+#: blueprints/marti_api/mission_marti_api.py:1007
+#: blueprints/marti_api/mission_marti_api.py:1371
+#: blueprints/marti_api/mission_marti_api.py:1453
+msgid "Missing or invalid token"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:493
+msgid "Only mission owners can delete missions"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:510
+#: blueprints/marti_api/mission_marti_api.py:555
+#: blueprints/marti_api/mission_marti_api.py:616
+#: blueprints/marti_api/mission_marti_api.py:1107
+#: blueprints/marti_api/mission_marti_api.py:1382
+#: blueprints/ots_api/mission_api.py:219
+#, python-format
+msgid "Mission %(mission_name)s not found"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:529
+msgid "Please provide the password"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:533
+msgid "You do not have permission to change this mission's password"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:565
+#, python-format
+msgid "No EUD found with UID %(invitee)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:571
+#, python-format
+msgid "No EUD found with callsign %(invitee)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:577
+#, python-format
+msgid "No user found with username %(invitee)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:583
+#, python-format
+msgid "No group found: %(invitee)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:589
+#, python-format
+msgid "Team not found: %(invitee)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:621
+#, python-format
+msgid "Invalid invitation type: %(invitation_type)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:656
+#: blueprints/marti_api/mission_marti_api.py:1066
+#: blueprints/ots_api/mission_api.py:253
+#, python-format
+msgid "Mission not found: %(mission_name)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:680
+#, python-format
+msgid "Invalid invitation type: %(invitation)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:745
+#, python-format
+msgid "No such mission found: %(mission_name)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:750
+msgid "Only mission owners can change EUD roles"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:754
+#: blueprints/ots_api/marker_api.py:54
+msgid "Please provide a UID"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:758
+#, python-format
+msgid "Invalid UID: %(client_uid)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:763
+#, python-format
+msgid "Invalid role: %(new_role)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:856
+#: blueprints/marti_api/mission_marti_api.py:887
+#, python-format
+msgid "Cannot find mission %(mission_name)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:889
+#, python-format
+msgid "Cannot find mission %(mission_guid)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:905
+#, python-format
+msgid "%(username)s and mission %(mission_name)s are not in the same group"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:915
+#: blueprints/ots_api/mediamtx_api.py:57
+msgid "Invalid token"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:946
+msgid "Missing UID"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:951
+#, python-format
+msgid "Invalid UID: %(uid)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:1132
+msgid "Missing or invalid certificate"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:1148
+msgid "File name cannot be blank"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:1158
+#, python-format
+msgid "%(extension)s is not an allowed file extension"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:1215
+#, python-format
+msgid "No content found with hash: %(content_hash)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:1240
+#, python-format
+msgid "No such mission: %(mission_name)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:1249
+#, python-format
+msgid "No such file with hash %(content_hash)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:1398
+#, python-format
+msgid "UID %(uid)s not found"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:1415
+#, python-format
+msgid "No content found with hash %(hash)s"
+msgstr ""
+
+#: blueprints/marti_api/mission_marti_api.py:1429
+#, python-format
+msgid "Failed to delete content with hash %(hash)s: %(e)s"
+msgstr ""
+
+#: blueprints/marti_api/video_marti_api.py:128
+msgid "Invalid Certificate"
+msgstr ""
+
+#: blueprints/marti_api/video_marti_api.py:196
+msgid "Video not found"
+msgstr ""
+
+#: blueprints/marti_api/video_marti_api.py:199
+#: blueprints/ots_api/group_api.py:150 blueprints/ots_api/user_api.py:270
+#, python-format
+msgid "User %(username)s not found"
+msgstr ""
+
+#: blueprints/marti_api/video_marti_api.py:208
+#, python-format
+msgid "Video stream with uid %(uid)s not found"
+msgstr ""
+
+#: blueprints/ots_api/api.py:77
+#, python-format
+msgid "Invalid sort column: %(sort_by)s"
+msgstr ""
+
+#: blueprints/ots_api/api.py:217
+#, python-format
+msgid "Invalid username: %(username)s"
+msgstr ""
+
+#: blueprints/ots_api/api.py:244
+#, python-format
+msgid "Certificate already exists for %(username)s"
+msgstr ""
+
+#: blueprints/ots_api/api.py:269
+msgid "Please specify a callsign"
+msgstr ""
+
+#: blueprints/ots_api/casevac_api.py:141
+#, python-format
+msgid "Unknown UID: %(uid)s"
+msgstr ""
+
+#: blueprints/ots_api/data_package_api.py:36
+msgid ""
+"Server connection data packages can't be installed on enrollment or "
+"connection"
+msgstr ""
+
+#: blueprints/ots_api/data_package_api.py:62
+msgid "Invalid/unknown hash"
+msgstr ""
+
+#: blueprints/ots_api/data_package_api.py:103
+msgid "Please provide a data package hash"
+msgstr ""
+
+#: blueprints/ots_api/data_package_api.py:113
+#, python-format
+msgid "Data package with hash '%(hash)s' not found"
+msgstr ""
+
+#: blueprints/ots_api/device_profile_api.py:55
+msgid "Please specify the preference_key"
+msgstr ""
+
+#: blueprints/ots_api/device_profile_api.py:61
+#, python-format
+msgid "Unknown preference_key: %(preference_key)s"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:36 blueprints/ots_api/group_api.py:106
+#: blueprints/ots_api/group_api.py:132
+msgid "LDAP is enabled. Please view and edit groups on your LDAP server"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:139
+msgid "Please provide the username, group name, and direction"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:146
+#, python-format
+msgid "Invalid direction: %(direction)s"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:154
+#, python-format
+msgid "Group %(group_name)s not found"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:177
+#, python-format
+msgid "Failed to remove %(username)s from %(group_name)s: %(e)s"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:189
+msgid "LDAP is enabled, please use your LDAP server to add groups"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:192
+msgid "Missing name"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:208
+#, python-format
+msgid "%(name)s group already exists"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:213
+#, python-format
+msgid "Failed to add %(name)s group: %(e)s"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:232 blueprints/ots_api/user_api.py:294
+msgid "LDAP is enabled, please use your LDAP server to add users to groups"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:239
+msgid "Please provide a list of users, group name, and direction"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:247 blueprints/ots_api/user_api.py:124
+#: blueprints/ots_api/user_api.py:146 blueprints/ots_api/user_api.py:181
+#: blueprints/ots_api/user_api.py:207
+#, python-format
+msgid "User %(username)s does not exist"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:251
+#, python-format
+msgid "Group %(group_name)s does not exist"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:272
+msgid "LDAP is enabled, please use your LDAP server to delete groups"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:275
+msgid "Missing group name"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:279
+msgid "The __ANON__ group cannot be deleted"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:285
+#, python-format
+msgid "No such group: %(group_name)s"
+msgstr ""
+
+#: blueprints/ots_api/group_api.py:296
+#, python-format
+msgid "Failed to delete %(group_name)s: %(e)s"
+msgstr ""
+
+#: blueprints/ots_api/language_api.py:12
+msgid "This is a test"
+msgstr ""
+
+#: blueprints/ots_api/marker_api.py:44
+msgid "Please provide a latitude and longitude"
+msgstr ""
+
+#: blueprints/ots_api/marker_api.py:46
+#, python-format
+msgid "Invalid latitude: %(latitude)s"
+msgstr ""
+
+#: blueprints/ots_api/marker_api.py:48
+#, python-format
+msgid "Invalid longitude: %(longitude)s"
+msgstr ""
+
+#: blueprints/ots_api/marker_api.py:51
+#, python-format
+msgid "Failed to parse lat/lon: %(e)s"
+msgstr ""
+
+#: blueprints/ots_api/marker_api.py:56
+msgid "Please provide a name"
+msgstr ""
+
+#: blueprints/ots_api/marker_api.py:62
+msgid "Invalid UID. UIDs need to be in UUID4 format"
+msgstr ""
+
+#: blueprints/ots_api/marker_api.py:71
+#, python-format
+msgid "Invalid type: %(cot_type)s"
+msgstr ""
+
+#: blueprints/ots_api/marker_api.py:179
+#, python-format
+msgid "Failed to parse data: %(e)s"
+msgstr ""
+
+#: blueprints/ots_api/marker_api.py:187
+msgid "Please provide the UID of the marker to delete"
+msgstr ""
+
+#: blueprints/ots_api/marker_api.py:194
+msgid "Unknown UID"
+msgstr ""
+
+#: blueprints/ots_api/mediamtx_api.py:259
+#: blueprints/ots_api/mediamtx_api.py:336
+msgid "Please specify a path name"
+msgstr ""
+
+#: blueprints/ots_api/mediamtx_api.py:262
+msgid "Path cannot begin with a slash"
+msgstr ""
+
+#: blueprints/ots_api/mediamtx_api.py:277
+#: blueprints/ots_api/mediamtx_api.py:342
+#, python-format
+msgid "Path %(path)s not found"
+msgstr ""
+
+#: blueprints/ots_api/mediamtx_api.py:348
+msgid "MediaMTX is not running"
+msgstr ""
+
+#: blueprints/ots_api/meshtastic_api.py:126
+msgid "Please provide the URL of the channel to delete"
+msgstr ""
+
+#: blueprints/ots_api/mission_api.py:119 blueprints/ots_api/mission_api.py:200
+#, python-format
+msgid "Invalid property: %(key)s"
+msgstr ""
+
+#: blueprints/ots_api/mission_api.py:179
+msgid "Only an admin or the mission creator can change this mission"
+msgstr ""
+
+#: blueprints/ots_api/mission_api.py:213
+msgid "Please specify a mission name"
+msgstr ""
+
+#: blueprints/ots_api/mission_api.py:258
+msgid "Please provide the mission password"
+msgstr ""
+
+#: blueprints/ots_api/plugin_api.py:44
+msgid "Server plugins must be zip, whl, or tar.gz files"
+msgstr ""
+
+#: blueprints/ots_api/plugin_api.py:54 blueprints/ots_api/plugin_api.py:75
+#: blueprints/ots_api/plugin_api.py:91 blueprints/ots_api/plugin_api.py:106
+msgid "Plugins are disabled"
+msgstr ""
+
+#: blueprints/ots_api/plugin_api.py:73
+#, python-format
+msgid "Plugin %(plugin_name)s not found"
+msgstr ""
+
+#: blueprints/ots_api/token_api.py:169
+#, python-format
+msgid "No token found for %s(username)s"
+msgstr ""
+
+#: blueprints/ots_api/token_api.py:194
+#, python-format
+msgid "Failed to delete token: %(e)s"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:24
+msgid "LDAP is enabled, please use your LDAP server to create users"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:35
+msgid "Passwords do not match"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:45 blueprints/ots_api/user_api.py:174
+#, python-format
+msgid "Role %(role)s does not exist"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:48
+msgid "Only administrators can add users to the administrators role"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:60
+#, python-format
+msgid "User %(username)s already exists"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:67
+msgid "LDAP is enabled, please use your LDAP server to delete users"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:72
+msgid "You can't delete your own account"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:82
+#, python-format
+msgid "Failed to delete user: %(e)s"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:92
+msgid "LDAP is enabled, please use your LDAP server to reset passwords"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:98
+msgid "Please specify a username and new password"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:101
+#, python-format
+msgid "Your password must be at least %(characters)s characters long"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:109
+#, python-format
+msgid "Could not find user %(username)s"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:116
+msgid "LDAP is enabled, please use your LDAP server to deactivate users"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:120
+msgid "Please specify the username to deactivate"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:131
+#, python-format
+msgid "%(username)s is already deactivated"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:138
+msgid "LDAP is enabled, please use your LDAP server to activate users"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:142
+msgid "Please specify the username to activate"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:153
+#, python-format
+msgid "%(username)s is already activated"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:160
+msgid "LDAP is enabled, please use your LDAP server to assign roles"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:167
+msgid "Please specify a username and roles"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:212
+#, python-format
+msgid "EUD %(eud_uid)s not found"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:214
+#, python-format
+msgid "%(uid)s is already assigned to another user"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:227 blueprints/ots_api/user_api.py:239
+msgid "LDAP is enabled, please use your LDAP server to manage users"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:260
+msgid "LDAP is enabled, please use your LDAP server to manage groups"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:264
+msgid "Please provide a username"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:301
+msgid "Please provide a list of groups, a username, and a direction"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:308
+#, python-format
+msgid "User %(username)s doesn't exist"
+msgstr ""
+
+#: blueprints/ots_api/user_api.py:314
+#, python-format
+msgid "Group %(group_name)s doesn't exist"
+msgstr ""
+
+#: blueprints/ots_api/video_api.py:36
+msgid "Please specify a valid path"
+msgstr ""
+
+#: blueprints/ots_api/video_api.py:58
+#, python-format
+msgid "Invalid recording_id: %(recording_id)s"
+msgstr ""
+
+#: blueprints/ots_api/video_api.py:76
+msgid "Recording not found"
+msgstr ""
+
