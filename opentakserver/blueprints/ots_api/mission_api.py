@@ -46,9 +46,9 @@ def get_missions():
         for group in groups:
             group_filters.append(GroupMission.group_id == group.group_id)
         if group_filters:
-            query = query.outerjoin(GroupMission).where(or_(*group_filters))
+            query = query.outerjoin(GroupMission).where(or_(*group_filters)).distinct(Mission.name)
 
-    return paginate(query)
+    return paginate(query, Mission)
 
 
 @data_sync_api.route('/api/missions', methods=['PUT', 'POST'])

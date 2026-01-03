@@ -42,7 +42,7 @@ def video_recordings():
     query = db.session.query(VideoRecording)
     query = search(query, VideoRecording, 'path')
 
-    return paginate(query)
+    return paginate(query, VideoRecording)
 
 
 @video_api_blueprint.route('/api/videos/recording', methods=['GET', 'DELETE', 'HEAD'])
@@ -85,4 +85,4 @@ def get_video_streams():
     query = search(query, VideoStream, 'path')
     query = search(query, VideoStream, 'uid')
 
-    return paginate(query)
+    return paginate(query, VideoStream)

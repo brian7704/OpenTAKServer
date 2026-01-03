@@ -55,20 +55,39 @@ def search(query, model, field):
     return query
 
 
-def paginate(query):
+def paginate(query: db.Query, model=None):
     try:
         page = int(request.args.get('page')) if 'page' in request.args else 1
         per_page = int(request.args.get('per_page')) if 'per_page' in request.args else 10
     except ValueError:
         return {'success': False, 'error': 'Invalid page or per_page number'}, 400, {'Content-Type': 'application/json'}
 
+    try:
+        if model:
+            sort_by = request.args.get("sort_by")
+            sort_direction = request.args.get("sort_direction")
+            logger.warning(f"sort_by: {sort_by} direction: {sort_direction}")
+            if sort_by and (sort_direction == "asc" or not sort_direction):
+                query = query.order_by(getattr(model, sort_by).asc())
+            elif sort_by and sort_direction == "desc":
+                query = query.order_by(getattr(model, sort_by).desc())
+
+            logger.warning(query)
+    except BaseException as e:
+        return jsonify({"success": False, "error": gettext("Invalid sort column: %(sort_by)s", sort_by=request.args.get("sort_by"))})
+
     pagination = db.paginate(query, page=page, per_page=per_page)
     rows = pagination.items
 
-    results = {'results': [], 'total_pages': pagination.pages, 'current_page': page, 'per_page': per_page}
+    results = {'results': [], 'total_pages': pagination.pages, 'current_page': page, 'per_page': per_page, 'total': 0}
 
     for row in rows:
-        results['results'].append(row.to_json())
+        mission = row.to_json()
+        # Filter out duplicate results caused by missions belonging to multiple groups
+        if mission not in results['results']:
+            results['results'].append(row.to_json())
+
+    results["total"] = pagination.total
 
     return jsonify(results)
 
@@ -303,7 +322,7 @@ def query_alerts():
     query = search(query, Alert, 'sender_uid')
     query = search(query, Alert, 'alert_type')
 
-    return paginate(query)
+    return paginate(query, Alert)
 
 
 @api_blueprint.route("/api/point", methods=['GET'])
@@ -402,7 +421,7 @@ def get_euds():
     query = search(query, EUD, 'uid')
     query = search(query, User, 'username')
 
-    return paginate(query)
+    return paginate(query, EUD)
 
 
 @api_blueprint.route('/api/truststore')
