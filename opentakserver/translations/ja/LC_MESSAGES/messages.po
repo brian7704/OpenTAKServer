@@ -8,148 +8,150 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-01-02 23:01-0500\n"
-"PO-Revision-Date: 2026-01-02 23:02-0500\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"PO-Revision-Date: 2026-01-06 18:22+0000\n"
+"Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
+"Language-Team: Japanese <https://weblate.opentakserver.io/projects/"
+"opentakserver/opentakserver/ja/>\n"
 "Language: ja\n"
-"Language-Team: ja <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Weblate 5.13.3\n"
 "Generated-By: Babel 2.15.0\n"
 
 #: blueprints/marti_api/cot_marti_api.py:31
 #, python-format
 msgid "No CoT found for UID %(uid)s"
-msgstr ""
+msgstr "UID %(uid)s の CoT が見つかりません"
 
 #: blueprints/marti_api/cot_marti_api.py:50
 #, python-format
 msgid "Invalid secago value: %(sec_ago)s"
-msgstr ""
+msgstr "無効なsecago値: %(sec_ago)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:45
 msgid "This data package has already been uploaded"
-msgstr ""
+msgstr "このデータパッケージはすでにアップロードされています"
 
 #: blueprints/marti_api/data_package_marti_api.py:114
 msgid "A file is required"
-msgstr ""
+msgstr "ファイルが必要です"
 
 #: blueprints/marti_api/data_package_marti_api.py:127
 #, python-format
 msgid "Invalid file extension: %(extension)s"
-msgstr ""
+msgstr "無効なファイル拡張子: %(extension)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:271
 #, python-format
 msgid "File not found: %(filename)s}"
-msgstr ""
+msgstr "ファイルが見つかりません: %(filename)s}"
 
 #: blueprints/marti_api/group_marti_api.py:31
 msgid "Groups are only supported on SSL connections"
-msgstr ""
+msgstr "グループはSSL接続でのみサポートされます"
 
 #: blueprints/marti_api/group_marti_api.py:87
 #: blueprints/marti_api/group_marti_api.py:119
 msgid "Please specify a groupNameFilter"
-msgstr ""
+msgstr "groupNameFilterを指定してください"
 
 #: blueprints/marti_api/group_marti_api.py:92
 #: blueprints/marti_api/group_marti_api.py:124
 #, python-format
 msgid "Please specify a groupNameFilter that starts with %(prefix)s"
-msgstr ""
+msgstr "%(prefix)sで始まるgroupNameFilterを指定してください"
 
 #: blueprints/marti_api/group_marti_api.py:95
 #: blueprints/marti_api/group_marti_api.py:127
 msgid "groupNameFilter must end with either _READ or _WRITE"
-msgstr ""
+msgstr "groupNameFilter は _READ または _WRITE で終わる必要があります"
 
 #: blueprints/marti_api/group_marti_api.py:167
 msgid "clientUid required"
-msgstr ""
+msgstr "clientUidが必要です"
 
 #: blueprints/marti_api/group_marti_api.py:189
 #: blueprints/ots_api/group_api.py:242 blueprints/ots_api/user_api.py:304
 msgid "Direction must be IN or OUT"
-msgstr ""
+msgstr "方向はINまたはOUTでなければなりません"
 
 #: blueprints/marti_api/group_marti_api.py:194
 msgid "The active attribute must be true or false"
-msgstr ""
+msgstr "アクティブ属性はtrueまたはfalseである必要があります"
 
 #: blueprints/marti_api/group_marti_api.py:199
 msgid "Group name is required"
-msgstr ""
+msgstr "グループ名は必須です"
 
 #: blueprints/marti_api/group_marti_api.py:223
 #, python-format
 msgid "%(username)s is not in the %(group_name)s group"
-msgstr ""
+msgstr "%(username)sは%(group_name)sグループに属していません"
 
 #: blueprints/marti_api/group_marti_api.py:234
 #, python-format
 msgid "Failed to update group subscriptions for %(username)s: %(e)s"
-msgstr ""
+msgstr "%(username)sのグループサブスクリプションの更新に失敗しました: %(e)s"
 
 #: blueprints/marti_api/group_marti_api.py:254
 msgid "Please provide a group name and direction"
-msgstr ""
+msgstr "グループ名と方向を入力してください"
 
 #: blueprints/marti_api/group_marti_api.py:261
 #, python-format
 msgid "No group found: %(group_name)s, %(direction)s"
-msgstr ""
+msgstr "グループが見つかりません: %(group_name)s、%(direction)s"
 
 #: blueprints/marti_api/marti_api.py:92
 #, python-format
 msgid "No such UID: %(uid)s"
-msgstr ""
+msgstr "そのようなUIDはありません: %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:230
 #: blueprints/marti_api/mission_marti_api.py:823
 #, python-format
 msgid "No mission found with guid: %(mission_guid)s"
-msgstr ""
+msgstr "ガイド: %(mission_guid)s のミッションが見つかりません"
 
 #: blueprints/marti_api/mission_marti_api.py:234
 #: blueprints/marti_api/mission_marti_api.py:956
 #: blueprints/ots_api/mission_api.py:262
 msgid "Invalid password"
-msgstr ""
+msgstr "無効なパスワード"
 
 #: blueprints/marti_api/mission_marti_api.py:319
 msgid "Missions are only supported on SSL connections"
-msgstr ""
+msgstr "ミッションはSSL接続でのみサポートされます"
 
 #: blueprints/marti_api/mission_marti_api.py:327
 msgid "Please provide a mission name and creatorUid"
-msgstr ""
+msgstr "ミッション名とcreatorUidを入力してください"
 
 #: blueprints/marti_api/mission_marti_api.py:332
 #, python-format
 msgid "Invalid creatorUid: %(creator_uid)s"
-msgstr ""
+msgstr "無効 creatorUid: %(creator_uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:366
 #, python-format
 msgid "Group not found: %(group_name)s"
-msgstr ""
+msgstr "グループが見つかりません: %(group_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:422
 #: blueprints/ots_api/mission_api.py:148
 #, python-format
 msgid "Failed to add mission: %(e)s"
-msgstr ""
+msgstr "ミッションの追加に失敗しました: %(e)s"
 
 #: blueprints/marti_api/mission_marti_api.py:445
 msgid "Invalid mission name"
-msgstr ""
+msgstr "ミッション名が無効です"
 
 #: blueprints/marti_api/mission_marti_api.py:452
 msgid "Mission %(mission_name)S not found"
-msgstr ""
+msgstr "ミッション %(mission_name)S が見つかりません"
 
 #: blueprints/marti_api/mission_marti_api.py:471
 #: blueprints/marti_api/mission_marti_api.py:519
@@ -158,11 +160,11 @@ msgstr ""
 #: blueprints/marti_api/mission_marti_api.py:1371
 #: blueprints/marti_api/mission_marti_api.py:1453
 msgid "Missing or invalid token"
-msgstr ""
+msgstr "トークンが見つからないか無効です"
 
 #: blueprints/marti_api/mission_marti_api.py:493
 msgid "Only mission owners can delete missions"
-msgstr ""
+msgstr "ミッションを削除できるのはミッションの所有者のみです"
 
 #: blueprints/marti_api/mission_marti_api.py:510
 #: blueprints/marti_api/mission_marti_api.py:555
@@ -172,102 +174,102 @@ msgstr ""
 #: blueprints/ots_api/mission_api.py:219
 #, python-format
 msgid "Mission %(mission_name)s not found"
-msgstr ""
+msgstr "ミッション%(mission_name)sが見つかりません"
 
 #: blueprints/marti_api/mission_marti_api.py:529
 msgid "Please provide the password"
-msgstr ""
+msgstr "パスワードを入力してください"
 
 #: blueprints/marti_api/mission_marti_api.py:533
 msgid "You do not have permission to change this mission's password"
-msgstr ""
+msgstr "このミッションのパスワードを変更する権限がありません"
 
 #: blueprints/marti_api/mission_marti_api.py:565
 #, python-format
 msgid "No EUD found with UID %(invitee)s"
-msgstr ""
+msgstr "UID %(invitee)s の EUD が見つかりません"
 
 #: blueprints/marti_api/mission_marti_api.py:571
 #, python-format
 msgid "No EUD found with callsign %(invitee)s"
-msgstr ""
+msgstr "コールサイン%(invitee)sのEUDは見つかりません"
 
 #: blueprints/marti_api/mission_marti_api.py:577
 #, python-format
 msgid "No user found with username %(invitee)s"
-msgstr ""
+msgstr "ユーザー名 %(invitee)s のユーザーが見つかりません"
 
 #: blueprints/marti_api/mission_marti_api.py:583
 #, python-format
 msgid "No group found: %(invitee)s"
-msgstr ""
+msgstr "グループが見つかりません: %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:589
 #, python-format
 msgid "Team not found: %(invitee)s"
-msgstr ""
+msgstr "チームが見つかりません: %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:621
 #, python-format
 msgid "Invalid invitation type: %(invitation_type)s"
-msgstr ""
+msgstr "無効な招待タイプ: %(invitation_type)s"
 
 #: blueprints/marti_api/mission_marti_api.py:656
 #: blueprints/marti_api/mission_marti_api.py:1066
 #: blueprints/ots_api/mission_api.py:253
 #, python-format
 msgid "Mission not found: %(mission_name)s"
-msgstr ""
+msgstr "ミッションが見つかりません: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:680
 #, python-format
 msgid "Invalid invitation type: %(invitation)s"
-msgstr ""
+msgstr "無効な招待タイプ: %(invitation)s"
 
 #: blueprints/marti_api/mission_marti_api.py:745
 #, python-format
 msgid "No such mission found: %(mission_name)s"
-msgstr ""
+msgstr "そのようなミッションは見つかりません: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:750
 msgid "Only mission owners can change EUD roles"
-msgstr ""
+msgstr "ミッションオーナーのみがEUDの役割を変更できます"
 
 #: blueprints/marti_api/mission_marti_api.py:754
 #: blueprints/ots_api/marker_api.py:54
 msgid "Please provide a UID"
-msgstr ""
+msgstr "UIDを入力してください"
 
 #: blueprints/marti_api/mission_marti_api.py:758
 #, python-format
 msgid "Invalid UID: %(client_uid)s"
-msgstr ""
+msgstr "無効なUID: %(client_uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:763
 #, python-format
 msgid "Invalid role: %(new_role)s"
-msgstr ""
+msgstr "無効なロール: %(new_role)s"
 
 #: blueprints/marti_api/mission_marti_api.py:856
 #: blueprints/marti_api/mission_marti_api.py:887
 #, python-format
 msgid "Cannot find mission %(mission_name)s"
-msgstr ""
+msgstr "ミッションが見つかりません %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:889
 #, python-format
 msgid "Cannot find mission %(mission_guid)s"
-msgstr ""
+msgstr "ミッションが見つかりません %(mission_guid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:905
 #, python-format
 msgid "%(username)s and mission %(mission_name)s are not in the same group"
-msgstr ""
+msgstr "%(username)sとミッション%(mission_name)sは同じグループではありません"
 
 #: blueprints/marti_api/mission_marti_api.py:915
 #: blueprints/ots_api/mediamtx_api.py:57
 msgid "Invalid token"
-msgstr ""
+msgstr "無効なトークン"
 
 #: blueprints/marti_api/mission_marti_api.py:946
 msgid "Missing UID"
@@ -404,59 +406,62 @@ msgstr ""
 #: blueprints/ots_api/group_api.py:146
 #, python-format
 msgid "Invalid direction: %(direction)s"
-msgstr ""
+msgstr "無効な方向: %(direction)s"
 
 #: blueprints/ots_api/group_api.py:154
 #, python-format
 msgid "Group %(group_name)s not found"
-msgstr ""
+msgstr "グループ%(group_name)sが見つかりません"
 
 #: blueprints/ots_api/group_api.py:177
 #, python-format
 msgid "Failed to remove %(username)s from %(group_name)s: %(e)s"
-msgstr ""
+msgstr "%(group_name)sから%(username)sを削除できませんでした: %(e)s"
 
 #: blueprints/ots_api/group_api.py:189
 msgid "LDAP is enabled, please use your LDAP server to add groups"
-msgstr ""
+msgstr "LDAPが有効になっています。グループを追加するにはLDAPサーバーを使用してくださ"
+"い"
 
 #: blueprints/ots_api/group_api.py:192
 msgid "Missing name"
-msgstr ""
+msgstr "名前がありません"
 
 #: blueprints/ots_api/group_api.py:208
 #, python-format
 msgid "%(name)s group already exists"
-msgstr ""
+msgstr "%(name)s グループはすでに存在します"
 
 #: blueprints/ots_api/group_api.py:213
 #, python-format
 msgid "Failed to add %(name)s group: %(e)s"
-msgstr ""
+msgstr "%(name)s グループの追加に失敗しました: %(e)s"
 
 #: blueprints/ots_api/group_api.py:232 blueprints/ots_api/user_api.py:294
 msgid "LDAP is enabled, please use your LDAP server to add users to groups"
-msgstr ""
+msgstr "LDAPが有効になっています。LDAPサーバーを使用してユーザーをグループに追加して"
+"ください"
 
 #: blueprints/ots_api/group_api.py:239
 msgid "Please provide a list of users, group name, and direction"
-msgstr ""
+msgstr "ユーザーのリスト、グループ名、方向を入力してください"
 
 #: blueprints/ots_api/group_api.py:247 blueprints/ots_api/user_api.py:124
 #: blueprints/ots_api/user_api.py:146 blueprints/ots_api/user_api.py:181
 #: blueprints/ots_api/user_api.py:207
 #, python-format
 msgid "User %(username)s does not exist"
-msgstr ""
+msgstr "ユーザー%(username)sは存在しません"
 
 #: blueprints/ots_api/group_api.py:251
 #, python-format
 msgid "Group %(group_name)s does not exist"
-msgstr ""
+msgstr "グループ%(group_name)sは存在しません"
 
 #: blueprints/ots_api/group_api.py:272
 msgid "LDAP is enabled, please use your LDAP server to delete groups"
-msgstr ""
+msgstr "LDAPが有効になっています。グループを削除するにはLDAPサーバーを使用してくださ"
+"い"
 
 #: blueprints/ots_api/group_api.py:275
 msgid "Missing group name"
@@ -724,4 +729,3 @@ msgstr ""
 #: blueprints/ots_api/video_api.py:76
 msgid "Recording not found"
 msgstr ""
-
