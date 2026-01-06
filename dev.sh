@@ -105,8 +105,8 @@ elif [[ "$1" == "start" ]]; then
         # workers window with two panes
         tmux new-window -t "$SESSION" -n workers
         tmux split-window -t "$SESSION:workers" -h
-        tmux send-keys -t "$SESSION:workers.0" 'poetry run eud_handler' C-m
-        tmux send-keys -t "$SESSION:workers.1" 'poetry run cot_parser' C-m
+        tmux send-keys -t "$SESSION:workers.0" 'OTEL_SERVICE_NAME=eud_handler poetry run eud_handler' C-m
+        tmux send-keys -t "$SESSION:workers.1" 'OTEL_SERVICE_NAME=cot_parser poetry run cot_parser' C-m
 
         tmux select-window -t "$SESSION:server"
         tmux attach -t "$SESSION"
