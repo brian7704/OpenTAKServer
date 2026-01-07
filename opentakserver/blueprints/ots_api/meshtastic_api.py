@@ -116,7 +116,7 @@ def get_channel():
     query = search(query, MeshtasticChannel, 'name')
     query = search(query, MeshtasticChannel, 'url')
 
-    return paginate(query)
+    return paginate(query, MeshtasticChannel)
 
 
 @meshtastic_api_blueprint.route("/api/meshtastic/channel", methods=['DELETE'])

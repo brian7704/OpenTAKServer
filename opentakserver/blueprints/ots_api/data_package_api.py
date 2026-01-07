@@ -93,7 +93,7 @@ def data_packages():
     query = search(query, DataPackage, 'size')
     query = search(query, DataPackage, 'tool')
 
-    return paginate(query)
+    return paginate(query, DataPackage)
 
 
 @data_package_api.route('/api/data_packages/download')

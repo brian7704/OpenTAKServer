@@ -74,7 +74,7 @@ def paginate(query: db.Query, model=None):
 
             logger.warning(query)
     except BaseException as e:
-        return jsonify({"success": False, "error": gettext("Invalid sort column: %(sort_by)s", sort_by=request.args.get("sort_by"))})
+        return jsonify({"success": False, "error": gettext("Invalid sort column: %(sort_by)s", sort_by=request.args.get("sort_by"))}), 400
 
     pagination = db.paginate(query, page=page, per_page=per_page)
     rows = pagination.items

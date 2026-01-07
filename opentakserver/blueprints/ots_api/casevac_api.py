@@ -33,7 +33,7 @@ def query_casevac():
     query = search(query, CasEvac, 'sender_uid')
     query = search(query, CasEvac, 'uid')
 
-    return paginate(query)
+    return paginate(query, CasEvac)
 
 
 @casevac_api_blueprint.route("/api/casevac", methods=['POST'])
