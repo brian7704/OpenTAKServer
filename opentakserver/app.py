@@ -160,6 +160,7 @@ def init_extensions(app):
 
     mail.init_app(app)
 
+    babel.init_app(app, locale_selector=get_locale, timezone_selector=get_timezone)
 
 def create_groups(app: Flask):
     try:
