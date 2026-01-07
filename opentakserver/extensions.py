@@ -24,7 +24,7 @@ def _get_config() -> dict[str, Any]:
     else:
         filepath = os.path.join(config.get("OTS_DATA_FOLDER"), "config.yml")
         with open(filepath, "r") as f:
-            config = yaml.safe_load(f)
+            config.update(yaml.safe_load(f)) # override defaults with values from config.yml
     return config
 
 __cfg = _get_config()
