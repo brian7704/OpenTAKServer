@@ -54,19 +54,9 @@ Join us on our [Discord server](https://discord.gg/6uaVHjtfXN)
 
 `curl https://i.opentakserver.io/raspberry_pi_installer -Ls | bash -`
 
-### Rocky 9
-
-`curl -s -L https://i.opentakserver.io/rocky_linux_installer | bash -`
-
 ### Windows
 
-Open PowerShell as an administrator and run the following command
-
-`Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://i.opentakserver.io/windows_installer'))`
-
-### MacOS
-
-`curl -Ls https://i.opentakserver.io/macos_installer | bash -`
+OTS can be installed on Windows using WSL and the Ubuntu installer script
 
 ## Documentation
 
