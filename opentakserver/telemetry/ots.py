@@ -43,12 +43,19 @@ def configure_logging(cfg: dict[str, Any]) -> LoggingOptions:
         )
 
     # otel
-    opts.otel_enabled = cfg.get("OTS_LOG_OTEL_ENABLE")
+    if cfg.get("OTS_OTEL_ENABLE"):
+        opts.otel_enabled = cfg.get("OTS_LOG_OTEL_ENABLE")
     return opts
 
 
 def configure_metrics(cfg: dict[str,Any]) -> MetricsOptions:
-    return MetricsOptions()
+    opts = MetricsOptions()
+    if cfg.get("OTS_OTEL_ENABLE"):
+        opts.enabled = bool(cfg.get("OTS_METRICS_ENABLE"))
+    return opts
 
 def configure_tracing(cfg: dict[str,Any]) -> TracingOptions:
-    return TracingOptions()
+    opts = TracingOptions()
+    if cfg.get("OTS_OTEL_ENABLE"):
+        opts.enabled = bool(cfg.get("OTS_TRACES_ENABLE"))
+    return opts

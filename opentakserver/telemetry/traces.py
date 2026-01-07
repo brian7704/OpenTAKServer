@@ -1,5 +1,6 @@
 
 
+import logging
 from opentakserver.telemetry.context import get_context
 from opentelemetry.sdk.resources import Resource
 from dataclasses import dataclass
@@ -11,11 +12,12 @@ from opentelemetry import trace
 
 @dataclass
 class TracingOptions:
-    enabled: bool = True
+    enabled: bool = False
     service_name: str = "opentakserver"
 
 def setup_tracing(opts: TracingOptions):
     if opts.enabled == False:
+        logging.info("traces exporter disabled.")
         return
     
     ctx = get_context(opts.service_name)

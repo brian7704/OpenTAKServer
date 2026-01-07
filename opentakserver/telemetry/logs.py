@@ -47,7 +47,7 @@ class LoggingOptions:
     service_name: str = "opentakserver"
     file: Optional[FileSinkOpts] = None
     console: Optional[ConsoleSinkOpts] = None
-    otel_enabled: bool = True
+    otel_enabled: bool = False
     level: str = "INFO"
 
 

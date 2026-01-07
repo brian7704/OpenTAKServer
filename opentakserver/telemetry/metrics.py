@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import logging
 from typing import Optional
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
 from opentelemetry.sdk.metrics import MeterProvider
@@ -10,11 +11,12 @@ from opentelemetry import metrics
 from opentakserver.telemetry.context import get_context
 @dataclass
 class MetricsOptions:
-    enabled: bool = True
+    enabled: bool = False
     service_name: str = "opentakserver"
 
 def setup_metrics(opts: MetricsOptions) -> Optional[Meter]:
     if opts.enabled == False:
+        logging.info("metrics exporter disabled.")
         return
     
     metric_exporter = OTLPMetricExporter()  # configure via OTEL_* env vars
