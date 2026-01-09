@@ -567,7 +567,7 @@ class CoTController:
              # Spot map
              re.match("^b-m-p", event.attrs['type'])) and
                 # Don't worry about EUD location updates
-                not event.find('takv') and
+                not event.find('takv') and not event.find('contact') and
                 # Ignore video streams from sources like OpenTAK ICU
                 event.attrs['type'] != 'b-m-p-s-p-loc'):
 

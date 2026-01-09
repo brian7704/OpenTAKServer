@@ -357,8 +357,9 @@ class ClientController(Thread):
 
         # EUDs running the Meshtastic and dmrcot plugins can relay messages from their RF networks to the server
         # so we want to use the UID of the "off grid" EUD, not the relay EUD
+        contact = event.find('contact')
         takv = event.find('takv')
-        if takv:
+        if takv or contact:
             uid = event.attrs.get('uid')
         else:
             return
@@ -366,12 +367,14 @@ class ClientController(Thread):
         contact = event.find('contact')
 
         # Only assume it's an EUD if it's got a <takv> tag
-        if takv and contact and uid and not uid.endswith('ping') and (self.user or not self.is_ssl):
+        if contact and uid and not uid.endswith('ping') and (self.user or not self.is_ssl):
             self.uid = uid
-            device = takv.attrs['device'] if 'device' in takv.attrs else ""
-            operating_system = takv.attrs['os'] if 'os' in takv.attrs else ""
-            platform = takv.attrs['platform'] if 'platform' in takv.attrs else ""
-            version = takv.attrs['version'] if 'version' in takv.attrs else ""
+            device = operating_system = platform = version = None
+            if takv:
+                device = takv.attrs['device'] if 'device' in takv.attrs else None
+                operating_system = takv.attrs['os'] if 'os' in takv.attrs else None
+                platform = takv.attrs['platform'] if 'platform' in takv.attrs else None
+                version = takv.attrs['version'] if 'version' in takv.attrs else None
 
             if 'callsign' in contact.attrs:
                 self.callsign = contact.attrs['callsign']
