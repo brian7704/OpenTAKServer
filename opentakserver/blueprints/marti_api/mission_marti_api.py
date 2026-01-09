@@ -233,7 +233,7 @@ def get_mission_by_guid(mission_guid: str):
     if mission.password_protected and not verify_password(password, mission.password):
         return jsonify({'success': False, 'error': gettext(u'Invalid password')}), 401
 
-    return jsonify({'version': "3", 'type': 'Mission', 'data': [mission.to_json()], 'nodeId': app.config.get("OTS_NODE_ID")})
+    return jsonify({'version': "3", 'type': 'Mission', 'data': [mission.to_marti_json()], 'nodeId': app.config.get("OTS_NODE_ID")})
 
 
 @mission_marti_api.route('/Marti/api/missions')
