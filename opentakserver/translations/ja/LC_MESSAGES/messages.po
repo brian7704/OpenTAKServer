@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-01-02 23:01-0500\n"
-"PO-Revision-Date: 2026-01-06 18:22+0000\n"
+"PO-Revision-Date: 2026-01-10 00:39+0000\n"
 "Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
 "Language-Team: Japanese <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/ja/>\n"
@@ -273,135 +273,136 @@ msgstr "無効なトークン"
 
 #: blueprints/marti_api/mission_marti_api.py:946
 msgid "Missing UID"
-msgstr ""
+msgstr "UIDが見つかりません"
 
 #: blueprints/marti_api/mission_marti_api.py:951
 #, python-format
 msgid "Invalid UID: %(uid)s"
-msgstr ""
+msgstr "無効なUID: %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1132
 msgid "Missing or invalid certificate"
-msgstr ""
+msgstr "証明書が見つからないか無効です"
 
 #: blueprints/marti_api/mission_marti_api.py:1148
 msgid "File name cannot be blank"
-msgstr ""
+msgstr "ファイル名は空白にできません"
 
 #: blueprints/marti_api/mission_marti_api.py:1158
 #, python-format
 msgid "%(extension)s is not an allowed file extension"
-msgstr ""
+msgstr "%(extension)sは許可されていないファイル拡張子です"
 
 #: blueprints/marti_api/mission_marti_api.py:1215
 #, python-format
 msgid "No content found with hash: %(content_hash)s"
-msgstr ""
+msgstr "ハッシュ: %(content_hash)s のコンテンツが見つかりません"
 
 #: blueprints/marti_api/mission_marti_api.py:1240
 #, python-format
 msgid "No such mission: %(mission_name)s"
-msgstr ""
+msgstr "そのようなミッションはありません: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1249
 #, python-format
 msgid "No such file with hash %(content_hash)s"
-msgstr ""
+msgstr "ハッシュ%(content_hash)sを持つファイルは存在しません"
 
 #: blueprints/marti_api/mission_marti_api.py:1398
 #, python-format
 msgid "UID %(uid)s not found"
-msgstr ""
+msgstr "UID %(uid)sが見つかりません"
 
 #: blueprints/marti_api/mission_marti_api.py:1415
 #, python-format
 msgid "No content found with hash %(hash)s"
-msgstr ""
+msgstr "ハッシュ%(hash)sに該当するコンテンツは見つかりません"
 
 #: blueprints/marti_api/mission_marti_api.py:1429
 #, python-format
 msgid "Failed to delete content with hash %(hash)s: %(e)s"
-msgstr ""
+msgstr "ハッシュ %(hash)s のコンテンツを削除できませんでした: %(e)s"
 
 #: blueprints/marti_api/video_marti_api.py:128
 msgid "Invalid Certificate"
-msgstr ""
+msgstr "無効な証明書"
 
 #: blueprints/marti_api/video_marti_api.py:196
 msgid "Video not found"
-msgstr ""
+msgstr "ビデオが見つかりません"
 
 #: blueprints/marti_api/video_marti_api.py:199
 #: blueprints/ots_api/group_api.py:150 blueprints/ots_api/user_api.py:270
 #, python-format
 msgid "User %(username)s not found"
-msgstr ""
+msgstr "ユーザー%(username)sが見つかりません"
 
 #: blueprints/marti_api/video_marti_api.py:208
 #, python-format
 msgid "Video stream with uid %(uid)s not found"
-msgstr ""
+msgstr "uid %(uid)s のビデオストリームが見つかりません"
 
 #: blueprints/ots_api/api.py:77
 #, python-format
 msgid "Invalid sort column: %(sort_by)s"
-msgstr ""
+msgstr "無効な並べ替え列: %(sort_by)s"
 
 #: blueprints/ots_api/api.py:217
 #, python-format
 msgid "Invalid username: %(username)s"
-msgstr ""
+msgstr "無効なユーザー名: %(username)s"
 
 #: blueprints/ots_api/api.py:244
 #, python-format
 msgid "Certificate already exists for %(username)s"
-msgstr ""
+msgstr "%(username)sの証明書は既に存在します"
 
 #: blueprints/ots_api/api.py:269
 msgid "Please specify a callsign"
-msgstr ""
+msgstr "コールサインを指定してください"
 
 #: blueprints/ots_api/casevac_api.py:141
 #, python-format
 msgid "Unknown UID: %(uid)s"
-msgstr ""
+msgstr "不明なUID: %(uid)s"
 
 #: blueprints/ots_api/data_package_api.py:36
 msgid ""
 "Server connection data packages can't be installed on enrollment or "
 "connection"
-msgstr ""
+msgstr "サーバー接続データパッケージは登録時または接続時にインストールできません"
 
 #: blueprints/ots_api/data_package_api.py:62
 msgid "Invalid/unknown hash"
-msgstr ""
+msgstr "無効/不明なハッシュ"
 
 #: blueprints/ots_api/data_package_api.py:103
 msgid "Please provide a data package hash"
-msgstr ""
+msgstr "データパッケージハッシュを入力してください"
 
 #: blueprints/ots_api/data_package_api.py:113
 #, python-format
 msgid "Data package with hash '%(hash)s' not found"
-msgstr ""
+msgstr "ハッシュ「%(hash)s」のデータパッケージが見つかりません"
 
 #: blueprints/ots_api/device_profile_api.py:55
 msgid "Please specify the preference_key"
-msgstr ""
+msgstr "preference_keyを指定してください"
 
 #: blueprints/ots_api/device_profile_api.py:61
 #, python-format
 msgid "Unknown preference_key: %(preference_key)s"
-msgstr ""
+msgstr "不明なpreference_key: %(preference_key)s"
 
 #: blueprints/ots_api/group_api.py:36 blueprints/ots_api/group_api.py:106
 #: blueprints/ots_api/group_api.py:132
 msgid "LDAP is enabled. Please view and edit groups on your LDAP server"
-msgstr ""
+msgstr "LDAPが有効になっています。LDAPサーバー上のグループを表示および編集してくださ"
+"い"
 
 #: blueprints/ots_api/group_api.py:139
 msgid "Please provide the username, group name, and direction"
-msgstr ""
+msgstr "ユーザー名、グループ名、方向を入力してください"
 
 #: blueprints/ots_api/group_api.py:146
 #, python-format
@@ -465,44 +466,44 @@ msgstr "LDAPが有効になっています。グループを削除するにはLD
 
 #: blueprints/ots_api/group_api.py:275
 msgid "Missing group name"
-msgstr ""
+msgstr "グループ名がありません"
 
 #: blueprints/ots_api/group_api.py:279
 msgid "The __ANON__ group cannot be deleted"
-msgstr ""
+msgstr "__ANON__ グループは削除できません"
 
 #: blueprints/ots_api/group_api.py:285
 #, python-format
 msgid "No such group: %(group_name)s"
-msgstr ""
+msgstr "そのようなグループはありません: %(group_name)s"
 
 #: blueprints/ots_api/group_api.py:296
 #, python-format
 msgid "Failed to delete %(group_name)s: %(e)s"
-msgstr ""
+msgstr "%(group_name)s の削除に失敗しました: %(e)s"
 
 #: blueprints/ots_api/language_api.py:12
 msgid "This is a test"
-msgstr ""
+msgstr "これはテストです"
 
 #: blueprints/ots_api/marker_api.py:44
 msgid "Please provide a latitude and longitude"
-msgstr ""
+msgstr "緯度と経度を入力してください"
 
 #: blueprints/ots_api/marker_api.py:46
 #, python-format
 msgid "Invalid latitude: %(latitude)s"
-msgstr ""
+msgstr "無効な緯度: %(latitude)s"
 
 #: blueprints/ots_api/marker_api.py:48
 #, python-format
 msgid "Invalid longitude: %(longitude)s"
-msgstr ""
+msgstr "無効な経度: %(longitude)s"
 
 #: blueprints/ots_api/marker_api.py:51
 #, python-format
 msgid "Failed to parse lat/lon: %(e)s"
-msgstr ""
+msgstr "緯度/経度の解析に失敗しました: %(e)s"
 
 #: blueprints/ots_api/marker_api.py:56
 msgid "Please provide a name"
@@ -556,33 +557,33 @@ msgstr ""
 #: blueprints/ots_api/mission_api.py:119 blueprints/ots_api/mission_api.py:200
 #, python-format
 msgid "Invalid property: %(key)s"
-msgstr ""
+msgstr "無効なプロパティ: %(key)s"
 
 #: blueprints/ots_api/mission_api.py:179
 msgid "Only an admin or the mission creator can change this mission"
-msgstr ""
+msgstr "このミッションを変更できるのは管理者またはミッション作成者のみです"
 
 #: blueprints/ots_api/mission_api.py:213
 msgid "Please specify a mission name"
-msgstr ""
+msgstr "ミッション名を指定してください"
 
 #: blueprints/ots_api/mission_api.py:258
 msgid "Please provide the mission password"
-msgstr ""
+msgstr "ミッションパスワードを入力してください"
 
 #: blueprints/ots_api/plugin_api.py:44
 msgid "Server plugins must be zip, whl, or tar.gz files"
-msgstr ""
+msgstr "サーバープラグインはzip、whl、またはtar.gzファイルである必要があります"
 
 #: blueprints/ots_api/plugin_api.py:54 blueprints/ots_api/plugin_api.py:75
 #: blueprints/ots_api/plugin_api.py:91 blueprints/ots_api/plugin_api.py:106
 msgid "Plugins are disabled"
-msgstr ""
+msgstr "プラグインが無効になっています"
 
 #: blueprints/ots_api/plugin_api.py:73
 #, python-format
 msgid "Plugin %(plugin_name)s not found"
-msgstr ""
+msgstr "プラグイン%(plugin_name)sが見つかりません"
 
 #: blueprints/ots_api/token_api.py:169
 #, python-format
@@ -592,42 +593,44 @@ msgstr ""
 #: blueprints/ots_api/token_api.py:194
 #, python-format
 msgid "Failed to delete token: %(e)s"
-msgstr ""
+msgstr "トークンの削除に失敗しました: %(e)s"
 
 #: blueprints/ots_api/user_api.py:24
 msgid "LDAP is enabled, please use your LDAP server to create users"
-msgstr ""
+msgstr "LDAPが有効になっています。ユーザーを作成するにはLDAPサーバーを使用してくださ"
+"い"
 
 #: blueprints/ots_api/user_api.py:35
 msgid "Passwords do not match"
-msgstr ""
+msgstr "パスワードが一致しません"
 
 #: blueprints/ots_api/user_api.py:45 blueprints/ots_api/user_api.py:174
 #, python-format
 msgid "Role %(role)s does not exist"
-msgstr ""
+msgstr "ロール%(role)sは存在しません"
 
 #: blueprints/ots_api/user_api.py:48
 msgid "Only administrators can add users to the administrators role"
-msgstr ""
+msgstr "管理者のみがユーザーを管理者ロールに追加できます"
 
 #: blueprints/ots_api/user_api.py:60
 #, python-format
 msgid "User %(username)s already exists"
-msgstr ""
+msgstr "ユーザー%(username)sは既に存在します"
 
 #: blueprints/ots_api/user_api.py:67
 msgid "LDAP is enabled, please use your LDAP server to delete users"
-msgstr ""
+msgstr "LDAPが有効になっています。ユーザーを削除するにはLDAPサーバーを使用してくださ"
+"い"
 
 #: blueprints/ots_api/user_api.py:72
 msgid "You can't delete your own account"
-msgstr ""
+msgstr "自分のアカウントを削除することはできません"
 
 #: blueprints/ots_api/user_api.py:82
 #, python-format
 msgid "Failed to delete user: %(e)s"
-msgstr ""
+msgstr "ユーザーの削除に失敗しました: %(e)s"
 
 #: blueprints/ots_api/user_api.py:92
 msgid "LDAP is enabled, please use your LDAP server to reset passwords"
