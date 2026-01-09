@@ -366,7 +366,7 @@ class ClientController(Thread):
 
         contact = event.find('contact')
 
-        # Only assume it's an EUD if it's got a <takv> tag
+        # Only assume it's an EUD if it's got a <contact> tag
         if contact and uid and not uid.endswith('ping') and (self.user or not self.is_ssl):
             self.uid = uid
             device = operating_system = platform = version = None
@@ -416,6 +416,11 @@ class ClientController(Thread):
 
                         if {"exchange": "dms", "routing_key": self.callsign, "queue": self.callsign} not in self.bound_queues:
                             self.bound_queues.append({"exchange": "dms", "routing_key": self.callsign, "queue": self.callsign})
+
+                        if not self.is_ssl:
+                            self.logger.debug(f"{self.callsign} is connected via TCP, adding them to the __ANON__ group")
+                            self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid,routing_key="__ANON__.OUT")
+                            self.bound_queues.append({"exchange": "groups", "routing_key": "__ANON__.OUT", "queue": self.uid})
 
                         self.rabbit_channel.basic_consume(queue=self.callsign, on_message_callback=self.on_message, auto_ack=True)
                         self.rabbit_channel.basic_consume(queue=self.uid, on_message_callback=self.on_message, auto_ack=True)
