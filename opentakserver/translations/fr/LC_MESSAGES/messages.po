@@ -7,17 +7,17 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-12-15 09:57-0500\n"
+"POT-Creation-Date: 2026-01-09 15:52-0500\n"
 "PO-Revision-Date: 2025-12-24 18:43+0000\n"
 "Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
-"Language-Team: French <https://weblate.opentakserver.io/projects/"
-"opentakserver/opentakserver/fr/>\n"
 "Language: fr\n"
+"Language-Team: French "
+"<https://weblate.opentakserver.io/projects/opentakserver/opentakserver/fr/>"
+"\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.13.3\n"
 "Generated-By: Babel 2.15.0\n"
 
 #: blueprints/marti_api/cot_marti_api.py:31
@@ -43,7 +43,7 @@ msgstr "Un fichier est requis"
 msgid "Invalid file extension: %(extension)s"
 msgstr "Extension de fichier invalide : %(extension)s"
 
-#: blueprints/marti_api/data_package_marti_api.py:260
+#: blueprints/marti_api/data_package_marti_api.py:271
 #, python-format
 msgid "File not found: %(filename)s}"
 msgstr "Fichier introuvable : %(filename)s}"
@@ -94,7 +94,8 @@ msgstr "%(username)s ne fait pas partie du groupe %(group_name)s"
 #, python-format
 msgid "Failed to update group subscriptions for %(username)s: %(e)s"
 msgstr ""
-"Échec de la mise à jour des abonnements de groupe pour %(username)s : %(e)s"
+"Échec de la mise à jour des abonnements de groupe pour %(username)s : "
+"%(e)s"
 
 #: blueprints/marti_api/group_marti_api.py:254
 msgid "Please provide a group name and direction"
@@ -151,9 +152,15 @@ msgid "Invalid mission name"
 msgstr "Nom de mission invalide"
 
 #: blueprints/marti_api/mission_marti_api.py:450
+#: blueprints/marti_api/mission_marti_api.py:508
+#: blueprints/marti_api/mission_marti_api.py:553
+#: blueprints/marti_api/mission_marti_api.py:614
+#: blueprints/marti_api/mission_marti_api.py:1105
+#: blueprints/marti_api/mission_marti_api.py:1380
+#: blueprints/ots_api/mission_api.py:219
 #, python-format
-msgid "Mission %(mission_name)S not found"
-msgstr "Mission %(mission_name)S introuvable"
+msgid "Mission %(mission_name)s not found"
+msgstr "Mission %(mission_name)s introuvable"
 
 #: blueprints/marti_api/mission_marti_api.py:469
 #: blueprints/marti_api/mission_marti_api.py:517
@@ -167,16 +174,6 @@ msgstr "Jeton manquant ou invalide"
 #: blueprints/marti_api/mission_marti_api.py:491
 msgid "Only mission owners can delete missions"
 msgstr "Seuls les propriétaires de missions peuvent supprimer des missions"
-
-#: blueprints/marti_api/mission_marti_api.py:508
-#: blueprints/marti_api/mission_marti_api.py:553
-#: blueprints/marti_api/mission_marti_api.py:614
-#: blueprints/marti_api/mission_marti_api.py:1105
-#: blueprints/marti_api/mission_marti_api.py:1380
-#: blueprints/ots_api/mission_api.py:219
-#, python-format
-msgid "Mission %(mission_name)s not found"
-msgstr "Mission %(mission_name)s introuvable"
 
 #: blueprints/marti_api/mission_marti_api.py:527
 msgid "Please provide the password"
@@ -267,7 +264,8 @@ msgstr "Mission introuvable %(mission_guid)s"
 #, python-format
 msgid "%(username)s and mission %(mission_name)s are not in the same group"
 msgstr ""
-"%(username)s et la mission %(mission_name)s ne font pas partie du même groupe"
+"%(username)s et la mission %(mission_name)s ne font pas partie du même "
+"groupe"
 
 #: blueprints/marti_api/mission_marti_api.py:913
 #: blueprints/ots_api/mediamtx_api.py:57
@@ -345,17 +343,22 @@ msgstr "Utilisateur %(username)s introuvable"
 msgid "Video stream with uid %(uid)s not found"
 msgstr "Flux vidéo avec l'UID %(uid)s introuvable"
 
-#: blueprints/ots_api/api.py:198
+#: blueprints/ots_api/api.py:77
+#, fuzzy, python-format
+msgid "Invalid sort column: %(sort_by)s"
+msgstr "Type invalide : %(cot_type)s"
+
+#: blueprints/ots_api/api.py:217
 #, python-format
 msgid "Invalid username: %(username)s"
 msgstr "Nom d'utilisateur invalide : %(username)s"
 
-#: blueprints/ots_api/api.py:225
+#: blueprints/ots_api/api.py:244
 #, python-format
 msgid "Certificate already exists for %(username)s"
 msgstr "Un certificat existe déjà pour %(username)s"
 
-#: blueprints/ots_api/api.py:250
+#: blueprints/ots_api/api.py:269
 msgid "Please specify a callsign"
 msgstr "Veuillez indiquer un indicatif d'appel"
 
@@ -534,7 +537,7 @@ msgid "Please provide the UID of the marker to delete"
 msgstr "Veuillez fournir l'UID du marqueur à supprimer"
 
 #: blueprints/ots_api/marker_api.py:194
-#, fuzzy, python-format
+#, fuzzy
 msgid "Unknown UID"
 msgstr "UID inconnu"
 
@@ -725,7 +728,8 @@ msgstr ""
 #: blueprints/ots_api/user_api.py:260
 msgid "LDAP is enabled, please use your LDAP server to manage groups"
 msgstr ""
-"LDAP est activé, veuillez utiliser votre serveur LDAP pour gérer les groupes"
+"LDAP est activé, veuillez utiliser votre serveur LDAP pour gérer les "
+"groupes"
 
 #: blueprints/ots_api/user_api.py:264
 msgid "Please provide a username"
@@ -734,7 +738,8 @@ msgstr "Veuillez fournir un nom d'utilisateur"
 #: blueprints/ots_api/user_api.py:301
 msgid "Please provide a list of groups, a username, and a direction"
 msgstr ""
-"Veuillez fournir une liste de groupes, un nom d'utilisateur et une direction"
+"Veuillez fournir une liste de groupes, un nom d'utilisateur et une "
+"direction"
 
 #: blueprints/ots_api/user_api.py:308
 #, python-format
@@ -758,3 +763,7 @@ msgstr "recording_id invalide : %(recording_id)s"
 #: blueprints/ots_api/video_api.py:76
 msgid "Recording not found"
 msgstr "Enregistrement introuvable"
+
+#~ msgid "Mission %(mission_name)S not found"
+#~ msgstr "Mission %(mission_name)S introuvable"
+

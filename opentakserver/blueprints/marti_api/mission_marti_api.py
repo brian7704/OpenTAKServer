@@ -447,7 +447,7 @@ def get_mission(mission_name: str):
     try:
         mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
         if not mission:
-            return jsonify({'success': False, 'error': gettext('Mission %(mission_name)S not found', mission_name=mission_name)}), 404
+            return jsonify({'success': False, 'error': gettext('Mission %(mission_name)s not found', mission_name=mission_name)}), 404
 
         return jsonify({'version': "3", 'type': 'Mission', 'data': [mission[0].to_json()], 'nodeId': app.config.get("OTS_NODE_ID")})
     except BaseException as e:
@@ -1486,5 +1486,5 @@ def get_mission_cots(mission_name: str = None, mission_guid: str = None):
 
 
 @mission_marti_api.route('/Marti/api/missions/<mission_name>/layers')
-def get_mission_layers():
+def get_mission_layers(mission_name: str):
     return ''

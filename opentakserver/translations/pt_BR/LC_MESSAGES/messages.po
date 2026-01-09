@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-12-15 09:57-0500\n"
+"POT-Creation-Date: 2026-01-09 15:52-0500\n"
 "PO-Revision-Date: 2025-12-11 14:08+0000\n"
 "Last-Translator: Alex Soroka Franco <sorokaalex@gmail.com>\n"
 "Language: pt_BR\n"
@@ -43,7 +43,7 @@ msgstr "Um arquivo é necessário"
 msgid "Invalid file extension: %(extension)s"
 msgstr "Extensão de arquivo inválida: %(extension)s"
 
-#: blueprints/marti_api/data_package_marti_api.py:260
+#: blueprints/marti_api/data_package_marti_api.py:271
 #, python-format
 msgid "File not found: %(filename)s}"
 msgstr "Arquivo não encontrado: %(filename)s}"
@@ -150,8 +150,15 @@ msgid "Invalid mission name"
 msgstr "Nome da missão inválido"
 
 #: blueprints/marti_api/mission_marti_api.py:450
-msgid "Mission %(mission_name)S not found"
-msgstr "Missão %(mission_name)S não encontrada"
+#: blueprints/marti_api/mission_marti_api.py:508
+#: blueprints/marti_api/mission_marti_api.py:553
+#: blueprints/marti_api/mission_marti_api.py:614
+#: blueprints/marti_api/mission_marti_api.py:1105
+#: blueprints/marti_api/mission_marti_api.py:1380
+#: blueprints/ots_api/mission_api.py:219
+#, python-format
+msgid "Mission %(mission_name)s not found"
+msgstr "Missão %(mission_name)s não encontrada"
 
 #: blueprints/marti_api/mission_marti_api.py:469
 #: blueprints/marti_api/mission_marti_api.py:517
@@ -165,16 +172,6 @@ msgstr "Token ausente ou inválido"
 #: blueprints/marti_api/mission_marti_api.py:491
 msgid "Only mission owners can delete missions"
 msgstr "Somente os donos das missões podem excluí-las"
-
-#: blueprints/marti_api/mission_marti_api.py:508
-#: blueprints/marti_api/mission_marti_api.py:553
-#: blueprints/marti_api/mission_marti_api.py:614
-#: blueprints/marti_api/mission_marti_api.py:1105
-#: blueprints/marti_api/mission_marti_api.py:1380
-#: blueprints/ots_api/mission_api.py:219
-#, python-format
-msgid "Mission %(mission_name)s not found"
-msgstr "Missão %(mission_name)s não encontrada"
 
 #: blueprints/marti_api/mission_marti_api.py:527
 msgid "Please provide the password"
@@ -342,17 +339,22 @@ msgstr "Usuário %(username)s não encontrado"
 msgid "Video stream with uid %(uid)s not found"
 msgstr "Fluxo de vídeo com uid %(uid)s não encontrado"
 
-#: blueprints/ots_api/api.py:198
+#: blueprints/ots_api/api.py:77
+#, fuzzy, python-format
+msgid "Invalid sort column: %(sort_by)s"
+msgstr "Tipo inválido: %(cot_type)s"
+
+#: blueprints/ots_api/api.py:217
 #, python-format
 msgid "Invalid username: %(username)s"
 msgstr "Nome de usuário inválido: %(username)s"
 
-#: blueprints/ots_api/api.py:225
+#: blueprints/ots_api/api.py:244
 #, python-format
 msgid "Certificate already exists for %(username)s"
 msgstr "Já existe certificado para %(username)s"
 
-#: blueprints/ots_api/api.py:250
+#: blueprints/ots_api/api.py:269
 msgid "Please specify a callsign"
 msgstr "Por favor, especifique um indicativo de chamada"
 
@@ -733,4 +735,7 @@ msgstr "ID de gravação inválido: %(recording_id)s"
 #: blueprints/ots_api/video_api.py:76
 msgid "Recording not found"
 msgstr "Gravação não encontrada"
+
+#~ msgid "Mission %(mission_name)S not found"
+#~ msgstr "Missão %(mission_name)S não encontrada"
 

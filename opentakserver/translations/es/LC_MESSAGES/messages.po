@@ -7,17 +7,17 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-12-15 09:57-0500\n"
+"POT-Creation-Date: 2026-01-09 15:52-0500\n"
 "PO-Revision-Date: 2025-12-21 14:43+0000\n"
 "Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
-"Language-Team: Spanish <https://weblate.opentakserver.io/projects/"
-"opentakserver/opentakserver/es/>\n"
 "Language: es\n"
+"Language-Team: Spanish "
+"<https://weblate.opentakserver.io/projects/opentakserver/opentakserver/es/>"
+"\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.13.3\n"
 "Generated-By: Babel 2.15.0\n"
 
 #: blueprints/marti_api/cot_marti_api.py:31
@@ -43,7 +43,7 @@ msgstr "Se requiere un archivo"
 msgid "Invalid file extension: %(extension)s"
 msgstr "Extensión de archivo no válida: %(extension)s"
 
-#: blueprints/marti_api/data_package_marti_api.py:260
+#: blueprints/marti_api/data_package_marti_api.py:271
 #, python-format
 msgid "File not found: %(filename)s}"
 msgstr "Archivo no encontrado: %(filename)s}"
@@ -95,7 +95,8 @@ msgstr "%(username)s no está en el grupo %(group_name)s"
 #, fuzzy, python-format
 msgid "Failed to update group subscriptions for %(username)s: %(e)s"
 msgstr ""
-"No se pudieron actualizar las suscripciones de grupo para %(username)s: %(e)s"
+"No se pudieron actualizar las suscripciones de grupo para %(username)s: "
+"%(e)s"
 
 #: blueprints/marti_api/group_marti_api.py:254
 msgid "Please provide a group name and direction"
@@ -153,8 +154,14 @@ msgid "Invalid mission name"
 msgstr "Nombre de misión no válido"
 
 #: blueprints/marti_api/mission_marti_api.py:450
+#: blueprints/marti_api/mission_marti_api.py:508
+#: blueprints/marti_api/mission_marti_api.py:553
+#: blueprints/marti_api/mission_marti_api.py:614
+#: blueprints/marti_api/mission_marti_api.py:1105
+#: blueprints/marti_api/mission_marti_api.py:1380
+#: blueprints/ots_api/mission_api.py:219
 #, python-format
-msgid "Mission %(mission_name)S not found"
+msgid "Mission %(mission_name)s not found"
 msgstr "Misión %(mission_name)s no encontrada"
 
 #: blueprints/marti_api/mission_marti_api.py:469
@@ -170,16 +177,6 @@ msgstr "Token faltante o no válido"
 #: blueprints/marti_api/mission_marti_api.py:491
 msgid "Only mission owners can delete missions"
 msgstr "Sólo los propietarios de misiones pueden eliminar misiones"
-
-#: blueprints/marti_api/mission_marti_api.py:508
-#: blueprints/marti_api/mission_marti_api.py:553
-#: blueprints/marti_api/mission_marti_api.py:614
-#: blueprints/marti_api/mission_marti_api.py:1105
-#: blueprints/marti_api/mission_marti_api.py:1380
-#: blueprints/ots_api/mission_api.py:219
-#, python-format
-msgid "Mission %(mission_name)s not found"
-msgstr "Misión %(mission_name)s no encontrada"
 
 #: blueprints/marti_api/mission_marti_api.py:527
 #, fuzzy
@@ -350,17 +347,22 @@ msgstr "Usuario %(username)s no encontrado"
 msgid "Video stream with uid %(uid)s not found"
 msgstr "No se encontró la transmisión de video con uid %(uid)s"
 
-#: blueprints/ots_api/api.py:198
+#: blueprints/ots_api/api.py:77
+#, fuzzy, python-format
+msgid "Invalid sort column: %(sort_by)s"
+msgstr "Tipo no válido: %(cot_type)s"
+
+#: blueprints/ots_api/api.py:217
 #, python-format
 msgid "Invalid username: %(username)s"
 msgstr "Nombre de usuario no válido: %(username)s"
 
-#: blueprints/ots_api/api.py:225
+#: blueprints/ots_api/api.py:244
 #, python-format
 msgid "Certificate already exists for %(username)s"
 msgstr "El certificado ya existe para %(username)s"
 
-#: blueprints/ots_api/api.py:250
+#: blueprints/ots_api/api.py:269
 msgid "Please specify a callsign"
 msgstr "Por favor, especifique un indicativo"
 
@@ -531,7 +533,7 @@ msgid "Please provide the UID of the marker to delete"
 msgstr "Proporcione el UID del marcador que desea eliminar"
 
 #: blueprints/ots_api/marker_api.py:194
-#, fuzzy, python-format
+#, fuzzy
 msgid "Unknown UID"
 msgstr "UID desconocido"
 
@@ -566,8 +568,7 @@ msgstr "Propiedad no válida: %(key)s"
 
 #: blueprints/ots_api/mission_api.py:179
 msgid "Only an admin or the mission creator can change this mission"
-msgstr ""
-"Sólo un administrador o el creador de la misión puede cambiar esta misión"
+msgstr "Sólo un administrador o el creador de la misión puede cambiar esta misión"
 
 #: blueprints/ots_api/mission_api.py:213
 #, fuzzy
@@ -740,3 +741,7 @@ msgstr "recording_id no válido: %(recording_id)s"
 #: blueprints/ots_api/video_api.py:76
 msgid "Recording not found"
 msgstr "Grabación no encontrada"
+
+#~ msgid "Mission %(mission_name)S not found"
+#~ msgstr "Misión %(mission_name)s no encontrada"
+

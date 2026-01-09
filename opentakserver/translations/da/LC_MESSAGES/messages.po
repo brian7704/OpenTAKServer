@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-12-15 09:57-0500\n"
+"POT-Creation-Date: 2026-01-09 15:52-0500\n"
 "PO-Revision-Date: 2025-11-29 10:53-0500\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: da\n"
@@ -41,7 +41,7 @@ msgstr ""
 msgid "Invalid file extension: %(extension)s"
 msgstr ""
 
-#: blueprints/marti_api/data_package_marti_api.py:260
+#: blueprints/marti_api/data_package_marti_api.py:271
 #, python-format
 msgid "File not found: %(filename)s}"
 msgstr ""
@@ -148,7 +148,14 @@ msgid "Invalid mission name"
 msgstr ""
 
 #: blueprints/marti_api/mission_marti_api.py:450
-msgid "Mission %(mission_name)S not found"
+#: blueprints/marti_api/mission_marti_api.py:508
+#: blueprints/marti_api/mission_marti_api.py:553
+#: blueprints/marti_api/mission_marti_api.py:614
+#: blueprints/marti_api/mission_marti_api.py:1105
+#: blueprints/marti_api/mission_marti_api.py:1380
+#: blueprints/ots_api/mission_api.py:219
+#, python-format
+msgid "Mission %(mission_name)s not found"
 msgstr ""
 
 #: blueprints/marti_api/mission_marti_api.py:469
@@ -162,16 +169,6 @@ msgstr ""
 
 #: blueprints/marti_api/mission_marti_api.py:491
 msgid "Only mission owners can delete missions"
-msgstr ""
-
-#: blueprints/marti_api/mission_marti_api.py:508
-#: blueprints/marti_api/mission_marti_api.py:553
-#: blueprints/marti_api/mission_marti_api.py:614
-#: blueprints/marti_api/mission_marti_api.py:1105
-#: blueprints/marti_api/mission_marti_api.py:1380
-#: blueprints/ots_api/mission_api.py:219
-#, python-format
-msgid "Mission %(mission_name)s not found"
 msgstr ""
 
 #: blueprints/marti_api/mission_marti_api.py:527
@@ -340,17 +337,22 @@ msgstr ""
 msgid "Video stream with uid %(uid)s not found"
 msgstr ""
 
-#: blueprints/ots_api/api.py:198
+#: blueprints/ots_api/api.py:77
+#, python-format
+msgid "Invalid sort column: %(sort_by)s"
+msgstr ""
+
+#: blueprints/ots_api/api.py:217
 #, python-format
 msgid "Invalid username: %(username)s"
 msgstr ""
 
-#: blueprints/ots_api/api.py:225
+#: blueprints/ots_api/api.py:244
 #, python-format
 msgid "Certificate already exists for %(username)s"
 msgstr ""
 
-#: blueprints/ots_api/api.py:250
+#: blueprints/ots_api/api.py:269
 msgid "Please specify a callsign"
 msgstr ""
 
@@ -719,4 +721,7 @@ msgstr ""
 #: blueprints/ots_api/video_api.py:76
 msgid "Recording not found"
 msgstr ""
+
+#~ msgid "Mission %(mission_name)S not found"
+#~ msgstr ""
 
