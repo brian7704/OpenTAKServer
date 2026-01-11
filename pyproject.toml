@@ -62,6 +62,14 @@ unishox2-py3 = "1.0.0"
 yt-dlp = "*"
 # Keep zope-event at 5.1.1, DO NOT UPGRADE
 zope-event = "5.1.1"
+python-json-logger = "^4.0.0"
+opentelemetry-sdk = "^1.38.0"
+opentelemetry-exporter-otlp = "^1.38.0"
+opentelemetry-instrumentation-logging = "^0.59b0"
+opentelemetry-instrumentation-threading = "^0.59b0"
+opentelemetry-instrumentation-flask = "^0.59b0"
+opentelemetry-instrumentation-sqlalchemy = "^0.59b0"
+opentelemetry-instrumentation-pika = "^0.59b0"
 zope-interface = "8.1.1"
 
 [tool.poetry-dynamic-versioning]

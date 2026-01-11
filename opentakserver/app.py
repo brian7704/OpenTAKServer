@@ -1,20 +1,21 @@
-from gevent import monkey
+from gevent import monkey,greenlet
 monkey.patch_all()
 
 import pytz
 from opentakserver.models.role import Role
-from opentakserver.models.Group import Group, GroupTypeEnum
+from opentakserver.telemetry.context import LogCtx
+from opentakserver.extensions import logger, db, socketio, mail, apscheduler, ldap_manager
 
+from typing import Any
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentakserver.models.Group import Group, GroupTypeEnum
 from opentakserver.UsernameValidator import UsernameValidator
 
-import sys
 import traceback
-import logging
 
 from flask_migrate import Migrate, upgrade
 from opentakserver.PasswordValidator import PasswordValidator
 
-import platform
 import requests
 from sqlalchemy import insert
 import sqlite3
@@ -27,10 +28,8 @@ import yaml
 
 from opentakserver.EmailValidator import EmailValidator
 
-from logging.handlers import TimedRotatingFileHandler
 import os
 
-import colorlog
 from werkzeug.middleware.proxy_fix import ProxyFix
 from datetime import datetime, timezone
 import sqlalchemy
@@ -56,8 +55,7 @@ from opentakserver.certificate_authority import CertificateAuthority
 try:
     from opentakserver.mumble.mumble_ice_app import MumbleIceDaemon
 except ModuleNotFoundError:
-    print("Mumble auth not supported on this platform")
-
+    logger.warning("Mumble auth not supported on this platform")
 
 def get_locale():
     if 'language' in session:
@@ -71,27 +69,25 @@ def get_timezone():
 
 
 def init_extensions(app):
+    logger.info("setting up extensions")
     db.init_app(app)
+    logger.info("initalized sqlalchemy, checking migrations...")
     Migrate(app, db)
-
-    logger.info(f"OpenTAKServer {opentakserver.__version__}")
-    logger.info("Loading the database...")
+    logger.info("migrations applied")
+    
     with app.app_context():
         upgrade(directory=os.path.join(os.path.dirname(os.path.realpath(opentakserver.__file__)), 'migrations'))
-        # Flask-Migrate does weird things to the logger
-        logger.disabled = False
-        logger.parent.handlers.pop()
-        if app.config.get("DEBUG"):
-            logger.setLevel(logging.DEBUG)
-        else:
-            logger.setLevel(logging.INFO)
-
+    
+    logger.info("finished applying migrations")
+    
+    logger.info("applying extension config")
     # Handle config options that can't be serialized to yaml
     app.config.update({"SCHEDULER_JOBSTORES": {'default': SQLJobStore(url=app.config.get("SQLALCHEMY_DATABASE_URI"))}})
     identity_attributes = [{"username": {"mapper": uia_username_mapper, "case_insensitive": True}}]
 
     # Don't allow registration unless email is enabled
     if app.config.get("OTS_ENABLE_EMAIL"):
+        logger.info("email is enabled, configuring...")
         identity_attributes.append({"email": {"mapper": uia_email_mapper, "case_insensitive": True}})
         app.config.update({
             "SECURITY_REGISTERABLE": True,
@@ -100,6 +96,7 @@ def init_extensions(app):
             "SECURITY_TWO_FACTOR_ENABLED_METHODS": ["authenticator", "email"]
         })
     else:
+        logger.info("email is not configured")
         app.config.update({
             "SECURITY_REGISTERABLE": False,
             "SECURITY_CONFIRMABLE": False,
@@ -114,36 +111,42 @@ def init_extensions(app):
 
     app.config.update({"SECURITY_USER_IDENTITY_ATTRIBUTES": identity_attributes})
 
+    logger.info("creating local cert authority")
     ca = CertificateAuthority(logger, app)
     ca.create_ca()
 
+    logger.info("setting up security headers")
     cors = CORS(app, resources={r"/api/*": {"origins": "*"}, r"/Marti/*": {"origins": "*"}, r"/*": {"origins": "*"}},
                 supports_credentials=True)
     flask_wtf.CSRFProtect(app)
 
-    socketio_logger = False
-    if app.config.get("DEBUG"):
-        socketio_logger = logger
+    socketio_logger = logger
     socketio.init_app(app, logger=socketio_logger, ping_timeout=1, message_queue="amqp://" + app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"))
-
+    
     rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
     rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
-    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
+    params = pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
+    with LogCtx(rabbitmq_params={"host":params.host,"port":params.port,"vhost":params.virtual_host,"ssl": bool(params.ssl_options)}):
+        logger.info(f"connecting to rabbitmq on {params}")
+        rabbit_connection = pika.BlockingConnection(params)
 
-    channel = rabbit_connection.channel()
-    channel.exchange_declare('dms', durable=True, exchange_type='direct')
-    channel.exchange_declare('cot_parser', durable=True, exchange_type='direct')
-    channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
-    channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
-    channel.exchange_declare("groups", durable=True, exchange_type='topic')  # For channels/groups
-    channel.exchange_declare("firehose", durable=True, exchange_type='fanout')  # A firehose of all CoT data
-    channel.close()
-    rabbit_connection.close()
+        channel = rabbit_connection.channel()
+        channel.exchange_declare('dms', durable=True, exchange_type='direct')
+        channel.exchange_declare('cot_parser', durable=True, exchange_type='direct')
+        channel.exchange_declare('chatrooms', durable=True, exchange_type='direct')
+        channel.exchange_declare("missions", durable=True, exchange_type='topic')  # For Data Sync mission feeds
+        channel.exchange_declare("groups", durable=True, exchange_type='topic')  # For channels/groups
+        channel.exchange_declare("firehose", durable=True, exchange_type='fanout')  # A firehose of all CoT data
+        channel.close()
+        rabbit_connection.close()
+        logger.info("rabbitmq setup conmpleted")
 
     if not apscheduler.running:
+        logger.info("starting apsscheduler")
         apscheduler.init_app(app)
         apscheduler.start(paused=False)
 
+    logger.info("setting up flask security")
     try:
         fsqla.FsModels.set_db_info(db)
     except sqlalchemy.exc.InvalidRequestError:
@@ -159,50 +162,64 @@ def init_extensions(app):
 
     babel.init_app(app, locale_selector=get_locale, timezone_selector=get_timezone)
 
+def create_groups(app: Flask):
+    try:
+        with app.app_context():
+            public_group = Group()
+            public_group.name("__ANON__")
+            public_group.type = GroupTypeEnum.SYSTEM
+            public_group.bitpos = 2
+            public_group.description = "Default public group"
 
-def setup_logging(app):
-    level = logging.INFO
-    if app.config.get("DEBUG"):
-        level = logging.DEBUG
-    logger.setLevel(level)
+            db.session.add(public_group)
+            db.session.commit()
 
-    if sys.stdout.isatty():
-        color_log_handler = colorlog.StreamHandler()
-        color_log_formatter = colorlog.ColoredFormatter(
-            '%(log_color)s[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
-        color_log_handler.setFormatter(color_log_formatter)
-        logger.addHandler(color_log_handler)
-        logger.info("Added color logger")
+            adsb_group = Group()
+            adsb_group.name("ADS-B")
+            adsb_group.type = GroupTypeEnum.SYSTEM
+            adsb_group.bitpos = 3
+            adsb_group.description = "ADS-B data"
 
-    os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs"), exist_ok=True)
-    fh = TimedRotatingFileHandler(os.path.join(app.config.get("OTS_DATA_FOLDER"), 'logs', 'opentakserver.log'),
-                                  when=app.config.get("OTS_LOG_ROTATE_WHEN"), interval=app.config.get("OTS_LOG_ROTATE_INTERVAL"),
-                                  backupCount=app.config.get("OTS_BACKUP_COUNT"))
-    fh.setFormatter(logging.Formatter("[%(asctime)s] - OpenTAKServer[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"))
-    logger.addHandler(fh)
+            db.session.add(adsb_group)
+            db.session.commit()
 
+            ais_group = Group()
+            ais_group.name("AIS")
+            ais_group.type = GroupTypeEnum.SYSTEM
+            ais_group.bitpos = 4
+            ais_group.description = "AIS data"
+
+            db.session.add(ais_group)
+            db.session.commit()
+    except BaseException as e:
+        logger.error(f"Failed to create groups: {e}")
+        logger.debug(traceback.format_exc())
+
+def is_first_run(cfg: dict[str, Any]):
+    # existence of config file is used to determine whether OTS has been run before
+    return not os.path.exists(os.path.join(cfg.get("OTS_DATA_FOLDER"), "config.yml"))
+
+def get_config() -> dict[str, Any]:
+    config = DefaultConfig.to_dict()
+    if is_first_run(config):
+        DefaultConfig.to_file()  # persist default settings
+    else:
+        filepath = os.path.join(config.get("OTS_DATA_FOLDER"), "config.yml")
+        with open(filepath, "r") as f:
+            config.update(yaml.safe_load(f)) # override defaults with values from config.yml
+            # TODO: validation with fast fail?
+    return config
 
 def create_app(cli=True):
+    config = get_config()
+    # then setup app
     app = Flask(__name__)
-    app.config.from_object(DefaultConfig)
-    setup_logging(app)
+    app.config.from_mapping(config)
+    FlaskInstrumentor.instrument_app(app)
 
     if not cli:
-        # Load config.yml if it exists
-        if os.path.exists(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml")):
-            app.config.from_file(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), load=yaml.safe_load)
-        else:
-            # First run, created config.yml based on default settings
-            logger.info("Creating config.yml")
-            with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "config.yml"), "w") as config:
-                conf = {}
-                for option in DefaultConfig.__dict__:
-                    # Fix the sqlite DB path on Windows
-                    if option == "SQLALCHEMY_DATABASE_URI" and platform.system() == "Windows" and DefaultConfig.__dict__[option].startswith("sqlite"):
-                        conf[option] = DefaultConfig.__dict__[option].replace("////", "///").replace("\\", "/")
-                    elif option.isupper():
-                        conf[option] = DefaultConfig.__dict__[option]
-                config.write(yaml.safe_dump(conf))
+        if is_first_run(config):
+            create_groups(app)
 
         # Try to set the MediaMTX token
         if app.config.get("OTS_MEDIAMTX_ENABLE"):
@@ -273,7 +290,6 @@ def create_app(cli=True):
         app.register_blueprint(scheduler_blueprint)
 
     return app
-
 
 @user_registered.connect_via(current_app)
 def user_registered_sighandler(app, user, confirmation_token, **kwargs):
@@ -411,14 +427,17 @@ def main(app):
     create_default_groups(app)
 
     try:
-        socketio.run(app, host=app.config.get("OTS_LISTENER_ADDRESS"), port=app.config.get("OTS_LISTENER_PORT"),
-                     debug=app.config.get("DEBUG"), log_output=app.config.get("DEBUG"), use_reloader=False)
+        host = app.config.get("OTS_LISTENER_ADDRESS")
+        port = app.config.get("OTS_LISTENER_PORT")
+        logger.info(f"starting API listening on {host}:{port}")
+        socketio.run(app, host=host, port=port, use_reloader=False)
     except KeyboardInterrupt:
         logger.warning("Caught CTRL+C, exiting...")
         if app.config.get("OTS_ENABLE_PLUGINS"):
             app.plugin_manager.stop_plugins()
 
-
 def start():
+    monkey.patch_all()
+    logger.info(f"starting OpenTAKServer {opentakserver.__version__}")
     app = create_app(cli=False)
     main(app)
