@@ -357,21 +357,24 @@ class ClientController(Thread):
 
         # EUDs running the Meshtastic and dmrcot plugins can relay messages from their RF networks to the server
         # so we want to use the UID of the "off grid" EUD, not the relay EUD
+        contact = event.find('contact')
         takv = event.find('takv')
-        if takv:
+        if takv or contact:
             uid = event.attrs.get('uid')
         else:
             return
 
         contact = event.find('contact')
 
-        # Only assume it's an EUD if it's got a <takv> tag
-        if takv and contact and uid and not uid.endswith('ping') and (self.user or not self.is_ssl):
+        # Only assume it's an EUD if it's got a <contact> tag
+        if contact and uid and not uid.endswith('ping') and (self.user or not self.is_ssl):
             self.uid = uid
-            device = takv.attrs['device'] if 'device' in takv.attrs else ""
-            operating_system = takv.attrs['os'] if 'os' in takv.attrs else ""
-            platform = takv.attrs['platform'] if 'platform' in takv.attrs else ""
-            version = takv.attrs['version'] if 'version' in takv.attrs else ""
+            device = operating_system = platform = version = None
+            if takv:
+                device = takv.attrs['device'] if 'device' in takv.attrs else None
+                operating_system = takv.attrs['os'] if 'os' in takv.attrs else None
+                platform = takv.attrs['platform'] if 'platform' in takv.attrs else None
+                version = takv.attrs['version'] if 'version' in takv.attrs else None
 
             if 'callsign' in contact.attrs:
                 self.callsign = contact.attrs['callsign']
@@ -413,6 +416,11 @@ class ClientController(Thread):
 
                         if {"exchange": "dms", "routing_key": self.callsign, "queue": self.callsign} not in self.bound_queues:
                             self.bound_queues.append({"exchange": "dms", "routing_key": self.callsign, "queue": self.callsign})
+
+                        if not self.is_ssl:
+                            self.logger.debug(f"{self.callsign} is connected via TCP, adding them to the __ANON__ group")
+                            self.rabbit_channel.queue_bind(exchange="groups", queue=self.uid,routing_key="__ANON__.OUT")
+                            self.bound_queues.append({"exchange": "groups", "routing_key": "__ANON__.OUT", "queue": self.uid})
 
                         self.rabbit_channel.basic_consume(queue=self.callsign, on_message_callback=self.on_message, auto_ack=True)
                         self.rabbit_channel.basic_consume(queue=self.uid, on_message_callback=self.on_message, auto_ack=True)

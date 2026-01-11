@@ -7,17 +7,17 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-12-10 20:20-0500\n"
+"POT-Creation-Date: 2026-01-09 15:52-0500\n"
 "PO-Revision-Date: 2025-12-20 13:43+0000\n"
 "Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
-"Language-Team: Korean <https://weblate.opentakserver.io/projects/"
-"opentakserver/opentakserver/ko/>\n"
 "Language: ko\n"
+"Language-Team: Korean "
+"<https://weblate.opentakserver.io/projects/opentakserver/opentakserver/ko/>"
+"\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.13.3\n"
 "Generated-By: Babel 2.15.0\n"
 
 #: blueprints/marti_api/cot_marti_api.py:31
@@ -43,7 +43,7 @@ msgstr "파일이 있어야 합니다"
 msgid "Invalid file extension: %(extension)s"
 msgstr "잘못된 확장자: %(extension)s"
 
-#: blueprints/marti_api/data_package_marti_api.py:260
+#: blueprints/marti_api/data_package_marti_api.py:271
 #, python-format
 msgid "File not found: %(filename)s}"
 msgstr "존재하지 않는 파일: %(filename)s"
@@ -150,8 +150,15 @@ msgid "Invalid mission name"
 msgstr "잘못된 미션명입니다"
 
 #: blueprints/marti_api/mission_marti_api.py:450
-msgid "Mission %(mission_name)S not found"
-msgstr "미션 %(mission_name)S 은/는 존재하지 않습니다"
+#: blueprints/marti_api/mission_marti_api.py:508
+#: blueprints/marti_api/mission_marti_api.py:553
+#: blueprints/marti_api/mission_marti_api.py:614
+#: blueprints/marti_api/mission_marti_api.py:1105
+#: blueprints/marti_api/mission_marti_api.py:1380
+#: blueprints/ots_api/mission_api.py:219
+#, python-format
+msgid "Mission %(mission_name)s not found"
+msgstr "미션 %(mission_name)s 을/를 찾을 수 없습니다"
 
 #: blueprints/marti_api/mission_marti_api.py:469
 #: blueprints/marti_api/mission_marti_api.py:517
@@ -165,16 +172,6 @@ msgstr "존재하지 않거나 잘못된 토큰입니다"
 #: blueprints/marti_api/mission_marti_api.py:491
 msgid "Only mission owners can delete missions"
 msgstr "미션 소유주만 미션 삭제가 가능합니다"
-
-#: blueprints/marti_api/mission_marti_api.py:508
-#: blueprints/marti_api/mission_marti_api.py:553
-#: blueprints/marti_api/mission_marti_api.py:614
-#: blueprints/marti_api/mission_marti_api.py:1105
-#: blueprints/marti_api/mission_marti_api.py:1380
-#: blueprints/ots_api/mission_api.py:219
-#, python-format
-msgid "Mission %(mission_name)s not found"
-msgstr "미션 %(mission_name)s 을/를 찾을 수 없습니다"
 
 #: blueprints/marti_api/mission_marti_api.py:527
 msgid "Please provide the password"
@@ -262,8 +259,8 @@ msgid "Cannot find mission %(mission_guid)s"
 msgstr "미션 %(mission_guid)s 을/를 찾을 수 없습니다"
 
 #: blueprints/marti_api/mission_marti_api.py:903
-#, python-format
-msgid "{username} and mission %(mission_name)s are not in the same group"
+#, fuzzy, python-format
+msgid "%(username)s and mission %(mission_name)s are not in the same group"
 msgstr "{username} 과 미션 %(mission_name)s 은/는 같은 그룹에 속해 있지 않습니다"
 
 #: blueprints/marti_api/mission_marti_api.py:913
@@ -342,17 +339,22 @@ msgstr "사용자 %(username)s를 찾을 수 없습니다"
 msgid "Video stream with uid %(uid)s not found"
 msgstr "사용자 ID가 %(uid)s인 비디오 스트림을 찾을 수 없습니다"
 
-#: blueprints/ots_api/api.py:198
+#: blueprints/ots_api/api.py:77
+#, fuzzy, python-format
+msgid "Invalid sort column: %(sort_by)s"
+msgstr "잘못된 유형: %(cot_type)s"
+
+#: blueprints/ots_api/api.py:217
 #, fuzzy, python-format
 msgid "Invalid username: %(username)s"
 msgstr "잘못된 사용자 이름: %(username)s"
 
-#: blueprints/ots_api/api.py:225
+#: blueprints/ots_api/api.py:244
 #, python-format
 msgid "Certificate already exists for %(username)s"
 msgstr "%(username)s에 대한 인증서가 이미 존재합니다"
 
-#: blueprints/ots_api/api.py:250
+#: blueprints/ots_api/api.py:269
 msgid "Please specify a callsign"
 msgstr "호출부호를 지정해 주세요"
 
@@ -433,8 +435,7 @@ msgstr "%(name)s 그룹을 추가하는 데 실패했습니다: %(e)s"
 
 #: blueprints/ots_api/group_api.py:232 blueprints/ots_api/user_api.py:294
 msgid "LDAP is enabled, please use your LDAP server to add users to groups"
-msgstr "LDAP이 활성화되어 있습니다. 그룹에 사용자를 추가하려면 LDAP 서버를 "
-"사용하십시오"
+msgstr "LDAP이 활성화되어 있습니다. 그룹에 사용자를 추가하려면 LDAP 서버를 사용하십시오"
 
 #: blueprints/ots_api/group_api.py:239
 msgid "Please provide a list of users, group name, and direction"
@@ -726,3 +727,7 @@ msgstr "녹음 파일을 찾을 수 없습니다"
 
 #~ msgid "{username} and mission %(mission_name)s are not in the same group"
 #~ msgstr ""
+
+#~ msgid "Mission %(mission_name)S not found"
+#~ msgstr "미션 %(mission_name)S 은/는 존재하지 않습니다"
+

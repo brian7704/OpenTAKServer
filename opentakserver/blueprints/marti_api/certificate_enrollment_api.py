@@ -123,7 +123,7 @@ def sign_csr_v2():
         cert = cert.replace("\n-----END CERTIFICATE-----\n", "")
 
         # iTAK expects a JSON response but with the Content-Type header set to text/plain for some reason
-        if request.headers.get('Accept') == 'text/plain' or request.headers.get('Accept') == 'application/json' or request.headers.get('Accept') == "*/*":
+        if request.headers.get('Accept') == 'text/plain' or request.headers.get('Accept') == 'application/json' or request.headers.get('Accept') == "*/*" or not request.headers.get('Accept'):
             response = {'signedCert': signed_csr, 'ca0': cert, 'ca1': cert}
         else:
             enrollment = Element('enrollment')
