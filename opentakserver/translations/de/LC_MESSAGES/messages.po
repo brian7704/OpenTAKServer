@@ -8,16 +8,16 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-01-09 15:52-0500\n"
-"PO-Revision-Date: 2025-12-20 13:43+0000\n"
-"Last-Translator: Inco Mode <opentakserver.io@incomode.de>\n"
+"PO-Revision-Date: 2026-01-12 23:43+0000\n"
+"Last-Translator: Inco Mode <github.com@incomode.de>\n"
+"Language-Team: German <https://weblate.opentakserver.io/projects/"
+"opentakserver/opentakserver/de/>\n"
 "Language: de\n"
-"Language-Team: German "
-"<https://weblate.opentakserver.io/projects/opentakserver/opentakserver/de/>"
-"\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.13.3\n"
 "Generated-By: Babel 2.15.0\n"
 
 #: blueprints/marti_api/cot_marti_api.py:31
@@ -344,9 +344,9 @@ msgid "Video stream with uid %(uid)s not found"
 msgstr "Videostream mit UID %(uid)s nicht gefunden"
 
 #: blueprints/ots_api/api.py:77
-#, fuzzy, python-format
+#, python-format
 msgid "Invalid sort column: %(sort_by)s"
-msgstr "Ungültiger Typ: %(cot_type)s"
+msgstr "Ungültige Sortierspalte: %(sort_by)s"
 
 #: blueprints/ots_api/api.py:217
 #, python-format
@@ -760,4 +760,3 @@ msgstr "Aufnahme nicht gefunden"
 
 #~ msgid "Mission %(mission_name)S not found"
 #~ msgstr "Mission %(mission_name)S nicht gefunden"
-
