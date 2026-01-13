@@ -1,5 +1,13 @@
 opentakserver/secret_key.py
 scripts/
+
+# local dev ots data folder
+ots/ 
+
+### IDE files
+.vscode/
+.idea/
+
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/
