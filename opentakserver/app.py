@@ -248,17 +248,6 @@ def create_app(cli=True):
 
         flask_wtf.CSRFProtect(app)
 
-        try:
-            fsqla.FsModels.set_db_info(db)
-        except sqlalchemy.exc.InvalidRequestError:
-            pass
-
-        from opentakserver.models.user import User
-        from opentakserver.models.role import Role
-
-        user_datastore = SQLAlchemyUserDatastore(db, User, Role, WebAuthn)
-        app.security = Security(app, user_datastore, mail_util_cls=EmailValidator, password_util_cls=PasswordValidator, username_util_cls=UsernameValidator)
-
         # Register blueprints to properly import all the DB models without circular imports
         from opentakserver.blueprints.marti_api import marti_blueprint
         app.register_blueprint(marti_blueprint)
@@ -273,14 +262,6 @@ def create_app(cli=True):
         app.register_blueprint(scheduler_blueprint)
 
     return app
-
-
-@user_registered.connect_via(current_app)
-def user_registered_sighandler(app, user, confirmation_token, **kwargs):
-    default_role = app.security.datastore.find_or_create_role(
-        name="user", permissions={"user-read", "user-write"}
-    )
-    app.security.datastore.add_role_to_user(user, default_role)
 
 
 def create_default_groups(app):
@@ -421,4 +402,12 @@ def main(app):
 
 def start():
     app = create_app(cli=False)
+
+    @user_registered.connect_via(app)
+    def user_registered_sighandler(app, user, confirmation_token, **kwargs):
+        default_role = app.security.datastore.find_or_create_role(
+            name="user", permissions={"user-read", "user-write"}
+        )
+        app.security.datastore.add_role_to_user(user, default_role)
+
     main(app)
