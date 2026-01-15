@@ -248,6 +248,18 @@ def create_app(cli=True):
 
         flask_wtf.CSRFProtect(app)
 
+        try:
+            fsqla.FsModels.set_db_info(db)
+        except sqlalchemy.exc.InvalidRequestError:
+            pass
+
+        from opentakserver.models.user import User
+        from opentakserver.models.role import Role
+
+        user_datastore = SQLAlchemyUserDatastore(db, User, Role, WebAuthn)
+        app.security = Security(app, user_datastore, mail_util_cls=EmailValidator, password_util_cls=PasswordValidator,
+                                username_util_cls=UsernameValidator)
+
         # Register blueprints to properly import all the DB models without circular imports
         from opentakserver.blueprints.marti_api import marti_blueprint
         app.register_blueprint(marti_blueprint)
