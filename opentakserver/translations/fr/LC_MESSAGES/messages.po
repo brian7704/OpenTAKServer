@@ -8,16 +8,16 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-01-09 15:52-0500\n"
-"PO-Revision-Date: 2025-12-24 18:43+0000\n"
-"Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
+"PO-Revision-Date: 2026-01-15 04:48+0000\n"
+"Last-Translator: Zox <proom.zizoox@gmail.com>\n"
+"Language-Team: French <https://weblate.opentakserver.io/projects/"
+"opentakserver/opentakserver/fr/>\n"
 "Language: fr\n"
-"Language-Team: French "
-"<https://weblate.opentakserver.io/projects/opentakserver/opentakserver/fr/>"
-"\n"
-"Plural-Forms: nplurals=2; plural=n > 1;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
+"X-Generator: Weblate 5.13.3\n"
 "Generated-By: Babel 2.15.0\n"
 
 #: blueprints/marti_api/cot_marti_api.py:31
@@ -543,9 +543,8 @@ msgstr "UID inconnu"
 
 #: blueprints/ots_api/mediamtx_api.py:259
 #: blueprints/ots_api/mediamtx_api.py:336
-#, fuzzy
 msgid "Please specify a path name"
-msgstr "Veuillez spécifier un nom de chemin"
+msgstr "Veuillez spécifier un nom de chemin d’accès"
 
 #: blueprints/ots_api/mediamtx_api.py:262
 msgid "Path cannot begin with a slash"
@@ -553,9 +552,9 @@ msgstr "Un chemin ne peut pas commencer par une barre oblique"
 
 #: blueprints/ots_api/mediamtx_api.py:277
 #: blueprints/ots_api/mediamtx_api.py:342
-#, fuzzy, python-format
+#, python-format
 msgid "Path %(path)s not found"
-msgstr "Chemin %(path)s introuvable"
+msgstr "Chemin d’accès %(path)s introuvable"
 
 #: blueprints/ots_api/mediamtx_api.py:348
 msgid "MediaMTX is not running"
@@ -566,7 +565,7 @@ msgid "Please provide the URL of the channel to delete"
 msgstr "Veuillez fournir l'URL de la chaîne à supprimer"
 
 #: blueprints/ots_api/mission_api.py:119 blueprints/ots_api/mission_api.py:200
-#, fuzzy, python-format
+#, python-format
 msgid "Invalid property: %(key)s"
 msgstr "Propriété invalide : %(key)s"
 
@@ -766,4 +765,3 @@ msgstr "Enregistrement introuvable"
 
 #~ msgid "Mission %(mission_name)S not found"
 #~ msgstr "Mission %(mission_name)S introuvable"
-
