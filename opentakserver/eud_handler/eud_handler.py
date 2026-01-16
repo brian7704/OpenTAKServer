@@ -62,7 +62,7 @@ def setup_logging(app):
         color_log_handler = colorlog.StreamHandler()
         color_log_formatter = colorlog.ColoredFormatter(
             '%(log_color)s[%(asctime)s] - eud_handler[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s',
-            datefmt="%Y-%m-%d %H:%M:%S")
+            datefmt="%Y-%m-%d %H:%M:%S %Z")
         color_log_handler.setFormatter(color_log_formatter)
         logger.addHandler(color_log_handler)
 

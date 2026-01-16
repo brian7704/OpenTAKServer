@@ -357,6 +357,14 @@ class CoTController:
             geochat.point_id = point_pk
             geochat.cot_id = cot_id
 
+            with self.context:
+                try:
+                    self.db.session.add(geochat)
+                    self.db.session.commit()
+                except exc.IntegrityError:
+                    # TODO: Check if remarks can be edited and if so do an update here
+                    self.db.session.rollback()
+
             if self.context.app.config.get("OTS_ENABLE_MESHTASTIC"):
                 try:
                     with self.context:
@@ -414,15 +422,6 @@ class CoTController:
                 except BaseException as e:
                     self.logger.error("Failed to publish MQTT message: {}".format(e))
                     self.logger.debug(traceback.format_exc())
-
-            with self.context:
-                try:
-
-                    self.db.session.add(geochat)
-                    self.db.session.commit()
-                except exc.IntegrityError:
-                    # TODO: Check if remarks can be edited and if so do an update here
-                    self.db.session.rollback()
 
             for attr in chat_group.attrs:
                 if attr.startswith("uid") and attr != 'uid':
@@ -829,7 +828,7 @@ def setup_logging(app):
     if sys.stdout.isatty():
         color_log_handler = colorlog.StreamHandler()
         color_log_formatter = colorlog.ColoredFormatter(
-            '%(log_color)s[%(asctime)s] - cot_parser[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
+            '%(log_color)s[%(asctime)s] - cot_parser[%(process)d] - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S %Z")
         color_log_handler.setFormatter(color_log_formatter)
         logger.addHandler(color_log_handler)
         logger.info("Added color logger")
