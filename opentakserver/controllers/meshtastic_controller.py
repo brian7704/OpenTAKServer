@@ -11,8 +11,9 @@ import os
 
 from meshtastic import mqtt_pb2, portnums_pb2, mesh_pb2, protocols, BROADCAST_NUM
 
-from opentakserver.extensions import db, logger
+from opentakserver.extensions import db, logger, socketio
 from opentakserver.models.Meshtastic import MeshtasticChannel
+from opentakserver.models.Point import Point
 from opentakserver.models.Team import Team
 from opentakserver.proto import atak_pb2
 from google.protobuf.json_format import MessageToJson
@@ -96,6 +97,7 @@ class MeshtasticController(RabbitMQClient):
                                                   properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
 
         se = mqtt_pb2.ServiceEnvelope()
+
         try:
             se.ParseFromString(body)
             mp = se.packet
@@ -191,31 +193,37 @@ class MeshtasticController(RabbitMQClient):
             SubElement(detail, '__group', {'name': self.meshtastic_devices[from_id]['team'],
                                            'role': self.meshtastic_devices[from_id]['role']})
 
-            eud = EUD()
-            eud.uid = uid
-            eud.callsign = self.meshtastic_devices[from_id]['long_name']
-            eud.device = self.meshtastic_devices[from_id]['hw_model']
-            eud.os = "Meshtastic"
-            eud.platform = "Meshtastic"
-            eud.version = self.meshtastic_devices[from_id]['firmware_version']
-            eud.team_role = self.meshtastic_devices[from_id]['role']
-            eud.meshtastic_id = int(self.meshtastic_devices[from_id]['meshtastic_id'], 16)
-            eud.meshtastic_macaddr = self.meshtastic_devices[from_id]['macaddr']
+        return event
 
-            with self.context:
-                team = db.session.execute(db.session.query(Team).filter_by(name=self.meshtastic_devices[from_id]['team'])).scalar()
-                if team:
-                    eud.team_id = team.id
+    def insert_or_update_eud(self, uid: str, from_id: str, update_if_exists: bool = True):
+        eud = EUD()
+        eud.uid = uid
+        eud.callsign = self.meshtastic_devices[from_id]['long_name']
+        eud.device = self.meshtastic_devices[from_id]['hw_model']
+        eud.os = "Meshtastic"
+        eud.platform = "Meshtastic"
+        eud.version = self.meshtastic_devices[from_id]['firmware_version']
+        eud.team_role = self.meshtastic_devices[from_id]['role']
+        eud.meshtastic_id = int(self.meshtastic_devices[from_id]['meshtastic_id'], 16)
+        eud.meshtastic_macaddr = self.meshtastic_devices[from_id]['macaddr']
 
-                try:
-                    db.session.add(eud)
-                    db.session.commit()
-                except sqlalchemy.exc.IntegrityError:
-                    db.session.rollback()
+        with self.context:
+            socketio.emit("eud", eud.to_json(), namespace="/socket.io")
+
+        with self.context:
+            team = db.session.execute(
+                db.session.query(Team).filter_by(name=self.meshtastic_devices[from_id]['team'])).scalar()
+            if team:
+                eud.team_id = team.id
+
+            try:
+                db.session.add(eud)
+                db.session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                db.session.rollback()
+                if update_if_exists:
                     db.session.execute(sqlalchemy.update(EUD).where(EUD.uid == uid).values(**eud.serialize()))
                     db.session.commit()
-
-        return event
 
     def position(self, pb, from_id, to_id, portnum):
         try:
@@ -229,7 +237,7 @@ class MeshtasticController(RabbitMQClient):
                         self.db.session.add(eud)
                         self.db.session.commit()
                         if from_id not in self.meshtastic_devices:
-                            self.meshtastic_devices[from_id] = {'hw_model': '', 'long_name': '', 'short_name': '',
+                            self.meshtastic_devices[from_id] = {'hw_model': '', 'long_name': f"Meshtastic {str(from_id)[-4:]}", 'short_name': str(from_id)[-4:],
                                                                 'macaddr': '',
                                                                 'firmware_version': '', 'last_lat': "0.0",
                                                                 'last_lon': "0.0",
@@ -241,8 +249,8 @@ class MeshtasticController(RabbitMQClient):
 
                         self.meshtastic_devices[from_id]['firmware_version'] = pb.firmware_version
                         self.meshtastic_devices[from_id]['hw_model'] = mesh_pb2.HardwareModel.Name(pb.hw_model)
-                        self.meshtastic_devices[from_id]['long_name'] = pb.long_name
-                        self.meshtastic_devices[from_id]['short_name'] = pb.short_name
+                        self.meshtastic_devices[from_id]['long_name'] = pb.long_name or f"Meshtastic {str(from_id)}"
+                        self.meshtastic_devices[from_id]['short_name'] = pb.short_name or str(from_id)[-4:]
                 except BaseException as e:
                     self.logger.error("Failed to update {}'s firmware version: {}".format(from_id, e))
 
@@ -252,6 +260,24 @@ class MeshtasticController(RabbitMQClient):
             if portnum == "POSITION_APP":
                 self.meshtastic_devices[from_id]['course'] = pb.ground_track if pb.ground_track else "0.0"
                 self.meshtastic_devices[from_id]['speed'] = pb.ground_speed if pb.ground_speed else "0.0"
+
+            self.insert_or_update_eud(from_id, from_id, False)
+
+            point = Point()
+            point.uid = str(uuid.uuid4())
+            point.device_uid = from_id
+            point.latitude = self.meshtastic_devices[from_id]['last_lat']
+            point.longitude = self.meshtastic_devices[from_id]['last_lon']
+            point.hae = self.meshtastic_devices[from_id]['last_alt']
+            point.course = self.meshtastic_devices[from_id]['course']
+            point.speed = self.meshtastic_devices[from_id]['speed']
+            point.timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
+
+            with self.context:
+                db.session.add(point)
+                db.session.commit()
+
+                socketio.emit("point", point.to_json(), namespace="/socket.io")
 
             return self.cot(pb, from_id, to_id, portnum)
         except BaseException as e:
@@ -306,13 +332,17 @@ class MeshtasticController(RabbitMQClient):
                 self.meshtastic_devices[from_id]['team'] = atak_pb2.Team.Name(pb.group.team)
             if pb.group.role != 0:
                 self.meshtastic_devices[from_id]['role'] = atak_pb2.MemberRole.Name(pb.group.role)
+
+            self.insert_or_update_eud(uid, from_id)
         else:
             hw_model = mesh_pb2.HardwareModel.Name(pb.hw_model)
             self.meshtastic_devices[from_id]['hw_model'] = hw_model if hw_model else ""
-            self.meshtastic_devices[from_id]['long_name'] = str(pb.long_name) if pb.long_name else ""
-            self.meshtastic_devices[from_id]['short_name'] = str(pb.short_name) if pb.short_name else ""
+            self.meshtastic_devices[from_id]['long_name'] = str(pb.long_name) if pb.long_name else f"Meshtastic {str(from_id)[-4:]}"
+            self.meshtastic_devices[from_id]['short_name'] = str(pb.short_name) if pb.short_name else str(from_id)[-4:]
             self.meshtastic_devices[from_id]['macaddr'] = base64.b64encode(pb.macaddr).decode(
                 'ascii') if pb.macaddr else ""
+
+            self.insert_or_update_eud(from_id, from_id)
 
         return self.cot(pb, from_id, to_id, portnum)
 
@@ -378,7 +408,7 @@ class MeshtasticController(RabbitMQClient):
         event = None
 
         if from_id not in self.meshtastic_devices:
-            self.meshtastic_devices[from_id] = {'hw_model': '', 'long_name': '', 'short_name': '', 'macaddr': '',
+            self.meshtastic_devices[from_id] = {'hw_model': '', 'long_name': f"Meshtastic {str(from_id)[-4:]}", 'short_name': str(from_id)[-4:], 'macaddr': '',
                                                 'firmware_version': '', 'last_lat': "0.0", 'last_lon': "0.0",
                                                 'battery': 0, 'meshtastic_id': meshtastic_id,
                                                 'voltage': 0, 'uptime': 0, 'last_alt': "9999999.0", 'course': '0.0',
@@ -401,10 +431,13 @@ class MeshtasticController(RabbitMQClient):
                 if not uid:
                     uid = from_id
                 message = json.dumps({'uid': uid, 'cot': tostring(event).decode('utf-8')})
+
+                self.rabbit_channel.basic_publish(exchange='firehose', routing_key='', body=message, properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
+
                 if portnum == "TEXT_MESSAGE_APP":
                     try:
                         if to_id == "all":
-                            self.rabbit_channel.basic_publish(exchange='chatrooms', routing_key='All Chat Rooms',
+                            self.rabbit_channel.basic_publish(exchange='groups', routing_key=f"{self.context.app.config.get('OTS_MESHTASTIC_GROUP')}.OUT",
                                                               body=message,
                                                               properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
                         else:
@@ -423,8 +456,7 @@ class MeshtasticController(RabbitMQClient):
                         if to in self.meshtastic_devices:
                             self.rabbit_channel.basic_publish(exchange='dms', routing_key=to, body=message)
                         else:
-                            self.rabbit_channel.basic_publish(exchange='chatrooms',
-                                                              routing_key=to,
+                            self.rabbit_channel.basic_publish(exchange='groups', routing_key=f"{self.context.app.config.get('OTS_MESHTASTIC_GROUP')}.OUT",
                                                               body=message,
                                                               properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
                     except BaseException as e:
@@ -432,8 +464,7 @@ class MeshtasticController(RabbitMQClient):
                             unishox2.decompress(pb.chat.to, len(pb.chat.to)), e))
                         self.logger.error(traceback.format_exc())
                 else:
-                    self.rabbit_channel.basic_publish(exchange='groups', routing_key=f"{self.context.app.config.get('OTS_MESHTASTIC_GROUP')}.OUT", body=message,properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
-                    self.rabbit_channel.basic_publish(exchange='cot', routing_key='', body=message, properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
+                    self.rabbit_channel.basic_publish(exchange='groups', routing_key=f"{self.context.app.config.get('OTS_MESHTASTIC_GROUP')}.OUT", body=message, properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
         except BaseException as e:
             self.logger.error(str(e))
             self.logger.error(traceback.format_exc())
