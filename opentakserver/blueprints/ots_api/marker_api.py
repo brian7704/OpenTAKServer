@@ -130,7 +130,10 @@ def add_marker():
             rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
             rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
             channel = rabbit_connection.channel()
-            channel.basic_publish(exchange='cot_parser', routing_key='', body=json.dumps(
+            channel.basic_publish(exchange='cot_parser', routing_key='cot_parser', body=json.dumps(
+                {'cot': ET.tostring(event).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
+                                  properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+            channel.basic_publish(exchange='firehose', routing_key='', body=json.dumps(
                 {'cot': ET.tostring(event).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
                                   properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
             route_cot(ET.tostring(event).decode('utf-8'), current_user)
@@ -209,7 +212,10 @@ def delete_marker():
         rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
         rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
         channel = rabbit_connection.channel()
-        channel.basic_publish(exchange='cot_parser', routing_key='', body=json.dumps(
+        channel.basic_publish(exchange='cot_parser', routing_key='cot_parser', body=json.dumps(
+            {'cot': ET.tostring(event).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
+                              properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+        channel.basic_publish(exchange='firehose', routing_key='', body=json.dumps(
             {'cot': ET.tostring(event).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
                               properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
         route_cot(ET.tostring(event).decode('utf-8'), current_user)

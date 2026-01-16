@@ -1,3 +1,3 @@
 # These version placeholders will be replaced later during substitution.
-__version__ = "1.7.3"
-__version_tuple__ = (1, 7, 3)
+__version__ = "1.7.4"
+__version_tuple__ = (1, 7, 4)
