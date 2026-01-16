@@ -10,6 +10,7 @@ import unishox2
 import os
 
 from meshtastic import mqtt_pb2, portnums_pb2, mesh_pb2, protocols, BROADCAST_NUM
+from pika.spec import Basic, Channel, BasicProperties
 
 from opentakserver.extensions import db, logger, socketio
 from opentakserver.models.Meshtastic import MeshtasticChannel
@@ -57,10 +58,10 @@ class MeshtasticController(RabbitMQClient):
     def get_channels(self):
         with self.context:
             channels = self.db.session.execute(self.db.session.query(MeshtasticChannel)).scalars()
-            downlink_channels = []
+            downlink_channels = {}
             for channel in channels:
                 if channel.downlink_enabled:
-                    downlink_channels.append(channel.name)
+                    downlink_channels[channel.name] = channel.psk
             self.context.app.config.update({"OTS_MESHTASTIC_DOWNLINK_CHANNELS": downlink_channels})
 
     def on_channel_open(self, channel):
@@ -70,9 +71,44 @@ class MeshtasticController(RabbitMQClient):
         self.rabbit_channel.basic_consume(queue='meshtastic', on_message_callback=self.on_message, auto_ack=True)
         self.rabbit_channel.add_on_close_callback(self.on_close)
 
-    def try_decode(self, mp):
+    def decrypt(self, mp: mesh_pb2.MeshPacket, channel_name: str) -> mesh_pb2.MeshPacket:
+        if channel_name not in self.context.app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"):
+            logger.error(f"{channel_name} not in {self.context.app.config.get('OTS_MESHTASTIC_DOWNLINK_CHANNELS')}")
+            return mp
+
+        if not mp.HasField("encrypted"):
+            self.logger.warning("Packet has no 'encrypted' field")
+            return mp
+
+        # Make a new MeshPacket with no encrypted field. The decoded field will be set after decryption.
+        decrypted_mesh_packet = mesh_pb2.MeshPacket()
+        setattr(decrypted_mesh_packet, "from", getattr(mp, "from"))
+        decrypted_mesh_packet.to = mp.to
+        decrypted_mesh_packet.channel = mp.channel
+        decrypted_mesh_packet.id = mp.id
+        decrypted_mesh_packet.rx_time = mp.rx_time
+        decrypted_mesh_packet.rx_snr = mp.rx_snr
+        decrypted_mesh_packet.hop_limit = mp.hop_limit
+        decrypted_mesh_packet.want_ack = mp.want_ack
+        decrypted_mesh_packet.priority = mp.priority
+        decrypted_mesh_packet.rx_rssi = mp.rx_rssi
+        decrypted_mesh_packet.delayed = mp.delayed
+        decrypted_mesh_packet.via_mqtt = mp.via_mqtt
+        decrypted_mesh_packet.hop_start = mp.hop_start
+        decrypted_mesh_packet.public_key = mp.public_key
+        decrypted_mesh_packet.pki_encrypted = mp.pki_encrypted
+        decrypted_mesh_packet.next_hop = mp.next_hop
+        decrypted_mesh_packet.relay_node = mp.relay_node
+        decrypted_mesh_packet.tx_after = mp.tx_after
+        decrypted_mesh_packet.transport_mechanism = mp.transport_mechanism
+
+        psk = self.context.app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS")[channel_name]
+        # Use the full default encryption key
+        if psk == "AQ==":
+            psk = "1PG7OiApB1nwvP+rz05pAQ=="
+
         # Get the channel key from the DB
-        key_bytes = base64.b64decode("1PG7OiApB1nwvP+rz05pAQ==".encode('ascii'))
+        key_bytes = base64.b64decode(psk.encode('ascii'))
 
         nonce = getattr(mp, "id").to_bytes(8, "little") + getattr(mp, "from").to_bytes(8, "little")
         cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
@@ -81,20 +117,22 @@ class MeshtasticController(RabbitMQClient):
 
         data = mesh_pb2.Data()
         data.ParseFromString(decrypted_bytes)
-        mp.decoded.CopyFrom(data)
+        decrypted_mesh_packet.decoded.CopyFrom(data)
 
-    def on_message(self, unused_channel, basic_deliver, properties, body):
+        self.logger.debug("Decryption successful")
+
+        return decrypted_mesh_packet
+
+    def on_message(self, unused_channel: Channel, basic_deliver: Basic.Deliver, properties: BasicProperties, body):
         # Don't process outgoing message from TAK EUDs to the Meshtastic Network, only messages from the Meshtastic
         # network to TAK EUDs
         if basic_deliver.routing_key.endswith('outgoing'):
             return
 
-        # Forward this Meshtastic message to other Meshtastic channels which have downlink enabled
-        for channel in self.context.app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"):
-            routing_key = "{}.2.e.{}.".format(self.context.app.config.get("OTS_MESHTASTIC_TOPIC"), channel)
-            if not basic_deliver.routing_key.startswith(routing_key):
-                self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key + "outgoing", body=body,
-                                                  properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
+        try:
+            meshtastic_channel_name = basic_deliver.routing_key.split(".")[3]
+        except IndexError:
+            return
 
         se = mqtt_pb2.ServiceEnvelope()
 
@@ -119,11 +157,12 @@ class MeshtasticController(RabbitMQClient):
         prefix = f"{mp.channel} [{meshtastic_id}->{to_id}] {pn}:"
         if mp.HasField("encrypted") and not mp.HasField("decoded"):
             try:
-                self.try_decode(mp)
+                mp = self.decrypt(mp, meshtastic_channel_name)
                 pn = portnums_pb2.PortNum.Name(mp.decoded.portnum)
                 prefix = f"{mp.channel} [{meshtastic_id}->{to_id}] {pn}:"
             except Exception as e:
-                self.logger.warning(f"{prefix} could not be decrypted")
+                self.logger.warning(f"{prefix} could not be decrypted: {e}")
+                self.logger.debug(traceback.format_exc())
                 return
 
         handler = protocols.get(mp.decoded.portnum)
@@ -157,6 +196,16 @@ class MeshtasticController(RabbitMQClient):
                 self.logger.info(pb)
             except:
                 self.logger.error(traceback.format_exc())
+
+        # Forward this Meshtastic message to other Meshtastic channels which have downlink enabled
+        for channel in self.context.app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"):
+            # Don't re-publish back to the same mesh
+            if channel == meshtastic_channel_name:
+                continue
+            routing_key = "{}.2.e.{}.".format(self.context.app.config.get("OTS_MESHTASTIC_TOPIC"), channel)
+            if not basic_deliver.routing_key.startswith(routing_key):
+                self.rabbit_channel.basic_publish(exchange='amq.topic', routing_key=routing_key + "outgoing", body=body,
+                                                  properties=pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")))
 
     def cot(self, pb, from_id, to_id, portnum, how='m-g', cot_type='a-f-G-U-C', uid=None):
         if not uid and from_id in self.meshtastic_devices and self.meshtastic_devices[from_id]['uid']:

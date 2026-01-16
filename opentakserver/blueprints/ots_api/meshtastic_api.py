@@ -76,7 +76,7 @@ def save_channel(channel_set: apponly_pb2.ChannelSet):
         url = "https://meshtastic.org/e/#" + base64.urlsafe_b64encode(single_channel_set.SerializeToString()).decode('utf-8')
 
         if channel_settings.downlink_enabled and channel_settings.name not in app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"):
-            app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS").append(channel_settings.name)
+            app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS")[channel_settings.name] = channel_settings.psk
             logger.debug("Added {} to channels".format(channel_settings.name))
 
         meshtastic_channel_settings = MeshtasticChannel()
@@ -133,9 +133,7 @@ def delete_channel():
         db.session.commit()
 
         if channel.name in app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"):
-            logger.error(app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"))
-            app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS").pop(app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS").index(channel.name))
-            logger.warning(app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"))
+            app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS").pop(channel.name)
 
     except BaseException as e:
         logger.error("Failed to delete Meshtastic channel: {}".format(e))
