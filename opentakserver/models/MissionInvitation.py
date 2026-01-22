@@ -1,9 +1,18 @@
 import datetime
+import enum
 from dataclasses import dataclass
 
 from opentakserver.extensions import db
 from sqlalchemy import Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+
+class InvitationTypeEnum(str, enum.Enum):
+    clientUid = "clientUid"
+    callsign = "callsign"
+    userName = "userName"
+    group = "group"
+    team = "team"
 
 
 @dataclass
@@ -19,6 +28,7 @@ class MissionInvitation(db.Model):
     team_name: Mapped[str] = mapped_column(String(255), ForeignKey("teams.name"), nullable=True)
     creator_uid: Mapped[str] = mapped_column(String(255), nullable=True)
     role: Mapped[str] = mapped_column(String(255), nullable=True)
+    type: Mapped[str] = mapped_column(String(255), nullable=True, default="callsign")
 
     eud_uid = relationship("EUD", foreign_keys=[client_uid], uselist=False)
     eud_callsign = relationship("EUD", foreign_keys=[callsign], uselist=False)
@@ -35,7 +45,8 @@ class MissionInvitation(db.Model):
             'group_name': self.group,
             'team_name': self.team_name,
             'creator_uid': self.creator_uid,
-            'role': self.role
+            'role': self.role,
+            'type': self.type
         }
 
     def to_json(self):

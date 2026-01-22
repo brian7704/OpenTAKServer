@@ -34,7 +34,7 @@ from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
 from opentakserver.models.MissionContent import MissionContent
 from opentakserver.models.MissionContentMission import MissionContentMission
-from opentakserver.models.MissionInvitation import MissionInvitation
+from opentakserver.models.MissionInvitation import MissionInvitation, InvitationTypeEnum
 from opentakserver.models.MissionLogEntry import MissionLogEntry
 from opentakserver.models.MissionRole import MissionRole
 from opentakserver.models.MissionUID import MissionUID
@@ -562,30 +562,35 @@ def invite(mission_name: str, invitation_type: str, invitee: str):
         if not eud:
             return jsonify({'success': False, 'error': gettext(u"No EUD found with UID %(invitee)s", invitee=invitee)}), 404
         invitation.client_uid = invitee
+        invitation.type = InvitationTypeEnum.clientUid
 
     elif invitation_type == "callsign":
         eud = db.session.execute(db.session.query(EUD).filter_by(callsign=invitee)).first()
         if not eud:
             return jsonify({'success': False, 'error': gettext(u"No EUD found with callsign %(invitee)s", invitee=invitee)}), 404
         invitation.callsign = invitee
+        invitation.type = InvitationTypeEnum.callsign
 
     elif invitation_type.lower() == "username":
         eud = db.session.execute(db.session.query(User).filter_by(username=invitee)).first()
         if not eud:
             return jsonify({'success': False, 'error': gettext(u"No user found with username %(invitee)s", invitee=invitee)}), 404
         invitation.username = invitee
+        invitation.type = InvitationTypeEnum.userName
 
     elif invitation_type == "group":
         group = db.session.execute(db.session.query(Group).filter_by(group_name=invitee)).first()
         if not group:
             return jsonify({'success': False, 'error': gettext(u"No group found: %(invitee)s", invitee=invitee)}), 404
         invitation.group_name = invitee
+        invitation.type = InvitationTypeEnum.group
 
     elif invitation_type == "team":
         team = db.session.execute(db.session.query(Team).filter_by(name=invitee)).first()
         if not team:
             return jsonify({'success': False, 'error': gettext(u"Team not found: %(invitee)s", invitee=invitee)}), 404
         invitation.team_name = invitee
+        invitation.type = InvitationTypeEnum.team
 
     db.session.add(invitation)
     db.session.commit()
