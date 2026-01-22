@@ -23,6 +23,7 @@ from opentakserver.models.CoT import CoT
 from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.EUD import EUD
 from opentakserver.models.GeoChat import GeoChat
+from opentakserver.models.Group import Group
 from opentakserver.models.Marker import Marker
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionChange import MissionChange
@@ -36,7 +37,7 @@ from opentakserver.models.Team import Team
 from opentakserver.models.VideoRecording import VideoRecording
 from opentakserver.models.VideoStream import VideoStream
 from opentakserver.models.ZMIST import ZMIST
-from opentakserver.functions import iso8601_string_from_datetime, datetime_from_iso8601_string, generate_delete_cot, publish_cot
+from opentakserver.functions import iso8601_string_from_datetime, datetime_from_iso8601_string, generate_delete_cot
 
 scheduler_blueprint = Blueprint('scheduler_blueprint', __name__)
 
@@ -62,11 +63,15 @@ def get_airplanes_live_data():
                         continue
 
                     # noinspection PyTypeChecker
-                    channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
+                    channel.basic_publish(exchange='cot_parser', routing_key='', body=json.dumps(
                         {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
                                           properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
                     # noinspection PyTypeChecker
                     channel.basic_publish(exchange='groups', routing_key=f"{app.config.get('OTS_ADSB_GROUP')}.OUT", body=json.dumps(
+                        {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
+                                          properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+                    # noinspection PyTypeChecker
+                    channel.basic_publish(exchange='firehose', routing_key='', body=json.dumps(
                         {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
                                           properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
 
@@ -161,11 +166,14 @@ def get_aishub_data():
             for vessel in r.json()[1]:
                 event = aiscot.ais_to_cot(vessel, None, None)
                 # noinspection PyTypeChecker
-                channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
+                channel.basic_publish(exchange='cot_parser', routing_key='', body=json.dumps(
                     {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
                                       properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
                 # noinspection PyTypeChecker
                 channel.basic_publish(exchange='groups', routing_key=f"{app.config.get('OTS_ADSB_GROUP')}.OUT", body=json.dumps(
+                    {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
+                                      properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+                channel.basic_publish(exchange='firehose', routing_key='', body=json.dumps(
                     {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
                                       properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
 
@@ -191,25 +199,44 @@ def delete_old_data():
 
     # I wish I hadn't made the marker's timestamp field a string...
     markers = db.session.execute(db.session.query(Marker)).all()
+    groups = db.session.execute(db.session.query(Group)).scalars()
     for marker in markers:
         marker = marker[0]
         if datetime_from_iso8601_string(marker.production_time) <= timestamp:
             cot = generate_delete_cot(marker.uid, marker.cot.type)
-            channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
-                {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
-                                  properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+            for group in groups:
+                channel.basic_publish(exchange='groups', routing_key=f"{group.name}.{Group.OUT}", body=json.dumps(
+                    {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
+                                      properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+                channel.basic_publish(exchange='firehose', routing_key="", body=json.dumps(
+                    {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
+                                      properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
             db.session.delete(marker)
 
     alerts = db.session.execute(db.session.query(Alert).where(Alert.start_time <= timestamp)).all()
     for alert in alerts:
         alert = alert[0]
-        publish_cot(generate_delete_cot(alert.uid, alert.cot.type), channel)
+        cot = generate_delete_cot(alert.uid, alert.cot.type)
+        for group in groups:
+            channel.basic_publish(exchange='groups', routing_key=f"{group.name}.{Group.OUT}", body=json.dumps(
+                {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
+                                  properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+            channel.basic_publish(exchange='firehose', routing_key="", body=json.dumps(
+                {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
+                                  properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
         db.session.delete(alert)
 
     rb_lines = db.session.execute(db.session.query(RBLine).where(RBLine.timestamp <= timestamp)).all()
     for rb_line in rb_lines:
         rb_line = rb_line[0]
-        publish_cot(generate_delete_cot(rb_line.uid, rb_line.cot.type), channel)
+        cot = generate_delete_cot(rb_line.uid, rb_line.cot.type)
+        for group in groups:
+            channel.basic_publish(exchange='groups', routing_key=f"{group.name}.{Group.OUT}", body=json.dumps(
+                {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
+                                  properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+            channel.basic_publish(exchange='firehose', routing_key="", body=json.dumps(
+                {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
+                                  properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
         db.session.delete(rb_line)
 
     db.session.execute(delete(GeoChat).where(GeoChat.timestamp <= timestamp))

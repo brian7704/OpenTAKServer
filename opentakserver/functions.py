@@ -163,12 +163,6 @@ def generate_delete_cot(uid: str, cot_type: str) -> Element:
     return event
 
 
-def publish_cot(cot: Element, channel: pika.channel.Channel):
-    channel.basic_publish(exchange='cot', routing_key='', body=json.dumps(
-        {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
-                          properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
-
-
 def format_bytes(size_bytes: int | None):
     if size_bytes is None or size_bytes == 0:
         return "0B"
