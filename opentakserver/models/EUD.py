@@ -79,7 +79,7 @@ class EUD(db.Model):
             'last_event_time': iso8601_string_from_datetime(self.last_event_time) if self.last_event_time else None,
             'last_status': self.last_status,
             'username': self.user.username if self.user else None,
-            'last_point': self.points[-1].to_json() if self.points else None,
+            'last_point': None,  # Setting to None for now since it can cause a huge overhead when an EUD has lots of points in the DB
             'team': self.team.name if self.team else None,
             'team_color': self.team.get_team_color() if self.team else None,
             'team_role': self.team_role,
