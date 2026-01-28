@@ -61,7 +61,7 @@ tldextract = "5.3.0"
 unishox2-py3 = "1.0.0"
 yt-dlp = "*"
 # Keep zope-event at 5.1.1, DO NOT UPGRADE
-zope-event = "5.1.1"
+zope-event = "6.1"
 zope-interface = "8.1.1"
 
 [tool.poetry-dynamic-versioning]
