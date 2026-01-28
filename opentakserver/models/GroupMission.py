@@ -10,7 +10,7 @@ from opentakserver.extensions import db
 class GroupMission(db.Model):
     __tablename__ = "groups_missions"
 
-    mission_name: Mapped[String] = mapped_column(String, ForeignKey("missions.name"), primary_key=True)
+    mission_name: Mapped[String] = mapped_column(String(255), ForeignKey("missions.name"), primary_key=True)
     group_id: Mapped[Integer] = mapped_column(Integer, ForeignKey("groups.id"), primary_key=True)
     mission = relationship("Mission", cascade="all, delete", viewonly=True)
     group = relationship("Group", cascade="all, delete", viewonly=True)

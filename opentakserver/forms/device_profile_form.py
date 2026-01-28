@@ -13,3 +13,4 @@ class DeviceProfileForm(FlaskForm):
     connection = BooleanField(false_values=false_values)
     tool = StringField(validators=[Optional()])
     active = BooleanField(false_values=false_values)
+    eud_uid = StringField(validators=[Optional()])

@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Boolean, DateTime, Integer
+from sqlalchemy import String, Boolean, DateTime, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from opentakserver.extensions import db
 from opentakserver.forms.device_profile_form import DeviceProfileForm
 from opentakserver.functions import iso8601_string_from_datetime
+#from .EUD import EUD
 
 
 class DeviceProfiles(db.Model):
@@ -19,6 +20,7 @@ class DeviceProfiles(db.Model):
     tool: Mapped[str] = mapped_column(String(255), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     publish_time: Mapped[datetime] = mapped_column(DateTime)
+    eud_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True)
 
     def from_wtf(self, form: DeviceProfileForm):
         self.preference_key = form.preference_key.data
@@ -29,6 +31,7 @@ class DeviceProfiles(db.Model):
         self.tool = form.tool.data
         self.active = form.active.data
         self.publish_time = datetime.now(timezone.utc)
+        self.eud_uid = form.eud_uid.data
 
     def serialize(self):
         return {
@@ -39,7 +42,8 @@ class DeviceProfiles(db.Model):
             'connection': self.connection,
             'tool': self.tool,
             'active': self.active,
-            'publish_time': self.publish_time
+            'publish_time': self.publish_time,
+            'eud_uid': self.eud_uid,
         }
 
     def to_json(self):

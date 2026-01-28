@@ -60,7 +60,7 @@ class CasEvac(db.Model):
     ventilator: Mapped[bool] = mapped_column(Boolean, nullable=True)
     winds_are_from: Mapped[str] = mapped_column(String(255), nullable=True)
     zone_prot_selection: Mapped[int] = mapped_column(Integer, nullable=True)
-    urgent_surgical: Mapped[str] = mapped_column(String, nullable=True)
+    urgent_surgical: Mapped[str] = mapped_column(String(255), nullable=True)
     point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id", ondelete="CASCADE"), nullable=True)
     cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id", ondelete="CASCADE"), nullable=True)
     point = relationship("Point", back_populates="casevac")

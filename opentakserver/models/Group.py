@@ -39,7 +39,7 @@ class Group(db.Model):
     created: Mapped[datetime] = mapped_column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
     type: Mapped[str] = mapped_column(String(255))
     bitpos: Mapped[int] = mapped_column(Integer)
-    description: Mapped[str] = mapped_column(String, nullable=True)
+    description: Mapped[str] = mapped_column(String(255), nullable=True)
     users = relationship("User", secondary="groups_users", viewonly=True, back_populates="groups", cascade="all, delete")
     missions = relationship("Mission", secondary="groups_missions", viewonly=True, back_populates="groups", cascade="all, delete")
 
