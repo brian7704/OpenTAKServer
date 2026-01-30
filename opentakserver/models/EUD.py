@@ -47,6 +47,7 @@ class EUD(db.Model):
     team = relationship("Team", back_populates="euds")
     owned_missions = relationship("Mission", back_populates="owner")
     stats = relationship("EUDStats", back_populates="eud")
+    profiles = relationship("DeviceProfiles", back_populates="eud")
 
     def serialize(self):
         return {

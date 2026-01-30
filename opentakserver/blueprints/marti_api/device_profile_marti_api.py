@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from flask import Blueprint, request, current_app as app, Response
+from sqlalchemy import or_
 from werkzeug.wsgi import FileWrapper
 
 import opentakserver
@@ -18,6 +19,7 @@ from opentakserver.extensions import db, logger, ldap_manager
 from opentakserver.models.DeviceProfiles import DeviceProfiles
 from opentakserver.models.Packages import Packages
 from opentakserver.models.DataPackage import DataPackage
+from opentakserver.models.Plugins import Plugins
 
 device_profile_marti_api_blueprint = Blueprint('device_profile_marti_api_blueprint', __name__)
 
@@ -52,7 +54,7 @@ def get_ldap_attributes(prefs: Element):
                 subelement.text = user_info[field][0]
 
 
-def create_profile_zip(enrollment=True, syncSecago=-1):
+def create_profile_zip(enrollment=True, syncSecago=-1, clientUid: str | None = None):
     # preference.pref
     prefs = Element("preferences")
     pref = SubElement(prefs, "preference", {"version": "1", "name": "com.atakmap.app_preferences"})
@@ -118,19 +120,25 @@ def create_profile_zip(enrollment=True, syncSecago=-1):
                 db.session.query(DeviceProfiles).filter_by(enrollment=True, active=True)).all()
             plugins = db.session.execute(db.session.query(Packages).filter_by(install_on_enrollment=True)).all()
             data_packages = db.session.execute(db.session.query(DataPackage).filter_by(install_on_enrollment=True)).all()
-    elif syncSecago > 0:
-        publish_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=syncSecago)
-
-        device_profiles = db.session.execute(db.session.query(DeviceProfiles).filter_by(connection=True, active=True)
-                                             .filter(DeviceProfiles.publish_time >= publish_time)).all()
-        data_packages = db.session.execute(db.session.query(DataPackage).filter_by(install_on_connection=True)
-                                           .filter(DataPackage.submission_time >= publish_time)).all()
-        plugins = db.session.execute(db.session.query(Packages).filter_by(install_on_connection=True)
-                                     .filter(Packages.publish_time >= publish_time)).all()
     else:
-        device_profiles = db.session.execute(
-            db.session.query(DeviceProfiles).filter_by(connection=True, active=True)).all()
-        data_packages = db.session.execute(db.session.query(DataPackage).filter_by(install_on_connection=True)).all()
+        device_profile_query = db.session.query(DeviceProfiles).filter_by(connection=True, active=True)
+        data_package_query = db.session.query(DataPackage).filter_by(install_on_connection=True)
+        plugins_query = db.session.query(Packages).filter_by(install_on_connection=True)
+
+        if syncSecago > 0:
+            publish_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=syncSecago)
+            device_profile_query = device_profile_query.filter(DeviceProfiles.publish_time >= publish_time)
+            data_package_query = data_package_query.filter(DataPackage.submission_time >= publish_time)
+            plugins_query = plugins_query.filter(Packages.publish_time >= publish_time)
+        if clientUid:
+            device_profile_query = device_profile_query.filter(or_(DeviceProfiles.eud_uid == clientUid, DeviceProfiles.eud_uid is None))
+            # TODO: Support data packages and plugins per EUD
+        else:
+            device_profile_query = device_profile_query.filter(DeviceProfiles.clientUid is None)
+
+        device_profiles = db.session.execute(device_profile_query).all()
+        data_packages = db.session.execute(data_package_query).all()
+        plugins = db.session.execute(plugins_query).all()
 
     for profile in device_profiles:
         p = SubElement(pref, "entry", {"key": profile[0].preference_key, "class": profile[0].value_class})
@@ -183,12 +191,16 @@ def enrollment_profile():
 def connection_profile():
     try:
         syncSecago = -1
+        client_uid = None
         if 'syncSecago' in request.args:
             try:
                 syncSecago = int(request.args['syncSecago'])
             except ValueError:
                 pass
-        profile_zip = create_profile_zip(False, syncSecago)
+        if 'clientUid' in request.args:
+            client_uid = request.args['clientUid']
+
+        profile_zip = create_profile_zip(False, syncSecago, client_uid)
         profile_zip.seek(0)
         return Response(FileWrapper(profile_zip), mimetype="application/zip", direct_passthrough=True)
     except BaseException as e:

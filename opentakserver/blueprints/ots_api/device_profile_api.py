@@ -40,7 +40,9 @@ def add_device_profile():
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
-        db.session.execute(update(DeviceProfiles).where(DeviceProfiles.preference_key == device_profile.preference_key)
+        db.session.execute(update(DeviceProfiles)
+                           .where(DeviceProfiles.preference_key == device_profile.preference_key)
+                           .where(DeviceProfiles.eud_uid == device_profile.eud_uid)
                            .values(**device_profile.serialize()))
         db.session.commit()
 

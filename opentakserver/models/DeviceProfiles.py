@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import String, Boolean, DateTime, Integer, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.extensions import db
 from opentakserver.forms.device_profile_form import DeviceProfileForm
@@ -12,7 +12,7 @@ from opentakserver.functions import iso8601_string_from_datetime
 class DeviceProfiles(db.Model):
     __tablename__ = "device_profiles"
 
-    preference_key: Mapped[str] = mapped_column(String(255), primary_key=True, nullable=False)
+    preference_key: Mapped[str] = mapped_column(String(255), nullable=False, primary_key=True)
     preference_value: Mapped[str] = mapped_column(String(255), nullable=True)
     value_class: Mapped[str] = mapped_column(String(255), nullable=True)
     enrollment: Mapped[bool] = mapped_column(Boolean, default=True, nullable=True)
@@ -20,7 +20,8 @@ class DeviceProfiles(db.Model):
     tool: Mapped[str] = mapped_column(String(255), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     publish_time: Mapped[datetime] = mapped_column(DateTime)
-    eud_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True)
+    eud_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True, primary_key=True)
+    eud = relationship("EUD", back_populates="profiles")
 
     def from_wtf(self, form: DeviceProfileForm):
         self.preference_key = form.preference_key.data
@@ -49,4 +50,5 @@ class DeviceProfiles(db.Model):
     def to_json(self):
         return_value = self.serialize()
         return_value['publish_time'] = iso8601_string_from_datetime(self.publish_time)
+        return_value['callsign'] = self.eud.callsign if self.eud else None
         return return_value
