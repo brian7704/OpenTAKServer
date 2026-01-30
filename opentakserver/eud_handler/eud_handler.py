@@ -38,6 +38,7 @@ from opentakserver.models.VideoStream import VideoStream
 from opentakserver.models.VideoRecording import VideoRecording
 from opentakserver.models.WebAuthn import WebAuthn
 from opentakserver.models.GroupMission import GroupMission
+from opentakserver.models.DeviceProfiles import DeviceProfiles
 from opentakserver.extensions import db, logger, ldap_manager
 from opentakserver.defaultconfig import DefaultConfig
 import colorlog
