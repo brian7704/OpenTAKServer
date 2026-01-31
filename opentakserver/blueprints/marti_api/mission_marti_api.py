@@ -1948,6 +1948,18 @@ def mission_contents(mission_name: str):
                 if contact and "callsign" in contact.attrs:
                     mission_uid.callsign = contact.attrs["callsign"]
 
+            try:
+                db.session.add(mission_uid)
+                db.session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                db.session.rollback()
+                db.session.execute(
+                    update(MissionUID)
+                    .where(MissionUID.uid == mission_uid.uid)
+                    .values(**mission_uid.serialize())
+                )
+                db.session.commit()
+
             mission_change = MissionChange()
             mission_change.isFederatedChange = False
             mission_change.change_type = MissionChange.ADD_CONTENT
@@ -1978,18 +1990,6 @@ def mission_contents(mission_name: str):
             channel.basic_publish("missions", routing_key=f"missions.{mission_name}", body=body)
             channel.close()
             rabbit_connection.close()
-
-            try:
-                db.session.add(mission_uid)
-                db.session.commit()
-            except sqlalchemy.exc.IntegrityError:
-                db.session.rollback()
-                db.session.execute(
-                    update(MissionUID)
-                    .where(MissionUID.uid == mission_uid.uid)
-                    .values(**mission_uid.serialize())
-                )
-                db.session.commit()
 
     db.session.commit()
 
