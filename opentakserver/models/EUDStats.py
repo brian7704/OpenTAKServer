@@ -1,11 +1,14 @@
 from dataclasses import dataclass
 
-from opentakserver.extensions import db
-from opentakserver.functions import bytes_to_gigabytes, bytes_to_megabytes
-from sqlalchemy import Integer, String, ForeignKey, DateTime, BigInteger
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from opentakserver.functions import iso8601_string_from_datetime
+from opentakserver.extensions import db
+from opentakserver.functions import (
+    bytes_to_gigabytes,
+    bytes_to_megabytes,
+    iso8601_string_from_datetime,
+)
 
 
 @dataclass
@@ -14,7 +17,9 @@ class EUDStats(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     timestamp: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
-    eud_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=False)
+    eud_uid: Mapped[str] = mapped_column(
+        String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=False
+    )
     heap_free_size: Mapped[int] = mapped_column(BigInteger, nullable=True)
     app_framerate: Mapped[int] = mapped_column(Integer, nullable=True)
     storage_total: Mapped[int] = mapped_column(BigInteger, nullable=True)
@@ -43,7 +48,7 @@ class EUDStats(db.Model):
             "storage_available": self.storage_available,
             "deviceDataTx": self.deviceDataTx,
             "ip_address": self.ip_address,
-            "battery_status": self.battery_status
+            "battery_status": self.battery_status,
         }
 
     def to_json(self):
@@ -60,5 +65,5 @@ class EUDStats(db.Model):
             "storage_available": bytes_to_gigabytes(self.storage_available),
             "deviceDataTx": bytes_to_megabytes(self.deviceDataTx),
             "ip_address": self.ip_address,
-            "battery_status": self.battery_status
+            "battery_status": self.battery_status,
         }

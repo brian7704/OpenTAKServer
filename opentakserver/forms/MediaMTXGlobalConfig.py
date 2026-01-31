@@ -1,10 +1,10 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, IntegerField, BooleanField
+from wtforms import BooleanField, IntegerField, StringField
 
 
 class MediaMTSGlobalConfig(FlaskForm):
     logLevel = StringField()
-    #logDestinations
+    # logDestinations
     logFile = StringField()
     readTimeout = StringField()
     writeTimeout = StringField()
@@ -21,7 +21,7 @@ class MediaMTSGlobalConfig(FlaskForm):
     runOnConnectRestart = BooleanField()
     runOnDisconnect = StringField()
     rtsp = BooleanField()
-    #protocols
+    # protocols
     encryption = StringField()
     rtspAddress = StringField()
     rtspsAddress = StringField()
@@ -32,7 +32,7 @@ class MediaMTSGlobalConfig(FlaskForm):
     multicastRTCPPort = IntegerField()
     serverKey = StringField()
     serverCert = StringField()
-    #authMethods
+    # authMethods
     rtmp = BooleanField()
     rtmpAddress = StringField()
     rtmpEncryption = StringField()
@@ -51,7 +51,7 @@ class MediaMTSGlobalConfig(FlaskForm):
     hlsPartDuration = StringField()
     hlsSegmentMaxSize = StringField()
     hlsAllowOrigin = StringField()
-    #hlsTrustedProxies
+    # hlsTrustedProxies
     hlsDirectory = StringField()
     webrtc = BooleanField()
     webrtcAddress = StringField()
@@ -59,19 +59,19 @@ class MediaMTSGlobalConfig(FlaskForm):
     webrtcServerKey = StringField()
     webrtcServerCert = StringField()
     webrtcAllowOrigin = StringField()
-    #webrtcTrustedProxies
+    # webrtcTrustedProxies
     webrtcLocalUDPAddress = StringField()
     webrtcLocalTCPAddress = StringField()
     webrtcIPsFromInterfaces = BooleanField()
-    #webrtcIPsFromInterfacesList
-    #webrtcAdditionalHosts
-    #webrtcICEServers2
+    # webrtcIPsFromInterfacesList
+    # webrtcAdditionalHosts
+    # webrtcICEServers2
     srt = BooleanField()
     srtAddress = StringField()
 
     def serialize(self):
         return_value = {}
         for field in self._fields:
-            if field != 'csrf_token':
+            if field != "csrf_token":
                 return_value[field] = self._fields[field].data
         return return_value

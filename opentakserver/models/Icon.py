@@ -1,9 +1,10 @@
 import base64
 from dataclasses import dataclass
 
-from opentakserver.extensions import db
-from sqlalchemy import Integer, LargeBinary, String, INTEGER
+from sqlalchemy import INTEGER, Integer, LargeBinary, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from opentakserver.extensions import db
 
 
 @dataclass
@@ -22,13 +23,21 @@ class Icon(db.Model):
 
     def serialize(self):
         return {
-            'iconset_uid': self.iconset_uid,
-            'filename': self.filename,
-            'groupName': self.groupName,
-            'type2525b': self.type2525b,
-            'useCnt': self.useCnt,
-            'bitmap': 'data:image/png;base64,{}'.format(base64.b64encode(self.bitmap).decode('utf-8')) if self.bitmap else None,
-            'shadow': 'data:image/png;base64,{}'.format(base64.b64encode(self.shadow).decode('utf-8')) if self.shadow else None
+            "iconset_uid": self.iconset_uid,
+            "filename": self.filename,
+            "groupName": self.groupName,
+            "type2525b": self.type2525b,
+            "useCnt": self.useCnt,
+            "bitmap": (
+                "data:image/png;base64,{}".format(base64.b64encode(self.bitmap).decode("utf-8"))
+                if self.bitmap
+                else None
+            ),
+            "shadow": (
+                "data:image/png;base64,{}".format(base64.b64encode(self.shadow).decode("utf-8"))
+                if self.shadow
+                else None
+            ),
         }
 
     def to_json(self):

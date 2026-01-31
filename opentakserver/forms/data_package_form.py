@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, BooleanField
-from wtforms.validators import Optional, DataRequired
+from wtforms import BooleanField, StringField
+from wtforms.validators import DataRequired, Optional
 
 from opentakserver.functions import false_values
 

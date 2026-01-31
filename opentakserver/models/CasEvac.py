@@ -1,19 +1,18 @@
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 
-import xml.etree.ElementTree as ET
 from flask_security import current_user
-
-from opentakserver.extensions import db
-from sqlalchemy import Integer, String, ForeignKey, Boolean, Float, DateTime
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from opentakserver.extensions import db
 from opentakserver.forms.casevac_form import CasEvacForm
 from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.models.Icon import Icon
 
 
 class CasEvac(db.Model):
-    __tablename__ = 'casevac'
+    __tablename__ = "casevac"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     sender_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"))
@@ -61,8 +60,12 @@ class CasEvac(db.Model):
     winds_are_from: Mapped[str] = mapped_column(String(255), nullable=True)
     zone_prot_selection: Mapped[int] = mapped_column(Integer, nullable=True)
     urgent_surgical: Mapped[str] = mapped_column(String(255), nullable=True)
-    point_id: Mapped[int] = mapped_column(Integer, ForeignKey("points.id", ondelete="CASCADE"), nullable=True)
-    cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id", ondelete="CASCADE"), nullable=True)
+    point_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("points.id", ondelete="CASCADE"), nullable=True
+    )
+    cot_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("cot.id", ondelete="CASCADE"), nullable=True
+    )
     point = relationship("Point", back_populates="casevac")
     cot = relationship("CoT", back_populates="casevac")
     zmist = relationship("ZMIST", back_populates="casevac", uselist=False, cascade="all, delete")
@@ -114,104 +117,106 @@ class CasEvac(db.Model):
 
     def serialize(self):
         return {
-            'sender_uid': self.sender_uid,
-            'uid': self.uid,
-            'timestamp': self.timestamp,
-            'ambulatory': self.ambulatory,
-            'casevac': self.casevac,
-            'child': self.child,
-            'convenience': self.convenience,
-            'enemy': self.enemy,
-            'epw': self.epw,
-            'equipment_detail': self.equipment_detail,
-            'equipment_none': self.equipment_none,
-            'equipment_other': self.equipment_other,
-            'extraction_equipment': self.extraction_equipment,
-            'freq': self.freq,
-            'friendlies': self.friendlies,
-            'hlz_marking': self.hlz_marking,
-            'hlz_remarks': self.hlz_remarks,
-            'hoist': self.hoist,
-            'litter': self.litter,
-            'marked_by': self.marked_by,
-            'medline_remarks': self.medline_remarks,
-            'nonus_civilian': self.nonus_civilian,
-            'nonus_military': self.nonus_military,
-            'obstacles': self.obstacles,
-            'priority': self.priority,
-            'routine': self.routine,
-            'security': self.security,
-            'terrain_loose': self.terrain_loose,
-            'terrain_other': self.terrain_other,
-            'terrain_other_detail': self.terrain_other_detail,
-            'terrain_detail': self.terrain_detail,
-            'terrain_none': self.terrain_none,
-            'terrain_rough': self.terrain_rough,
-            'terrain_slope': self.terrain_slope,
-            'terrain_slope_dir': self.terrain_slope_dir,
-            'title': self.title,
-            'urgent': self.urgent,
-            'urgent_surgical': self.urgent_surgical,
-            'us_civilian': self.us_civilian,
-            'us_military': self.us_military,
-            'ventilator': self.ventilator,
-            'winds_are_from': self.winds_are_from,
-            'zone_prot_selection': self.zone_prot_selection,
-            'eud': self.eud,
+            "sender_uid": self.sender_uid,
+            "uid": self.uid,
+            "timestamp": self.timestamp,
+            "ambulatory": self.ambulatory,
+            "casevac": self.casevac,
+            "child": self.child,
+            "convenience": self.convenience,
+            "enemy": self.enemy,
+            "epw": self.epw,
+            "equipment_detail": self.equipment_detail,
+            "equipment_none": self.equipment_none,
+            "equipment_other": self.equipment_other,
+            "extraction_equipment": self.extraction_equipment,
+            "freq": self.freq,
+            "friendlies": self.friendlies,
+            "hlz_marking": self.hlz_marking,
+            "hlz_remarks": self.hlz_remarks,
+            "hoist": self.hoist,
+            "litter": self.litter,
+            "marked_by": self.marked_by,
+            "medline_remarks": self.medline_remarks,
+            "nonus_civilian": self.nonus_civilian,
+            "nonus_military": self.nonus_military,
+            "obstacles": self.obstacles,
+            "priority": self.priority,
+            "routine": self.routine,
+            "security": self.security,
+            "terrain_loose": self.terrain_loose,
+            "terrain_other": self.terrain_other,
+            "terrain_other_detail": self.terrain_other_detail,
+            "terrain_detail": self.terrain_detail,
+            "terrain_none": self.terrain_none,
+            "terrain_rough": self.terrain_rough,
+            "terrain_slope": self.terrain_slope,
+            "terrain_slope_dir": self.terrain_slope_dir,
+            "title": self.title,
+            "urgent": self.urgent,
+            "urgent_surgical": self.urgent_surgical,
+            "us_civilian": self.us_civilian,
+            "us_military": self.us_military,
+            "ventilator": self.ventilator,
+            "winds_are_from": self.winds_are_from,
+            "zone_prot_selection": self.zone_prot_selection,
+            "eud": self.eud,
         }
 
     def to_json(self):
-        icon = db.session.execute(db.session.query(Icon).filter(Icon.filename == 'red_crs.png')).first()[0]
+        icon = db.session.execute(
+            db.session.query(Icon).filter(Icon.filename == "red_crs.png")
+        ).first()[0]
         return {
-            'sender_uid': self.sender_uid,
-            'uid': self.uid,
-            'timestamp': iso8601_string_from_datetime(self.timestamp),
-            'ambulatory': self.ambulatory,
-            'casevac': self.casevac,
-            'child': self.child,
-            'convenience': self.convenience,
-            'enemy': self.enemy,
-            'epw': self.epw,
-            'equipment_detail': self.equipment_detail,
-            'equipment_none': self.equipment_none,
-            'equipment_other': self.equipment_other,
-            'extraction_equipment': self.extraction_equipment,
-            'freq': self.freq,
-            'friendlies': self.friendlies,
-            'hlz_marking': self.hlz_marking,
-            'hlz_remarks': self.hlz_remarks,
-            'hoist': self.hoist,
-            'litter': self.litter,
-            'marked_by': self.marked_by,
-            'medline_remarks': self.medline_remarks,
-            'nonus_civilian': self.nonus_civilian,
-            'nonus_military': self.nonus_military,
-            'obstacles': self.obstacles,
-            'priority': self.priority,
-            'routine': self.routine,
-            'security': self.security,
-            'terrain_loose': self.terrain_loose,
-            'terrain_other': self.terrain_other,
-            'terrain_other_detail': self.terrain_other_detail,
-            'terrain_detail': self.terrain_detail,
-            'terrain_none': self.terrain_none,
-            'terrain_rough': self.terrain_rough,
-            'terrain_slope': self.terrain_slope,
-            'terrain_slope_dir': self.terrain_slope_dir,
-            'title': self.title,
-            'urgent': self.urgent,
-            'urgent_surgical': self.urgent_surgical,
-            'us_civilian': self.us_civilian,
-            'us_military': self.us_military,
-            'ventilator': self.ventilator,
-            'winds_are_from': self.winds_are_from,
-            'zone_prot_selection': self.zone_prot_selection,
-            'zmist': self.zmist.serialize() if self.zmist else None,
-            'eud': self.eud.to_json() if self.eud else None,
-            'point': self.point.to_json() if self.point else None,
-            'icon': icon.to_json(),
-            'start': iso8601_string_from_datetime(self.cot.start) if self.cot else None,
-            'stale': iso8601_string_from_datetime(self.cot.stale) if self.cot else None,
+            "sender_uid": self.sender_uid,
+            "uid": self.uid,
+            "timestamp": iso8601_string_from_datetime(self.timestamp),
+            "ambulatory": self.ambulatory,
+            "casevac": self.casevac,
+            "child": self.child,
+            "convenience": self.convenience,
+            "enemy": self.enemy,
+            "epw": self.epw,
+            "equipment_detail": self.equipment_detail,
+            "equipment_none": self.equipment_none,
+            "equipment_other": self.equipment_other,
+            "extraction_equipment": self.extraction_equipment,
+            "freq": self.freq,
+            "friendlies": self.friendlies,
+            "hlz_marking": self.hlz_marking,
+            "hlz_remarks": self.hlz_remarks,
+            "hoist": self.hoist,
+            "litter": self.litter,
+            "marked_by": self.marked_by,
+            "medline_remarks": self.medline_remarks,
+            "nonus_civilian": self.nonus_civilian,
+            "nonus_military": self.nonus_military,
+            "obstacles": self.obstacles,
+            "priority": self.priority,
+            "routine": self.routine,
+            "security": self.security,
+            "terrain_loose": self.terrain_loose,
+            "terrain_other": self.terrain_other,
+            "terrain_other_detail": self.terrain_other_detail,
+            "terrain_detail": self.terrain_detail,
+            "terrain_none": self.terrain_none,
+            "terrain_rough": self.terrain_rough,
+            "terrain_slope": self.terrain_slope,
+            "terrain_slope_dir": self.terrain_slope_dir,
+            "title": self.title,
+            "urgent": self.urgent,
+            "urgent_surgical": self.urgent_surgical,
+            "us_civilian": self.us_civilian,
+            "us_military": self.us_military,
+            "ventilator": self.ventilator,
+            "winds_are_from": self.winds_are_from,
+            "zone_prot_selection": self.zone_prot_selection,
+            "zmist": self.zmist.serialize() if self.zmist else None,
+            "eud": self.eud.to_json() if self.eud else None,
+            "point": self.point.to_json() if self.point else None,
+            "icon": icon.to_json(),
+            "start": iso8601_string_from_datetime(self.cot.start) if self.cot else None,
+            "stale": iso8601_string_from_datetime(self.cot.stale) if self.cot else None,
         }
 
     def to_cot(self):

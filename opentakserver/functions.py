@@ -4,16 +4,26 @@ import re
 from datetime import datetime, timezone
 from xml.etree.ElementTree import Element, SubElement, tostring
 
-from flask import current_app as app
 import pika.channel
+from flask import current_app as app
 
 ISO8601_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 ISO8601_FORMAT_NO_MICROSECONDS = "%Y-%m-%dT%H:%M:%SZ"
-affiliations = ['friendly', 'hostile', 'unknown', 'pending', 'assumed', 'neutral', 'suspect', 'joker', 'faker']
+affiliations = [
+    "friendly",
+    "hostile",
+    "unknown",
+    "pending",
+    "assumed",
+    "neutral",
+    "suspect",
+    "joker",
+    "faker",
+]
 
 # For WTForms BooleanField, the default doesn't include 'False'
 # https://wtforms.readthedocs.io/en/3.1.x/fields/?highlight=false_values#wtforms.fields.BooleanField
-false_values = (False, 'False', 'false', '')
+false_values = (False, "False", "false", "")
 
 
 def get_tasking(cot_type):
@@ -149,16 +159,28 @@ def iso8601_string_from_datetime_no_ms(datetime_object):
 def generate_delete_cot(uid: str, cot_type: str) -> Element:
     now = datetime.now(timezone.utc)
 
-    event = Element('event', {'how': 'h-g-i-g-o', 'type': 't-x-d-d', 'version': '2.0',
-                              'uid': uid, 'start': iso8601_string_from_datetime(now),
-                              'time': iso8601_string_from_datetime(now),
-                              'stale': iso8601_string_from_datetime(now)})
-    SubElement(event, 'point', {'ce': '9999999', 'le': '9999999', 'hae': '0', 'lat': '0',
-                                'lon': '0'})
-    detail = SubElement(event, 'detail')
-    SubElement(detail, 'link', {'relation': 'p-p', 'uid': uid, 'type': cot_type})
-    SubElement(detail, '_flow-tags_',
-               {'TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0': iso8601_string_from_datetime(now)})
+    event = Element(
+        "event",
+        {
+            "how": "h-g-i-g-o",
+            "type": "t-x-d-d",
+            "version": "2.0",
+            "uid": uid,
+            "start": iso8601_string_from_datetime(now),
+            "time": iso8601_string_from_datetime(now),
+            "stale": iso8601_string_from_datetime(now),
+        },
+    )
+    SubElement(
+        event, "point", {"ce": "9999999", "le": "9999999", "hae": "0", "lat": "0", "lon": "0"}
+    )
+    detail = SubElement(event, "detail")
+    SubElement(detail, "link", {"relation": "p-p", "uid": uid, "type": cot_type})
+    SubElement(
+        detail,
+        "_flow-tags_",
+        {"TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0": iso8601_string_from_datetime(now)},
+    )
 
     return event
 

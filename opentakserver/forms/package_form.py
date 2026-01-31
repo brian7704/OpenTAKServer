@@ -1,15 +1,16 @@
-from flask_wtf import FlaskForm
-from flask_wtf.file import FileRequired, FileAllowed
-from wtforms import StringField, FileField, BooleanField
-from wtforms.validators import Optional, DataRequired
-from opentakserver.functions import false_values
 import semver
+from flask_wtf import FlaskForm
+from flask_wtf.file import FileAllowed, FileRequired
+from wtforms import BooleanField, FileField, StringField
+from wtforms.validators import DataRequired, Optional
+
+from opentakserver.functions import false_values
 
 
 class PackageForm(FlaskForm):
     platform = StringField(default="Android")
     plugin_type = StringField(default="plugin")
-    apk = FileField(validators=[FileRequired(), FileAllowed(['apk'])])
+    apk = FileField(validators=[FileRequired(), FileAllowed(["apk"])])
     icon = FileField(validators=[Optional()])
     description = StringField(validators=[Optional()])
     install_on_enrollment = BooleanField(false_values=false_values)

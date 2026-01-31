@@ -1,7 +1,6 @@
-from bs4 import BeautifulSoup
 from androguard.core.apk import APK
-
-from sqlalchemy import Integer, String, Boolean
+from bs4 import BeautifulSoup
+from sqlalchemy import Boolean, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from opentakserver.extensions import db

@@ -6,22 +6,23 @@ import traceback
 import uuid
 import zipfile
 from urllib.parse import urlparse
-
 from xml.etree.ElementTree import Element, SubElement, tostring
 
-from flask import Blueprint, request, current_app as app, Response
+from flask import Blueprint, Response
+from flask import current_app as app
+from flask import request
 from sqlalchemy import or_
 from werkzeug.wsgi import FileWrapper
 
 import opentakserver
 from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
-from opentakserver.extensions import db, logger, ldap_manager
+from opentakserver.extensions import db, ldap_manager, logger
+from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.DeviceProfiles import DeviceProfiles
 from opentakserver.models.Packages import Packages
-from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.Plugins import Plugins
 
-device_profile_marti_api_blueprint = Blueprint('device_profile_marti_api_blueprint', __name__)
+device_profile_marti_api_blueprint = Blueprint("device_profile_marti_api_blueprint", __name__)
 
 
 def get_ldap_attributes(prefs: Element):
@@ -35,22 +36,34 @@ def get_ldap_attributes(prefs: Element):
 
         for field in user_info:
             if field.lower() == app.config.get("OTS_LDAP_COLOR_ATTRIBUTE").lower():
-                team = SubElement(prefs, "entry", {"key": "locationTeam", "class": "class java.lang.String"})
+                team = SubElement(
+                    prefs, "entry", {"key": "locationTeam", "class": "class java.lang.String"}
+                )
                 team.text = user_info[field][0]
 
             elif field.lower() == app.config.get("OTS_LDAP_ROLE_ATTRIBUTE").lower():
-                role = SubElement(prefs, "entry", {"key": "atakRoleType", "class": "class java.lang.String"})
+                role = SubElement(
+                    prefs, "entry", {"key": "atakRoleType", "class": "class java.lang.String"}
+                )
                 role.text = user_info[field][0]
 
             elif field.lower() == app.config.get("OTS_LDAP_CALLSIGN_ATTRIBUTE").lower():
-                callsign = SubElement(prefs, "entry", {"key": "locationCallsign", "class": "class java.lang.String"})
+                callsign = SubElement(
+                    prefs, "entry", {"key": "locationCallsign", "class": "class java.lang.String"}
+                )
                 callsign.text = user_info[field][0]
 
-            elif field.lower().startswith(app.config.get("OTS_LDAP_PREFERENCE_ATTRIBUTE_PREFIX").lower()):
+            elif field.lower().startswith(
+                app.config.get("OTS_LDAP_PREFERENCE_ATTRIBUTE_PREFIX").lower()
+            ):
                 # Remove prefix, case insensitive
-                remove_prefix = re.compile(re.escape(app.config.get("OTS_LDAP_PREFERENCE_ATTRIBUTE_PREFIX")), re.IGNORECASE)
+                remove_prefix = re.compile(
+                    re.escape(app.config.get("OTS_LDAP_PREFERENCE_ATTRIBUTE_PREFIX")), re.IGNORECASE
+                )
                 attribute = remove_prefix.sub("", field)
-                subelement = SubElement(prefs, "entry", {"key": attribute, "class": "class java.lang.String"})
+                subelement = SubElement(
+                    prefs, "entry", {"key": attribute, "class": "class java.lang.String"}
+                )
                 subelement.text = user_info[field][0]
 
 
@@ -75,36 +88,60 @@ def create_profile_zip(enrollment=True, syncSecago=-1, clientUid: str | None = N
     SubElement(config, "Parameter", {"name": "onReceiveDelete", "value": "true"})
 
     contents = SubElement(manifest, "Contents")
-    SubElement(contents, "Content", {"ignore": "false", "zipEntry": "5c2bfcae3d98c9f4d262172df99ebac5/preference.pref"})
-    SubElement(contents, "Content",
-               {"ignore": "false", "zipEntry": "5c2bfcae3d98c9f4d262172df99ebac5/truststore-root.p12"})
+    SubElement(
+        contents,
+        "Content",
+        {"ignore": "false", "zipEntry": "5c2bfcae3d98c9f4d262172df99ebac5/preference.pref"},
+    )
+    SubElement(
+        contents,
+        "Content",
+        {"ignore": "false", "zipEntry": "5c2bfcae3d98c9f4d262172df99ebac5/truststore-root.p12"},
+    )
 
-
-    enable_update_server = SubElement(pref, "entry", {"key": "appMgmtEnableUpdateServer", "class": "class java.lang.Boolean"})
+    enable_update_server = SubElement(
+        pref, "entry", {"key": "appMgmtEnableUpdateServer", "class": "class java.lang.Boolean"}
+    )
     enable_update_server.text = "true"
 
-    update_server_address = SubElement(pref, "entry", {"key": "atakUpdateServerUrl", "class": "class java.lang.String"})
+    update_server_address = SubElement(
+        pref, "entry", {"key": "atakUpdateServerUrl", "class": "class java.lang.String"}
+    )
     update_server_address.text = f"https://{urlparse(request.url_root).hostname}:{app.config.get('OTS_MARTI_HTTPS_PORT')}/api/packages"
 
-    startup_sync = SubElement(pref, "entry", {"key": "repoStartupSync", "class": "class java.lang.Boolean"})
+    startup_sync = SubElement(
+        pref, "entry", {"key": "repoStartupSync", "class": "class java.lang.Boolean"}
+    )
     startup_sync.text = "true"
 
-    enable_profiles = SubElement(pref, "entry",
-                                 {"key": "deviceProfileEnableOnConnect", "class": "class java.lang.Boolean"})
+    enable_profiles = SubElement(
+        pref, "entry", {"key": "deviceProfileEnableOnConnect", "class": "class java.lang.Boolean"}
+    )
     enable_profiles.text = "true"
 
-    ca_location = SubElement(pref, "entry", {"key": "updateServerCaLocation", "class": "class java.lang.String"})
+    ca_location = SubElement(
+        pref, "entry", {"key": "updateServerCaLocation", "class": "class java.lang.String"}
+    )
     ca_location.text = "/storage/emulated/0/atak/cert/truststore-root.p12"
 
-    ca_password = SubElement(pref, "entry", {"key": "updateServerCaPassword", "class": "class java.lang.String"})
+    ca_password = SubElement(
+        pref, "entry", {"key": "updateServerCaPassword", "class": "class java.lang.String"}
+    )
     ca_password.text = app.config.get("OTS_CA_PASSWORD")
 
-    enable_channels_host = SubElement(pref, "entry",
-                                      {'key': f'prefs_enable_channels_host-{urlparse(request.url_root).hostname}',
-                                       'class': 'class java.lang.String'})
+    enable_channels_host = SubElement(
+        pref,
+        "entry",
+        {
+            "key": f"prefs_enable_channels_host-{urlparse(request.url_root).hostname}",
+            "class": "class java.lang.String",
+        },
+    )
     enable_channels_host.text = "true"
 
-    enable_channels = SubElement(pref, "entry", {'key': 'prefs_enable_channels', 'class': 'class java.lang.String'})
+    enable_channels = SubElement(
+        pref, "entry", {"key": "prefs_enable_channels", "class": "class java.lang.String"}
+    )
     enable_channels.text = "true" if app.config.get("OTS_ENABLE_CHANNELS") else "false"
 
     if enrollment:
@@ -113,25 +150,40 @@ def create_profile_zip(enrollment=True, syncSecago=-1, clientUid: str | None = N
             maps_path = os.path.join(os.path.dirname(opentakserver.__file__), "maps")
             for root, dirs, map_files in os.walk(maps_path):
                 for map in map_files:
-                    zipf.writestr(f"maps/{map}", open(os.path.join(maps_path, map), 'r').read())
+                    zipf.writestr(f"maps/{map}", open(os.path.join(maps_path, map), "r").read())
                     SubElement(contents, "Content", {"ignore": "false", "zipEntry": f"maps/{map}"})
 
             device_profiles = db.session.execute(
-                db.session.query(DeviceProfiles).filter_by(enrollment=True, active=True)).all()
-            plugins = db.session.execute(db.session.query(Packages).filter_by(install_on_enrollment=True)).all()
-            data_packages = db.session.execute(db.session.query(DataPackage).filter_by(install_on_enrollment=True)).all()
+                db.session.query(DeviceProfiles).filter_by(enrollment=True, active=True)
+            ).all()
+            plugins = db.session.execute(
+                db.session.query(Packages).filter_by(install_on_enrollment=True)
+            ).all()
+            data_packages = db.session.execute(
+                db.session.query(DataPackage).filter_by(install_on_enrollment=True)
+            ).all()
     else:
-        device_profile_query = db.session.query(DeviceProfiles).filter_by(connection=True, active=True)
+        device_profile_query = db.session.query(DeviceProfiles).filter_by(
+            connection=True, active=True
+        )
         data_package_query = db.session.query(DataPackage).filter_by(install_on_connection=True)
         plugins_query = db.session.query(Packages).filter_by(install_on_connection=True)
 
         if syncSecago > 0:
-            publish_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=syncSecago)
-            device_profile_query = device_profile_query.filter(DeviceProfiles.publish_time >= publish_time)
-            data_package_query = data_package_query.filter(DataPackage.submission_time >= publish_time)
+            publish_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+                seconds=syncSecago
+            )
+            device_profile_query = device_profile_query.filter(
+                DeviceProfiles.publish_time >= publish_time
+            )
+            data_package_query = data_package_query.filter(
+                DataPackage.submission_time >= publish_time
+            )
             plugins_query = plugins_query.filter(Packages.publish_time >= publish_time)
         if clientUid:
-            device_profile_query = device_profile_query.filter(or_(DeviceProfiles.eud_uid == clientUid, DeviceProfiles.eud_uid is None))
+            device_profile_query = device_profile_query.filter(
+                or_(DeviceProfiles.eud_uid == clientUid, DeviceProfiles.eud_uid is None)
+            )
             # TODO: Support data packages and plugins per EUD
         else:
             device_profile_query = device_profile_query.filter(DeviceProfiles.clientUid is None)
@@ -141,31 +193,51 @@ def create_profile_zip(enrollment=True, syncSecago=-1, clientUid: str | None = N
         plugins = db.session.execute(plugins_query).all()
 
     for profile in device_profiles:
-        p = SubElement(pref, "entry", {"key": profile[0].preference_key, "class": profile[0].value_class})
+        p = SubElement(
+            pref, "entry", {"key": profile[0].preference_key, "class": profile[0].value_class}
+        )
         p.text = profile[0].preference_value
 
     if plugins:
         for plugin in plugins:
             plugin = plugin[0]
 
-            SubElement(contents, "Content",
-                       {"ignore": "false", "zipEntry": f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}"})
-            zipf.write(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", plugin.file_name),
-                       f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}")
+            SubElement(
+                contents,
+                "Content",
+                {
+                    "ignore": "false",
+                    "zipEntry": f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}",
+                },
+            )
+            zipf.write(
+                os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", plugin.file_name),
+                f"5c2bfcae3d98c9f4d262172df99ebac5/{plugin.file_name}",
+            )
 
     if data_packages:
         for data_package in data_packages:
             data_package = data_package[0]
-            SubElement(contents, "Content",
-                       {"ignore": "false", "zipEntry": f"5c2bfcae3d98c9f4d262172df99ebac5/{data_package.filename}"})
-            zipf.write(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{data_package.hash}.zip"),
-                       f"5c2bfcae3d98c9f4d262172df99ebac5/{data_package.filename}")
+            SubElement(
+                contents,
+                "Content",
+                {
+                    "ignore": "false",
+                    "zipEntry": f"5c2bfcae3d98c9f4d262172df99ebac5/{data_package.filename}",
+                },
+            )
+            zipf.write(
+                os.path.join(app.config.get("UPLOAD_FOLDER"), f"{data_package.hash}.zip"),
+                f"5c2bfcae3d98c9f4d262172df99ebac5/{data_package.filename}",
+            )
 
     zipf.writestr("MANIFEST/manifest.xml", tostring(manifest))
 
     zipf.writestr("5c2bfcae3d98c9f4d262172df99ebac5/preference.pref", tostring(prefs))
 
-    with open(os.path.join(app.config.get("OTS_CA_FOLDER"), 'truststore-root.p12'), 'rb') as truststore:
+    with open(
+        os.path.join(app.config.get("OTS_CA_FOLDER"), "truststore-root.p12"), "rb"
+    ) as truststore:
         zipf.writestr("5c2bfcae3d98c9f4d262172df99ebac5/truststore-root.p12", truststore.read())
 
     return zip_buffer
@@ -173,37 +245,41 @@ def create_profile_zip(enrollment=True, syncSecago=-1, clientUid: str | None = N
 
 # Authentication for /Marti endpoints handled by client cert validation
 # EUDs hit this endpoint after a successful certificate enrollment
-@device_profile_marti_api_blueprint.route('/Marti/api/tls/profile/enrollment')
+@device_profile_marti_api_blueprint.route("/Marti/api/tls/profile/enrollment")
 def enrollment_profile():
     try:
         profile_zip = create_profile_zip()
         profile_zip.seek(0)
-        return Response(FileWrapper(profile_zip), mimetype="application/zip", direct_passthrough=True)
+        return Response(
+            FileWrapper(profile_zip), mimetype="application/zip", direct_passthrough=True
+        )
     except BaseException as e:
         logger.error(f"Failed to send enrollment package: {e}")
         logger.debug(traceback.format_exc())
-        return '', 500
+        return "", 500
 
 
 # EUDs hit this endpoint when the app connects to the server if repoStartupSync is enabled
-@device_profile_marti_api_blueprint.route('/api/connection')
-@device_profile_marti_api_blueprint.route('/Marti/api/device/profile/connection')
+@device_profile_marti_api_blueprint.route("/api/connection")
+@device_profile_marti_api_blueprint.route("/Marti/api/device/profile/connection")
 def connection_profile():
     try:
         syncSecago = -1
         client_uid = None
-        if 'syncSecago' in request.args:
+        if "syncSecago" in request.args:
             try:
-                syncSecago = int(request.args['syncSecago'])
+                syncSecago = int(request.args["syncSecago"])
             except ValueError:
                 pass
-        if 'clientUid' in request.args:
-            client_uid = request.args['clientUid']
+        if "clientUid" in request.args:
+            client_uid = request.args["clientUid"]
 
         profile_zip = create_profile_zip(False, syncSecago, client_uid)
         profile_zip.seek(0)
-        return Response(FileWrapper(profile_zip), mimetype="application/zip", direct_passthrough=True)
+        return Response(
+            FileWrapper(profile_zip), mimetype="application/zip", direct_passthrough=True
+        )
     except BaseException as e:
         logger.error(f"Failed to send enrollment package: {e}")
         logger.debug(traceback.format_exc())
-        return '', 500
+        return "", 500

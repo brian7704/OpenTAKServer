@@ -1,34 +1,39 @@
+import os
+import random
 import secrets
 import string
-import random
+from pathlib import Path
 
 import pyotp
-from pathlib import Path
-import os
 
 
 class DefaultConfig:
     SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_hex())
     DEBUG = os.getenv("DEBUG", "False").lower() in ["true", "1", "yes"]
 
-    OTS_LANGUAGES = {'US': {'name': 'English', 'language_code': 'en'},
-                     'DE': {'name': 'Deutsch', 'language_code': 'de'},
-                     'FR': {'name': 'Français', 'language_code': 'fr'},
-                     'PT': {'name': 'Português', 'language_code': 'pt'},
-                     'ES': {'name': 'Español', 'language_code': 'es'},
-                     'DK': {'name': 'dansk', 'language_code': 'da'},
-                     'UA': {'name': 'українська', 'language_code': 'uk'},
-                     'KR': {'name': '한국어', 'language_code': 'ko'},
-                     'PL': {'name': 'Polski', 'language_code': 'pl'},
-                     'BR': {'name': 'Português', 'language_code': 'pt_BR'},
-                     }
+    OTS_LANGUAGES = {
+        "US": {"name": "English", "language_code": "en"},
+        "DE": {"name": "Deutsch", "language_code": "de"},
+        "FR": {"name": "Français", "language_code": "fr"},
+        "PT": {"name": "Português", "language_code": "pt"},
+        "ES": {"name": "Español", "language_code": "es"},
+        "DK": {"name": "dansk", "language_code": "da"},
+        "UA": {"name": "українська", "language_code": "uk"},
+        "KR": {"name": "한국어", "language_code": "ko"},
+        "PL": {"name": "Polski", "language_code": "pl"},
+        "BR": {"name": "Português", "language_code": "pt_BR"},
+    }
 
     OTS_DATA_FOLDER = os.getenv("OTS_DATA_FOLDER", os.path.join(Path.home(), "ots"))
     OTS_LISTENER_ADDRESS = os.getenv("OTS_LISTENER_ADDRESS", "127.0.0.1")
     OTS_LISTENER_PORT = int(os.getenv("OTS_LISTENER_PORT", 8081))
     OTS_MARTI_HTTP_PORT = int(os.getenv("OTS_MARTI_HTTP_PORT", 8080))
     OTS_MARTI_HTTPS_PORT = int(os.getenv("OTS_MARTI_HTTPS_PORT", 8443))
-    OTS_ENABLE_TCP_STREAMING_PORT = os.getenv("OTS_ENABLE_TCP_STREAMING_PORT", "True").lower() in ["true", "1", "yes"]
+    OTS_ENABLE_TCP_STREAMING_PORT = os.getenv("OTS_ENABLE_TCP_STREAMING_PORT", "True").lower() in [
+        "true",
+        "1",
+        "yes",
+    ]
     OTS_TCP_STREAMING_PORT = int(os.getenv("OTS_TCP_STREAMING_PORT", 8088))
     OTS_SSL_STREAMING_PORT = int(os.getenv("OTS_SSL_STREAMING_PORT", 8089))
     OTS_BACKUP_COUNT = int(os.getenv("OTS_BACKUP_COUNT", 7))
@@ -40,7 +45,7 @@ class DefaultConfig:
     OTS_RABBITMQ_PASSWORD = os.getenv("OTS_RABBITMQ_PASSWORD", "guest")
     # Messages queued in RabbitMQ will auto-delete after 1 day if not consumed https://www.rabbitmq.com/docs/ttl
     # Set to '0' to disable auto-deletion
-    OTS_RABBITMQ_TTL = '86400000'
+    OTS_RABBITMQ_TTL = "86400000"
     # How many CoT messages that cot_parser processes should prefetch. https://www.rabbitmq.com/docs/consumer-prefetch
     OTS_RABBITMQ_PREFETCH = 2
 
@@ -54,7 +59,9 @@ class DefaultConfig:
     OTS_MEDIAMTX_TOKEN = os.getenv("OTS_MEDIAMTX_TOKEN", secrets.token_urlsafe(30 * 3 // 4))
     OTS_SSL_VERIFICATION_MODE = int(os.getenv("OTS_SSL_VERIFICATION_MODE", 2))
     OTS_SSL_CERT_HEADER = os.getenv("OTS_SSL_CERT_HEADER", "X-Ssl-Cert")
-    OTS_NODE_ID = os.getenv("OTS_NODE_ID", ''.join(random.choices(string.ascii_lowercase + string.digits, k=32)))
+    OTS_NODE_ID = os.getenv(
+        "OTS_NODE_ID", "".join(random.choices(string.ascii_lowercase + string.digits, k=32))
+    )
 
     # Certificate Authority Settings
     OTS_CA_NAME = os.getenv("OTS_CA_NAME", "OpenTAKServer-CA")
@@ -66,8 +73,10 @@ class DefaultConfig:
     OTS_CA_CITY = os.getenv("OTS_CA_CITY", "YY")
     OTS_CA_ORGANIZATION = os.getenv("OTS_CA_ORGANIZATION", "ZZ")
     OTS_CA_ORGANIZATIONAL_UNIT = os.getenv("OTS_CA_ORGANIZATIONAL_UNIT", "OpenTAKServer")
-    OTS_CA_SUBJECT = os.getenv("OTS_CA_SUBJECT",
-                               f"/C={OTS_CA_COUNTRY}/ST={OTS_CA_STATE}/L={OTS_CA_CITY}/O={OTS_CA_ORGANIZATION}/OU={OTS_CA_ORGANIZATIONAL_UNIT}")
+    OTS_CA_SUBJECT = os.getenv(
+        "OTS_CA_SUBJECT",
+        f"/C={OTS_CA_COUNTRY}/ST={OTS_CA_STATE}/L={OTS_CA_CITY}/O={OTS_CA_ORGANIZATION}/OU={OTS_CA_ORGANIZATIONAL_UNIT}",
+    )
 
     OTS_COT_PARSER_PROCESSES = int(os.getenv("OTS_COT_PARSER_PROCESSES", 1))
 
@@ -158,22 +167,26 @@ class DefaultConfig:
     OTS_DELETE_OLD_DATA_WEEKS = int(os.getenv("OTS_DELETE_OLD_DATA_WEEKS", 1))
 
     # flask-sqlalchemy
-    SQLALCHEMY_DATABASE_URI = os.getenv("SQLALCHEMY_DATABASE_URI",
-                                        f"postgresql+psycopg://ots:POSTGRESQL_PASSWORD@127.0.0.1/ots")
+    SQLALCHEMY_DATABASE_URI = os.getenv(
+        "SQLALCHEMY_DATABASE_URI", f"postgresql+psycopg://ots:POSTGRESQL_PASSWORD@127.0.0.1/ots"
+    )
     SQLALCHEMY_ECHO = os.getenv("SQLALCHEMY_ECHO", "False").lower() in ["true", "1", "yes"]
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = False
 
-    ALLOWED_EXTENSIONS = os.getenv("ALLOWED_EXTENSIONS",
-                                   "zip,xml,txt,pdf,png,jpg,jpeg,gif,kml,kmz,p12,tif,sqlite").split(",")
+    ALLOWED_EXTENSIONS = os.getenv(
+        "ALLOWED_EXTENSIONS", "zip,xml,txt,pdf,png,jpg,jpeg,gif,kml,kmz,p12,tif,sqlite"
+    ).split(",")
 
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", os.path.join(OTS_DATA_FOLDER, "uploads"))
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
 
     # Flask-Security-Too
-    SECURITY_PASSWORD_SALT = os.getenv("SECURITY_PASSWORD_SALT", str(secrets.SystemRandom().getrandbits(128)))
+    SECURITY_PASSWORD_SALT = os.getenv(
+        "SECURITY_PASSWORD_SALT", str(secrets.SystemRandom().getrandbits(128))
+    )
     REMEMBER_COOKIE_SAMESITE = "strict"
     SESSION_COOKIE_SAMESITE = "strict"
     SECURITY_USERNAME_ENABLE = True
@@ -202,11 +215,13 @@ class DefaultConfig:
     SECURITY_CSRF_PROTECT_MECHANISMS = ["session", "basic"]
     SECURITY_LOGIN_WITHOUT_CONFIRMATION = True
     SECURITY_POST_CONFIRM_VIEW = "/login"
-    SECURITY_REDIRECT_BEHAVIOR = 'spa'
-    SECURITY_RESET_VIEW = '/reset'
+    SECURITY_REDIRECT_BEHAVIOR = "spa"
+    SECURITY_RESET_VIEW = "/reset"
     SECURITY_USERNAME_MIN_LENGTH = 1
     SECURITY_MSG_USERNAME_DISALLOWED_CHARACTERS = (
-    "Username can contain only letters, numbers, underscores, and periods", "error")
+        "Username can contain only letters, numbers, underscores, and periods",
+        "error",
+    )
 
     SCHEDULER_API_ENABLED = False
     JOBS = [
@@ -216,7 +231,7 @@ class DefaultConfig:
             "trigger": "interval",
             "seconds": 0,
             "minutes": 1,
-            "next_run_time": None
+            "next_run_time": None,
         },
         {
             "id": "delete_video_recordings",
@@ -224,7 +239,7 @@ class DefaultConfig:
             "trigger": "interval",
             "seconds": 0,
             "minutes": 1,
-            "next_run_time": None
+            "next_run_time": None,
         },
         {
             "id": "purge_data",
@@ -233,7 +248,7 @@ class DefaultConfig:
             "day": "*",
             "hour": 0,
             "minute": 0,
-            "next_run_time": None
+            "next_run_time": None,
         },
         {
             "id": "ais",
@@ -241,7 +256,7 @@ class DefaultConfig:
             "trigger": "interval",
             "seconds": 0,
             "minutes": 1,
-            "next_run_time": None
+            "next_run_time": None,
         },
         {
             "id": "delete_old_data",
@@ -249,6 +264,6 @@ class DefaultConfig:
             "trigger": "interval",
             "seconds": 0,
             "minutes": 1,
-            "next_run_time": None
-        }
+            "next_run_time": None,
+        },
     ]

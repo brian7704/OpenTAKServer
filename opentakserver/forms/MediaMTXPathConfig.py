@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, IntegerField, BooleanField
+from wtforms import BooleanField, IntegerField, StringField
 
 
 class MediaMTXPathConfig(FlaskForm):
@@ -23,10 +23,10 @@ class MediaMTXPathConfig(FlaskForm):
     recordDeleteAfter = StringField()
     publishUser = StringField()
     publishPass = StringField()
-    #publishIPs
+    # publishIPs
     readUser = StringField()
     readPass = StringField()
-    #readIPs
+    # readIPs
     overridePublisher = BooleanField()
     srtPublishPassphrase = StringField()
     rtspTransport = StringField()
@@ -85,6 +85,6 @@ class MediaMTXPathConfig(FlaskForm):
     def serialize(self):
         return_value = {}
         for field in self._fields:
-            if field != 'csrf_token':
+            if field != "csrf_token":
                 return_value[field] = self._fields[field].data
         return return_value

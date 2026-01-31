@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime
 
-from opentakserver.extensions import db
-from sqlalchemy import Integer, String, ForeignKey, Float, DateTime
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from opentakserver.extensions import db
 from opentakserver.forms.point_form import PointForm
 from opentakserver.functions import iso8601_string_from_datetime
 
@@ -14,7 +14,9 @@ class Point(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     uid: Mapped[str] = mapped_column(String(255))
-    device_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True)
+    device_uid: Mapped[str] = mapped_column(
+        String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True
+    )
     latitude: Mapped[float] = mapped_column(Float, nullable=True)
     longitude: Mapped[float] = mapped_column(Float, nullable=True)
     ce: Mapped[float] = mapped_column(Float, nullable=True)
@@ -28,7 +30,9 @@ class Point(db.Model):
     azimuth: Mapped[float] = mapped_column(Float, nullable=True)
     # Camera field of view from TAK ICU and OpenTAK ICU
     fov: Mapped[float] = mapped_column(Float, nullable=True)
-    cot_id: Mapped[int] = mapped_column(Integer, ForeignKey("cot.id", ondelete="CASCADE"), nullable=True)
+    cot_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("cot.id", ondelete="CASCADE"), nullable=True
+    )
     cot = relationship("CoT", back_populates="point")
 
     # Only populate this field of the CoT type matches ^a- and how matches either ^m-g or ^h-e
@@ -56,39 +60,39 @@ class Point(db.Model):
 
     def serialize(self):
         return {
-            'uid': self.uid,
-            'device_uid': self.device_uid,
-            'latitude': self.latitude,
-            'longitude': self.longitude,
-            'ce': self.ce,
-            'hae': self.hae,
-            'le': self.le,
-            'course': self.course,
-            'speed': self.speed,
-            'azimuth': self.azimuth,
-            'fov': self.fov,
-            'location_source': self.location_source,
-            'battery': self.battery,
-            'timestamp': self.timestamp,
+            "uid": self.uid,
+            "device_uid": self.device_uid,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "ce": self.ce,
+            "hae": self.hae,
+            "le": self.le,
+            "course": self.course,
+            "speed": self.speed,
+            "azimuth": self.azimuth,
+            "fov": self.fov,
+            "location_source": self.location_source,
+            "battery": self.battery,
+            "timestamp": self.timestamp,
         }
 
     def to_json(self):
         return {
-            'uid': self.uid,
-            'device_uid': self.device_uid,
-            'latitude': self.latitude,
-            'longitude': self.longitude,
-            'ce': self.ce,
-            'hae': self.hae,
-            'le': self.le,
-            'course': self.course,
-            'speed': self.speed,
-            'azimuth': self.azimuth,
-            'fov': self.fov,
-            'location_source': self.location_source,
-            'battery': self.battery,
-            'timestamp': iso8601_string_from_datetime(self.timestamp),
-            'how': self.cot.how if self.cot else None,
-            'type': self.cot.type if self.cot else None,
-            'callsign': self.eud.callsign if self.eud else None
+            "uid": self.uid,
+            "device_uid": self.device_uid,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "ce": self.ce,
+            "hae": self.hae,
+            "le": self.le,
+            "course": self.course,
+            "speed": self.speed,
+            "azimuth": self.azimuth,
+            "fov": self.fov,
+            "location_source": self.location_source,
+            "battery": self.battery,
+            "timestamp": iso8601_string_from_datetime(self.timestamp),
+            "how": self.cot.how if self.cot else None,
+            "type": self.cot.type if self.cot else None,
+            "callsign": self.eud.callsign if self.eud else None,
         }

@@ -3,21 +3,25 @@ import json
 import traceback
 from xml.etree.ElementTree import tostring
 
-import pika
-from bs4 import BeautifulSoup
-from flask import Blueprint
 import adsbxcot
 import aiscot
+import pika
+import requests
+from bs4 import BeautifulSoup
+from flask import Blueprint
 from flask import current_app as app
 from sqlalchemy import delete
 
-from opentakserver.extensions import apscheduler, logger, db
-import requests
-
-from opentakserver.models.Chatrooms import Chatroom
+from opentakserver.extensions import apscheduler, db, logger
+from opentakserver.functions import (
+    datetime_from_iso8601_string,
+    generate_delete_cot,
+    iso8601_string_from_datetime,
+)
 from opentakserver.models.Alert import Alert
 from opentakserver.models.CasEvac import CasEvac
 from opentakserver.models.Certificate import Certificate
+from opentakserver.models.Chatrooms import Chatroom
 from opentakserver.models.ChatroomsUids import ChatroomsUids
 from opentakserver.models.CoT import CoT
 from opentakserver.models.DataPackage import DataPackage
@@ -37,9 +41,8 @@ from opentakserver.models.Team import Team
 from opentakserver.models.VideoRecording import VideoRecording
 from opentakserver.models.VideoStream import VideoStream
 from opentakserver.models.ZMIST import ZMIST
-from opentakserver.functions import iso8601_string_from_datetime, datetime_from_iso8601_string, generate_delete_cot
 
-scheduler_blueprint = Blueprint('scheduler_blueprint', __name__)
+scheduler_blueprint = Blueprint("scheduler_blueprint", __name__)
 
 
 def get_adsb_data():
@@ -49,7 +52,12 @@ def get_adsb_data():
             if app.config.get("OTS_ADSB_API_KEY"):
                 headers["api-auth"] = app.config["OTS_ADSB_API_KEY"]
 
-            r = requests.get(f"{app.config.get("OTS_ADSB_API_URL")}/{app.config.get("OTS_ADSB_LAT")}/{app.config.get("OTS_ADSB_LON")}/{app.config.get("OTS_ADSB_RADIUS")}", headers=headers)
+            adsb_api_url = app.config.get("OTS_ADSB_URL")
+            adsb_lat = app.config.get("OTS_ADSB_LAT")
+            adsb_lon = app.config.get("OTS_ADSB_LON")
+            adsb_radius = app.config.get("OTS_ADSB_RADIUS")
+
+            r = requests.get(f"{adsb_api_url}/{adsb_lat}/{adsb_lon}/{adsb_radius}", headers=headers)
 
             logger.warning(r.text)
             logger.warning(r.status_code)
@@ -57,13 +65,19 @@ def get_adsb_data():
             logger.warning(r.request.url)
 
             if r.status_code == 200:
-                rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+                rabbit_credentials = pika.PlainCredentials(
+                    app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD")
+                )
                 rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
-                rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
+                rabbit_connection = pika.BlockingConnection(
+                    pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
+                )
                 channel = rabbit_connection.channel()
-                channel.exchange_declare(exchange=app.config.get("OTS_ADSB_GROUP"), exchange_type="fanout")
+                channel.exchange_declare(
+                    exchange=app.config.get("OTS_ADSB_GROUP"), exchange_type="fanout"
+                )
 
-                for craft in r.json()['ac']:
+                for craft in r.json()["ac"]:
                     try:
                         logger.warning(craft)
                         event = adsbxcot.adsbx_to_cot(craft, known_craft=None)
@@ -73,22 +87,52 @@ def get_adsb_data():
                         continue
 
                     # noinspection PyTypeChecker
-                    channel.basic_publish(exchange='cot_parser', routing_key='', body=json.dumps(
-                        {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
-                                          properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+                    channel.basic_publish(
+                        exchange="cot_parser",
+                        routing_key="",
+                        body=json.dumps(
+                            {
+                                "cot": str(BeautifulSoup(event, "xml")),
+                                "uid": app.config["OTS_NODE_ID"],
+                            }
+                        ),
+                        properties=pika.BasicProperties(
+                            expiration=app.config.get("OTS_RABBITMQ_TTL")
+                        ),
+                    )
                     # noinspection PyTypeChecker
-                    channel.basic_publish(exchange='groups', routing_key=f"{app.config.get('OTS_ADSB_GROUP')}.OUT", body=json.dumps(
-                        {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
-                                          properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+                    channel.basic_publish(
+                        exchange="groups",
+                        routing_key=f"{app.config.get('OTS_ADSB_GROUP')}.OUT",
+                        body=json.dumps(
+                            {
+                                "cot": str(BeautifulSoup(event, "xml")),
+                                "uid": app.config["OTS_NODE_ID"],
+                            }
+                        ),
+                        properties=pika.BasicProperties(
+                            expiration=app.config.get("OTS_RABBITMQ_TTL")
+                        ),
+                    )
                     # noinspection PyTypeChecker
-                    channel.basic_publish(exchange='firehose', routing_key='', body=json.dumps(
-                        {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
-                                          properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+                    channel.basic_publish(
+                        exchange="firehose",
+                        routing_key="",
+                        body=json.dumps(
+                            {
+                                "cot": str(BeautifulSoup(event, "xml")),
+                                "uid": app.config["OTS_NODE_ID"],
+                            }
+                        ),
+                        properties=pika.BasicProperties(
+                            expiration=app.config.get("OTS_RABBITMQ_TTL")
+                        ),
+                    )
 
                 channel.close()
                 rabbit_connection.close()
             else:
-                logger.error('Failed to get airplanes.live: {}'.format(r.text))
+                logger.error("Failed to get airplanes.live: {}".format(r.text))
         except BaseException as e:
             logger.error("Failed to get airplanes.live: {}".format(e))
             logger.error(traceback.format_exc())
@@ -100,16 +144,25 @@ def delete_video_recordings():
         db.session.commit()
 
         try:
-            r = requests.get('{}/v3/recordings/list'.format(app.config.get("OTS_MEDIAMTX_API_ADDRESS")))
+            r = requests.get(
+                "{}/v3/recordings/list".format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"))
+            )
             if r.status_code == 200:
                 recordings = r.json()
-                for path in recordings['items']:
-                    for recording in path['segments']:
-                        r = requests.delete('{}/v3/recordings/deletesegment'.format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"),),
-                                            params={'start': recording['start'], 'path': path['name']})
+                for path in recordings["items"]:
+                    for recording in path["segments"]:
+                        r = requests.delete(
+                            "{}/v3/recordings/deletesegment".format(
+                                app.config.get("OTS_MEDIAMTX_API_ADDRESS"),
+                            ),
+                            params={"start": recording["start"], "path": path["name"]},
+                        )
                         if r.status_code != 200:
                             logger.error(
-                                "Failed to delete {} from {}: {}".format(recording['start'], path['name'], r.text))
+                                "Failed to delete {} from {}: {}".format(
+                                    recording["start"], path["name"], r.text
+                                )
+                            )
         except BaseException as e:
             logger.error("Failed to delete recordings: {}".format(e))
 
@@ -148,44 +201,69 @@ def get_aishub_data():
 
     with apscheduler.app.app_context():
         try:
-            params = {"username": app.config.get("OTS_AISHUB_USERNAME"), "format": 1, "output": "json"}
+            params = {
+                "username": app.config.get("OTS_AISHUB_USERNAME"),
+                "format": 1,
+                "output": "json",
+            }
             if app.config.get("OTS_AISHUB_SOUTH_LAT"):
-                params['latmin'] = app.config.get("OTS_AISHUB_SOUTH_LAT")
+                params["latmin"] = app.config.get("OTS_AISHUB_SOUTH_LAT")
             if app.config.get("OTS_AISHUB_WEST_LON"):
-                params['lonmin'] = app.config.get("OTS_AISHUB_WEST_LON")
+                params["lonmin"] = app.config.get("OTS_AISHUB_WEST_LON")
             if app.config.get("OTS_AISHUB_NORTH_LAT"):
-                params['latmax'] = app.config.get("OTS_AISHUB_NORTH_LAT")
+                params["latmax"] = app.config.get("OTS_AISHUB_NORTH_LAT")
             if app.config.get("OTS_AISHUB_EAST_LON"):
-                params['lonmax'] = app.config.get("OTS_AISHUB_EAST_LON")
+                params["lonmax"] = app.config.get("OTS_AISHUB_EAST_LON")
             if app.config.get("OTS_AISHUB_MMSI_LIST"):
-                params['mmsi'] = app.config.get("OTS_AISHUB_MMSI_LIST")
+                params["mmsi"] = app.config.get("OTS_AISHUB_MMSI_LIST")
             if app.config.get("OTS_AISHUB_IMO_LIST"):
-                params['imo'] = app.config.get("OTS_AISHUB_IMO_LIST")
+                params["imo"] = app.config.get("OTS_AISHUB_IMO_LIST")
             r = requests.get("https://data.aishub.net/ws.php", params=params)
 
             if r.status_code != 200:
                 logger.error(f"Failed to get AIS data: {r.text}")
                 return
 
-            rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+            rabbit_credentials = pika.PlainCredentials(
+                app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD")
+            )
             rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
-            rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
+            rabbit_connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
+            )
             channel = rabbit_connection.channel()
-            channel.exchange_declare(exchange=app.config.get("OTS_AIS_GROUP"), exchange_type="fanout")
+            channel.exchange_declare(
+                exchange=app.config.get("OTS_AIS_GROUP"), exchange_type="fanout"
+            )
 
             for vessel in r.json()[1]:
                 event = aiscot.ais_to_cot(vessel, None, None)
                 # noinspection PyTypeChecker
-                channel.basic_publish(exchange='cot_parser', routing_key='', body=json.dumps(
-                    {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
-                                      properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+                channel.basic_publish(
+                    exchange="cot_parser",
+                    routing_key="",
+                    body=json.dumps(
+                        {"cot": str(BeautifulSoup(event, "xml")), "uid": app.config["OTS_NODE_ID"]}
+                    ),
+                    properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+                )
                 # noinspection PyTypeChecker
-                channel.basic_publish(exchange='groups', routing_key=f"{app.config.get('OTS_ADSB_GROUP')}.OUT", body=json.dumps(
-                    {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
-                                      properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
-                channel.basic_publish(exchange='firehose', routing_key='', body=json.dumps(
-                    {'cot': str(BeautifulSoup(event, 'xml')), 'uid': app.config['OTS_NODE_ID']}),
-                                      properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+                channel.basic_publish(
+                    exchange="groups",
+                    routing_key=f"{app.config.get('OTS_ADSB_GROUP')}.OUT",
+                    body=json.dumps(
+                        {"cot": str(BeautifulSoup(event, "xml")), "uid": app.config["OTS_NODE_ID"]}
+                    ),
+                    properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+                )
+                channel.basic_publish(
+                    exchange="firehose",
+                    routing_key="",
+                    body=json.dumps(
+                        {"cot": str(BeautifulSoup(event, "xml")), "uid": app.config["OTS_NODE_ID"]}
+                    ),
+                    properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+                )
 
             channel.close()
             rabbit_connection.close()
@@ -200,11 +278,16 @@ def delete_old_data():
         minutes=app.config.get("OTS_DELETE_OLD_DATA_MINUTES"),
         hours=app.config.get("OTS_DELETE_OLD_DATA_HOURS"),
         days=app.config.get("OTS_DELETE_OLD_DATA_DAYS"),
-        weeks=app.config.get("OTS_DELETE_OLD_DATA_WEEKS"))
+        weeks=app.config.get("OTS_DELETE_OLD_DATA_WEEKS"),
+    )
 
-    rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
+    rabbit_credentials = pika.PlainCredentials(
+        app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD")
+    )
     rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
-    rabbit_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials))
+    rabbit_connection = pika.BlockingConnection(
+        pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
+    )
     channel = rabbit_connection.channel()
 
     # I wish I hadn't made the marker's timestamp field a string...
@@ -215,12 +298,22 @@ def delete_old_data():
         if datetime_from_iso8601_string(marker.production_time) <= timestamp:
             cot = generate_delete_cot(marker.uid, marker.cot.type)
             for group in groups:
-                channel.basic_publish(exchange='groups', routing_key=f"{group.name}.{Group.OUT}", body=json.dumps(
-                    {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
-                                      properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
-                channel.basic_publish(exchange='firehose', routing_key="", body=json.dumps(
-                    {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
-                                      properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+                channel.basic_publish(
+                    exchange="groups",
+                    routing_key=f"{group.name}.{Group.OUT}",
+                    body=json.dumps(
+                        {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
+                    ),
+                    properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+                )
+                channel.basic_publish(
+                    exchange="firehose",
+                    routing_key="",
+                    body=json.dumps(
+                        {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
+                    ),
+                    properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+                )
             db.session.delete(marker)
 
     alerts = db.session.execute(db.session.query(Alert).where(Alert.start_time <= timestamp)).all()
@@ -228,25 +321,47 @@ def delete_old_data():
         alert = alert[0]
         cot = generate_delete_cot(alert.uid, alert.cot.type)
         for group in groups:
-            channel.basic_publish(exchange='groups', routing_key=f"{group.name}.{Group.OUT}", body=json.dumps(
-                {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
-                                  properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
-            channel.basic_publish(exchange='firehose', routing_key="", body=json.dumps(
-                {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
-                                  properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+            channel.basic_publish(
+                exchange="groups",
+                routing_key=f"{group.name}.{Group.OUT}",
+                body=json.dumps(
+                    {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
+                ),
+                properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+            )
+            channel.basic_publish(
+                exchange="firehose",
+                routing_key="",
+                body=json.dumps(
+                    {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
+                ),
+                properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+            )
         db.session.delete(alert)
 
-    rb_lines = db.session.execute(db.session.query(RBLine).where(RBLine.timestamp <= timestamp)).all()
+    rb_lines = db.session.execute(
+        db.session.query(RBLine).where(RBLine.timestamp <= timestamp)
+    ).all()
     for rb_line in rb_lines:
         rb_line = rb_line[0]
         cot = generate_delete_cot(rb_line.uid, rb_line.cot.type)
         for group in groups:
-            channel.basic_publish(exchange='groups', routing_key=f"{group.name}.{Group.OUT}", body=json.dumps(
-                {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
-                                  properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
-            channel.basic_publish(exchange='firehose', routing_key="", body=json.dumps(
-                {'cot': tostring(cot).decode('utf-8'), 'uid': app.config['OTS_NODE_ID']}),
-                                  properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")))
+            channel.basic_publish(
+                exchange="groups",
+                routing_key=f"{group.name}.{Group.OUT}",
+                body=json.dumps(
+                    {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
+                ),
+                properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+            )
+            channel.basic_publish(
+                exchange="firehose",
+                routing_key="",
+                body=json.dumps(
+                    {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
+                ),
+                properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+            )
         db.session.delete(rb_line)
 
     db.session.execute(delete(GeoChat).where(GeoChat.timestamp <= timestamp))
@@ -256,7 +371,8 @@ def delete_old_data():
         minutes=app.config.get("OTS_DELETE_OLD_DATA_MINUTES"),
         hours=app.config.get("OTS_DELETE_OLD_DATA_HOURS"),
         days=app.config.get("OTS_DELETE_OLD_DATA_DAYS"),
-        weeks=app.config.get("OTS_DELETE_OLD_DATA_WEEKS"))
+        weeks=app.config.get("OTS_DELETE_OLD_DATA_WEEKS"),
+    )
 
     db.session.execute(delete(EUD).where(EUD.last_event_time <= timestamp))
     db.session.execute(delete(Point).where(Point.timestamp <= timestamp))

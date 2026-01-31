@@ -1,5 +1,6 @@
 import tldextract
 from flask_security import MailUtil
+
 from opentakserver.extensions import logger
 
 

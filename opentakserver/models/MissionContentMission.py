@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 
-from opentakserver.extensions import db
-from sqlalchemy import Integer, ForeignKey, String
+from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from opentakserver.extensions import db
 
 
 @dataclass
@@ -14,10 +15,7 @@ class MissionContentMission(db.Model):
     mission_name: Mapped[str] = mapped_column(String(255), ForeignKey("missions.name"))
 
     def serialize(self):
-        return {
-            "mission_content_id": self.mission_content_id,
-            "mission_name": self.mission_name
-        }
+        return {"mission_content_id": self.mission_content_id, "mission_name": self.mission_name}
 
     def to_json(self):
         return self.serialize()

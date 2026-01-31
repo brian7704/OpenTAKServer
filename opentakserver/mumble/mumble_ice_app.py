@@ -7,7 +7,13 @@ import Ice
 from opentakserver.mumble.mumble_authenticator import MumbleAuthenticator
 
 # Load up Murmur slice file into Ice
-Ice.loadSlice('', ['-I' + Ice.getSliceDir(), os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Murmur.ice')])
+Ice.loadSlice(
+    "",
+    [
+        "-I" + Ice.getSliceDir(),
+        os.path.join(os.path.dirname(os.path.realpath(__file__)), "Murmur.ice"),
+    ],
+)
 import Murmur
 
 
@@ -23,17 +29,17 @@ class MumbleIceDaemon(threading.Thread):
         # Configure Ice properties
         props = Ice.createProperties()
         props.setProperty("Ice.ImplicitContext", "Shared")
-        props.setProperty('Ice.Default.EncodingVersion', '1.0')
-        props.setProperty('Ice.Default.InvocationTimeout', str(30 * 1000))
-        props.setProperty('Ice.MessageSizeMax', str(1024))
+        props.setProperty("Ice.Default.EncodingVersion", "1.0")
+        props.setProperty("Ice.Default.InvocationTimeout", str(30 * 1000))
+        props.setProperty("Ice.MessageSizeMax", str(1024))
         idata = Ice.InitializationData()
         idata.properties = props
 
         # Create Ice connection
         ice = Ice.initialize(idata)
-        proxy = ice.stringToProxy('Meta:tcp -h 127.0.0.1 -p 6502')
-        secret = ''
-        if secret != '':
+        proxy = ice.stringToProxy("Meta:tcp -h 127.0.0.1 -p 6502")
+        secret = ""
+        if secret != "":
             ice.getImplicitContext().put("secret", secret)
         try:
             meta = Murmur.MetaPrx.checkedCast(proxy)
@@ -68,7 +74,7 @@ class MumbleIceApp(Ice.Application):
         self.watchdog.cancel()
 
         if self.interrupted():
-            self.logger.warning('Caught interrupt, shutting down')
+            self.logger.warning("Caught interrupt, shutting down")
 
         return 0
 
@@ -81,11 +87,11 @@ class MumbleIceApp(Ice.Application):
         # if False and 'ice_secret':
         #     self.ice.getImplicitContext().put("secret", "some_secret")
 
-        self.logger.debug('Connecting to Ice server ({}:{})'.format('127.0.0.1', 6502))
-        base = self.ice.stringToProxy('Meta:tcp -h {} -p {}'.format('127.0.0.1', 6502))
+        self.logger.debug("Connecting to Ice server ({}:{})".format("127.0.0.1", 6502))
+        base = self.ice.stringToProxy("Meta:tcp -h {} -p {}".format("127.0.0.1", 6502))
         self.meta = Murmur.MetaPrx.uncheckedCast(base)
 
-        adapter = self.ice.createObjectAdapterWithEndpoints('Callback.Client', 'tcp -h 127.0.0.1')
+        adapter = self.ice.createObjectAdapterWithEndpoints("Callback.Client", "tcp -h 127.0.0.1")
         adapter.activate()
 
         metacbprx = adapter.addWithUUID(MetaCallback(self))
@@ -102,20 +108,29 @@ class MumbleIceApp(Ice.Application):
         """
 
         try:
-            self.logger.debug('Attaching meta callback')
+            self.logger.debug("Attaching meta callback")
 
             self.meta.addCallback(self.metacb)
 
             for server in self.meta.getBootedServers():
-                self.logger.debug('Setting mumble authenticator for virtual server {}'.format(server.id()))
+                self.logger.debug(
+                    "Setting mumble authenticator for virtual server {}".format(server.id())
+                )
                 server.setAuthenticator(self.auth)
 
-        except (Murmur.InvalidSecretException, Ice.UnknownUserException, Ice.ConnectionRefusedException) as e:
+        except (
+            Murmur.InvalidSecretException,
+            Ice.UnknownUserException,
+            Ice.ConnectionRefusedException,
+        ) as e:
             if isinstance(e, Ice.ConnectionRefusedException):
-                self.logger.warning('Server refused connection')
-            elif isinstance(e, Murmur.InvalidSecretException) or \
-                    isinstance(e, Ice.UnknownUserException) and (e.unknown == 'Murmur::InvalidSecretException'):
-                self.logger.error('Invalid ice secret')
+                self.logger.warning("Server refused connection")
+            elif (
+                isinstance(e, Murmur.InvalidSecretException)
+                or isinstance(e, Ice.UnknownUserException)
+                and (e.unknown == "Murmur::InvalidSecretException")
+            ):
+                self.logger.error("Invalid ice secret")
             else:
                 # We do not actually want to handle this one, re-raise it
                 raise e
@@ -135,7 +150,9 @@ class MumbleIceApp(Ice.Application):
         try:
             self.attach_callbacks()
         except Ice.Exception as e:
-            self.logger.warning('{}: Failed connection check, will retry in next watchdog run ({}s)'.format(e, 10))
+            self.logger.warning(
+                "{}: Failed connection check, will retry in next watchdog run ({}s)".format(e, 10)
+            )
 
         # Renew the timer
         self.watchdog = Timer(10, self.check_connection)
@@ -152,7 +169,9 @@ class MetaCallback(Murmur.MetaCallback):
         This function is called when a virtual server is started
         and makes sure an authenticator gets attached if needed.
         """
-        self.authenticator.logger.info('Setting authenticator for virtual server {}'.format(server.id()))
+        self.authenticator.logger.info(
+            "Setting authenticator for virtual server {}".format(server.id())
+        )
         try:
             server.setAuthenticator(self.authenticator.auth)
         # Apparently this server was restarted without us noticing
@@ -171,9 +190,11 @@ class MetaCallback(Murmur.MetaCallback):
             # Only try to output the server id if we think we are still connected to prevent
             # flooding of our thread pool
             try:
-                self.authenticator.logger.info('Authenticated virtual server {} got stopped'.format(server.id()))
+                self.authenticator.logger.info(
+                    "Authenticated virtual server {} got stopped".format(server.id())
+                )
                 return
             except Ice.ConnectionRefusedException:
                 self.authenticator.connected = False
 
-        self.authenticator.logger.info('Server shutdown stopped a virtual server')
+        self.authenticator.logger.info("Server shutdown stopped a virtual server")

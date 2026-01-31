@@ -1,14 +1,15 @@
-from flask import current_app as app, request, Blueprint
+from flask import Blueprint
+from flask import current_app as app
+from flask import request
 from flask_ldap3_login.forms import LDAPLoginForm
-from flask_security import login_user, current_user
+from flask_security import current_user, login_user
 from flask_security.utils import base_render_json
 from werkzeug.datastructures import ImmutableMultiDict
 
-from opentakserver.extensions import ldap_manager
+from opentakserver.extensions import ldap_manager, logger
 from opentakserver.models.user import User
-from opentakserver.extensions import logger
 
-ldap_blueprint = Blueprint('ldap_blueprint', __name__)
+ldap_blueprint = Blueprint("ldap_blueprint", __name__)
 
 
 @ldap_manager.save_user
@@ -35,16 +36,20 @@ def save_user(dn: str, username: str, data, groups):
 
     is_admin = False
     for group in groups:
-        if group['cn'] == app.config.get("OTS_LDAP_ADMIN_GROUP"):
+        if group["cn"] == app.config.get("OTS_LDAP_ADMIN_GROUP"):
             is_admin = True
-        elif group['cn'].startswith(app.config.get("OTS_LDAP_PREFERENCE_ATTRIBUTE_PREFIX")) and not (group['cn'].lower().endswith("_read") or group['cn'].lower().endswith("_write")):
+        elif group["cn"].startswith(
+            app.config.get("OTS_LDAP_PREFERENCE_ATTRIBUTE_PREFIX")
+        ) and not (group["cn"].lower().endswith("_read") or group["cn"].lower().endswith("_write")):
             logger.debug(f"Adding {group['cn']} role to {user.username}")
-            app.security.datastore.add_role_to_user(user, app.security.datastore.find_or_create_role(group['cn']))
+            app.security.datastore.add_role_to_user(
+                user, app.security.datastore.find_or_create_role(group["cn"])
+            )
 
     if not is_admin:
-        app.security.datastore.add_role_to_user(user, 'user')
+        app.security.datastore.add_role_to_user(user, "user")
     else:
-        app.security.datastore.add_role_to_user(user, 'administrator')
+        app.security.datastore.add_role_to_user(user, "administrator")
 
     app.security.datastore.commit()
     return user

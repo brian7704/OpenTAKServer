@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, BooleanField
+from wtforms import BooleanField, StringField
 from wtforms.validators import Optional
 
 from opentakserver.functions import false_values

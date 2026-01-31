@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 
-from opentakserver.extensions import db
-from sqlalchemy import Integer, ForeignKey, String, Boolean
+from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from opentakserver.extensions import db
 
 
 @dataclass
@@ -21,7 +22,7 @@ class GroupUser(db.Model):
             "user": self.user.serialize(),
             "group": self.group.serialize(),
             "direction": self.direction,
-            "active": self.enabled
+            "active": self.enabled,
         }
 
     def to_marti_json(self):
@@ -31,7 +32,7 @@ class GroupUser(db.Model):
             "created": int(self.group.created.timestamp()),
             "type": self.group.type,
             "bitpos": self.group.bitpos,
-            "active": self.enabled
+            "active": self.enabled,
         }
 
     def to_json(self):
@@ -39,5 +40,5 @@ class GroupUser(db.Model):
             "username": self.user.username,
             "group_name": self.group.name,
             "direction": self.direction,
-            "active": self.enabled
+            "active": self.enabled,
         }

@@ -1,16 +1,15 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from opentakserver.extensions import db
+from opentakserver.functions import iso8601_string_from_datetime
+from opentakserver.models.Chatrooms import Chatroom
 
 # Leave these imports, they're needed when making new DB migrations
 from opentakserver.models.Team import Team
-from opentakserver.models.Chatrooms import Chatroom
-
-from sqlalchemy import Integer, String, ForeignKey, DateTime, BigInteger
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from opentakserver.functions import iso8601_string_from_datetime
 
 
 @dataclass
@@ -40,8 +39,12 @@ class EUD(db.Model):
     chatroom_uid = relationship("ChatroomsUids", cascade="all, delete-orphan", back_populates="eud")
     user = relationship("User", back_populates="euds")
     alert = relationship("Alert", cascade="all, delete-orphan", back_populates="eud")
-    data_packages = relationship("DataPackage", cascade="all, delete-orphan", back_populates="eud", uselist=False)
-    certificate = relationship("Certificate", cascade="all, delete, delete-orphan", back_populates="eud", uselist=False)
+    data_packages = relationship(
+        "DataPackage", cascade="all, delete-orphan", back_populates="eud", uselist=False
+    )
+    certificate = relationship(
+        "Certificate", cascade="all, delete, delete-orphan", back_populates="eud", uselist=False
+    )
     markers = relationship("Marker", cascade="all, delete, delete-orphan", back_populates="eud")
     rb_lines = relationship("RBLine", cascade="all, delete-orphan", back_populates="eud")
     team = relationship("Team", back_populates="euds")
@@ -51,18 +54,18 @@ class EUD(db.Model):
 
     def serialize(self):
         return {
-            'uid': self.uid,
-            'callsign': self.callsign,
-            'device': self.device,
-            'os': self.os,
-            'platform': self.platform,
-            'version': self.version,
-            'phone_number': self.phone_number,
-            'last_event_time': self.last_event_time,
-            'last_status': self.last_status,
-            'user_id': self.user_id,
-            'team_id': self.team_id,
-            'team_role': self.team_role
+            "uid": self.uid,
+            "callsign": self.callsign,
+            "device": self.device,
+            "os": self.os,
+            "platform": self.platform,
+            "version": self.version,
+            "phone_number": self.phone_number,
+            "last_event_time": self.last_event_time,
+            "last_status": self.last_status,
+            "user_id": self.user_id,
+            "team_id": self.team_id,
+            "team_role": self.team_role,
         }
 
     def to_json(self, include_data_packages=True):
@@ -70,20 +73,26 @@ class EUD(db.Model):
         if self.certificate and self.certificate.data_package:
             config_datapackage_hash = self.certificate.data_package.hash
         return {
-            'uid': self.uid,
-            'callsign': self.callsign,
-            'device': self.device,
-            'os': self.os,
-            'platform': self.platform,
-            'version': self.version,
-            'phone_number': self.phone_number,
-            'last_event_time': iso8601_string_from_datetime(self.last_event_time) if self.last_event_time else None,
-            'last_status': self.last_status,
-            'username': self.user.username if self.user else None,
-            'last_point': None,  # Setting to None for now since it can cause a huge overhead when an EUD has lots of points in the DB
-            'team': self.team.name if self.team else None,
-            'team_color': self.team.get_team_color() if self.team else None,
-            'team_role': self.team_role,
-            'data_packages': self.data_packages.to_json(False) if include_data_packages and self.data_packages else None,
-            'config_hash': config_datapackage_hash
+            "uid": self.uid,
+            "callsign": self.callsign,
+            "device": self.device,
+            "os": self.os,
+            "platform": self.platform,
+            "version": self.version,
+            "phone_number": self.phone_number,
+            "last_event_time": (
+                iso8601_string_from_datetime(self.last_event_time) if self.last_event_time else None
+            ),
+            "last_status": self.last_status,
+            "username": self.user.username if self.user else None,
+            "last_point": None,  # Setting to None for now since it can cause a huge overhead when an EUD has lots of points in the DB
+            "team": self.team.name if self.team else None,
+            "team_color": self.team.get_team_color() if self.team else None,
+            "team_role": self.team_role,
+            "data_packages": (
+                self.data_packages.to_json(False)
+                if include_data_packages and self.data_packages
+                else None
+            ),
+            "config_hash": config_datapackage_hash,
         }

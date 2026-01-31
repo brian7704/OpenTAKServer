@@ -3,13 +3,18 @@ import os
 import Ice
 from flask import Flask
 from flask_ldap3_login import AuthenticationResponseStatus
-
 from flask_security import verify_password
 
 from ..extensions import ldap_manager
 
 # Load up Murmur slice file into Ice
-Ice.loadSlice('', ['-I' + Ice.getSliceDir(), os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Murmur.ice')])
+Ice.loadSlice(
+    "",
+    [
+        "-I" + Ice.getSliceDir(),
+        os.path.join(os.path.dirname(os.path.realpath(__file__)), "Murmur.ice"),
+    ],
+)
 import Murmur
 
 
@@ -26,7 +31,7 @@ class MumbleAuthenticator(Murmur.ServerUpdatingAuthenticator):
         """
         This function is called to authenticate a user
         """
-        if username == 'SuperUser':
+        if username == "SuperUser":
             return (-2, None, None)
 
         self.logger.info("Mumble auth request for {}".format(username))
@@ -48,7 +53,12 @@ class MumbleAuthenticator(Murmur.ServerUpdatingAuthenticator):
                     # Keep this import here to avoid a circular import when OTS is started
                     from opentakserver.blueprints.ots_api.ldap_api import save_user
 
-                    save_user(auth_result.user_dn, auth_result.user_id, auth_result.user_info, auth_result.user_groups)
+                    save_user(
+                        auth_result.user_dn,
+                        auth_result.user_id,
+                        auth_result.user_info,
+                        auth_result.user_groups,
+                    )
 
                     return user.id, user.username, None
 

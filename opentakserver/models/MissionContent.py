@@ -2,10 +2,11 @@ import datetime
 import uuid
 from dataclasses import dataclass
 
-from opentakserver.functions import iso8601_string_from_datetime
-from opentakserver.extensions import db
-from sqlalchemy import Integer, String, DateTime, JSON
+from sqlalchemy import JSON, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from opentakserver.extensions import db
+from opentakserver.functions import iso8601_string_from_datetime
 
 
 @dataclass
@@ -24,7 +25,12 @@ class MissionContent(db.Model):
     size: Mapped[int] = mapped_column(Integer, nullable=True)
     expiration: Mapped[int] = mapped_column(Integer, nullable=True)
     mission_changes = relationship("MissionChange", back_populates="content_resource")
-    mission = relationship("Mission", secondary="mission_content_mission", back_populates="contents", cascade="all, delete")
+    mission = relationship(
+        "Mission",
+        secondary="mission_content_mission",
+        back_populates="contents",
+        cascade="all, delete",
+    )
 
     def serialize(self):
         return {
@@ -37,7 +43,7 @@ class MissionContent(db.Model):
             "creator_uid": self.creator_uid,
             "hash": self.hash,
             "size": self.size,
-            "expiration": self.expiration
+            "expiration": self.expiration,
         }
 
     def to_json(self):
@@ -52,8 +58,8 @@ class MissionContent(db.Model):
                 "creator_uid": self.creator_uid,
                 "hash": self.hash,
                 "size": self.size,
-                "expiration": self.expiration
+                "expiration": self.expiration,
             },
             "timestamp": iso8601_string_from_datetime(self.submission_time),
-            "creatorUid": self.creator_uid
+            "creatorUid": self.creator_uid,
         }

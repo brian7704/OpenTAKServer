@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 
-from opentakserver.extensions import db
-from sqlalchemy import String, Float, LargeBinary
+from sqlalchemy import Float, LargeBinary, String
 from sqlalchemy.orm import Mapped, mapped_column
+
+from opentakserver.extensions import db
 
 
 @dataclass
