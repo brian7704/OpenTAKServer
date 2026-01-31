@@ -97,9 +97,11 @@ class DefaultConfig:
     OTS_LOG_ROTATE_INTERVAL = int(os.getenv("OTS_LOG_ROTATE_INTERVAL", 0))
 
     # ADS-B Settings
-    OTS_AIRPLANES_LIVE_LAT = 40.744213
-    OTS_AIRPLANES_LIVE_LON = -73.986939
-    OTS_AIRPLANES_LIVE_RADIUS = 10
+    OTS_ADSB_LAT = 40.744213
+    OTS_ADSB_LON = -73.986939
+    OTS_ADSB_RADIUS = 10
+    OTS_ADSB_API_URL = "https://api.airplanes.live/v2/point/"
+    OTS_ADSB_API_KEY = None
 
     OTS_ADSB_GROUP = "ADS-B"
     OTS_AIS_GROUP = "AIS"
@@ -209,8 +211,8 @@ class DefaultConfig:
     SCHEDULER_API_ENABLED = False
     JOBS = [
         {
-            "id": "get_airplanes_live_data",
-            "func": "opentakserver.blueprints.scheduled_jobs:get_airplanes_live_data",
+            "id": "get_adsb_data",
+            "func": "opentakserver.blueprints.scheduled_jobs:get_adsb_data",
             "trigger": "interval",
             "seconds": 0,
             "minutes": 1,

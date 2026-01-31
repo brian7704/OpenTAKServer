@@ -42,13 +42,20 @@ from opentakserver.functions import iso8601_string_from_datetime, datetime_from_
 scheduler_blueprint = Blueprint('scheduler_blueprint', __name__)
 
 
-def get_airplanes_live_data():
+def get_adsb_data():
     with apscheduler.app.app_context():
         try:
-            r = requests.get('https://api.airplanes.live/v2/point/{}/{}/{}'
-                             .format(app.config["OTS_AIRPLANES_LIVE_LAT"],
-                                     app.config["OTS_AIRPLANES_LIVE_LON"],
-                                     app.config["OTS_AIRPLANES_LIVE_RADIUS"]))
+            headers = {}
+            if app.config.get("OTS_ADSB_API_KEY"):
+                headers["api-auth"] = app.config["OTS_ADSB_API_KEY"]
+
+            r = requests.get(f"{app.config.get("OTS_ADSB_API_URL")}/{app.config.get("OTS_ADSB_LAT")}/{app.config.get("OTS_ADSB_LON")}/{app.config.get("OTS_ADSB_RADIUS")}", headers=headers)
+
+            logger.warning(r.text)
+            logger.warning(r.status_code)
+            logger.warning(r.request.headers)
+            logger.warning(r.request.url)
+
             if r.status_code == 200:
                 rabbit_credentials = pika.PlainCredentials(app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD"))
                 rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
@@ -58,8 +65,11 @@ def get_airplanes_live_data():
 
                 for craft in r.json()['ac']:
                     try:
+                        logger.warning(craft)
                         event = adsbxcot.adsbx_to_cot(craft, known_craft=None)
-                    except ValueError:
+                        logger.info(event)
+                    except ValueError as e:
+                        logger.error(f"Failed to parse adsb data: {e}")
                         continue
 
                     # noinspection PyTypeChecker
