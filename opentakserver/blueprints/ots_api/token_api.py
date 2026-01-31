@@ -6,21 +6,23 @@ from urllib.parse import urlparse
 
 import bleach
 import jwt
-from flask import jsonify, request, current_app as app, Blueprint
+from flask import Blueprint
+from flask import current_app as app
+from flask import jsonify, request
 from flask_babel import gettext
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_login import current_user
 from flask_security import auth_required, verify_password
 from sqlalchemy import delete
 
-from opentakserver.extensions import db, logger, ldap_manager
+from opentakserver.extensions import db, ldap_manager, logger
 from opentakserver.models.Token import Token
 from opentakserver.models.user import User
 
-token_api_blueprint = Blueprint('token_api_blueprint', __name__)
+token_api_blueprint = Blueprint("token_api_blueprint", __name__)
 
 
-@token_api_blueprint.route("/oauth/token", methods=['GET', 'POST'])
+@token_api_blueprint.route("/oauth/token", methods=["GET", "POST"])
 def cloudtak_oauth_token():
     """
     Provides an OAuth token for TAKX and CloudTAK
@@ -44,28 +46,38 @@ def cloudtak_oauth_token():
             save_user(result.user_dn, result.user_id, result.user_info, result.user_groups)
 
         else:
-            return jsonify({'success': False, 'error': 'Invalid username or password'}), 400
+            return jsonify({"success": False, "error": "Invalid username or password"}), 400
 
     else:
         user = app.security.datastore.find_user(username=username)
         if not user or not verify_password(password, user.password):
-            return jsonify({'success': False, 'error': 'Invalid username or password'}), 400
+            return jsonify({"success": False, "error": "Invalid username or password"}), 400
 
-    with open(os.path.join(app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.nopass.key"),
-              "rb") as key:
-        token = jwt.encode({
-            "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365),
-            "nbf": datetime.datetime.now(datetime.timezone.utc),
-            "iss": "OpenTAKServer",
-            "aud": "OpenTAKServer",
-            "iat": datetime.datetime.now(datetime.timezone.utc),
-            "sub": user.username
-        }, key.read(), algorithm="RS256")
+    with open(
+        os.path.join(
+            app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.nopass.key"
+        ),
+        "rb",
+    ) as key:
+        token = jwt.encode(
+            {
+                "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365),
+                "nbf": datetime.datetime.now(datetime.timezone.utc),
+                "iss": "OpenTAKServer",
+                "aud": "OpenTAKServer",
+                "iat": datetime.datetime.now(datetime.timezone.utc),
+                "sub": user.username,
+            },
+            key.read(),
+            algorithm="RS256",
+        )
 
-        return jsonify({"access_token": token, "token_type": "Bearer", "expires_in": 365 * 24 * 60 * 60})
+        return jsonify(
+            {"access_token": token, "token_type": "Bearer", "expires_in": 365 * 24 * 60 * 60}
+        )
 
 
-@token_api_blueprint.route("/api/atak_qr_string", methods=['POST'])
+@token_api_blueprint.route("/api/atak_qr_string", methods=["POST"])
 @auth_required()
 def new_atak_qr_string():
     """
@@ -82,13 +94,13 @@ def new_atak_qr_string():
     try:
         username = request.json.get("username") or current_user.username
         if username != current_user.username and not current_user.has_role("administrator"):
-            return jsonify({'success': False, 'error': 'Cannot generate QR for another user'}), 401
+            return jsonify({"success": False, "error": "Cannot generate QR for another user"}), 401
 
         else:
             if username != current_user.username and current_user.has_role("administrator"):
                 user = db.session.query(User).filter_by(username=username).first()
                 if not user:
-                    return jsonify({'success': False, 'error': f"No such user: {username}"}), 404
+                    return jsonify({"success": False, "error": f"No such user: {username}"}), 404
 
             token = db.session.execute(db.session.query(Token).filter_by(username=username)).first()
             if token:
@@ -121,7 +133,9 @@ def new_atak_qr_string():
                     pass
 
             token.username = username
-            token.disabled = request.json.get("disabled") if "disabled" in request.json.keys() else None
+            token.disabled = (
+                request.json.get("disabled") if "disabled" in request.json.keys() else None
+            )
             token.hash_token()
 
             db.session.add(token)
@@ -130,16 +144,18 @@ def new_atak_qr_string():
             response = token.to_json()
             response["success"] = True
             response["disabled"] = token.disabled
-            response["qr_string"] = f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={username}&token={token.generate_token()}"
+            response["qr_string"] = (
+                f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={username}&token={token.generate_token()}"
+            )
             return jsonify(response)
 
     except BaseException as e:
         logger.error(f"Failed to create token: {e}")
         logger.debug(traceback.format_exc())
-        return jsonify({'success': False, 'error': str(e)}), 400
+        return jsonify({"success": False, "error": str(e)}), 400
 
 
-@token_api_blueprint.route("/api/atak_qr_string", methods=['GET'])
+@token_api_blueprint.route("/api/atak_qr_string", methods=["GET"])
 @auth_required()
 def get_atak_qr_strings():
     """
@@ -163,16 +179,26 @@ def get_atak_qr_strings():
         response["success"] = True
         response["disabled"] = token[0].disabled
         response["total_uses"] = token[0].total_uses
-        response["qr_string"] = f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={token[0].username}&token={token[0].generate_token()}"
+        response["qr_string"] = (
+            f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={token[0].username}&token={token[0].generate_token()}"
+        )
         return jsonify(response)
     else:
-        return jsonify({'success': False, 'error': gettext(u"No token found for %s(username)s", username=username)}), 404
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("No token found for %s(username)s", username=username),
+                }
+            ),
+            404,
+        )
 
 
 @token_api_blueprint.route("/api/atak_qr_string", methods=["DELETE"])
 @auth_required()
 def delete_token():
-    """ Deletes a token
+    """Deletes a token
 
     :parameter username:
 
@@ -191,4 +217,9 @@ def delete_token():
     except BaseException as e:
         logger.error(f"Failed to delete token: {e}")
         logger.debug(traceback.format_exc())
-        return jsonify({"success": False, "error": gettext(u"Failed to delete token: %(e)s", e=str(e))}), 500
+        return (
+            jsonify(
+                {"success": False, "error": gettext("Failed to delete token: %(e)s", e=str(e))}
+            ),
+            500,
+        )

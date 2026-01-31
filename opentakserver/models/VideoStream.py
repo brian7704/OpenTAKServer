@@ -4,18 +4,20 @@ from dataclasses import dataclass
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element, SubElement, tostring
 
-from opentakserver.extensions import db
-from sqlalchemy import Integer, String, ForeignKey, Boolean, TEXT
+from flask import current_app as app
+from flask import request
+from sqlalchemy import TEXT, Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from flask import current_app as app, request
+
+from opentakserver.extensions import db
 
 
 @dataclass
 class VideoStream(db.Model):
-    __tablename__ = 'video_streams'
+    __tablename__ = "video_streams"
 
     path: Mapped[str] = mapped_column(String(255), primary_key=True)
-    protocol: Mapped[str] = mapped_column(String(255), default='rtsp')
+    protocol: Mapped[str] = mapped_column(String(255), default="rtsp")
     port: Mapped[int] = mapped_column(Integer, default=8554)
     network_timeout: Mapped[int] = mapped_column(Integer, default=10000)
     uid: Mapped[str] = mapped_column(String(255), nullable=True, default=str(uuid.uuid4()))
@@ -37,27 +39,27 @@ class VideoStream(db.Model):
 
     def serialize(self):
         return {
-            'network_timeout': self.network_timeout,
-            'uid': self.uid,
-            'protocol': self.protocol,
-            'path': self.path,
-            'buffer_time': self.buffer_time,
-            'port': self.port,
-            'rover_port': self.rover_port,
-            'rtsp_reliable': self.rtsp_reliable,
-            'ignore_embedded_klv': self.ignore_embedded_klv,
-            'alias': self.alias,
-            'preferred_mac_address': self.preferred_mac_address,
-            'preferred_interface_address': self.preferred_interface_address,
-            'username': self.username,
-            'ready': self.ready,
+            "network_timeout": self.network_timeout,
+            "uid": self.uid,
+            "protocol": self.protocol,
+            "path": self.path,
+            "buffer_time": self.buffer_time,
+            "port": self.port,
+            "rover_port": self.rover_port,
+            "rtsp_reliable": self.rtsp_reliable,
+            "ignore_embedded_klv": self.ignore_embedded_klv,
+            "alias": self.alias,
+            "preferred_mac_address": self.preferred_mac_address,
+            "preferred_interface_address": self.preferred_interface_address,
+            "username": self.username,
+            "ready": self.ready,
         }
 
     def to_json(self):
         try:
             mediamtx_settings = json.loads(self.mediamtx_settings)
-            source = mediamtx_settings['source']
-            record = mediamtx_settings['record']
+            source = mediamtx_settings["source"]
+            record = mediamtx_settings["record"]
         except json.decoder.JSONDecodeError:
             source = None
             record = False
@@ -67,32 +69,32 @@ class VideoStream(db.Model):
             protocol = url.scheme
             hostname = url.hostname
             port = url.port
-            if not port and protocol == 'https':
+            if not port and protocol == "https":
                 port = 443
-            elif not port and protocol == 'http':
+            elif not port and protocol == "http":
                 port = 80
 
             return {
-                'network_timeout': self.network_timeout,
-                'uid': self.uid,
-                'protocol': self.protocol,
-                'path': self.path,
-                'buffer_time': self.buffer_time,
-                'port': self.port,
-                'rover_port': self.rover_port,
-                'rtsp_reliable': self.rtsp_reliable,
-                'ignore_embedded_klv': self.ignore_embedded_klv,
-                'alias': self.alias,
-                'preferred_mac_address': self.preferred_mac_address,
-                'preferred_interface_address': self.preferred_interface_address,
-                'username': self.username,
-                'ready': self.ready,
-                'source': source,
-                'record': record,
-                'rtsp_link': "rtsp://{}:{}/{}".format(hostname, self.port, self.path),
-                'webrtc_link': "{}://{}:{}/webrtc/{}/".format(protocol, hostname, port, self.path),
-                'hls_link': "{}://{}:{}/hls/{}/".format(protocol, hostname, port, self.path),
-                'thumbnail': f"{protocol}://{hostname}:{port}/api/videos/thumbnail?path={self.path}"
+                "network_timeout": self.network_timeout,
+                "uid": self.uid,
+                "protocol": self.protocol,
+                "path": self.path,
+                "buffer_time": self.buffer_time,
+                "port": self.port,
+                "rover_port": self.rover_port,
+                "rtsp_reliable": self.rtsp_reliable,
+                "ignore_embedded_klv": self.ignore_embedded_klv,
+                "alias": self.alias,
+                "preferred_mac_address": self.preferred_mac_address,
+                "preferred_interface_address": self.preferred_interface_address,
+                "username": self.username,
+                "ready": self.ready,
+                "source": source,
+                "record": record,
+                "rtsp_link": "rtsp://{}:{}/{}".format(hostname, self.port, self.path),
+                "webrtc_link": "{}://{}:{}/webrtc/{}/".format(protocol, hostname, port, self.path),
+                "hls_link": "{}://{}:{}/hls/{}/".format(protocol, hostname, port, self.path),
+                "thumbnail": f"{protocol}://{hostname}:{port}/api/videos/thumbnail?path={self.path}",
             }
 
     def to_marti_json(self, user):
@@ -100,9 +102,9 @@ class VideoStream(db.Model):
         protocol = url.scheme
         hostname = url.hostname
         port = url.port
-        if not port and protocol == 'https':
+        if not port and protocol == "https":
             port = 443
-        elif not port and protocol == 'http':
+        elif not port and protocol == "http":
             port = 80
 
         video_uuid = str(uuid.uuid4())
@@ -112,47 +114,55 @@ class VideoStream(db.Model):
             "alias": self.path,
             "thumbnail": "",
             "classification": "",
-            "feeds": [{"uuid": video_uuid,
-                      "active": True,
-                       "alias": self.path,
-                       "url": f"{protocol}://{hostname}:{port}/hls/{self.path}/index.m3u8?jwt={user.get_auth_token()}",
-                       "order": 0,
-                       "macAddress": self.preferred_mac_address,
-                       "roverPort": str(self.rover_port),
-                       "ignoreEmbeddedKLV": str(self.ignore_embedded_klv),
-                       "source": f"{protocol}://{hostname}:{port}/hls/{self.path}/index.m3u8",
-                       "networkTimeout": str(self.network_timeout),
-                       "bufferTime": str(self.buffer_time),
-                       "rtspReliable": str(self.rtsp_reliable),
-                       "thumbnail": "",
-                       "classification": "",
-                       "latitude": "",
-                       "longitude": "",
-                       "fov": "",
-                       "heading": "",
-                       "range": "",
-                       "width": 0,
-                       "height": 0,
-                       "bitrate": 0}],
-            "uuid": video_uuid
+            "feeds": [
+                {
+                    "uuid": video_uuid,
+                    "active": True,
+                    "alias": self.path,
+                    "url": f"{protocol}://{hostname}:{port}/hls/{self.path}/index.m3u8?jwt={user.get_auth_token()}",
+                    "order": 0,
+                    "macAddress": self.preferred_mac_address,
+                    "roverPort": str(self.rover_port),
+                    "ignoreEmbeddedKLV": str(self.ignore_embedded_klv),
+                    "source": f"{protocol}://{hostname}:{port}/hls/{self.path}/index.m3u8",
+                    "networkTimeout": str(self.network_timeout),
+                    "bufferTime": str(self.buffer_time),
+                    "rtspReliable": str(self.rtsp_reliable),
+                    "thumbnail": "",
+                    "classification": "",
+                    "latitude": "",
+                    "longitude": "",
+                    "fov": "",
+                    "heading": "",
+                    "range": "",
+                    "width": 0,
+                    "height": 0,
+                    "bitrate": 0,
+                }
+            ],
+            "uuid": video_uuid,
         }
 
     def generate_xml(self, hostname):
 
-        feed = Element('feed')
+        feed = Element("feed")
         # Force rtsp to ensure compatibility with ATAK
-        SubElement(feed, 'protocol').text = 'rtsp'
-        SubElement(feed, 'alias').text = self.alias if self.alias else self.path
-        SubElement(feed, 'uid').text = str(self.uid) if self.uid else str(uuid.uuid4())
-        SubElement(feed, 'address').text = hostname
-        SubElement(feed, 'port').text = str(self.port) if self.port else "8554"
-        SubElement(feed, 'roverPort').text = str(self.rover_port)
-        SubElement(feed, 'ignoreEmbeddedKLV').text = self.ignore_embedded_klv
-        SubElement(feed, 'preferredMacAddress').text = self.preferred_mac_address
-        SubElement(feed, 'preferredInterfaceAddress').text = self.preferred_interface_address
-        SubElement(feed, 'path').text = self.path if self.path else self.alias
-        SubElement(feed, 'buffer').text = str(self.buffer_time) if self.buffer_time else ""
-        SubElement(feed, 'timeout').text = str(self.network_timeout) if self.network_timeout else "10000"
-        SubElement(feed, 'rtspReliable').text = str(self.rtsp_reliable) if self.rtsp_reliable else "1"
+        SubElement(feed, "protocol").text = "rtsp"
+        SubElement(feed, "alias").text = self.alias if self.alias else self.path
+        SubElement(feed, "uid").text = str(self.uid) if self.uid else str(uuid.uuid4())
+        SubElement(feed, "address").text = hostname
+        SubElement(feed, "port").text = str(self.port) if self.port else "8554"
+        SubElement(feed, "roverPort").text = str(self.rover_port)
+        SubElement(feed, "ignoreEmbeddedKLV").text = self.ignore_embedded_klv
+        SubElement(feed, "preferredMacAddress").text = self.preferred_mac_address
+        SubElement(feed, "preferredInterfaceAddress").text = self.preferred_interface_address
+        SubElement(feed, "path").text = self.path if self.path else self.alias
+        SubElement(feed, "buffer").text = str(self.buffer_time) if self.buffer_time else ""
+        SubElement(feed, "timeout").text = (
+            str(self.network_timeout) if self.network_timeout else "10000"
+        )
+        SubElement(feed, "rtspReliable").text = (
+            str(self.rtsp_reliable) if self.rtsp_reliable else "1"
+        )
 
-        self.xml = tostring(feed).decode('utf-8')
+        self.xml = tostring(feed).decode("utf-8")

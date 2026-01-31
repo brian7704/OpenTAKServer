@@ -1,5 +1,5 @@
-from wtforms import StringField, IntegerField, BooleanField, DateTimeField
-from wtforms.validators import DataRequired, UUID
+from wtforms import BooleanField, DateTimeField, IntegerField, StringField
+from wtforms.validators import UUID, DataRequired
 
 from opentakserver.forms.point_form import PointForm
 

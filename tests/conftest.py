@@ -3,11 +3,11 @@ import sqlalchemy
 from flask_security import hash_password
 
 from opentakserver.app import create_app
-from opentakserver.extensions import logger, db
+from opentakserver.extensions import db, logger
 
 
 class AuthActions:
-    def __init__(self, app, client, username='TestUser', password='TestPass'):
+    def __init__(self, app, client, username="TestUser", password="TestPass"):
         self.app = app
         self.client = client
         self.username = username
@@ -19,26 +19,27 @@ class AuthActions:
     def create(self):
         try:
             with self.client.application.app_context():
-                self.app.security.datastore.create_user(username=self.username,
-                                                        password=hash_password(self.password),
-                                                        roles=["administrator"])
+                self.app.security.datastore.create_user(
+                    username=self.username,
+                    password=hash_password(self.password),
+                    roles=["administrator"],
+                )
                 db.session.commit()
         except sqlalchemy.exc.IntegrityError:
             logger.warning("{} already exists".format(self.username))
 
     def login(self):
-        response = self.get('/api/login')
-        csrf_token = response.json['response']['csrf_token']
-        self.headers['X-CSRFToken'] = csrf_token
+        response = self.get("/api/login")
+        csrf_token = response.json["response"]["csrf_token"]
+        self.headers["X-CSRFToken"] = csrf_token
         response = self.client.post(
-            '/api/login',
-            json={'username': self.username, 'password': self.password}
+            "/api/login", json={"username": self.username, "password": self.password}
         )
 
         return response
 
     def logout(self):
-        return self.client.get('/api/logout')
+        return self.client.get("/api/logout")
 
     def get(self, path, headers=None, json=None):
         if json is None:
@@ -58,7 +59,7 @@ class AuthActions:
 def app():
     app = create_app()
     app.config["TESTING"] = True
-    app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
+    app.config["PRESERVE_CONTEXT_ON_EXCEPTION"] = False
     return app
 
 
@@ -66,8 +67,8 @@ def app():
 def client(app):
     with app.test_client() as client:
         with client.session_transaction() as session:
-            session['Authorization'] = 'redacted'
-        print(session) # will be populated SecureCookieSession
+            session["Authorization"] = "redacted"
+        print(session)  # will be populated SecureCookieSession
         yield client
 
 

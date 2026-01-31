@@ -1,10 +1,9 @@
 from threading import Thread
 
-from flask import Flask
-from pika.channel import Channel
-
 import flask_sqlalchemy
 import pika
+from flask import Flask
+from pika.channel import Channel
 
 from opentakserver.extensions import *
 
@@ -21,10 +20,15 @@ class RabbitMQClient:
         self.exchanges = []
 
         try:
-            rabbit_credentials = pika.PlainCredentials(self.context.app.config.get("OTS_RABBITMQ_USERNAME"), self.context.app.config.get("OTS_RABBITMQ_PASSWORD"))
+            rabbit_credentials = pika.PlainCredentials(
+                self.context.app.config.get("OTS_RABBITMQ_USERNAME"),
+                self.context.app.config.get("OTS_RABBITMQ_PASSWORD"),
+            )
             rabbit_host = self.context.app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
-            self.rabbit_connection = pika.SelectConnection(pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials),
-                                                           self.on_connection_open)
+            self.rabbit_connection = pika.SelectConnection(
+                pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials),
+                self.on_connection_open,
+            )
             self.rabbit_channel: Channel = None
             self.iothread = Thread(target=self.rabbit_connection.ioloop.start)
             self.iothread.daemon = True

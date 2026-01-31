@@ -1,6 +1,8 @@
-import flask_security
 import unicodedata
+
+import flask_security
 from flask_security import UsernameUtil
+
 from opentakserver.extensions import logger
 
 
@@ -15,6 +17,10 @@ class UsernameValidator(UsernameUtil):
         Allow letters, numbers, underscores and periods in usernames
         """
         for character in username:
-            if unicodedata.category(character)[0] not in ["L", "N"] and character != "_" and character != ".":
+            if (
+                unicodedata.category(character)[0] not in ["L", "N"]
+                and character != "_"
+                and character != "."
+            ):
                 return flask_security.utils.get_message("USERNAME_DISALLOWED_CHARACTERS")[0]
         return None

@@ -3,22 +3,19 @@ import hashlib
 import os.path
 from datetime import datetime, timezone
 from pathlib import Path
+from xml.etree.ElementTree import tostring
 
-from bs4 import BeautifulSoup
 from androguard.core.apk import APK
-
-from werkzeug.utils import secure_filename
-
-from sqlalchemy import Integer, String, Boolean, LargeBinary, DateTime
+from bs4 import BeautifulSoup
+from flask import current_app as app
+from flask import request
+from sqlalchemy import Boolean, DateTime, Integer, LargeBinary, String
 from sqlalchemy.orm import Mapped, mapped_column
-
-from flask import current_app as app, request
+from werkzeug.utils import secure_filename
 
 from opentakserver.extensions import db
 from opentakserver.forms.package_form import PackageForm
 from opentakserver.functions import iso8601_string_from_datetime
-
-from xml.etree.ElementTree import tostring
 
 
 class Packages(db.Model):
@@ -56,60 +53,70 @@ class Packages(db.Model):
         self.name = apk.get_app_name()
         self.description = form.description.data
         self.apk_hash = hashlib.sha256(form.apk.data.stream.read()).hexdigest()
-        self.file_size = Path(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", self.file_name)).stat().st_size
-        self.icon = request.files['icon'].stream.read() if 'icon' in request.files else None
-        self.icon_filename = secure_filename(request.files['icon'].filename) if 'icon' in request.files else None
+        self.file_size = (
+            Path(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", self.file_name))
+            .stat()
+            .st_size
+        )
+        self.icon = request.files["icon"].stream.read() if "icon" in request.files else None
+        self.icon_filename = (
+            secure_filename(request.files["icon"].filename) if "icon" in request.files else None
+        )
         self.install_on_enrollment = form.install_on_enrollment.data
         self.install_on_connection = form.install_on_connection.data
         self.publish_time = datetime.now(timezone.utc)
         self.atak_version = form.atak_version.data
 
-        manifest = BeautifulSoup(tostring(apk.get_android_manifest_xml()).decode('utf-8'))
+        manifest = BeautifulSoup(tostring(apk.get_android_manifest_xml()).decode("utf-8"))
         meta_data = manifest.find_all("meta-data", "lxml")
         for meta in meta_data:
-            if 'ns0:value' not in meta.attrs or 'ns0:name' not in meta.attrs:
+            if "ns0:value" not in meta.attrs or "ns0:name" not in meta.attrs:
                 continue
 
-            if meta.attrs['ns0:name'] == "plugin-api":
-                self.tak_prereq = meta.attrs['ns0:value']
+            if meta.attrs["ns0:name"] == "plugin-api":
+                self.tak_prereq = meta.attrs["ns0:value"]
                 break
 
         if not self.icon:
             icon_filename, icon_extension = os.path.splitext(apk.get_app_icon())
-            if icon_extension == '.png':
+            if icon_extension == ".png":
                 self.icon = apk.get_file(apk.get_app_icon())
                 self.icon_filename = f"{self.package_name}.png"
 
     def from_tak_gov(self, plugin: dict):
-        self.apk_hash = plugin['apk_hash']
-        self.file_size = plugin['apk_size_bytes']
+        self.apk_hash = plugin["apk_hash"]
+        self.file_size = plugin["apk_size_bytes"]
 
-        self.platform = plugin['platform']
+        self.platform = plugin["platform"]
 
     def serialize(self):
         return {
-            'platform': self.platform,
-            'plugin_type': self.plugin_type,
-            'package_name': self.package_name,
-            'name': self.name,
-            'file_name': self.file_name,
-            'version': self.version,
-            'revision_code': self.revision_code,
-            'description': self.description,
-            'apk_hash': self.apk_hash,
-            'os_requirement': self.os_requirement,
-            'tak_prereq': self.tak_prereq,
-            'file_size': self.file_size,
-            'icon': self.icon,
-            'icon_filename': self.icon_filename,
-            'install_on_enrollment': self.install_on_enrollment,
-            'install_on_connection': self.install_on_connection,
-            'publish_time': self.publish_time,
-            'atak_version': self.atak_version,
+            "platform": self.platform,
+            "plugin_type": self.plugin_type,
+            "package_name": self.package_name,
+            "name": self.name,
+            "file_name": self.file_name,
+            "version": self.version,
+            "revision_code": self.revision_code,
+            "description": self.description,
+            "apk_hash": self.apk_hash,
+            "os_requirement": self.os_requirement,
+            "tak_prereq": self.tak_prereq,
+            "file_size": self.file_size,
+            "icon": self.icon,
+            "icon_filename": self.icon_filename,
+            "install_on_enrollment": self.install_on_enrollment,
+            "install_on_connection": self.install_on_connection,
+            "publish_time": self.publish_time,
+            "atak_version": self.atak_version,
         }
 
     def to_json(self):
         return_value = self.serialize()
-        return_value['publish_time'] = iso8601_string_from_datetime(self.publish_time)
-        return_value['icon'] = f"data:image/png;base64,{base64.b64encode(self.icon).decode('utf-8')}" if self.icon else None
+        return_value["publish_time"] = iso8601_string_from_datetime(self.publish_time)
+        return_value["icon"] = (
+            f"data:image/png;base64,{base64.b64encode(self.icon).decode('utf-8')}"
+            if self.icon
+            else None
+        )
         return return_value

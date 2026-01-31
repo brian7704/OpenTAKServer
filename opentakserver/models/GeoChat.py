@@ -1,12 +1,13 @@
 from datetime import datetime
 
-from opentakserver.extensions import db
-from sqlalchemy import Integer, String, ForeignKey, DateTime
+from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from opentakserver.extensions import db
 
 
 class GeoChat(db.Model):
-    __tablename__ = 'geochat'
+    __tablename__ = "geochat"
 
     uid: Mapped[str] = mapped_column(String(255), primary_key=True)
     chatroom_id: Mapped[str] = mapped_column(String(255), ForeignKey("chatrooms.id"))
@@ -22,17 +23,17 @@ class GeoChat(db.Model):
 
     def serialize(self):
         return {
-            'uid': self.uid,
-            'sender_uid': self.sender_uid,
-            'remarks': self.remarks,
-            'timestamp': self.timestamp,
+            "uid": self.uid,
+            "sender_uid": self.sender_uid,
+            "remarks": self.remarks,
+            "timestamp": self.timestamp,
         }
 
     def to_json(self):
         return {
-            'uid': self.uid,
-            'sender_uid': self.sender_uid,
-            'remarks': self.remarks,
-            'timestamp': self.timestamp,
-            'point': self.point.to_json() or None,
+            "uid": self.uid,
+            "sender_uid": self.sender_uid,
+            "remarks": self.remarks,
+            "timestamp": self.timestamp,
+            "point": self.point.to_json() or None,
         }

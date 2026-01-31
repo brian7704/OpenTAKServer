@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Boolean, DateTime, Integer, ForeignKey
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.extensions import db
 from opentakserver.forms.device_profile_form import DeviceProfileForm
 from opentakserver.functions import iso8601_string_from_datetime
-#from .EUD import EUD
+
+# from .EUD import EUD
 
 
 class DeviceProfiles(db.Model):
@@ -20,7 +21,9 @@ class DeviceProfiles(db.Model):
     tool: Mapped[str] = mapped_column(String(255), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     publish_time: Mapped[datetime] = mapped_column(DateTime)
-    eud_uid: Mapped[str] = mapped_column(String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True, primary_key=True)
+    eud_uid: Mapped[str] = mapped_column(
+        String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True, primary_key=True
+    )
     eud = relationship("EUD", back_populates="profiles")
 
     def from_wtf(self, form: DeviceProfileForm):
@@ -36,19 +39,19 @@ class DeviceProfiles(db.Model):
 
     def serialize(self):
         return {
-            'preference_key': self.preference_key,
-            'preference_value': self.preference_value,
-            'value_class': self.value_class,
-            'enrollment': self.enrollment,
-            'connection': self.connection,
-            'tool': self.tool,
-            'active': self.active,
-            'publish_time': self.publish_time,
-            'eud_uid': self.eud_uid,
+            "preference_key": self.preference_key,
+            "preference_value": self.preference_value,
+            "value_class": self.value_class,
+            "enrollment": self.enrollment,
+            "connection": self.connection,
+            "tool": self.tool,
+            "active": self.active,
+            "publish_time": self.publish_time,
+            "eud_uid": self.eud_uid,
         }
 
     def to_json(self):
         return_value = self.serialize()
-        return_value['publish_time'] = iso8601_string_from_datetime(self.publish_time)
-        return_value['callsign'] = self.eud.callsign if self.eud else None
+        return_value["publish_time"] = iso8601_string_from_datetime(self.publish_time)
+        return_value["callsign"] = self.eud.callsign if self.eud else None
         return return_value

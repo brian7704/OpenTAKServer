@@ -1,5 +1,5 @@
-from wtforms import StringField, IntegerField, BooleanField, FloatField, FieldList, FormField
-from wtforms.validators import DataRequired, UUID
+from wtforms import BooleanField, FieldList, FloatField, FormField, IntegerField, StringField
+from wtforms.validators import UUID, DataRequired
 
 from opentakserver.forms.point_form import PointForm
 from opentakserver.forms.zmist_form import ZmistForm

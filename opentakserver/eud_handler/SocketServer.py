@@ -16,7 +16,7 @@ class SocketServer:
         self.socket = None
         self.clients = []
         self.app_context = app_context
-        #self.socketio = SocketIO(message_queue="amqp://" + self.app_context.app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"), async_mode='gevent')
+        # self.socketio = SocketIO(message_queue="amqp://" + self.app_context.app.config.get("OTS_RABBITMQ_SERVER_ADDRESS"), async_mode='gevent')
 
     def run(self):
         if self.ssl:
@@ -37,7 +37,9 @@ class SocketServer:
                 else:
                     self.logger.info("New TCP connection from {}".format(addr[0]))
 
-                new_thread = ClientController(addr[0], addr[1], sock, self.logger, self.app_context.app, self.ssl)
+                new_thread = ClientController(
+                    addr[0], addr[1], sock, self.logger, self.app_context.app, self.ssl
+                )
                 new_thread.daemon = True
                 new_thread.start()
                 self.clients.append(new_thread)
@@ -69,7 +71,7 @@ class SocketServer:
     def launch_tcp_server(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('0.0.0.0', self.port))
+        s.bind(("0.0.0.0", self.port))
         s.listen(1)
 
         return s
@@ -81,7 +83,7 @@ class SocketServer:
             context = self.get_ssl_context()
 
             sconn = context.wrap_socket(sock, server_side=True)
-            sconn.bind(('0.0.0.0', self.port))
+            sconn.bind(("0.0.0.0", self.port))
             sconn.listen(0)
 
             return sconn
@@ -94,7 +96,7 @@ class SocketServer:
 
         self.shutdown = True
         for client in self.clients:
-            self.logger.debug('Attempting to stop client {}'.format(client.address))
+            self.logger.debug("Attempting to stop client {}".format(client.address))
             client.stop()
 
     def get_ssl_context(self):
@@ -102,10 +104,23 @@ class SocketServer:
 
         with self.app_context:
             context.load_cert_chain(
-                os.path.join(self.app_context.app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.pem"),
-                os.path.join(self.app_context.app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.nopass.key"))
+                os.path.join(
+                    self.app_context.app.config.get("OTS_CA_FOLDER"),
+                    "certs",
+                    "opentakserver",
+                    "opentakserver.pem",
+                ),
+                os.path.join(
+                    self.app_context.app.config.get("OTS_CA_FOLDER"),
+                    "certs",
+                    "opentakserver",
+                    "opentakserver.nopass.key",
+                ),
+            )
 
             context.verify_mode = self.app_context.app.config.get("OTS_SSL_VERIFICATION_MODE")
-            context.load_verify_locations(cafile=os.path.join(self.app_context.app.config.get("OTS_CA_FOLDER"), 'ca.pem'))
+            context.load_verify_locations(
+                cafile=os.path.join(self.app_context.app.config.get("OTS_CA_FOLDER"), "ca.pem")
+            )
 
             return context
