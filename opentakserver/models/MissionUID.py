@@ -1,7 +1,7 @@
 import datetime
 from dataclasses import dataclass
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import DateTime, Float, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.extensions import db

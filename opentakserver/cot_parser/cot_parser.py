@@ -1,15 +1,15 @@
-import base64
-import datetime
+import json
 import logging
 import os
 import platform
 import random
+import re
 import sys
 import time
 import traceback
+from datetime import datetime, timezone
 from logging.handlers import TimedRotatingFileHandler
 
-import bleach
 import colorlog
 import flask_sqlalchemy
 import pika
@@ -22,39 +22,33 @@ from flask_security import SQLAlchemyUserDatastore
 from flask_security.models import fsqla
 from flask_socketio import SocketIO
 from meshtastic import BROADCAST_NUM, mesh_pb2, mqtt_pb2, portnums_pb2
-from pika.channel import Channel
 from sqlalchemy import exc, insert, select, update
 
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.extensions import db, logger
-from opentakserver.functions import *
-from opentakserver.functions import datetime_from_iso8601_string
+from opentakserver.functions import (
+    cot_type_to_2525c,
+    datetime_from_iso8601_string,
+    get_affiliation,
+    get_battle_dimension,
+    iso8601_string_from_datetime,
+)
 from opentakserver.models.Alert import Alert
 from opentakserver.models.CasEvac import CasEvac
-from opentakserver.models.Certificate import Certificate
 from opentakserver.models.Chatrooms import Chatroom
 from opentakserver.models.ChatroomsUids import ChatroomsUids
 from opentakserver.models.CoT import CoT
-from opentakserver.models.DataPackage import DataPackage
-from opentakserver.models.DeviceProfiles import DeviceProfiles
 from opentakserver.models.EUD import EUD
 from opentakserver.models.EUDStats import EUDStats
 from opentakserver.models.GeoChat import GeoChat
-from opentakserver.models.Group import Group
-from opentakserver.models.GroupMission import GroupMission
 from opentakserver.models.Icon import Icon
 from opentakserver.models.Marker import Marker
 from opentakserver.models.Meshtastic import MeshtasticChannel
-from opentakserver.models.Mission import Mission
-from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
-from opentakserver.models.MissionContentMission import MissionContentMission
-from opentakserver.models.MissionInvitation import MissionInvitation
-from opentakserver.models.MissionLogEntry import MissionLogEntry
 from opentakserver.models.MissionUID import MissionUID
 from opentakserver.models.Point import Point
 from opentakserver.models.RBLine import RBLine
-from opentakserver.models.Team import Team
-from opentakserver.models.VideoRecording import VideoRecording
+from opentakserver.models.role import Role
+from opentakserver.models.user import User
 from opentakserver.models.VideoStream import VideoStream
 from opentakserver.models.WebAuthn import WebAuthn
 from opentakserver.models.ZMIST import ZMIST
@@ -379,7 +373,7 @@ class CoTController:
                     self.db.session.query(EUD).filter_by(uid=uid)
                 ).first()[0]
                 from_id = eud.meshtastic_id
-            except:
+            except Exception:
                 self.logger.error("Failed to find EUD {}, using random Meshtastic ID".format(uid))
                 self.logger.debug(traceback.format_exc())
                 from_id = random.getrandbits(32)
@@ -390,7 +384,7 @@ class CoTController:
 
         try:
             setattr(mesh_packet, "from", int(from_id, 16))
-        except BaseException as e:
+        except BaseException:
             setattr(mesh_packet, "from", from_id)
         mesh_packet.to = to_id
         mesh_packet.want_ack = False
@@ -475,7 +469,7 @@ class CoTController:
                                 # DM to a Meshtastic device
                                 to_id = int(to, 16)
                                 send_meshtastic_text = True
-                            except:
+                            except Exception:
                                 # DM to an EUD running the Meshtastic ATAK Plugin
                                 to_id = BROADCAST_NUM
 
@@ -580,7 +574,7 @@ class CoTController:
                     self.db.session.add(v)
                     self.db.session.commit()
                     self.logger.debug("Added video")
-                except exc.IntegrityError as e:
+                except exc.IntegrityError:
                     self.db.session.rollback()
                     self.db.session.execute(
                         update(VideoStream)
@@ -625,7 +619,7 @@ class CoTController:
                     try:
                         alert = self.db.session.execute(
                             Alert.query.filter(
-                                Alert.cancel_time == None, Alert.sender_uid == uid
+                                Alert.cancel_time is None, Alert.sender_uid == uid
                             ).order_by(Alert.start_time.desc())
                         ).first()[0]
                         alert.cancel_time = datetime_from_iso8601_string(event.attrs["start"])
@@ -662,7 +656,7 @@ class CoTController:
                         self.db.session.execute(
                             insert(ZMIST).values(casevac_uid=event.attrs["uid"], **zmist.attrs)
                         )
-                except exc.IntegrityError as e:
+                except exc.IntegrityError:
                     self.db.session.rollback()
                     self.db.session.execute(
                         update(CasEvac)
@@ -736,7 +730,7 @@ class CoTController:
                                             )
                                         ).first()[0]
                                         marker.icon_id = icon.id
-                                    except:
+                                    except Exception:
                                         icon = self.db.session.execute(
                                             self.db.session.query(Icon).filter(
                                                 Icon.filename == "marker-icon.png"
@@ -942,7 +936,6 @@ class CoTController:
         body: bytes,
     ):
         try:
-            start = time.time()
             body = json.loads(body)
             soup = BeautifulSoup(body["cot"], "xml")
             event: BeautifulSoup = soup.find("event")
@@ -1062,10 +1055,7 @@ def create_app():
     except sqlalchemy.exc.InvalidRequestError:
         pass
 
-    from opentakserver.models.role import Role
-    from opentakserver.models.user import User
-
-    user_datastore = SQLAlchemyUserDatastore(db, User, Role, WebAuthn)
+    SQLAlchemyUserDatastore(db, User, Role, WebAuthn)
 
     return app
 
@@ -1102,7 +1092,7 @@ def main():
         try:
             os.waitpid(child, 0)
         except BaseException:
-            logger.info(f"Exiting...")
+            logger.info("Exiting...")
             sys.exit()
 
 

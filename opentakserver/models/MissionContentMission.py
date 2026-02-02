@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from sqlalchemy import ForeignKey, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from opentakserver.extensions import db
 

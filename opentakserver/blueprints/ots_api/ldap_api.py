@@ -2,7 +2,7 @@ from flask import Blueprint
 from flask import current_app as app
 from flask import request
 from flask_ldap3_login.forms import LDAPLoginForm
-from flask_security import current_user, login_user
+from flask_security import login_user
 from flask_security.utils import base_render_json
 from werkzeug.datastructures import ImmutableMultiDict
 

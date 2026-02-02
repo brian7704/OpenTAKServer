@@ -1,11 +1,7 @@
-import json
 import math
 import re
 from datetime import datetime, timezone
-from xml.etree.ElementTree import Element, SubElement, tostring
-
-import pika.channel
-from flask import current_app as app
+from xml.etree.ElementTree import Element, SubElement
 
 ISO8601_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 ISO8601_FORMAT_NO_MICROSECONDS = "%Y-%m-%dT%H:%M:%SZ"

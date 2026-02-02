@@ -1,9 +1,7 @@
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.extensions import db
-
-from .GeoChat import GeoChat
 
 
 class Chatroom(db.Model):

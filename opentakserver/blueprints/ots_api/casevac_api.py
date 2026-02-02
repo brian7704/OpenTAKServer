@@ -1,9 +1,13 @@
-from datetime import timedelta, timezone
+import json
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
+from xml.etree.ElementTree import Element, SubElement, tostring
 
 import pika
 import sqlalchemy.exc
-from flask import Blueprint, jsonify, request
+from flask import Blueprint
+from flask import current_app as app
+from flask import jsonify, request
 from flask_babel import gettext
 from flask_security import auth_required, current_user
 from sqlalchemy import insert, update
@@ -13,7 +17,7 @@ from opentakserver.blueprints.ots_api.api import paginate, route_cot, search
 from opentakserver.extensions import db, logger, socketio
 from opentakserver.forms.casevac_form import CasEvacForm
 from opentakserver.forms.zmist_form import ZmistForm
-from opentakserver.functions import *
+from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.models.CasEvac import CasEvac
 from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD

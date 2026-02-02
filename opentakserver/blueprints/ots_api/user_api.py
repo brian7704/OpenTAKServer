@@ -15,7 +15,7 @@ from flask_security import (
 )
 
 from opentakserver.blueprints.ots_api.api import paginate, search
-from opentakserver.extensions import db, ldap_manager, logger
+from opentakserver.extensions import db, logger
 from opentakserver.models.EUD import EUD
 from opentakserver.models.Group import Group
 from opentakserver.models.GroupUser import GroupUser

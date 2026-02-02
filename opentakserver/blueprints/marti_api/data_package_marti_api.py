@@ -1,5 +1,4 @@
 import hashlib
-import io
 import os
 import traceback
 import uuid
@@ -233,9 +232,6 @@ def get_data_package():
     data_package_hash = request.args.get("hash")
     data_package_uid = request.args.get("uid")
 
-    # TODO: Support keywords
-    keyword = request.args.get("keyword")
-
     query = db.select(DataPackage)
     if data_package_hash:
         query = query.where(DataPackage.hash == data_package_hash)
@@ -385,19 +381,13 @@ def data_package_query():
             )
         else:
             return jsonify({"success": False, "error": "File not found"}), 404
-    except sqlalchemy.exc.NoResultFound as e:
+    except sqlalchemy.exc.NoResultFound:
         return jsonify({"success": False, "error": "File not found"}), 404
 
 
 @data_package_marti_api.route("/Marti/api/files/metadata")
 def get_metadata():
-    mission_package = request.args.get("missionPackage")
-    page = request.args.get("page")
-    limit = request.args.get("limit")
-    mission = request.args.get("mission")
     name = request.args.get("name")
-    sort = request.args.get("sort")
-    setting = request.args.get("setting")
 
     query = db.session.query(DataPackage)
     if name:

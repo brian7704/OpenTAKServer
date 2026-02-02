@@ -1,10 +1,8 @@
-import io
 import os
 import random
 import re
 import shutil
 import subprocess
-import traceback
 import uuid
 import zipfile
 from pathlib import Path
@@ -14,7 +12,7 @@ from urllib.parse import urlparse
 from flask import request
 from jinja2 import Template
 
-from .ca_config import ca_config, server_config
+from opentakserver.ca_config import ca_config, server_config
 
 
 class CertificateAuthority:
@@ -385,7 +383,7 @@ class CertificateAuthority:
                    <Contents>
                       <Content ignore="false" zipEntry="{{ folder }}/preference.pref"/>
                       <Content ignore="false" zipEntry="{{ folder }}/{{ server_filename }}"/>
-                      <Content ignore="false" zipEntry="{{ folder }}/{{ user_filename }}"/>	  
+                      <Content ignore="false" zipEntry="{{ folder }}/{{ user_filename }}"/>
                    </Contents>
                 </MissionPackageManifest>
                 """)
@@ -537,6 +535,6 @@ class CertificateAuthority:
         rmtree(os.path.join(user_file_path, "MANIFEST"))
         rmtree(os.path.join(user_file_path, parent_folder))
         os.remove(os.path.join(user_file_path, "{}.zip".format(common_name)))
-        os.remove(os.path.join(user_file_path, "config.pref".format(common_name)))
+        os.remove(os.path.join(user_file_path, "config.pref"))
 
         return ["{}_CONFIG.zip".format(common_name), "{}_CONFIG_iTAK.zip".format(common_name)]

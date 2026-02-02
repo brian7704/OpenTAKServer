@@ -19,32 +19,32 @@ from opentakserver.EmailValidator import EmailValidator
 # These unused imports are required by SQLAlchemy, don't remove them
 from opentakserver.eud_handler.SocketServer import SocketServer
 from opentakserver.extensions import db, ldap_manager, logger
-from opentakserver.models.Alert import Alert
-from opentakserver.models.CasEvac import CasEvac
-from opentakserver.models.Certificate import Certificate
-from opentakserver.models.Chatrooms import Chatroom
-from opentakserver.models.ChatroomsUids import ChatroomsUids
-from opentakserver.models.CoT import CoT
-from opentakserver.models.DataPackage import DataPackage
-from opentakserver.models.DeviceProfiles import DeviceProfiles
-from opentakserver.models.EUD import EUD
-from opentakserver.models.EUDStats import EUDStats
-from opentakserver.models.Group import Group
-from opentakserver.models.GroupMission import GroupMission
-from opentakserver.models.Marker import Marker
-from opentakserver.models.Mission import Mission
-from opentakserver.models.MissionChange import MissionChange
-from opentakserver.models.MissionContentMission import MissionContentMission
-from opentakserver.models.MissionInvitation import MissionInvitation
-from opentakserver.models.MissionLogEntry import MissionLogEntry
-from opentakserver.models.MissionUID import MissionUID
-from opentakserver.models.Point import Point
-from opentakserver.models.RBLine import RBLine
-from opentakserver.models.Team import Team
-from opentakserver.models.VideoRecording import VideoRecording
-from opentakserver.models.VideoStream import VideoStream
-from opentakserver.models.WebAuthn import WebAuthn
-from opentakserver.models.ZMIST import ZMIST
+from opentakserver.models.Alert import Alert  # noqa: F401
+from opentakserver.models.CasEvac import CasEvac  # noqa: F401
+from opentakserver.models.Certificate import Certificate  # noqa: F401
+from opentakserver.models.Chatrooms import Chatroom  # noqa: F401
+from opentakserver.models.ChatroomsUids import ChatroomsUids  # noqa: F401
+from opentakserver.models.CoT import CoT  # noqa: F401
+from opentakserver.models.DataPackage import DataPackage  # noqa: F401
+from opentakserver.models.DeviceProfiles import DeviceProfiles  # noqa: F401
+from opentakserver.models.EUD import EUD  # noqa: F401
+from opentakserver.models.EUDStats import EUDStats  # noqa: F401
+from opentakserver.models.Group import Group  # noqa: F401
+from opentakserver.models.GroupMission import GroupMission  # noqa: F401
+from opentakserver.models.Marker import Marker  # noqa: F401
+from opentakserver.models.Mission import Mission  # noqa: F401
+from opentakserver.models.MissionChange import MissionChange  # noqa: F401
+from opentakserver.models.MissionContentMission import MissionContentMission  # noqa: F401
+from opentakserver.models.MissionInvitation import MissionInvitation  # noqa: F401
+from opentakserver.models.MissionLogEntry import MissionLogEntry  # noqa: F401
+from opentakserver.models.MissionUID import MissionUID  # noqa: F401
+from opentakserver.models.Point import Point  # noqa: F401
+from opentakserver.models.RBLine import RBLine  # noqa: F401
+from opentakserver.models.Team import Team  # noqa: F401
+from opentakserver.models.VideoRecording import VideoRecording  # noqa: F401
+from opentakserver.models.VideoStream import VideoStream  # noqa: F401
+from opentakserver.models.WebAuthn import WebAuthn  # noqa: F401
+from opentakserver.models.ZMIST import ZMIST  # noqa: F401
 from opentakserver.PasswordValidator import PasswordValidator
 
 

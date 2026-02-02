@@ -1,4 +1,3 @@
-import glob
 import os
 import traceback
 from urllib.parse import unquote, urlparse
@@ -94,10 +93,6 @@ def atak_track_history():
         end_time = request.args.get("endTime")
         uid = request.args.get("uid")
         file_format = request.args.get("format")
-        # Not sure what these three are supposed to do
-        multitrack_threshold = request.args.get("multiTrackThreshold")
-        extended_data = request.args.get("extendedData")
-        optimize_export = request.args.get("optimizeExport")
 
         kml = Kml()
         doc: Document = kml.newdocument(name=uid)

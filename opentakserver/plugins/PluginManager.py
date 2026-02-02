@@ -5,7 +5,7 @@ import selectors
 import subprocess
 import sys
 import traceback
-from typing import TYPE_CHECKING
+from typing import Any
 
 import sqlalchemy.exc
 from flask import Flask
@@ -19,9 +19,6 @@ from opentakserver.blueprints.ots_socketio import administrator_only
 from opentakserver.extensions import db, logger, socketio
 from opentakserver.models.Plugins import Plugins
 from opentakserver.plugins.Plugin import Plugin
-
-if TYPE_CHECKING:
-    from typing import Any
 
 
 class PluginManager:
@@ -66,9 +63,9 @@ class PluginManager:
 
                         db.session.add(plugin_row)
                         db.session.commit()
-                except sqlalchemy.exc.IntegrityError as e:
+                except sqlalchemy.exc.IntegrityError:
                     logger.debug(f"{plugin_row.name} is already in the DB")
-                except BaseException as e:
+                except BaseException:
                     logger.debug(f"{plugin.name} already in the database")
 
                 plugin.activate(*args, **kwargs, enabled=self.check_if_plugin_enabled(plugin.name))
