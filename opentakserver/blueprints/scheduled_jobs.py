@@ -195,11 +195,12 @@ def purge_data():
 
 
 def get_aishub_data():
-    if not app.config.get("OTS_AISHUB_USERNAME"):
-        logger.error("Please set your AISHub username")
-        return
-
     with apscheduler.app.app_context():
+
+        if not app.config.get("OTS_AISHUB_USERNAME"):
+            logger.error("Please set your AISHub username")
+            return
+
         try:
             params = {
                 "username": app.config.get("OTS_AISHUB_USERNAME"),
@@ -273,30 +274,54 @@ def get_aishub_data():
 
 
 def delete_old_data():
-    timestamp = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
-        seconds=app.config.get("OTS_DELETE_OLD_DATA_SECONDS"),
-        minutes=app.config.get("OTS_DELETE_OLD_DATA_MINUTES"),
-        hours=app.config.get("OTS_DELETE_OLD_DATA_HOURS"),
-        days=app.config.get("OTS_DELETE_OLD_DATA_DAYS"),
-        weeks=app.config.get("OTS_DELETE_OLD_DATA_WEEKS"),
-    )
+    with apscheduler.app.app_context():
+        timestamp = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+            seconds=app.config.get("OTS_DELETE_OLD_DATA_SECONDS"),
+            minutes=app.config.get("OTS_DELETE_OLD_DATA_MINUTES"),
+            hours=app.config.get("OTS_DELETE_OLD_DATA_HOURS"),
+            days=app.config.get("OTS_DELETE_OLD_DATA_DAYS"),
+            weeks=app.config.get("OTS_DELETE_OLD_DATA_WEEKS"),
+        )
 
-    rabbit_credentials = pika.PlainCredentials(
-        app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD")
-    )
-    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
-    rabbit_connection = pika.BlockingConnection(
-        pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
-    )
-    channel = rabbit_connection.channel()
+        rabbit_credentials = pika.PlainCredentials(
+            app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD")
+        )
+        rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+        rabbit_connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
+        )
+        channel = rabbit_connection.channel()
 
-    # I wish I hadn't made the marker's timestamp field a string...
-    markers = db.session.execute(db.session.query(Marker)).all()
-    groups = db.session.execute(db.session.query(Group)).scalars()
-    for marker in markers:
-        marker = marker[0]
-        if datetime_from_iso8601_string(marker.production_time) <= timestamp:
-            cot = generate_delete_cot(marker.uid, marker.cot.type)
+        # I wish I hadn't made the marker's timestamp field a string...
+        markers = db.session.execute(db.session.query(Marker)).all()
+        groups = db.session.execute(db.session.query(Group)).scalars()
+        for marker in markers:
+            marker = marker[0]
+            if datetime_from_iso8601_string(marker.production_time) <= timestamp:
+                cot = generate_delete_cot(marker.uid, marker.cot.type)
+                for group in groups:
+                    channel.basic_publish(
+                        exchange="groups",
+                        routing_key=f"{group.name}.{Group.OUT}",
+                        body=json.dumps(
+                            {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
+                        ),
+                        properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+                    )
+                    channel.basic_publish(
+                        exchange="firehose",
+                        routing_key="",
+                        body=json.dumps(
+                            {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
+                        ),
+                        properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+                    )
+                db.session.delete(marker)
+
+        alerts = db.session.execute(db.session.query(Alert).where(Alert.start_time <= timestamp)).all()
+        for alert in alerts:
+            alert = alert[0]
+            cot = generate_delete_cot(alert.uid, alert.cot.type)
             for group in groups:
                 channel.basic_publish(
                     exchange="groups",
@@ -314,72 +339,49 @@ def delete_old_data():
                     ),
                     properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
                 )
-            db.session.delete(marker)
+            db.session.delete(alert)
 
-    alerts = db.session.execute(db.session.query(Alert).where(Alert.start_time <= timestamp)).all()
-    for alert in alerts:
-        alert = alert[0]
-        cot = generate_delete_cot(alert.uid, alert.cot.type)
-        for group in groups:
-            channel.basic_publish(
-                exchange="groups",
-                routing_key=f"{group.name}.{Group.OUT}",
-                body=json.dumps(
-                    {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
-                ),
-                properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
-            )
-            channel.basic_publish(
-                exchange="firehose",
-                routing_key="",
-                body=json.dumps(
-                    {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
-                ),
-                properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
-            )
-        db.session.delete(alert)
+        rb_lines = db.session.execute(
+            db.session.query(RBLine).where(RBLine.timestamp <= timestamp)
+        ).all()
+        for rb_line in rb_lines:
+            rb_line = rb_line[0]
+            cot = generate_delete_cot(rb_line.uid, rb_line.cot.type)
+            for group in groups:
+                channel.basic_publish(
+                    exchange="groups",
+                    routing_key=f"{group.name}.{Group.OUT}",
+                    body=json.dumps(
+                        {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
+                    ),
+                    properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+                )
+                channel.basic_publish(
+                    exchange="firehose",
+                    routing_key="",
+                    body=json.dumps(
+                        {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
+                    ),
+                    properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+                )
+            db.session.delete(rb_line)
 
-    rb_lines = db.session.execute(
-        db.session.query(RBLine).where(RBLine.timestamp <= timestamp)
-    ).all()
-    for rb_line in rb_lines:
-        rb_line = rb_line[0]
-        cot = generate_delete_cot(rb_line.uid, rb_line.cot.type)
-        for group in groups:
-            channel.basic_publish(
-                exchange="groups",
-                routing_key=f"{group.name}.{Group.OUT}",
-                body=json.dumps(
-                    {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
-                ),
-                properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
-            )
-            channel.basic_publish(
-                exchange="firehose",
-                routing_key="",
-                body=json.dumps(
-                    {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
-                ),
-                properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
-            )
-        db.session.delete(rb_line)
+        db.session.execute(delete(GeoChat).where(GeoChat.timestamp <= timestamp))
 
-    db.session.execute(delete(GeoChat).where(GeoChat.timestamp <= timestamp))
+        timestamp = datetime.datetime.now() - datetime.timedelta(
+            seconds=app.config.get("OTS_DELETE_OLD_DATA_SECONDS"),
+            minutes=app.config.get("OTS_DELETE_OLD_DATA_MINUTES"),
+            hours=app.config.get("OTS_DELETE_OLD_DATA_HOURS"),
+            days=app.config.get("OTS_DELETE_OLD_DATA_DAYS"),
+            weeks=app.config.get("OTS_DELETE_OLD_DATA_WEEKS"),
+        )
 
-    timestamp = datetime.datetime.now() - datetime.timedelta(
-        seconds=app.config.get("OTS_DELETE_OLD_DATA_SECONDS"),
-        minutes=app.config.get("OTS_DELETE_OLD_DATA_MINUTES"),
-        hours=app.config.get("OTS_DELETE_OLD_DATA_HOURS"),
-        days=app.config.get("OTS_DELETE_OLD_DATA_DAYS"),
-        weeks=app.config.get("OTS_DELETE_OLD_DATA_WEEKS"),
-    )
+        db.session.execute(delete(EUD).where(EUD.last_event_time <= timestamp))
+        db.session.execute(delete(Point).where(Point.timestamp <= timestamp))
+        db.session.execute(delete(CoT).where(CoT.timestamp <= timestamp))
+        db.session.commit()
 
-    db.session.execute(delete(EUD).where(EUD.last_event_time <= timestamp))
-    db.session.execute(delete(Point).where(Point.timestamp <= timestamp))
-    db.session.execute(delete(CoT).where(CoT.timestamp <= timestamp))
-    db.session.commit()
+        channel.close()
+        rabbit_connection.close()
 
-    channel.close()
-    rabbit_connection.close()
-
-    logger.info(f"Deleted data older than {iso8601_string_from_datetime(timestamp)}")
+        logger.info(f"Deleted data older than {iso8601_string_from_datetime(timestamp)}")
