@@ -385,3 +385,8 @@ def delete_old_data():
         rabbit_connection.close()
 
         logger.info(f"Deleted data older than {iso8601_string_from_datetime(timestamp)}")
+
+
+# This function is to prevent errors caused by changing get_airplanes_live_data() to get_adsb_data
+def get_airplanes_live_data():
+    return
