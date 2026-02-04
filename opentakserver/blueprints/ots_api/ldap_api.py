@@ -39,7 +39,7 @@ def save_user(dn: str, username: str, data, groups):
         if group["cn"] == app.config.get("OTS_LDAP_ADMIN_GROUP"):
             is_admin = True
         elif group["cn"].startswith(
-            app.config.get("OTS_LDAP_PREFERENCE_ATTRIBUTE_PREFIX")
+            app.config.get("OTS_LDAP_GROUP_PREFIX")
         ) and not (group["cn"].lower().endswith("_read") or group["cn"].lower().endswith("_write")):
             logger.debug(f"Adding {group['cn']} role to {user.username}")
             app.security.datastore.add_role_to_user(
