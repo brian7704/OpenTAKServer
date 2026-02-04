@@ -48,7 +48,7 @@ def get_all_cot(uid):
     query = db.session.query(CoT).filter_by(uid=uid)
     if sec_ago:
         try:
-            query = query.filter(CoT.start >= datetime.timedelta(seconds=int(sec_ago)))
+            query = query.filter(CoT.start >= datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=int(sec_ago)))
         except ValueError:
             return (
                 jsonify(
