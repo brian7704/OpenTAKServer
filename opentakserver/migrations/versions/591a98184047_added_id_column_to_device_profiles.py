@@ -8,6 +8,8 @@ Create Date: 2026-01-30 03:54:18.307669
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import Sequence
+from sqlalchemy.sql.ddl import CreateSequence
 
 # revision identifiers, used by Alembic.
 revision = "591a98184047"
@@ -23,7 +25,23 @@ def upgrade():
             batch_op.drop_constraint("device_profiles_pkey", type_="primary")
         except:
             pass
-        batch_op.create_primary_key("primary_key", ["preference_key", "eud_uid"])
+        batch_op.create_index(
+            "preference_key_eud_uid",
+            ["preference_key", "eud_uid"],
+            unique=True,
+            postgresql_nulls_not_distinct=False,
+        )
+        batch_op.execute(CreateSequence(Sequence("device_profiles_id_seq")))
+        batch_op.add_column(
+            sa.Column(
+                "id",
+                sa.Integer(),
+                nullable=False,
+                server_default=sa.text("nextval('device_profiles_id_seq'::regclass)"),
+                autoincrement=True,
+            )
+        )
+        batch_op.create_primary_key("primary_key", ["id"])
     # ### end Alembic commands ###
 
 

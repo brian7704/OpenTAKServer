@@ -13,7 +13,8 @@ from opentakserver.functions import iso8601_string_from_datetime
 class DeviceProfiles(db.Model):
     __tablename__ = "device_profiles"
 
-    preference_key: Mapped[str] = mapped_column(String(255), nullable=False, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    preference_key: Mapped[str] = mapped_column(String(255), nullable=False)
     preference_value: Mapped[str] = mapped_column(String(255), nullable=True)
     value_class: Mapped[str] = mapped_column(String(255), nullable=True)
     enrollment: Mapped[bool] = mapped_column(Boolean, default=True, nullable=True)
@@ -22,7 +23,9 @@ class DeviceProfiles(db.Model):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     publish_time: Mapped[datetime] = mapped_column(DateTime)
     eud_uid: Mapped[str] = mapped_column(
-        String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True, primary_key=True
+        String(255),
+        ForeignKey("euds.uid", ondelete="CASCADE"),
+        nullable=True,
     )
     eud = relationship("EUD", back_populates="profiles")
 

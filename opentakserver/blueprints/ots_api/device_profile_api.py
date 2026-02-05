@@ -55,6 +55,7 @@ def add_device_profile():
 @roles_required("administrator")
 def delete_device_profile():
     preference_key = request.args.get("preference_key")
+    eud_uid = request.args.get("eud_uid")
     if not preference_key:
         return (
             jsonify({"success": False, "error": gettext("Please specify the preference_key")}),
@@ -63,6 +64,7 @@ def delete_device_profile():
     try:
         query = db.session.query(DeviceProfiles)
         query = search(query, DeviceProfiles, "preference_key")
+        query = search(query, DeviceProfiles, "eud_uid")
         preference = db.session.execute(query).first()
         if not preference:
             return (
