@@ -306,7 +306,9 @@ def delete_old_data():
                         body=json.dumps(
                             {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
                         ),
-                        properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+                        properties=pika.BasicProperties(
+                            expiration=app.config.get("OTS_RABBITMQ_TTL")
+                        ),
                     )
                     channel.basic_publish(
                         exchange="firehose",
@@ -314,11 +316,15 @@ def delete_old_data():
                         body=json.dumps(
                             {"cot": tostring(cot).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}
                         ),
-                        properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+                        properties=pika.BasicProperties(
+                            expiration=app.config.get("OTS_RABBITMQ_TTL")
+                        ),
                     )
                 db.session.delete(marker)
 
-        alerts = db.session.execute(db.session.query(Alert).where(Alert.start_time <= timestamp)).all()
+        alerts = db.session.execute(
+            db.session.query(Alert).where(Alert.start_time <= timestamp)
+        ).all()
         for alert in alerts:
             alert = alert[0]
             cot = generate_delete_cot(alert.uid, alert.cot.type)
@@ -376,6 +382,9 @@ def delete_old_data():
             weeks=app.config.get("OTS_DELETE_OLD_DATA_WEEKS"),
         )
 
+        db.session.execute(delete(MissionRole).where(MissionRole.createTime <= timestamp))
+        db.session.execute(delete(MissionUID).where(MissionUID.timestamp <= timestamp))
+        db.session.execute(delete(MissionChange).where(MissionChange.timestamp <= timestamp))
         db.session.execute(delete(EUD).where(EUD.last_event_time <= timestamp))
         db.session.execute(delete(Point).where(Point.timestamp <= timestamp))
         db.session.execute(delete(CoT).where(CoT.timestamp <= timestamp))
