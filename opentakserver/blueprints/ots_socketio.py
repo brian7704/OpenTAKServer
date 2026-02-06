@@ -42,4 +42,4 @@ def connect(data):
 @socketio.on("message", namespace="/socket.io")
 @authenticated_only
 def data(data):
-    logger.debug("Got a message".format(data))
+    logger.debug("Got a message: {}".format(data))

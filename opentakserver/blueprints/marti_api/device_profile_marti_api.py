@@ -20,7 +20,6 @@ from opentakserver.extensions import db, ldap_manager, logger
 from opentakserver.models.DataPackage import DataPackage
 from opentakserver.models.DeviceProfiles import DeviceProfiles
 from opentakserver.models.Packages import Packages
-from opentakserver.models.Plugins import Plugins
 
 device_profile_marti_api_blueprint = Blueprint("device_profile_marti_api_blueprint", __name__)
 

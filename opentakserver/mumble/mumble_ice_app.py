@@ -14,7 +14,7 @@ Ice.loadSlice(
         os.path.join(os.path.dirname(os.path.realpath(__file__)), "Murmur.ice"),
     ],
 )
-import Murmur
+import Murmur  # noqa: E402
 
 
 class MumbleIceDaemon(threading.Thread):
@@ -42,7 +42,7 @@ class MumbleIceDaemon(threading.Thread):
         if secret != "":
             ice.getImplicitContext().put("secret", secret)
         try:
-            meta = Murmur.MetaPrx.checkedCast(proxy)
+            Murmur.MetaPrx.checkedCast(proxy)
         except Ice.ConnectionRefusedException:
             self.logger.error("Failed to connect to the mumble ice server")
             return

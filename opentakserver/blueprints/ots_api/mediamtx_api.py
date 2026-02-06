@@ -113,13 +113,10 @@ def mediamtx_webhook():
                     db.session.commit()
 
     elif event == "connect":
-        connection_type = bleach.clean(request.args.get("connection_type"))
-        connection_id = bleach.clean(request.args.get("connection_id"))
         rtsp_port = bleach.clean(request.args.get("rtsp_port"))
     elif event == "ready" or event == "notready":
         rtsp_port = bleach.clean(request.args.get("rtsp_port"))
         path = bleach.clean(request.args.get("path"))
-        query = bleach.clean(request.args.get("query"))
         source_type = bleach.clean(request.args.get("source_type"))
         source_id = bleach.clean(request.args.get("source_id"))
 
@@ -206,12 +203,7 @@ def mediamtx_webhook():
     elif event == "read":
         rtsp_port = bleach.clean(request.args.get("rtsp_port"))
         path = bleach.clean(request.args.get("path"))
-        query = bleach.clean(request.args.get("query"))
-        reader_type = bleach.clean(request.args.get("reader_type"))
-        reader_id = bleach.clean(request.args.get("reader_id"))
     elif event == "disconnect":
-        connection_type = bleach.clean(request.args.get("connection_type"))
-        connection_id = bleach.clean(request.args.get("connection_id"))
         rtsp_port = bleach.clean(request.args.get("rtsp_port"))
     elif event == "segment_record":
         recording = VideoRecording()
@@ -416,7 +408,7 @@ def delete_stream():
 
         video.delete()
         db.session.commit()
-    except requests.exceptions.ConnectionError as e:
+    except requests.exceptions.ConnectionError:
         logger.error(traceback.format_exc())
         return jsonify({"success": False, "error": gettext("MediaMTX is not running")}), 500
 
@@ -529,7 +521,7 @@ def external_auth():
                             )
                         )
                     logger.debug("Inserted video stream {}".format(v.uid))
-                except sqlalchemy.exc.IntegrityError as e:
+                except sqlalchemy.exc.IntegrityError:
                     try:
                         db.session.rollback()
                         video = (
@@ -549,7 +541,7 @@ def external_auth():
                                     v.path, r.status_code, r.text
                                 )
                             )
-                    except:
+                    except Exception:
                         logger.error(traceback.format_exc())
 
         logger.debug("external_auth returning 200")

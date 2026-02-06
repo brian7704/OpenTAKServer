@@ -18,7 +18,7 @@ from flask import Blueprint, Response
 from flask import current_app as app
 from flask import jsonify, request
 from flask_babel import gettext
-from flask_security import current_user, hash_password, verify_password
+from flask_security import hash_password, verify_password
 from sqlalchemy import insert, or_, update
 from werkzeug.utils import secure_filename
 
@@ -665,9 +665,6 @@ def get_mission(mission_name: str):
 def delete_mission(mission_name: str):
     """Used by the Data Sync plugin to delete a feed"""
 
-    # ATAK sends a creatorUid param, but we ignore it in favor of the UID in the signed JWT token that ATAK also sends.
-    creator_uid = request.args.get("creatorUid")
-
     if "iTAK" not in request.user_agent.string:
         token = verify_token()
         if not token or token["MISSION_NAME"] != mission_name:
@@ -772,8 +769,6 @@ def set_password(mission_name: str):
             ),
             403,
         )
-
-    creator_uid = request.args.get("creatorUid")
 
     if request.method == "PUT":
         password = hash_password(request.args.get("password"))
@@ -990,7 +985,6 @@ def invite_json(mission_name: str):
     if isinstance(permission_granted, flask.Response):
         return permission_granted
 
-    creator_uid = request.args.get("creatorUid")
     invitees = request.json
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
@@ -1189,7 +1183,7 @@ def change_eud_role(mission_name: str):
         role.clientUid = client_uid
         try:
             role.username = eud.user.username
-        except BaseException as e:
+        except BaseException:
             role.username = "anonymous"
         role.createTime = datetime.datetime.now(datetime.timezone.utc)
         role.role_type = new_role
@@ -2158,7 +2152,6 @@ def delete_content(mission_name: str):
     "/Marti/api/missions/<mission_name>/contents/missionpackage", methods=["PUT"]
 )
 def add_content(mission_name):
-    client_uid = request.args.get("clientUid")
     if "Authorization" not in request.headers or not verify_token():
         return jsonify({"success": False, "error": gettext("Missing or invalid token")}), 401
 

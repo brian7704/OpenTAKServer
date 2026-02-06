@@ -21,18 +21,18 @@ def upgrade():
     try:
         with op.batch_alter_table("alerts", schema=None) as batch_op:
             batch_op.drop_constraint("alert_cot", type_="foreignkey")
-    except:
+    except Exception:
         pass
     try:
         with op.batch_alter_table("alerts", schema=None) as batch_op:
             batch_op.drop_constraint("alert_point", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     try:
         with op.batch_alter_table("alerts", schema=None) as batch_op:
             batch_op.drop_constraint("alert_eud", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     with op.batch_alter_table("alerts", schema=None) as batch_op:
@@ -47,19 +47,19 @@ def upgrade():
     try:
         with op.batch_alter_table("casevac", schema=None) as batch_op:
             batch_op.drop_constraint("casevac_cot", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     try:
         with op.batch_alter_table("casevac", schema=None) as batch_op:
             batch_op.drop_constraint("casevac_point", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     try:
         with op.batch_alter_table("casevac", schema=None) as batch_op:
             batch_op.drop_constraint("casevac_eud", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     with op.batch_alter_table("casevac", schema=None) as batch_op:
@@ -85,19 +85,19 @@ def upgrade():
     try:
         with op.batch_alter_table("markers", schema=None) as batch_op:
             batch_op.drop_constraint("marker_cot", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     try:
         with op.batch_alter_table("markers", schema=None) as batch_op:
             batch_op.drop_constraint("marker_point", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     try:
         with op.batch_alter_table("markers", schema=None) as batch_op:
             batch_op.drop_constraint("marker_eud", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     with op.batch_alter_table("markers", schema=None) as batch_op:
@@ -112,13 +112,13 @@ def upgrade():
     try:
         with op.batch_alter_table("points", schema=None) as batch_op:
             batch_op.drop_constraint("point_cot", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     try:
         with op.batch_alter_table("points", schema=None) as batch_op:
             batch_op.drop_constraint("point_eud", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     with op.batch_alter_table("points", schema=None) as batch_op:
@@ -130,19 +130,19 @@ def upgrade():
     try:
         with op.batch_alter_table("rb_lines", schema=None) as batch_op:
             batch_op.drop_constraint("rb_line_cot", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     try:
         with op.batch_alter_table("rb_lines", schema=None) as batch_op:
             batch_op.drop_constraint("rb_line_point", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     try:
         with op.batch_alter_table("rb_lines", schema=None) as batch_op:
             batch_op.drop_constraint("rb_line_eud", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     with op.batch_alter_table("rb_lines", schema=None) as batch_op:
@@ -157,7 +157,7 @@ def upgrade():
     try:
         with op.batch_alter_table("zmist", schema=None) as batch_op:
             batch_op.drop_constraint("zmist_casevac", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     with op.batch_alter_table("zmist", schema=None) as batch_op:

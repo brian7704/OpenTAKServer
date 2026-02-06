@@ -1,7 +1,7 @@
 from flask import Blueprint
 from flask_security import auth_required
 
-from opentakserver.blueprints.ots_api.api import paginate, search
+from opentakserver.blueprints.ots_api.api import search
 from opentakserver.extensions import db
 from opentakserver.models.EUDStats import EUDStats
 

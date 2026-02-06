@@ -6,7 +6,6 @@ Create Date: 2024-11-07 19:14:25.263371
 
 """
 
-import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -21,7 +20,7 @@ def upgrade():
     try:
         with op.batch_alter_table("certificates", schema=None) as batch_op:
             batch_op.drop_constraint("certificate_eud", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     with op.batch_alter_table("certificates", schema=None) as batch_op:
@@ -32,7 +31,7 @@ def upgrade():
     try:
         with op.batch_alter_table("chatrooms_uids", schema=None) as batch_op:
             batch_op.drop_constraint("chatroom_eud", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     with op.batch_alter_table("chatrooms_uids", schema=None) as batch_op:
@@ -41,7 +40,7 @@ def upgrade():
     try:
         with op.batch_alter_table("cot", schema=None) as batch_op:
             batch_op.drop_constraint("cot_eud", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     with op.batch_alter_table("cot", schema=None) as batch_op:
@@ -50,7 +49,7 @@ def upgrade():
     try:
         with op.batch_alter_table("data_packages", schema=None) as batch_op:
             batch_op.drop_constraint("data_packages_eud", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     with op.batch_alter_table("data_packages", schema=None) as batch_op:
@@ -61,7 +60,7 @@ def upgrade():
     try:
         with op.batch_alter_table("geochat", schema=None) as batch_op:
             batch_op.drop_constraint("geochat_eud", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     with op.batch_alter_table("geochat", schema=None) as batch_op:
@@ -72,7 +71,7 @@ def upgrade():
     try:
         with op.batch_alter_table("groups_euds", schema=None) as batch_op:
             batch_op.drop_constraint("group_eud", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     with op.batch_alter_table("groups_euds", schema=None) as batch_op:
@@ -82,7 +81,7 @@ def upgrade():
         with op.batch_alter_table("mission_invitations", schema=None) as batch_op:
             batch_op.drop_constraint("mission_invitation_callsign", type_="foreignkey")
             batch_op.drop_constraint("mission_invitation_eud", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     with op.batch_alter_table("mission_invitations", schema=None) as batch_op:
@@ -96,7 +95,7 @@ def upgrade():
     try:
         with op.batch_alter_table("missions", schema=None) as batch_op:
             batch_op.drop_constraint("mission_creator", type_="foreignkey")
-    except:
+    except Exception:
         pass
 
     with op.batch_alter_table("missions", schema=None) as batch_op:

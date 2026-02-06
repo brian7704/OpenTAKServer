@@ -1,7 +1,7 @@
 import json
 import traceback
 import xml.etree.ElementTree as ET
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 import bleach
@@ -16,7 +16,12 @@ from sqlalchemy.exc import IntegrityError
 
 from opentakserver.blueprints.ots_api.api import paginate, route_cot, search
 from opentakserver.extensions import db, logger, socketio
-from opentakserver.functions import *
+from opentakserver.functions import (
+    cot_type_to_2525c,
+    get_affiliation,
+    get_battle_dimension,
+    iso8601_string_from_datetime,
+)
 from opentakserver.models.CoT import CoT
 from opentakserver.models.Marker import Marker
 from opentakserver.models.Point import Point

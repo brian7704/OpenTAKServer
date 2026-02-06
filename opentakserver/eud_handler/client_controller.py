@@ -21,7 +21,7 @@ from meshtastic import BROADCAST_NUM, mesh_pb2, mqtt_pb2, portnums_pb2
 from pika.channel import Channel
 from sqlalchemy import insert, select, update
 
-from opentakserver.extensions import db, ldap_manager, logger
+from opentakserver.extensions import db, ldap_manager
 from opentakserver.functions import datetime_from_iso8601_string, iso8601_string_from_datetime
 from opentakserver.models.Chatrooms import Chatroom
 from opentakserver.models.EUD import EUD
@@ -219,7 +219,7 @@ class ClientController(Thread):
                                     )
                                     eud.user_id = self.user.id
                                     self.db.session.commit()
-                                except:
+                                except Exception:
                                     self.logger.debug(
                                         "This is a new eud: {} {}".format(uid, self.user.username)
                                     )
@@ -264,7 +264,7 @@ class ClientController(Thread):
                         )
                         eud.user_id = user.id
                         self.db.session.commit()
-                    except:
+                    except Exception:
                         self.logger.debug("This is a new eud: {} {}".format(uid, user.username))
                         eud = EUD()
                         eud.uid = uid
@@ -407,9 +407,6 @@ class ClientController(Thread):
         return False
 
     def parse_device_info(self, event):
-        link = event.find("link")
-        fileshare = event.find("fileshare")
-
         # EUDs running the Meshtastic and dmrcot plugins can relay messages from their RF networks to the server
         # so we want to use the UID of the "off grid" EUD, not the relay EUD
         contact = event.find("contact")
@@ -600,7 +597,7 @@ class ClientController(Thread):
 
                 try:
                     eud = self.db.session.execute(select(EUD).filter_by(uid=uid)).first()[0]
-                except:
+                except Exception:
                     eud = EUD()
 
                 eud.uid = uid
@@ -626,7 +623,7 @@ class ClientController(Thread):
                 elif not eud.meshtastic_id and eud.platform == "Meshtastic":
                     try:
                         eud.meshtastic_id = int(takv.attrs["meshtastic_id"], 16)
-                    except:
+                    except Exception:
                         meshtastic_id = "{:x}".format(int.from_bytes(os.urandom(4), "big"))
                         while len(meshtastic_id) < 8:
                             meshtastic_id = "0" + meshtastic_id
@@ -699,7 +696,7 @@ class ClientController(Thread):
 
             try:
                 setattr(mesh_packet, "from", int(eud.meshtastic_id, 16))
-            except BaseException as e:
+            except BaseException:
                 setattr(mesh_packet, "from", eud.meshtastic_id)
             mesh_packet.to = BROADCAST_NUM
             mesh_packet.want_ack = False
@@ -772,16 +769,14 @@ class ClientController(Thread):
                     "stale": iso8601_string_from_datetime(stale),
                 },
             )
-            point = SubElement(
+            SubElement(
                 event,
                 "point",
                 {"ce": "9999999", "le": "9999999", "hae": "0", "lat": "0", "lon": "0"},
             )
             detail = SubElement(event, "detail")
-            link = SubElement(
-                detail, "link", {"relation": "p-p", "uid": self.uid, "type": "a-f-G-U-C"}
-            )
-            flow_tags = SubElement(
+            SubElement(detail, "link", {"relation": "p-p", "uid": self.uid, "type": "a-f-G-U-C"})
+            SubElement(
                 detail,
                 "_flow-tags_",
                 {"TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0": iso8601_string_from_datetime(now)},
@@ -971,7 +966,7 @@ class ClientController(Thread):
                             )
                             mission_change.mission_uid = event.attrs["uid"]
 
-                            change_pk = self.db.session.execute(
+                            self.db.session.execute(
                                 insert(MissionChange).values(**mission_change.serialize())
                             )
                             self.db.session.commit()

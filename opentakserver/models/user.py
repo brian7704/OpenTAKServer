@@ -5,11 +5,10 @@ from sqlalchemy import String
 from sqlalchemy.orm import relationship
 
 from opentakserver.extensions import db
-from opentakserver.models.Group import Group
 
 # Leave this import here
-from opentakserver.models.Token import Token
-from opentakserver.models.WebAuthn import WebAuthn
+from opentakserver.models.Token import Token  # noqa: F401
+from opentakserver.models.WebAuthn import WebAuthn  # noqa: F401
 
 
 @dataclass

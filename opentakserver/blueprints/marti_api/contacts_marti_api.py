@@ -1,6 +1,6 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
 
-from opentakserver.extensions import db, logger
+from opentakserver.extensions import db
 from opentakserver.models.EUD import EUD
 
 contacts_api = Blueprint("contacts_api", __name__)

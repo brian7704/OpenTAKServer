@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, DateTimeField, FloatField, IntegerField, StringField
-from wtforms.validators import UUID, DataRequired, NumberRange, Optional
+from wtforms import DateTimeField, FloatField, StringField
+from wtforms.validators import DataRequired, NumberRange, Optional
 
 
 class PointForm(FlaskForm):

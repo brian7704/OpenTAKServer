@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from opentakserver.extensions import db
 from opentakserver.forms.point_form import PointForm
 from opentakserver.functions import iso8601_string_from_datetime
+from opentakserver.models.Marker import Marker
 
 
 class Point(db.Model):

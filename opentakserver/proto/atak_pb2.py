@@ -121,7 +121,7 @@ PLI = _reflection.GeneratedProtocolMessageType(
 )
 _sym_db.RegisterMessage(PLI)
 
-if _descriptor._USE_C_DESCRIPTORS == False:
+if _descriptor._USE_C_DESCRIPTORS == False:  # noqa: E712
 
     DESCRIPTOR._options = None
     DESCRIPTOR._serialized_options = b'\n\023com.geeksville.meshB\nATAKProtosZ"github.com/meshtastic/go/generated\252\002\024Meshtastic.Protobufs\272\002\000'

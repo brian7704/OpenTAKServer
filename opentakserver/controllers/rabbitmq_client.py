@@ -5,7 +5,7 @@ import pika
 from flask import Flask
 from pika.channel import Channel
 
-from opentakserver.extensions import *
+from opentakserver.extensions import db, logger, socketio
 
 
 class RabbitMQClient:
@@ -43,10 +43,10 @@ class RabbitMQClient:
         self.rabbit_connection.add_on_close_callback(self.on_close)
 
     def on_channel_open(self, channel):
-        raise NotImplemented
+        raise NotImplementedError
 
     def on_close(self, channel, error):
         self.logger.error("cot_controller closing RabbitMQ connection: {}".format(error))
 
     def on_message(self, unused_channel, basic_deliver, properties, body):
-        raise NotImplemented
+        raise NotImplementedError

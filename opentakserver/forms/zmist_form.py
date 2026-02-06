@@ -1,6 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, FloatField, IntegerField, StringField
-from wtforms.validators import UUID, DataRequired
+from wtforms import StringField
 
 
 class ZmistForm(FlaskForm):

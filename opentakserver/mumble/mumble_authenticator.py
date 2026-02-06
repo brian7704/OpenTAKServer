@@ -15,7 +15,7 @@ Ice.loadSlice(
         os.path.join(os.path.dirname(os.path.realpath(__file__)), "Murmur.ice"),
     ],
 )
-import Murmur
+import Murmur  # noqa: E402
 
 
 class MumbleAuthenticator(Murmur.ServerUpdatingAuthenticator):
@@ -68,9 +68,6 @@ class MumbleAuthenticator(Murmur.ServerUpdatingAuthenticator):
 
             self.logger.warning("Mumble auth: Bad password for {}".format(username))
             return -1, None, None
-
-    def idToTexture(self, id, current=None):
-        return
 
     def getInfo(self, id, current=None):
         """

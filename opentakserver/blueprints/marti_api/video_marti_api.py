@@ -9,15 +9,11 @@ from flask import Blueprint
 from flask import current_app as app
 from flask import jsonify, request
 from flask_babel import gettext
-from OpenSSL import crypto
 from werkzeug.datastructures import ImmutableMultiDict
 
-from opentakserver import __version__ as version
 from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
 from opentakserver.extensions import db, logger
 from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
-from opentakserver.functions import iso8601_string_from_datetime
-from opentakserver.models.EUD import EUD
 from opentakserver.models.user import User
 from opentakserver.models.VideoStream import VideoStream
 
@@ -66,7 +62,7 @@ def video():
                     db.session.add(v)
                     db.session.commit()
                     logger.debug("Inserted Video")
-                except sqlalchemy.exc.IntegrityError as e:
+                except sqlalchemy.exc.IntegrityError:
                     db.session.rollback()
                     v = db.session.execute(
                         db.select(VideoStream).filter_by(path=v.path)
@@ -133,7 +129,7 @@ def video():
                     videoconnections.append(fromstring(str(feed)))
 
             return tostring(videoconnections), 200
-        except BaseException as e:
+        except BaseException:
             logger.error(traceback.format_exc())
             return "", 500
 
