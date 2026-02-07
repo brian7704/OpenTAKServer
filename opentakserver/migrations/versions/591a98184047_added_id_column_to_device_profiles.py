@@ -29,7 +29,7 @@ def upgrade():
             "preference_key_eud_uid",
             ["preference_key", "eud_uid"],
             unique=True,
-            postgresql_nulls_not_distinct=False,
+            # postgresql_nulls_not_distinct=False,
         )
         batch_op.execute(CreateSequence(Sequence("device_profiles_id_seq")))
         batch_op.add_column(
