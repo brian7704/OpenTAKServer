@@ -22,6 +22,7 @@ from flask_security import current_user, hash_password, verify_password
 from sqlalchemy import insert, or_, update
 from werkzeug.utils import secure_filename
 
+from opentakserver.blueprints.marti_api.data_package_marti_api import save_data_package_file
 from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
 from opentakserver.extensions import db, logger
 from opentakserver.functions import datetime_from_iso8601_string, iso8601_string_from_datetime
@@ -1697,11 +1698,30 @@ def upload_content():
     if not file_name:
         return jsonify({"success": False, "error": gettext("File name cannot be blank")}), 400
 
-    filename, extension = os.path.splitext(secure_filename(file_name))
+    # When uploading data packages, iTAK doesn't include an extension. If the user agent is iTAK and
+    # the content type is zip, assume that iTAK is uploading a data package
+    if (
+        "iTAK" in request.user_agent.string
+        and request.content_type == "application/x-zip-compressed"
+    ):
+        file_hash = save_data_package_file(
+            request.data, secure_filename(file_name) + ".zip", username, creator_uid
+        )
 
-    # In some cases iTAK doesn't include the file extension. If the user agent includes iTAK and there's no extension we'll assume it's a zip
-    if not extension and "iTAK" in request.user_agent.string:
-        extension = "zip"
+        response = {
+            "UID": str(uuid.uuid4()),
+            "SubmissionDateTime": iso8601_string_from_datetime(),
+            "MIMEType": "application/x-zip-compressed",
+            "SubmissionUser": username,
+            "PrimaryKey": 0,
+            "Hash": file_hash,
+            "CreatorUid": creator_uid,
+            "Name": file_name,
+        }
+
+        return jsonify(response)
+
+    filename, extension = os.path.splitext(secure_filename(file_name))
 
     if extension.replace(".", "").lower() not in app.config.get("ALLOWED_EXTENSIONS"):
         logger.error(f"{extension} is not an allowed file extension")

@@ -26,23 +26,57 @@ from opentakserver.models.MissionContent import MissionContent
 data_package_marti_api = Blueprint("data_package_marti_api", __name__)
 
 
+def save_data_package_file(file, filename: str = None, username: str = None, eud_uid: str = None):
+    file_hash = request.args.get("hash")
+    if not file_hash:
+        sha256 = hashlib.sha256()
+        if type(file) == bytes:
+            sha256.update(file)
+            file_hash = sha256.hexdigest()
+            filename, extension = os.path.splitext(secure_filename(filename))
+            with open(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{file_hash}.zip"), "wb") as f:
+                f.write(file)
+        else:
+            sha256.update(file.stream.read())
+            file.stream.seek(0)
+            file_hash = sha256.hexdigest()
+            file.save(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{file_hash}.zip"))
+            filename, extension = os.path.splitext(secure_filename(file.filename))
+            logger.debug("Got file: {} - {}".format(file.filename, file_hash))
+
+    file_size = os.path.getsize(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{file_hash}.zip"))
+    save_data_package_to_db(
+        f"{filename}.zip", file_hash, "application/x-zip-compressed", file_size, username, eud_uid
+    )
+
+    return file_hash
+
+
 def save_data_package_to_db(
     filename: str = None,
     sha256_hash: str = None,
     mimetype: str = "application/zip",
     file_size: int = 0,
+    username: str = None,
+    eud_uid: str = None,
 ):
     try:
         data_package = DataPackage()
         data_package.filename = filename
         data_package.hash = sha256_hash
-        data_package.creator_uid = (
-            request.args.get("creatorUid") if request.args.get("creatorUid") else None
-        )
+        data_package.creator_uid = request.args.get("CreatorUid")  # iTAK
+        data_package.creator_uid = request.args.get("creatorUid")  # All other TAK clients
         data_package.submission_user = current_user.id if current_user.is_authenticated else None
         data_package.submission_time = datetime.now(timezone.utc)
         data_package.mime_type = mimetype
         data_package.size = file_size
+        data_package.creator_uid = eud_uid
+
+        if username:
+            user = app.security.datastore.find_user(username=username)
+            if user:
+                data_package.submission_user = user.id
+
         db.session.add(data_package)
         db.session.commit()
     except sqlalchemy.exc.IntegrityError as e:
@@ -169,25 +203,8 @@ def data_package_share():
 
         if extension != "zip":
             file_hash = create_data_package_zip(file)
-
         else:
-            file_hash = request.args.get("hash")
-            if not file_hash:
-                sha256 = hashlib.sha256()
-                sha256.update(file.stream.read())
-                file.stream.seek(0)
-                file_hash = sha256.hexdigest()
-                logger.debug("got sha256 {}".format(file_hash))
-
-            logger.debug("Got file: {} - {}".format(file.filename, file_hash))
-
-            file.save(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{file_hash}.zip"))
-
-            filename, extension = os.path.splitext(secure_filename(file.filename))
-            file_size = os.path.getsize(
-                os.path.join(app.config.get("UPLOAD_FOLDER"), f"{file_hash}.zip")
-            )
-            save_data_package_to_db(f"{filename}.zip", file_hash, file.content_type, file_size)
+            file_hash = save_data_package_file(file)
 
         url = urlparse(request.url_root)
         return (
