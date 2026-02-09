@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-01-09 15:52-0500\n"
-"PO-Revision-Date: 2026-01-15 04:48+0000\n"
+"PO-Revision-Date: 2026-02-09 21:11+0000\n"
 "Last-Translator: Zox <proom.zizoox@gmail.com>\n"
 "Language-Team: French <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/fr/>\n"
@@ -320,9 +320,9 @@ msgid "No content found with hash %(hash)s"
 msgstr "Aucun contenu trouvé avec le hachage %(hash)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1427
-#, fuzzy, python-format
+#, python-format
 msgid "Failed to delete content with hash %(hash)s: %(e)s"
-msgstr "Échec de la suppression du contenu avec le hachage %(hash)s : %(e)s"
+msgstr "Échec de la suppression du contenu avec le hachage %(hash)s: %(e)s"
 
 #: blueprints/marti_api/video_marti_api.py:128
 msgid "Invalid Certificate"
@@ -344,9 +344,9 @@ msgid "Video stream with uid %(uid)s not found"
 msgstr "Flux vidéo avec l'UID %(uid)s introuvable"
 
 #: blueprints/ots_api/api.py:77
-#, fuzzy, python-format
+#, python-format
 msgid "Invalid sort column: %(sort_by)s"
-msgstr "Type invalide : %(cot_type)s"
+msgstr "Colonne de tri invalide : %(sort_by)s"
 
 #: blueprints/ots_api/api.py:217
 #, python-format
