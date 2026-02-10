@@ -954,83 +954,91 @@ class ClientController(Thread):
         if not event:
             return
 
-        if not self.rabbit_channel or not self.rabbit_channel.is_open:
+        channel = self.rabbit_channel
+        if not channel or not channel.is_open:
             self.cached_messages.append(event)
             self.logger.error("RabbitMQ channel is closed, not publishing cot")
             return
 
-        # Route all CoTs to the firehose exchange for plugins and users that connect directly to RabbitMQ
-        self.rabbit_channel.basic_publish(
-            exchange="firehose",
-            body=json.dumps({"uid": self.uid, "cot": str(event)}),
-            routing_key="",
-            properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
-        )
+        def _publish(*args, **kwargs):
+            nonlocal channel
+            if not channel or not channel.is_open:
+                raise RuntimeError("RabbitMQ channel is closed")
+            return channel.basic_publish(*args, **kwargs)
 
-        # Route all cots to the cot_parser direct exchange to be processed by a pool of cot_parser processes
-        self.rabbit_channel.basic_publish(
-            exchange="cot_parser",
-            body=json.dumps({"uid": self.uid, "cot": str(event)}),
-            routing_key="cot_parser",
-            properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
-        )
+        try:
+            # Route all CoTs to the firehose exchange for plugins and users that connect directly to RabbitMQ
+            _publish(
+                exchange="firehose",
+                body=json.dumps({"uid": self.uid, "cot": str(event)}),
+                routing_key="",
+                properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
+            )
 
-        mission_changes = []
-        destinations = event.find_all("dest")
-        if destinations:
+            # Route all cots to the cot_parser direct exchange to be processed by a pool of cot_parser processes
+            _publish(
+                exchange="cot_parser",
+                body=json.dumps({"uid": self.uid, "cot": str(event)}),
+                routing_key="cot_parser",
+                properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
+            )
 
-            for destination in destinations:
-                creator = event.find("creator")
-                creator_uid = self.uid
-                if creator and "uid" in creator.attrs:
-                    creator_uid = creator.attrs["uid"]
+            mission_changes = []
+            destinations = event.find_all("dest")
+            if destinations:
 
-                # ATAK and WinTAK use callsign, iTAK uses uid
-                if "callsign" in destination.attrs and destination.attrs["callsign"]:
-                    self.rabbit_channel.basic_publish(
-                        exchange="dms",
-                        routing_key=destination.attrs["callsign"],
-                        body=json.dumps({"uid": self.uid, "cot": str(event)}),
-                        properties=pika.BasicProperties(
-                            expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                        ),
-                    )
+                for destination in destinations:
+                    creator = event.find("creator")
+                    creator_uid = self.uid
+                    if creator and "uid" in creator.attrs:
+                        creator_uid = creator.attrs["uid"]
 
-                # iTAK uses its own UID in the <dest> tag when sending CoTs to a mission so we don't send those to the dms exchange
-                elif "uid" in destination.attrs and destination["uid"] != self.uid:
-                    self.rabbit_channel.basic_publish(
-                        exchange="dms",
-                        routing_key=destination.attrs["uid"],
-                        body=json.dumps({"uid": self.uid, "cot": str(event)}),
-                        properties=pika.BasicProperties(
-                            expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                        ),
-                    )
-
-                # For data sync missions
-                elif "mission" in destination.attrs:
-                    with self.app.app_context():
-                        mission = self.db.session.execute(
-                            self.db.session.query(Mission).filter_by(
-                                name=destination.attrs["mission"]
-                            )
-                        ).first()
-
-                        if not mission:
-                            self.logger.error(
-                                f"No such mission found: {destination.attrs['mission']}"
-                            )
-                            return
-
-                        mission = mission[0]
-                        self.rabbit_channel.basic_publish(
-                            "missions",
-                            routing_key=f"missions.{destination.attrs['mission']}",
+                    # ATAK and WinTAK use callsign, iTAK uses uid
+                    if "callsign" in destination.attrs and destination.attrs["callsign"]:
+                        _publish(
+                            exchange="dms",
+                            routing_key=destination.attrs["callsign"],
                             body=json.dumps({"uid": self.uid, "cot": str(event)}),
                             properties=pika.BasicProperties(
                                 expiration=self.app.config.get("OTS_RABBITMQ_TTL")
                             ),
                         )
+
+                    # iTAK uses its own UID in the <dest> tag when sending CoTs to a mission so we don't send those to the dms exchange
+                    elif "uid" in destination.attrs and destination["uid"] != self.uid:
+                        _publish(
+                            exchange="dms",
+                            routing_key=destination.attrs["uid"],
+                            body=json.dumps({"uid": self.uid, "cot": str(event)}),
+                            properties=pika.BasicProperties(
+                                expiration=self.app.config.get("OTS_RABBITMQ_TTL")
+                            ),
+                        )
+
+                    # For data sync missions
+                    elif "mission" in destination.attrs:
+                        with self.app.app_context():
+                            mission = self.db.session.execute(
+                                self.db.session.query(Mission).filter_by(
+                                    name=destination.attrs["mission"]
+                                )
+                            ).first()
+
+                            if not mission:
+                                self.logger.error(
+                                    f"No such mission found: {destination.attrs['mission']}"
+                                )
+                                return
+
+                            mission = mission[0]
+                            _publish(
+                                "missions",
+                                routing_key=f"missions.{destination.attrs['mission']}",
+                                body=json.dumps({"uid": self.uid, "cot": str(event)}),
+                                properties=pika.BasicProperties(
+                                    expiration=self.app.config.get("OTS_RABBITMQ_TTL")
+                                ),
+                            )
 
                         mission_uid = self.db.session.execute(
                             self.db.session.query(MissionUID).filter_by(uid=event.attrs["uid"])
@@ -1102,58 +1110,63 @@ class ClientController(Thread):
                                 ).decode("utf-8"),
                             }
                             mission_changes.append({"mission": mission.name, "message": body})
-                            self.rabbit_channel.basic_publish(
+                            _publish(
                                 "missions",
                                 routing_key=f"missions.{mission.name}",
                                 body=json.dumps(body),
                             )
 
-        if not destinations and not self.is_ssl:
-            # Publish all CoT messages received by TCP and that have no destination to the __ANON__ group
-            self.rabbit_channel.basic_publish(
-                exchange="groups",
-                routing_key="__ANON__.OUT",
-                body=json.dumps({"uid": self.uid, "cot": str(event)}),
-                properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
-            )
-            return
-
-        if not destinations:
-            with self.app.app_context():
-                group_memberships = db.session.execute(
-                    db.session.query(GroupUser).filter_by(
-                        user_id=self.user.id, direction=Group.IN, enabled=True
-                    )
-                ).all()
-                if not group_memberships:
-                    # Default to the __ANON__ group if the user doesn't belong to any IN groups
-                    self.rabbit_channel.basic_publish(
-                        exchange="groups",
-                        routing_key="__ANON__.OUT",
-                        body=json.dumps({"uid": self.uid, "cot": str(event)}),
-                        properties=pika.BasicProperties(
-                            expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                        ),
-                    )
-
-                for membership in group_memberships:
-                    membership = membership[0]
-                    self.rabbit_channel.basic_publish(
-                        exchange="groups",
-                        routing_key=f"{membership.group.name}.{Group.OUT}",
-                        body=json.dumps({"uid": self.uid, "cot": str(event)}),
-                        properties=pika.BasicProperties(
-                            expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                        ),
-                    )
-
-        if mission_changes:
-            for change in mission_changes:
-                self.rabbit_channel.basic_publish(
-                    "missions",
-                    routing_key=f"missions.{change['mission']}",
-                    body=json.dumps(change["message"]),
-                    properties=pika.BasicProperties(
-                        expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                    ),
+            if not destinations and not self.is_ssl:
+                # Publish all CoT messages received by TCP and that have no destination to the __ANON__ group
+                _publish(
+                    exchange="groups",
+                    routing_key="__ANON__.OUT",
+                    body=json.dumps({"uid": self.uid, "cot": str(event)}),
+                    properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
                 )
+                return
+
+            if not destinations:
+                with self.app.app_context():
+                    group_memberships = db.session.execute(
+                        db.session.query(GroupUser).filter_by(
+                            user_id=self.user.id, direction=Group.IN, enabled=True
+                        )
+                    ).all()
+                    if not group_memberships:
+                        # Default to the __ANON__ group if the user doesn't belong to any IN groups
+                        _publish(
+                            exchange="groups",
+                            routing_key="__ANON__.OUT",
+                            body=json.dumps({"uid": self.uid, "cot": str(event)}),
+                            properties=pika.BasicProperties(
+                                expiration=self.app.config.get("OTS_RABBITMQ_TTL")
+                            ),
+                        )
+
+                    for membership in group_memberships:
+                        membership = membership[0]
+                        _publish(
+                            exchange="groups",
+                            routing_key=f"{membership.group.name}.{Group.OUT}",
+                            body=json.dumps({"uid": self.uid, "cot": str(event)}),
+                            properties=pika.BasicProperties(
+                                expiration=self.app.config.get("OTS_RABBITMQ_TTL")
+                            ),
+                        )
+
+            if mission_changes:
+                for change in mission_changes:
+                    _publish(
+                        "missions",
+                        routing_key=f"missions.{change['mission']}",
+                        body=json.dumps(change["message"]),
+                        properties=pika.BasicProperties(
+                            expiration=self.app.config.get("OTS_RABBITMQ_TTL")
+                        ),
+                    )
+        except BaseException as exc:
+            self.logger.error(f"route_cot publish failed: {exc}")
+            self.logger.error(traceback.format_exc())
+            self.cached_messages.append(event)
+            return
