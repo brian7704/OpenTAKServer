@@ -127,13 +127,47 @@ class ClientController(Thread):
         self.rabbit_channel = channel
         self.rabbit_channel.add_on_close_callback(self.on_channel_close)
 
+        # Re-establish queue bindings after channel recovery.
+        # On the first open self.bound_queues is empty so this is a no-op.
+        for bind in self.bound_queues:
+            try:
+                self.rabbit_channel.queue_declare(queue=bind["queue"])
+                self.rabbit_channel.queue_bind(
+                    exchange=bind["exchange"],
+                    queue=bind["queue"],
+                    routing_key=bind["routing_key"],
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to re-bind queue {bind}: {e}")
+
+        # Re-start consumers if we already have a device identity (channel recovery).
+        if self.uid and self.callsign:
+            try:
+                self.rabbit_channel.queue_declare(queue=self.callsign)
+                self.rabbit_channel.queue_declare(queue=self.uid)
+                self.rabbit_channel.basic_consume(
+                    queue=self.callsign,
+                    on_message_callback=self.on_message,
+                    auto_ack=True,
+                )
+                self.rabbit_channel.basic_consume(
+                    queue=self.uid,
+                    on_message_callback=self.on_message,
+                    auto_ack=True,
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to re-start consumers after recovery: {e}")
+
         for message in self.cached_messages:
             self.route_cot(message)
 
         self.cached_messages.clear()
 
-        # Publish the EUD info to flask-socketio for the web UI map
-        if self.eud:
+        # Publish EUD info to flask-socketio for the web UI map.
+        # Guard against the exchange not existing -- publishing to a missing
+        # exchange closes the channel, which we now recover from, but avoiding
+        # the round-trip is cleaner.
+        if self.eud and self.app.config.get("OTS_ENABLE_SOCKETIO", True):
             message = {
                 "method": "emit",
                 "event": "eud",
@@ -153,17 +187,50 @@ class ClientController(Thread):
             )
 
     def on_channel_close(self, channel: Channel, error):
-        self.logger.error(f"RabbitMQ channel closed for {self.callsign}, shut it down")
+        self.logger.error(
+            f"RabbitMQ channel closed for {self.callsign or self.address}: {error!r}"
+        )
+        self.rabbit_channel = None
+
+        # Don't attempt recovery if the client is already shutting down.
+        if self.shutdown:
+            return
+
+        # Try to recover the channel instead of killing the client connection.
+        # Hard-disconnecting here causes reconnect storms and dropped CoT.
         if (
             self.rabbit_connection
             and not self.rabbit_connection.is_closing
             and not self.rabbit_connection.is_closed
         ):
-            self.rabbit_connection.close()
+            try:
+                self.rabbit_connection.ioloop.add_callback_threadsafe(
+                    lambda: self.rabbit_connection.channel(
+                        on_open_callback=self.on_channel_open
+                    )
+                )
+                self.logger.warning(
+                    f"Attempting RabbitMQ channel recovery for "
+                    f"{self.callsign or self.address}"
+                )
+                return
+            except BaseException as exc:
+                self.logger.error(
+                    f"RabbitMQ channel recovery failed for "
+                    f"{self.callsign or self.address}: {exc}"
+                )
+                self.logger.error(traceback.format_exc())
 
+        # Final fallback: close this client connection.
         self.shutdown = True
-        self.sock.shutdown(socket.SHUT_RDWR)
-        self.sock.close()
+        try:
+            self.sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        try:
+            self.sock.close()
+        except OSError:
+            pass
 
     def on_close(self, connection, error):
         # Stop the ioloop using add_callback_threadsafe because ioloop.stop() isn't threadsafe
@@ -352,6 +419,10 @@ class ClientController(Thread):
                 break
 
     def close_connection(self):
+        # Mark shutdown BEFORE closing RabbitMQ resources so that
+        # on_channel_close does not attempt recovery for a dying client.
+        self.shutdown = True
+
         self.unbind_rabbitmq_queues()
         self.send_disconnect_cot()
 
@@ -362,10 +433,21 @@ class ClientController(Thread):
         ):
             self.rabbit_channel.close()
 
-        if not self.shutdown:
-            self.shutdown = True
+        if (
+            self.rabbit_connection
+            and not self.rabbit_connection.is_closing
+            and not self.rabbit_connection.is_closed
+        ):
+            self.rabbit_connection.close()
+
+        try:
             self.sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        try:
             self.sock.close()
+        except OSError:
+            pass
 
         # Close this thread's DB session. This doesn't affect other EUD's threads
         with self.app.app_context():
@@ -414,6 +496,15 @@ class ClientController(Thread):
         # so we want to use the UID of the "off grid" EUD, not the relay EUD
         contact = event.find("contact")
         takv = event.find("takv")
+        event_type = event.attrs.get("type", "")
+
+        # Only register device identity from atom/position events (a-*) or
+        # events carrying TAK client metadata (<takv>). Shape/annotation
+        # events (u-d-r, u-d-f, u-d-c, etc.) carry temporary UIDs and
+        # callsigns that should not become RabbitMQ queue names.
+        if not event_type.startswith("a-") and not takv:
+            return
+
         if takv or contact:
             uid = event.attrs.get("uid")
         else:
@@ -506,8 +597,8 @@ class ClientController(Thread):
                         } not in self.bound_queues:
                             self.bound_queues.append(
                                 {
-                                    "exchange": "groups",
-                                    "routing_key": "__ANON__.OUT",
+                                    "exchange": "missions",
+                                    "routing_key": "missions",
                                     "queue": self.uid,
                                 }
                             )
@@ -654,10 +745,12 @@ class ClientController(Thread):
 
                 self.send_meshtastic_node_info(eud)
 
-                # If the RabbitMQ channel is open, publish the EUD info to socketio to be displayed on the web UI map.
-                # Also save the EUD's info for on_channel_open to publish
+                # Save the EUD's info for on_channel_open to publish
                 self.eud = eud
-                if self.rabbit_channel:
+
+                # Publish EUD info to flask-socketio for the web UI map.
+                # Guard against the exchange not existing on some deployments.
+                if self.rabbit_channel and self.app.config.get("OTS_ENABLE_SOCKETIO", True):
                     message = {
                         "method": "emit",
                         "event": "eud",
