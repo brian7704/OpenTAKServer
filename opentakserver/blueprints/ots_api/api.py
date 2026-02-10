@@ -536,7 +536,7 @@ def get_map_state():
 
         euds = db.session.execute(db.session.query(EUD)).all()
         for eud in euds:
-            results["euds"].append(eud[0].to_json())
+            results["euds"].append(eud[0].to_json(include_last_point=True))
 
         markers = db.session.execute(
             db.session.query(Marker)

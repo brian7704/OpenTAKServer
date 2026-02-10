@@ -68,10 +68,21 @@ class EUD(db.Model):
             "team_role": self.team_role,
         }
 
-    def to_json(self, include_data_packages=True):
+    def to_json(self, include_data_packages=True, include_last_point=False):
         config_datapackage_hash = None
         if self.certificate and self.certificate.data_package:
             config_datapackage_hash = self.certificate.data_package.hash
+        last_point = None
+        if include_last_point:
+            # Query only the most recent point for map rendering to avoid loading full point history.
+            from opentakserver.models.Point import Point
+
+            last_point = (
+                db.session.query(Point)
+                .filter(Point.device_uid == self.uid)
+                .order_by(Point.timestamp.desc(), Point.id.desc())
+                .first()
+            )
         return {
             "uid": self.uid,
             "callsign": self.callsign,
@@ -85,7 +96,7 @@ class EUD(db.Model):
             ),
             "last_status": self.last_status,
             "username": self.user.username if self.user else None,
-            "last_point": None,  # Setting to None for now since it can cause a huge overhead when an EUD has lots of points in the DB
+            "last_point": last_point.to_json() if last_point else None,
             "team": self.team.name if self.team else None,
             "team_color": self.team.get_team_color() if self.team else None,
             "team_role": self.team_role,
