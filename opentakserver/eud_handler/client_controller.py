@@ -48,6 +48,10 @@ class ClientController(Thread):
         self.is_ssl = is_ssl
         self.bound_queues = []
         self.eud = None
+        # Per-client guard for socketio publish path. If broker rejects the
+        # flask-socketio exchange, disable subsequent publishes for this client
+        # to avoid channel close/recovery loops.
+        self.socketio_publish_enabled = self.app.config.get("OTS_ENABLE_SOCKETIO", True)
 
         self.user = None
 
@@ -167,7 +171,7 @@ class ClientController(Thread):
         # Guard against the exchange not existing -- publishing to a missing
         # exchange closes the channel, which we now recover from, but avoiding
         # the round-trip is cleaner.
-        if self.eud and self.app.config.get("OTS_ENABLE_SOCKETIO", True):
+        if self.eud and self.socketio_publish_enabled:
             message = {
                 "method": "emit",
                 "event": "eud",
@@ -191,6 +195,18 @@ class ClientController(Thread):
             f"RabbitMQ channel closed for {self.callsign or self.address}: {error!r}"
         )
         self.rabbit_channel = None
+
+        # Some deployments do not declare the flask-socketio exchange.
+        # If a publish attempt closes the channel for that reason, disable
+        # socketio publish for this client and recover once.
+        err_text = str(error)
+        if "flask-socketio" in err_text and ("NOT_FOUND" in err_text or "404" in err_text):
+            if self.socketio_publish_enabled:
+                self.logger.warning(
+                    "RabbitMQ exchange 'flask-socketio' missing; disabling socketio publish "
+                    f"for {self.callsign or self.address}"
+                )
+            self.socketio_publish_enabled = False
 
         # Don't attempt recovery if the client is already shutting down.
         if self.shutdown:
@@ -438,7 +454,12 @@ class ClientController(Thread):
             and not self.rabbit_connection.is_closing
             and not self.rabbit_connection.is_closed
         ):
-            self.rabbit_connection.close()
+            try:
+                self.rabbit_connection.ioloop.add_callback_threadsafe(
+                    self.rabbit_connection.close
+                )
+            except BaseException:
+                self.rabbit_connection.close()
 
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
@@ -750,7 +771,7 @@ class ClientController(Thread):
 
                 # Publish EUD info to flask-socketio for the web UI map.
                 # Guard against the exchange not existing on some deployments.
-                if self.rabbit_channel and self.app.config.get("OTS_ENABLE_SOCKETIO", True):
+                if self.rabbit_channel and self.socketio_publish_enabled:
                     message = {
                         "method": "emit",
                         "event": "eud",
