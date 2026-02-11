@@ -43,6 +43,10 @@ def save_data_package_file(file, filename: str = None, username: str = None, eud
             file.save(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{file_hash}.zip"))
             filename, extension = os.path.splitext(secure_filename(file.filename))
             logger.debug("Got file: {} - {}".format(file.filename, file_hash))
+    else:
+        file.save(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{file_hash}.zip"))
+        filename, extension = os.path.splitext(secure_filename(file.filename))
+        logger.debug("Got file: {} - {}".format(file.filename, file_hash))
 
     file_size = os.path.getsize(os.path.join(app.config.get("UPLOAD_FOLDER"), f"{file_hash}.zip"))
     save_data_package_to_db(
