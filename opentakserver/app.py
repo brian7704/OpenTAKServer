@@ -1,3 +1,4 @@
+# flake8: noqa E402
 from gevent import monkey
 
 monkey.patch_all()
@@ -18,7 +19,7 @@ import pytz
 import requests
 import sqlalchemy
 import yaml
-from flask import Flask, current_app, g, request, session
+from flask import Flask, current_app, request, session
 from flask_cors import CORS
 from flask_migrate import Migrate, upgrade
 from flask_security import (
@@ -29,7 +30,6 @@ from flask_security import (
     uia_username_mapper,
 )
 from flask_security.models import fsqla_v3
-from flask_security.models import fsqla_v3 as fsqla
 from flask_security.signals import user_registered
 from sqlalchemy import insert
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -130,7 +130,7 @@ def init_extensions(app):
     ca = CertificateAuthority(logger, app)
     ca.create_ca()
 
-    cors = CORS(
+    CORS(
         app,
         resources={
             r"/api/*": {"origins": "*"},
@@ -178,7 +178,7 @@ def init_extensions(app):
         apscheduler.start(paused=False)
 
     try:
-        fsqla.FsModels.set_db_info(db)
+        fsqla_v3.FsModels.set_db_info(db)
     except sqlalchemy.exc.InvalidRequestError:
         pass
 
@@ -317,7 +317,7 @@ def create_app(cli=True):
         flask_wtf.CSRFProtect(app)
 
         try:
-            fsqla.FsModels.set_db_info(db)
+            fsqla_v3.FsModels.set_db_info(db)
         except sqlalchemy.exc.InvalidRequestError:
             pass
 

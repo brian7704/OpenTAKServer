@@ -1,6 +1,4 @@
 from flask import Blueprint
-from flask import current_app as app
-from flask import jsonify, request
 
 from opentakserver.blueprints.ots_api.api import api_blueprint
 from opentakserver.blueprints.ots_api.casevac_api import casevac_api_blueprint

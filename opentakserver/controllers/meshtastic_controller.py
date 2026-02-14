@@ -37,7 +37,6 @@ class MeshtasticController(RabbitMQClient):
         with self.context:
             euds = self.db.session.execute(self.db.session.query(EUD)).scalars()
             for eud in euds:
-                meshtastic_id = eud.meshtastic_id
                 if not eud.meshtastic_id:
                     eud.meshtastic_id = int.from_bytes(os.urandom(4), "big")
                     self.db.session.add(eud)
@@ -190,7 +189,7 @@ class MeshtasticController(RabbitMQClient):
                     tak_packet.ParseFromString(mp.decoded.payload)
                     self.protobuf_to_cot(tak_packet, meshtastic_id, to_id, pn, meshtastic_id)
                     self.logger.info(tak_packet)
-            except:
+            except Exception:
                 self.logger.error(traceback.format_exc())
 
             return
@@ -211,7 +210,7 @@ class MeshtasticController(RabbitMQClient):
                 self.logger.debug(f"{prefix} {p}")
                 self.protobuf_to_cot(pb, meshtastic_id, to_id, pn, meshtastic_id)
                 self.logger.info(pb)
-            except:
+            except Exception:
                 self.logger.error(traceback.format_exc())
 
         # Forward this Meshtastic message to other Meshtastic channels which have downlink enabled

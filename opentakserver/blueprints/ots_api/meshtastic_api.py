@@ -31,7 +31,6 @@ def create_channel():
                 bleach.clean(request.json.get("url").split("#")[-1]) + "=="
             )
             channel_set.ParseFromString(settings)
-            url = request.json.get("url")
 
         except BaseException as e:
             logger.error("Failed to parse Meshtastic  URL: {}".format(e))

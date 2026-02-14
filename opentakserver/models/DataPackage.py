@@ -1,5 +1,3 @@
-import os
-import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -8,6 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.extensions import db
 from opentakserver.functions import iso8601_string_from_datetime
+from opentakserver.models.EUD import EUD
 
 
 @dataclass

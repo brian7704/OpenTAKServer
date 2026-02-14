@@ -32,7 +32,6 @@ from opentakserver.models.Marker import Marker
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionChange import MissionChange
 from opentakserver.models.MissionContentMission import MissionContentMission
-from opentakserver.models.MissionInvitation import MissionInvitation
 from opentakserver.models.MissionRole import MissionRole
 from opentakserver.models.MissionUID import MissionUID
 from opentakserver.models.Point import Point

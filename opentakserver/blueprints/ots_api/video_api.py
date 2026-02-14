@@ -92,7 +92,7 @@ def download_recording():
             return jsonify({"success": True})
         elif request.method == "HEAD":
             return "", 200
-    except:
+    except Exception:
         logger.error(traceback.format_exc())
         return jsonify({"success": False, "error": gettext("Recording not found")}), 404
 

@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from opentakserver.extensions import db, logger
+from opentakserver.extensions import db
 from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionContent import MissionContent

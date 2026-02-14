@@ -3,7 +3,7 @@ import uuid
 from dataclasses import dataclass
 from xml.etree.ElementTree import Element, SubElement
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.extensions import db

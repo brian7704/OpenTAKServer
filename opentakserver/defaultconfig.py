@@ -168,7 +168,7 @@ class DefaultConfig:
 
     # flask-sqlalchemy
     SQLALCHEMY_DATABASE_URI = os.getenv(
-        "SQLALCHEMY_DATABASE_URI", f"postgresql+psycopg://ots:POSTGRESQL_PASSWORD@127.0.0.1/ots"
+        "SQLALCHEMY_DATABASE_URI", "postgresql+psycopg://ots:POSTGRESQL_PASSWORD@127.0.0.1/ots"
     )
     SQLALCHEMY_ECHO = os.getenv("SQLALCHEMY_ECHO", "False").lower() in ["true", "1", "yes"]
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}

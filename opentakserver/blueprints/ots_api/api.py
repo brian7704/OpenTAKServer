@@ -14,7 +14,7 @@ import sqlalchemy.exc
 import yaml
 from flask import Blueprint
 from flask import current_app as app
-from flask import jsonify, request, send_from_directory, session
+from flask import jsonify, request, send_from_directory
 from flask_babel import gettext
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import auth_required, current_user, verify_password
@@ -22,9 +22,8 @@ from sqlalchemy import select
 
 from opentakserver import __version__ as version
 from opentakserver.certificate_authority import CertificateAuthority
-from opentakserver.extensions import babel, db, ldap_manager, logger
+from opentakserver.extensions import db, ldap_manager, logger
 from opentakserver.models.Alert import Alert
-from opentakserver.models.APSchedulerJobs import APSchedulerJobs
 from opentakserver.models.CasEvac import CasEvac
 from opentakserver.models.Certificate import Certificate
 from opentakserver.models.CoT import CoT
@@ -36,9 +35,7 @@ from opentakserver.models.Icon import Icon
 from opentakserver.models.Marker import Marker
 from opentakserver.models.Point import Point
 from opentakserver.models.RBLine import RBLine
-from opentakserver.models.Token import Token
 from opentakserver.models.user import User
-from opentakserver.models.ZMIST import ZMIST
 
 api_blueprint = Blueprint("api_blueprint", __name__)
 
@@ -75,7 +72,7 @@ def paginate(query: db.Query, model=None):
                 query = query.order_by(getattr(model, sort_by).desc())
 
             logger.warning(query)
-    except BaseException as e:
+    except BaseException:
         return (
             jsonify(
                 {
@@ -229,7 +226,7 @@ def status():
 
     try:
         os_release = platform.freedesktop_os_release()
-    except:
+    except Exception:
         os_release = {"NAME": None, "PRETTY_NAME": None, "VERSION": None, "VERSION_CODENAME": None}
 
     uname = {

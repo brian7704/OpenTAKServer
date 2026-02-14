@@ -3,8 +3,6 @@ import unicodedata
 import flask_security
 from flask_security import UsernameUtil
 
-from opentakserver.extensions import logger
-
 
 class UsernameValidator(UsernameUtil):
 

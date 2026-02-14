@@ -12,7 +12,6 @@ from flask_security import auth_required, roles_accepted
 from werkzeug.datastructures import ImmutableMultiDict
 from werkzeug.utils import secure_filename
 
-from opentakserver.blueprints.marti_api.certificate_enrollment_api import basic_auth
 from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
 from opentakserver.blueprints.ots_api.api import paginate, search
 from opentakserver.extensions import db, logger

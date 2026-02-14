@@ -8,11 +8,9 @@ from flask import current_app as app
 from flask import jsonify, request
 from flask_babel import gettext
 from flask_security import current_user
-from OpenSSL.crypto import X509
 
 from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
 from opentakserver.extensions import db, ldap_manager, logger
-from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.models.Group import Group
 from opentakserver.models.GroupUser import GroupUser
 
@@ -230,9 +228,6 @@ def get_ldap_group_prefix():
 
 @group_api.route("/Marti/api/groups/activebits", methods=["PUT"])
 def put_active_bits():
-    client_uid = request.args.get("clientUid")
-    bits = request.json
-
     return "", 200
 
 
@@ -431,11 +426,6 @@ def get_group(group_name: str, direction: str):
 
 @group_api.route("/Marti/api/subscriptions/all")
 def get_all_subscriptions():
-    sortBy = request.args.get("sortBy")
-    direction = request.args.get("direction")
-    page = request.args.get("page")
-    limit = request.args.get("limit")
-
     response = {
         "version": "3",
         "type": "SubscriptionInfo",

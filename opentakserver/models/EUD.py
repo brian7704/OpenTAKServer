@@ -6,10 +6,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.extensions import db
 from opentakserver.functions import iso8601_string_from_datetime
-from opentakserver.models.Chatrooms import Chatroom
 
 # Leave these imports, they're needed when making new DB migrations
-from opentakserver.models.Team import Team
+from opentakserver.models.Team import Team  # noqa: F401
 
 
 @dataclass

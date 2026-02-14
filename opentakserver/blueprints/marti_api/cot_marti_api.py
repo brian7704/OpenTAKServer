@@ -11,8 +11,8 @@ from opentakserver.models.CoT import CoT
 cot_marti_api = Blueprint("cot_api", __name__)
 
 """
-Right now OpenTAKServer only uses a few of these for Data Sync. The rest were added as place holders 
-based on the API docs until I find an example of them actually being used by a TAK client 
+Right now OpenTAKServer only uses a few of these for Data Sync. The rest were added as place holders
+based on the API docs until I find an example of them actually being used by a TAK client
 """
 
 
@@ -77,12 +77,5 @@ def get_all_cot(uid):
 def get_cot_by_time_and_bbox():
     logger.debug(request.headers)
     logger.debug(request.args)
-
-    start = request.args.get("start")
-    end = request.args.get("end")
-    left = request.args.get("left")
-    bottom = request.args.get("bottom")
-    right = request.args.get("right")
-    top = request.args.get("top")
 
     return "", 200

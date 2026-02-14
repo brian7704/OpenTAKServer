@@ -90,11 +90,7 @@ def link_tak_gov_account():
 
         response_data = response.json()
         device_code = response_data["device_code"]
-        verification_uri = response_data["verification_uri"]
-        verification_uri_complete = response_data["verification_uri_complete"]
         user_code = response_data["user_code"]
-        expires_in = response_data["expires_in"]
-        interval = response_data["interval"]
 
         return jsonify({"success": True, "device_code": device_code, "user_code": user_code})
 
@@ -271,12 +267,11 @@ def download_plugin():
     plugin_version = request.json.get("version")
     revision_code = request.json.get("revision_code")
     os_requirement = request.json.get("os_requirement")
-    tak_prerequisite = request.json.get("tak_prerequisite")
     atak_version = request.json.get("atak_version")
 
     # Don't set an ATAK version for the plugin for ATAK < 5.5.0.
     # ATAK 5.4.0 and below don't check for plugins for their specific version of ATAK
-    major, minor, patch = atak_version.split(".")
+    major, minor, _ = atak_version.split(".")
     if int(major) < 5 or (int(major) == 5 and int(minor) < 5):
         atak_version = None
 
