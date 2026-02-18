@@ -73,8 +73,6 @@ def paginate(query: db.Query, model=None):
                 query = query.order_by(getattr(model, sort_by).asc())
             elif sort_by and sort_direction == "desc":
                 query = query.order_by(getattr(model, sort_by).desc())
-
-            logger.warning(query)
     except BaseException as e:
         return (
             jsonify(

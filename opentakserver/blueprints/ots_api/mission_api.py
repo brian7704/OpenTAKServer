@@ -28,8 +28,11 @@ from opentakserver.blueprints.marti_api.mission_marti_api import (
 )
 from opentakserver.blueprints.ots_api.api import paginate, search
 from opentakserver.extensions import db, logger
+from opentakserver.models.Chatrooms import Chatroom
+from opentakserver.models.ChatroomsUids import ChatroomsUids
 from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
+from opentakserver.models.GeoChat import GeoChat
 from opentakserver.models.Group import Group
 from opentakserver.models.GroupMission import GroupMission
 from opentakserver.models.GroupUser import GroupUser
@@ -322,6 +325,13 @@ def delete_mission():
     db.session.execute(
         sqlalchemy.delete(MissionChange).where(MissionChange.mission_name == mission_name)
     )
+
+    chatroom: Chatroom | None = db.session.execute(db.session.query(Chatroom).where(Chatroom.name == mission_name)).scalar()
+    if chatroom:
+        db.session.execute(sqlalchemy.delete(ChatroomsUids).where(ChatroomsUids.chatroom_id == chatroom.id))
+        db.session.execute(sqlalchemy.delete(GeoChat).where(GeoChat.chatroom_id == chatroom.id))
+        db.session.delete(chatroom)
+
     db.session.execute(sqlalchemy.delete(CoT).where(CoT.mission_name == mission_name))
     db.session.execute(
         sqlalchemy.delete(MissionInvitation).where(MissionInvitation.mission_name == mission_name)
