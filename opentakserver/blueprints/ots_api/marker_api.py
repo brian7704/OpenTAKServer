@@ -158,6 +158,9 @@ def add_marker():
             detail = ET.SubElement(event, "detail")
             detail.set("uid", marker.uid)
 
+            if "archive" in request.json.keys():
+                ET.SubElement(detail, "archive")
+
             contact = ET.SubElement(detail, "contact")
             contact.set("callsign", marker.callsign)
 
