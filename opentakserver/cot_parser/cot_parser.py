@@ -698,7 +698,7 @@ class CoTController:
             and
             # Don't worry about EUD location updates
             not event.find("takv")
-            and not event.find("contact")
+            and (not event.find("contact") or "endpoint" not in event.find("contact").attrs)
             and
             # Ignore video streams from sources like OpenTAK ICU
             event.attrs["type"] != "b-m-p-s-p-loc"
