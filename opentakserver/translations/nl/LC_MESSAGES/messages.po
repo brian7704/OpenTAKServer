@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-02-18 16:34-0500\n"
-"PO-Revision-Date: 2026-02-19 02:17+0000\n"
+"PO-Revision-Date: 2026-02-20 13:58+0000\n"
 "Last-Translator: Peter-Paul K <peterpaul@netone.nl>\n"
 "Language-Team: Dutch <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/nl/>\n"
@@ -515,217 +515,219 @@ msgstr "Ongeldig UID. UIDs moeten in het UUID4 formaat"
 #: blueprints/ots_api/marker_api.py:112
 #, python-format
 msgid "Invalid type: %(cot_type)s"
-msgstr ""
+msgstr "Ongeldig type: %(cot_type)s"
 
 #: blueprints/ots_api/marker_api.py:269
 #, python-format
 msgid "Failed to parse data: %(e)s"
-msgstr ""
+msgstr "Verwerken van data mislukt: %(e)s"
 
 #: blueprints/ots_api/marker_api.py:283
 msgid "Please provide the UID of the marker to delete"
-msgstr ""
+msgstr "Geef de UID op van de markering die u wilt verwijderen"
 
 #: blueprints/ots_api/marker_api.py:294
 msgid "Unknown UID"
-msgstr ""
+msgstr "Onbekend UID"
 
 #: blueprints/ots_api/mediamtx_api.py:305
 #: blueprints/ots_api/mediamtx_api.py:404
 msgid "Please specify a path name"
-msgstr ""
+msgstr "Specificeer een bestandspad naam"
 
 #: blueprints/ots_api/mediamtx_api.py:309
 msgid "Path cannot begin with a slash"
-msgstr ""
+msgstr "Een bestandspad mag niet beginnen met een slash-teken"
 
 #: blueprints/ots_api/mediamtx_api.py:327
 #: blueprints/ots_api/mediamtx_api.py:413
 #, python-format
 msgid "Path %(path)s not found"
-msgstr ""
+msgstr "Bestandspad %(path)s niet gevonden"
 
 #: blueprints/ots_api/mediamtx_api.py:421
 msgid "MediaMTX is not running"
-msgstr ""
+msgstr "MediaMTX is niet gestart"
 
 #: blueprints/ots_api/meshtastic_api.py:167
 msgid "Please provide the URL of the channel to delete"
-msgstr ""
+msgstr "Geef de URL op van het kanaal dat u wilt verwijderen"
 
 #: blueprints/ots_api/mission_api.py:163 blueprints/ots_api/mission_api.py:281
 #, python-format
 msgid "Invalid property: %(key)s"
-msgstr ""
+msgstr "Ongeldige eigenschap: %(key)s"
 
 #: blueprints/ots_api/mission_api.py:254
 msgid "Only an admin or the mission creator can change this mission"
-msgstr ""
+msgstr "Alleen een beheerder of de missie eigenaar kan een missie veranderen"
 
 #: blueprints/ots_api/mission_api.py:298
 msgid "Please specify a mission name"
-msgstr ""
+msgstr "Specificeer een missienaam"
 
 #: blueprints/ots_api/mission_api.py:400
 msgid "Please provide the mission password"
-msgstr ""
+msgstr "Geef een missie wachtwoord op"
 
 #: blueprints/ots_api/plugin_api.py:50
 msgid "Server plugins must be zip, whl, or tar.gz files"
-msgstr ""
+msgstr "Server plugins moeten zip, whl, of tar.gz formaat zijn"
 
 #: blueprints/ots_api/plugin_api.py:66 blueprints/ots_api/plugin_api.py:99
 #: blueprints/ots_api/plugin_api.py:115 blueprints/ots_api/plugin_api.py:130
 msgid "Plugins are disabled"
-msgstr ""
+msgstr "Plugins zijn uitgeschakeld"
 
 #: blueprints/ots_api/plugin_api.py:91
 #, python-format
 msgid "Plugin %(plugin_name)s not found"
-msgstr ""
+msgstr "Plugin %(plugin_name)s niet gevonden"
 
 #: blueprints/ots_api/token_api.py:191
 #, python-format
 msgid "No token found for %s(username)s"
-msgstr ""
+msgstr "Geen token gevonden voor %s(username)s"
 
 #: blueprints/ots_api/token_api.py:222
 #, python-format
 msgid "Failed to delete token: %(e)s"
-msgstr ""
+msgstr "Verwijderen van token mislukt: %(e)s"
 
 #: blueprints/ots_api/user_api.py:36
 msgid "LDAP is enabled, please use your LDAP server to create users"
-msgstr ""
+msgstr "LDAP is geactiveerd, gebruik de LDAP server om gebruikers aan te maken"
 
 #: blueprints/ots_api/user_api.py:53
 msgid "Passwords do not match"
-msgstr ""
+msgstr "Wachtwoorden komen niet overeen"
 
 #: blueprints/ots_api/user_api.py:65 blueprints/ots_api/user_api.py:338
 #, python-format
 msgid "Role %(role)s does not exist"
-msgstr ""
+msgstr "Rol %(role)s bestaat niet"
 
 #: blueprints/ots_api/user_api.py:75
 msgid "Only administrators can add users to the administrators role"
-msgstr ""
+msgstr "Alleen beheerders kunnen gebruikers toevoegen aan de beheerdersrol"
 
 #: blueprints/ots_api/user_api.py:99
 #, python-format
 msgid "User %(username)s already exists"
-msgstr ""
+msgstr "%(username)s is al een bestaande gebruiker"
 
 #: blueprints/ots_api/user_api.py:114
 msgid "LDAP is enabled, please use your LDAP server to delete users"
 msgstr ""
+"LDAP is geactiveerd, gebruik de LDAP server om gebruikers te verwijderen"
 
 #: blueprints/ots_api/user_api.py:126
 msgid "You can't delete your own account"
-msgstr ""
+msgstr "Het is niet mogelijk je eigen account te verwijderen"
 
 #: blueprints/ots_api/user_api.py:139
 #, python-format
 msgid "Failed to delete user: %(e)s"
-msgstr ""
+msgstr "Verwijderen van gebruiker mislukt: %(e)s"
 
 #: blueprints/ots_api/user_api.py:155
 msgid "LDAP is enabled, please use your LDAP server to reset passwords"
-msgstr ""
+msgstr "LDAP is geactiveerd, gebruik de LDAP server om wachtwoorden te resetten"
 
 #: blueprints/ots_api/user_api.py:169
 msgid "Please specify a username and new password"
-msgstr ""
+msgstr "Specificeer een gebruikersnaam en nieuw wachtwoord"
 
 #: blueprints/ots_api/user_api.py:181
 #, python-format
 msgid "Your password must be at least %(characters)s characters long"
-msgstr ""
+msgstr "Het wachtwoord moet tenminste %(characters)s karakters lang zijn"
 
 #: blueprints/ots_api/user_api.py:198
 #, python-format
 msgid "Could not find user %(username)s"
-msgstr ""
+msgstr "Gebruiker niet gevonden: %(username)s"
 
 #: blueprints/ots_api/user_api.py:213
 msgid "LDAP is enabled, please use your LDAP server to deactivate users"
 msgstr ""
+"LDAP is geactiveerd, gebruik de LDAP server om gebruikers te de-activeren"
 
 #: blueprints/ots_api/user_api.py:225
 msgid "Please specify the username to deactivate"
-msgstr ""
+msgstr "Geef de gebruikersnaam op die moet worden gedeactiveerd"
 
 #: blueprints/ots_api/user_api.py:250
 #, python-format
 msgid "%(username)s is already deactivated"
-msgstr ""
+msgstr "%(username)s is reeds gedeactiveerd"
 
 #: blueprints/ots_api/user_api.py:263
 msgid "LDAP is enabled, please use your LDAP server to activate users"
-msgstr ""
+msgstr "LDAP is geactiveerd, gebruik de LDAP server om gebruikers te activeren"
 
 #: blueprints/ots_api/user_api.py:275
 msgid "Please specify the username to activate"
-msgstr ""
+msgstr "Geef de gebruikersnaam op die geactiveerd moet worden"
 
 #: blueprints/ots_api/user_api.py:300
 #, python-format
 msgid "%(username)s is already activated"
-msgstr ""
+msgstr "%(username)s is reeds geactiveerd"
 
 #: blueprints/ots_api/user_api.py:313
 msgid "LDAP is enabled, please use your LDAP server to assign roles"
-msgstr ""
+msgstr "LDAP is geactiveerd, gebruik de LDAP server om rollen toe te wijzen"
 
 #: blueprints/ots_api/user_api.py:327
 msgid "Please specify a username and roles"
-msgstr ""
+msgstr "Specificeer een gebruikersnaam en rollen"
 
 #: blueprints/ots_api/user_api.py:401
 #, python-format
 msgid "EUD %(eud_uid)s not found"
-msgstr ""
+msgstr "EUD %(eud_uid)s niet gevonden"
 
 #: blueprints/ots_api/user_api.py:414
 #, python-format
 msgid "%(uid)s is already assigned to another user"
-msgstr ""
+msgstr "%(uid)s is reeds toegewezen aan een andere gebruiker"
 
 #: blueprints/ots_api/user_api.py:435 blueprints/ots_api/user_api.py:457
 msgid "LDAP is enabled, please use your LDAP server to manage users"
-msgstr ""
+msgstr "LDAP is geactiveerd, gebruik de LDAP server om gebruikers te beheren"
 
 #: blueprints/ots_api/user_api.py:488
 msgid "LDAP is enabled, please use your LDAP server to manage groups"
-msgstr ""
+msgstr "LDAP is geactiveerd, gebruik de LDAP server om groepen te beheren"
 
 #: blueprints/ots_api/user_api.py:498
 msgid "Please provide a username"
-msgstr ""
+msgstr "Geef een gebruikersnaam op"
 
 #: blueprints/ots_api/user_api.py:565
 msgid "Please provide a list of groups, a username, and a direction"
-msgstr ""
+msgstr "Geef een lijst met groepen, een gebruikersnaam, en een richting op"
 
 #: blueprints/ots_api/user_api.py:582
 #, python-format
 msgid "User %(username)s doesn't exist"
-msgstr ""
+msgstr "Gebruiker %(username)s bestaat niet"
 
 #: blueprints/ots_api/user_api.py:596
 #, python-format
 msgid "Group %(group_name)s doesn't exist"
-msgstr ""
+msgstr "Groep %(group_name)s bestaat niet"
 
 #: blueprints/ots_api/video_api.py:46
 msgid "Please specify a valid path"
-msgstr ""
+msgstr "Geef een geldig pad op"
 
 #: blueprints/ots_api/video_api.py:72
 #, python-format
 msgid "Invalid recording_id: %(recording_id)s"
-msgstr ""
+msgstr "Ongeldig recording_id: %(recording_id)s"
 
 #: blueprints/ots_api/video_api.py:97
 msgid "Recording not found"
-msgstr ""
+msgstr "Opname niet gevonden"
