@@ -52,7 +52,7 @@ def get_adsb_data():
             if app.config.get("OTS_ADSB_API_KEY"):
                 headers["api-auth"] = app.config["OTS_ADSB_API_KEY"]
 
-            adsb_api_url = app.config.get("OTS_ADSB_URL")
+            adsb_api_url = app.config.get("OTS_ADSB_API_URL")
             adsb_lat = app.config.get("OTS_ADSB_LAT")
             adsb_lon = app.config.get("OTS_ADSB_LON")
             adsb_radius = app.config.get("OTS_ADSB_RADIUS")
