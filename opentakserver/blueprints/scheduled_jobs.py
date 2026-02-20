@@ -59,10 +59,10 @@ def get_adsb_data():
 
             r = requests.get(f"{adsb_api_url}/{adsb_lat}/{adsb_lon}/{adsb_radius}", headers=headers)
 
-            logger.warning(r.text)
-            logger.warning(r.status_code)
-            logger.warning(r.request.headers)
-            logger.warning(r.request.url)
+            logger.debug(r.text)
+            logger.debug(r.status_code)
+            logger.debug(r.request.headers)
+            logger.debug(r.request.url)
 
             if r.status_code == 200:
                 rabbit_credentials = pika.PlainCredentials(
