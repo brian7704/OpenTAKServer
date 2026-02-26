@@ -26,7 +26,7 @@ def set_language(lang_code):
     else:
         lang_codes = []
         for translation in babel.list_translations():
-            lang_codes.append(translation.language)
+            lang_codes.append(str(translation))
 
         if lang_code in lang_codes:
             session["language"] = lang_code

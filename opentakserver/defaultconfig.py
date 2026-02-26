@@ -25,7 +25,7 @@ class DefaultConfig:
         "IT": {"name": "Italiano", "language_code": "it"},
         "JA": {"name": "日本語", "language_code": "ja"},
         "NL": {"name": "Nederlands", "language_code": "nl"},
-        "CN": {"name": "简化字", "language_code": "zh"},
+        "CN": {"name": "简化字", "language_code": "zh_Hans"},
         "SE": {"name": "Svenska", "language_code": "sv"},
         "TH": {"name": "ภาษาไทย", "language_code": "th"},
     }
