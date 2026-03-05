@@ -8,8 +8,8 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-02-26 10:44-0500\n"
-"PO-Revision-Date: 2026-02-26 15:51+0000\n"
-"Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
+"PO-Revision-Date: 2026-03-02 09:34+0000\n"
+"Last-Translator: Inco Mode <github.com@incomode.de>\n"
 "Language-Team: German <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/de/>\n"
 "Language: de\n"
@@ -26,7 +26,7 @@ msgid "No CoT found for UID %(uid)s"
 msgstr "Kein CoT gefunden für UID: %(uid)s"
 
 #: blueprints/marti_api/cot_marti_api.py:57
-#, fuzzy, python-format
+#, python-format
 msgid "Invalid secago value: %(sec_ago)s"
 msgstr "Ungültiger secago Wert: %(sec_ago)s"
 
