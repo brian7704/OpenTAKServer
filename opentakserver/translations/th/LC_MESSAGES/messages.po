@@ -9,9 +9,9 @@ msgstr ""
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-02-26 10:44-0500\n"
 "PO-Revision-Date: 2026-02-26 10:20-0500\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Last-Translator: Kittiwut Khongkaeo <kittiwut@connexinsights.co.th>\n"
 "Language: th\n"
-"Language-Team: th <LL@li.org>\n"
+"Language-Team: Thailand <LL@li.org>\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
@@ -21,131 +21,131 @@ msgstr ""
 #: blueprints/marti_api/cot_marti_api.py:32
 #, python-format
 msgid "No CoT found for UID %(uid)s"
-msgstr ""
+msgstr "ไม่พบ CoT สำหรับ UID %(uid)s"
 
 #: blueprints/marti_api/cot_marti_api.py:57
 #, python-format
 msgid "Invalid secago value: %(sec_ago)s"
-msgstr ""
+msgstr "ค่า secago ไม่ถูกต้อง: %(sec_ago)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:92
 msgid "This data package has already been uploaded"
-msgstr ""
+msgstr "แพ็กเกจข้อมูลนี้ถูกอัปโหลดไปแล้ว"
 
 #: blueprints/marti_api/data_package_marti_api.py:181
 msgid "A file is required"
-msgstr ""
+msgstr "จำเป็นต้องระบุไฟล์"
 
 #: blueprints/marti_api/data_package_marti_api.py:200
 #, python-format
 msgid "Invalid file extension: %(extension)s"
-msgstr ""
+msgstr "นามสกุลไฟล์ไม่ถูกต้อง: %(extension)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:385
 #, python-format
 msgid "File not found: %(filename)s}"
-msgstr ""
+msgstr "ไม่พบไฟล์: %(filename)s}"
 
 #: blueprints/marti_api/group_marti_api.py:40
 msgid "Groups are only supported on SSL connections"
-msgstr ""
+msgstr "รองรับการใช้งานกลุ่ม (Groups) เฉพาะการเชื่อมต่อแบบ SSL เท่านั้น"
 
 #: blueprints/marti_api/group_marti_api.py:109
 #: blueprints/marti_api/group_marti_api.py:167
 msgid "Please specify a groupNameFilter"
-msgstr ""
+msgstr "โปรดระบุ groupNameFilter"
 
 #: blueprints/marti_api/group_marti_api.py:122
 #: blueprints/marti_api/group_marti_api.py:180
 #, python-format
 msgid "Please specify a groupNameFilter that starts with %(prefix)s"
-msgstr ""
+msgstr "โปรดระบุ groupNameFilter ที่ขึ้นต้นด้วย %(prefix)s"
 
 #: blueprints/marti_api/group_marti_api.py:134
 #: blueprints/marti_api/group_marti_api.py:192
 msgid "groupNameFilter must end with either _READ or _WRITE"
-msgstr ""
+msgstr "groupNameFilter ต้องลงท้ายด้วย _READ หรือ _WRITE"
 
 #: blueprints/marti_api/group_marti_api.py:246
 msgid "clientUid required"
-msgstr ""
+msgstr "จำเป็นต้องระบุ clientUid"
 
 #: blueprints/marti_api/group_marti_api.py:274
 #: blueprints/ots_api/group_api.py:365 blueprints/ots_api/user_api.py:574
 msgid "Direction must be IN or OUT"
-msgstr ""
+msgstr "ทิศทาง (Direction) ต้องเป็น IN หรือ OUT"
 
 #: blueprints/marti_api/group_marti_api.py:283
 msgid "The active attribute must be true or false"
-msgstr ""
+msgstr "แอตทริบิวต์ active ต้องเป็น true หรือ false"
 
 #: blueprints/marti_api/group_marti_api.py:292
 msgid "Group name is required"
-msgstr ""
+msgstr "จำเป็นต้องระบุชื่อกลุ่ม"
 
 #: blueprints/marti_api/group_marti_api.py:331
 #, python-format
 msgid "%(username)s is not in the %(group_name)s group"
-msgstr ""
+msgstr "%(username)s ไม่ได้อยู่ในกลุ่ม %(group_name)s"
 
 #: blueprints/marti_api/group_marti_api.py:356
 #, python-format
 msgid "Failed to update group subscriptions for %(username)s: %(e)s"
-msgstr ""
+msgstr "อัปเดตการติดตามกลุ่มสำหรับ %(username)s ไม่สำเร็จ: %(e)s"
 
 #: blueprints/marti_api/group_marti_api.py:383
 msgid "Please provide a group name and direction"
-msgstr ""
+msgstr "โปรดระบุชื่อกลุ่มและทิศทาง (Direction)"
 
 #: blueprints/marti_api/group_marti_api.py:404
 #, python-format
 msgid "No group found: %(group_name)s, %(direction)s"
-msgstr ""
+msgstr "ไม่พบกลุ่ม: %(group_name)s, %(direction)s"
 
 #: blueprints/marti_api/marti_api.py:108
 #, python-format
 msgid "No such UID: %(uid)s"
-msgstr ""
+msgstr "ไม่มี UID ดังกล่าว: %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:323
 #: blueprints/marti_api/mission_marti_api.py:1256
 #, python-format
 msgid "No mission found with guid: %(mission_guid)s"
-msgstr ""
+msgstr "ไม่พบภารกิจ (Mission) ที่มี GUID: %(mission_guid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:333
 #: blueprints/marti_api/mission_marti_api.py:1456
 #: blueprints/ots_api/mission_api.py:409
 msgid "Invalid password"
-msgstr ""
+msgstr "รหัสผ่านไม่ถูกต้อง"
 
 #: blueprints/marti_api/mission_marti_api.py:439
 msgid "Missions are only supported on SSL connections"
-msgstr ""
+msgstr "รองรับการใช้งานภารกิจ (Missions) เฉพาะการเชื่อมต่อแบบ SSL เท่านั้น"
 
 #: blueprints/marti_api/mission_marti_api.py:453
 msgid "Please provide a mission name and creatorUid"
-msgstr ""
+msgstr "โปรดระบุชื่อภารกิจและ creatorUid"
 
 #: blueprints/marti_api/mission_marti_api.py:468
 #, python-format
 msgid "Invalid creatorUid: %(creator_uid)s"
-msgstr ""
+msgstr "creatorUid ไม่ถูกต้อง: %(creator_uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:517
 #, python-format
 msgid "Group not found: %(group_name)s"
-msgstr ""
+msgstr "ไม่พบกลุ่ม: %(group_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:604
 #: blueprints/ots_api/mission_api.py:197
 #, python-format
 msgid "Failed to add mission: %(e)s"
-msgstr ""
+msgstr "เพิ่มภารกิจไม่สำเร็จ: %(e)s"
 
 #: blueprints/marti_api/mission_marti_api.py:632
 msgid "Invalid mission name"
-msgstr ""
+msgstr "ชื่อภารกิจไม่ถูกต้อง"
 
 #: blueprints/marti_api/mission_marti_api.py:643
 #: blueprints/marti_api/mission_marti_api.py:734
@@ -156,7 +156,7 @@ msgstr ""
 #: blueprints/ots_api/mission_api.py:308
 #, python-format
 msgid "Mission %(mission_name)s not found"
-msgstr ""
+msgstr "ไม่พบภารกิจ %(mission_name)s นี้"
 
 #: blueprints/marti_api/mission_marti_api.py:675
 #: blueprints/marti_api/mission_marti_api.py:749
@@ -165,563 +165,563 @@ msgstr ""
 #: blueprints/marti_api/mission_marti_api.py:2031
 #: blueprints/marti_api/mission_marti_api.py:2183
 msgid "Missing or invalid token"
-msgstr ""
+msgstr "ไม่มีโทเค็น (Token) หรือโทเค็นนี้ไม่ถูกต้อง"
 
 #: blueprints/marti_api/mission_marti_api.py:699
 msgid "Only mission owners can delete missions"
-msgstr ""
+msgstr "เฉพาะเจ้าของภารกิจเท่านั้นที่สามารถลบภารกิจได้"
 
 #: blueprints/marti_api/mission_marti_api.py:759
 msgid "Please provide the password"
-msgstr ""
+msgstr "โปรดระบุรหัสผ่าน"
 
 #: blueprints/marti_api/mission_marti_api.py:769
 msgid "You do not have permission to change this mission's password"
-msgstr ""
+msgstr "คุณไม่มีสิทธิ์เปลี่ยนรหัสผ่านของภารกิจนี้"
 
 #: blueprints/marti_api/mission_marti_api.py:831
 #, python-format
 msgid "No EUD found with UID %(invitee)s"
-msgstr ""
+msgstr "ไม่พบ EUD ที่มี UID %(invitee)s นี้"
 
 #: blueprints/marti_api/mission_marti_api.py:846
 #, python-format
 msgid "No EUD found with callsign %(invitee)s"
-msgstr ""
+msgstr "ไม่พบ EUD ที่มีนามเรียกขาน (Callsign) %(invitee)s นี้"
 
 #: blueprints/marti_api/mission_marti_api.py:861
 #, python-format
 msgid "No user found with username %(invitee)s"
-msgstr ""
+msgstr "ไม่พบผู้ใช้ชื่อ %(invitee)s นี้"
 
 #: blueprints/marti_api/mission_marti_api.py:878
 #, python-format
 msgid "No group found: %(invitee)s"
-msgstr ""
+msgstr "ไม่พบกลุ่ม: %(invitee)s นี้"
 
 #: blueprints/marti_api/mission_marti_api.py:893
 #, python-format
 msgid "Team not found: %(invitee)s"
-msgstr ""
+msgstr "ไม่พบทีม: %(invitee)s นี้"
 
 #: blueprints/marti_api/mission_marti_api.py:955
 #, python-format
 msgid "Invalid invitation type: %(invitation_type)s"
-msgstr ""
+msgstr "ประเภทของคำเชิญไม่ถูกต้อง: %(invitation_type)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1003
 #: blueprints/marti_api/mission_marti_api.py:1591
 #: blueprints/ots_api/mission_api.py:384
 #, python-format
 msgid "Mission not found: %(mission_name)s"
-msgstr ""
+msgstr "ไม่พบภารกิจ: %(mission_name)s นี้"
 
 #: blueprints/marti_api/mission_marti_api.py:1041
 #, python-format
 msgid "Invalid invitation type: %(invitation)s"
-msgstr ""
+msgstr "ประเภทคำเชิญไม่ถูกต้อง: %(invitation)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1133
 #, python-format
 msgid "No such mission found: %(mission_name)s"
-msgstr ""
+msgstr "ไม่พบภารกิจดังกล่าว: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1150
 msgid "Only mission owners can change EUD roles"
-msgstr ""
+msgstr "เฉพาะเจ้าของภารกิจเท่านั้นที่สามารถเปลี่ยนบทบาท (Roles) ของ EUD ได้"
 
 #: blueprints/marti_api/mission_marti_api.py:1157
 #: blueprints/ots_api/marker_api.py:86
 msgid "Please provide a UID"
-msgstr ""
+msgstr "โปรดระบุ UID"
 
 #: blueprints/marti_api/mission_marti_api.py:1165
 #, python-format
 msgid "Invalid UID: %(client_uid)s"
-msgstr ""
+msgstr "UID ไม่ถูกต้อง: %(client_uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1179
 #, python-format
 msgid "Invalid role: %(new_role)s"
-msgstr ""
+msgstr "บทบาทไม่ถูกต้อง: %(new_role)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1309
 #: blueprints/marti_api/mission_marti_api.py:1352
 #, python-format
 msgid "Cannot find mission %(mission_name)s"
-msgstr ""
+msgstr "ไม่พบภารกิจ %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1364
 #, python-format
 msgid "Cannot find mission %(mission_guid)s"
-msgstr ""
+msgstr "ไม่พบภารกิจ %(mission_guid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1390
 #, python-format
 msgid "%(username)s and mission %(mission_name)s are not in the same group"
-msgstr ""
+msgstr "%(username)s และภารกิจ %(mission_name)s ไม่ได้อยู่ในกลุ่มเดียวกัน"
 
 #: blueprints/marti_api/mission_marti_api.py:1410
 #: blueprints/ots_api/mediamtx_api.py:58
 msgid "Invalid token"
-msgstr ""
+msgstr "โทเค็นไม่ถูกต้อง"
 
 #: blueprints/marti_api/mission_marti_api.py:1443
 msgid "Missing UID"
-msgstr ""
+msgstr "ขาด UID"
 
 #: blueprints/marti_api/mission_marti_api.py:1449
 #, python-format
 msgid "Invalid UID: %(uid)s"
-msgstr ""
+msgstr "UID ไม่ถูกต้อง: %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1683
 msgid "Missing or invalid certificate"
-msgstr ""
+msgstr "ไม่มีใบรับรอง (Certificate) หรือใบรับรองไม่ถูกต้อง"
 
 #: blueprints/marti_api/mission_marti_api.py:1699
 msgid "File name cannot be blank"
-msgstr ""
+msgstr "ชื่อไฟล์เว้นว่างไม่ได้"
 
 #: blueprints/marti_api/mission_marti_api.py:1732
 #, python-format
 msgid "%(extension)s is not an allowed file extension"
-msgstr ""
+msgstr "ไม่อนุญาตให้ใช้นามสกุลไฟล์ %(extension)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1808
 #, python-format
 msgid "No content found with hash: %(content_hash)s"
-msgstr ""
+msgstr "ไม่พบเนื้อหาที่มี Hash : %(content_hash)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1847
 #, python-format
 msgid "No such mission: %(mission_name)s"
-msgstr ""
+msgstr "ไม่มีภารกิจดังกล่าว: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1868
 #, python-format
 msgid "No such file with hash %(content_hash)s"
-msgstr ""
+msgstr "ไม่มีไฟล์ที่มีแฮช %(content_hash)s"
 
 #: blueprints/marti_api/mission_marti_api.py:2074
 #, python-format
 msgid "UID %(uid)s not found"
-msgstr ""
+msgstr "ไม่พบ UID %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:2104
 #, python-format
 msgid "No content found with hash %(hash)s"
-msgstr ""
+msgstr "ไม่พบเนื้อหาที่มีแฮช %(hash)s"
 
 #: blueprints/marti_api/mission_marti_api.py:2133
 #, python-format
 msgid "Failed to delete content with hash %(hash)s: %(e)s"
-msgstr ""
+msgstr "ลบเนื้อหาที่มีแฮช %(hash)s ไม่สำเร็จ: %(e)s"
 
 #: blueprints/marti_api/video_marti_api.py:146
 msgid "Invalid Certificate"
-msgstr ""
+msgstr "ใบรับรอง (Certificate) ไม่ถูกต้อง"
 
 #: blueprints/marti_api/video_marti_api.py:209
 msgid "Video not found"
-msgstr ""
+msgstr "ไม่พบวิดีโอ"
 
 #: blueprints/marti_api/video_marti_api.py:216
 #: blueprints/ots_api/group_api.py:209 blueprints/ots_api/user_api.py:508
 #, python-format
 msgid "User %(username)s not found"
-msgstr ""
+msgstr "ไม่พบผู้ใช้ %(username)s"
 
 #: blueprints/marti_api/video_marti_api.py:233
 #, python-format
 msgid "Video stream with uid %(uid)s not found"
-msgstr ""
+msgstr "ไม่พบสตรีมวิดีโอที่มี UID %(uid)s นี้"
 
 #: blueprints/ots_api/api.py:82
 #, python-format
 msgid "Invalid sort column: %(sort_by)s"
-msgstr ""
+msgstr "คอลัมน์การเรียงลำดับไม่ถูกต้อง: %(sort_by)s"
 
 #: blueprints/ots_api/api.py:283
 #, python-format
 msgid "Invalid username: %(username)s"
-msgstr ""
+msgstr "ชื่อผู้ใช้ไม่ถูกต้อง: %(username)s"
 
 #: blueprints/ots_api/api.py:324
 #, python-format
 msgid "Certificate already exists for %(username)s"
-msgstr ""
+msgstr "มีใบรับรองสำหรับ %(username)s นี้อยู่แล้ว"
 
 #: blueprints/ots_api/api.py:360
 msgid "Please specify a callsign"
-msgstr ""
+msgstr "โปรดระบุนามเรียกขาน (Callsign)"
 
 #: blueprints/ots_api/casevac_api.py:148
 #, python-format
 msgid "Unknown UID: %(uid)s"
-msgstr ""
+msgstr "ไม่รู้จัก UID: %(uid)s"
 
 #: blueprints/ots_api/data_package_api.py:47
 msgid ""
 "Server connection data packages can't be installed on enrollment or "
 "connection"
-msgstr ""
+msgstr "ไม่สามารถติดตั้งแพ็กเกจข้อมูลการเชื่อมต่อเซิร์ฟเวอร์ในระหว่างการลงทะเบียนหรือการเชื่อมต่อได้"
 
 #: blueprints/ots_api/data_package_api.py:83
 msgid "Invalid/unknown hash"
-msgstr ""
+msgstr "แฮชไม่ถูกต้องหรือไม่มีในระบบ"
 
 #: blueprints/ots_api/data_package_api.py:134
 msgid "Please provide a data package hash"
-msgstr ""
+msgstr "โปรดระบุแฮชของแพ็กเกจข้อมูล"
 
 #: blueprints/ots_api/data_package_api.py:150
 #, python-format
 msgid "Data package with hash '%(hash)s' not found"
-msgstr ""
+msgstr "ไม่พบแพ็กเกจข้อมูลที่มีแฮช '%(hash)s'"
 
 #: blueprints/ots_api/device_profile_api.py:61
 msgid "Please specify the preference_key"
-msgstr ""
+msgstr "โปรดระบุ preference_key"
 
 #: blueprints/ots_api/device_profile_api.py:74
 #, python-format
 msgid "Unknown preference_key: %(preference_key)s"
-msgstr ""
+msgstr "ไม่รู้จัก preference_key: %(preference_key)s"
 
 #: blueprints/ots_api/group_api.py:41 blueprints/ots_api/group_api.py:124
 #: blueprints/ots_api/group_api.py:165
 msgid "LDAP is enabled. Please view and edit groups on your LDAP server"
-msgstr ""
+msgstr "LDAP เปิดใช้งานอยู่ โปรดดูและแก้ไขกลุ่มบนเซิร์ฟเวอร์ LDAP ของคุณ"
 
 #: blueprints/ots_api/group_api.py:182
 msgid "Please provide the username, group name, and direction"
-msgstr ""
+msgstr "โปรดระบุชื่อผู้ใช้ ชื่อกลุ่ม และทิศทาง (Direction)"
 
 #: blueprints/ots_api/group_api.py:197
 #, python-format
 msgid "Invalid direction: %(direction)s"
-msgstr ""
+msgstr "ทิศทางไม่ถูกต้อง: %(direction)s"
 
 #: blueprints/ots_api/group_api.py:217
 #, python-format
 msgid "Group %(group_name)s not found"
-msgstr ""
+msgstr "ไม่พบกลุ่ม %(group_name)s"
 
 #: blueprints/ots_api/group_api.py:253
 #, python-format
 msgid "Failed to remove %(username)s from %(group_name)s: %(e)s"
-msgstr ""
+msgstr "นำ %(username)s ออกจาก %(group_name)s ไม่สำเร็จ: %(e)s"
 
 #: blueprints/ots_api/group_api.py:274
 msgid "LDAP is enabled, please use your LDAP server to add groups"
-msgstr ""
+msgstr "LDAP เปิดใช้งานอยู่ โปรดใช้เซิร์ฟเวอร์ LDAP ของคุณเพื่อเพิ่มกลุ่ม"
 
 #: blueprints/ots_api/group_api.py:281
 msgid "Missing name"
-msgstr ""
+msgstr "ไม่มีชื่อ"
 
 #: blueprints/ots_api/group_api.py:303
 #, python-format
 msgid "%(name)s group already exists"
-msgstr ""
+msgstr "มีกลุ่ม %(name)s อยู่ในระบบแล้ว"
 
 #: blueprints/ots_api/group_api.py:315
 #, python-format
 msgid "Failed to add %(name)s group: %(e)s"
-msgstr ""
+msgstr "เพิ่มกลุ่ม %(name)s ไม่สำเร็จ: %(e)s"
 
 #: blueprints/ots_api/group_api.py:341 blueprints/ots_api/user_api.py:548
 msgid "LDAP is enabled, please use your LDAP server to add users to groups"
-msgstr ""
+msgstr "LDAP เปิดใช้งานอยู่ โปรดใช้เซิร์ฟเวอร์ LDAP ของคุณเพื่อเพิ่มผู้ใช้เข้ากลุ่ม"
 
 #: blueprints/ots_api/group_api.py:358
 msgid "Please provide a list of users, group name, and direction"
-msgstr ""
+msgstr "โปรดระบุรายชื่อผู้ใช้ ชื่อกลุ่ม และทิศทาง (Direction)"
 
 #: blueprints/ots_api/group_api.py:374 blueprints/ots_api/user_api.py:236
 #: blueprints/ots_api/user_api.py:286 blueprints/ots_api/user_api.py:352
 #: blueprints/ots_api/user_api.py:390
 #, python-format
 msgid "User %(username)s does not exist"
-msgstr ""
+msgstr "ไม่มีผู้ใช้ %(username)s อยู่ในระบบ"
 
 #: blueprints/ots_api/group_api.py:386
 #, python-format
 msgid "Group %(group_name)s does not exist"
-msgstr ""
+msgstr "ไม่มีกลุ่ม %(group_name)s อยู่ในระบบ"
 
 #: blueprints/ots_api/group_api.py:416
 msgid "LDAP is enabled, please use your LDAP server to delete groups"
-msgstr ""
+msgstr "LDAP เปิดใช้งานอยู่ โปรดใช้เซิร์ฟเวอร์ LDAP ของคุณเพื่อลบกลุ่ม"
 
 #: blueprints/ots_api/group_api.py:425
 msgid "Missing group name"
-msgstr ""
+msgstr "ไม่มีชื่อกลุ่ม"
 
 #: blueprints/ots_api/group_api.py:430
 msgid "The __ANON__ group cannot be deleted"
-msgstr ""
+msgstr "ไม่สามารถลบกลุ่ม __ANON__ ได้"
 
 #: blueprints/ots_api/group_api.py:443
 #, python-format
 msgid "No such group: %(group_name)s"
-msgstr ""
+msgstr "ไม่มีกลุ่มดังกล่าว: %(group_name)s"
 
 #: blueprints/ots_api/group_api.py:465
 #, python-format
 msgid "Failed to delete %(group_name)s: %(e)s"
-msgstr ""
+msgstr "ลบ %(group_name)s ไม่สำเร็จ: %(e)s"
 
 #: blueprints/ots_api/language_api.py:13
 msgid "This is a test"
-msgstr ""
+msgstr "นี่คือการทดสอบ"
 
 #: blueprints/ots_api/marker_api.py:48
 msgid "Please provide a latitude and longitude"
-msgstr ""
+msgstr "โปรดระบุละติจูด (Latitude) และลองจิจูด (Longitude)"
 
 #: blueprints/ots_api/marker_api.py:57
 #, python-format
 msgid "Invalid latitude: %(latitude)s"
-msgstr ""
+msgstr "ละติจูดไม่ถูกต้อง: %(latitude)s"
 
 #: blueprints/ots_api/marker_api.py:69
 #, python-format
 msgid "Invalid longitude: %(longitude)s"
-msgstr ""
+msgstr "ลองจิจูดไม่ถูกต้อง: %(longitude)s"
 
 #: blueprints/ots_api/marker_api.py:80
 #, python-format
 msgid "Failed to parse lat/lon: %(e)s"
-msgstr ""
+msgstr "แยกวิเคราะห์พิกัดละติจูด/ลองจิจูดไม่สำเร็จ: %(e)s"
 
 #: blueprints/ots_api/marker_api.py:88
 msgid "Please provide a name"
-msgstr ""
+msgstr "โปรดระบุชื่อ"
 
 #: blueprints/ots_api/marker_api.py:96
 msgid "Invalid UID. UIDs need to be in UUID4 format"
-msgstr ""
+msgstr "UID ไม่ถูกต้อง รูปแบบ UID จะต้องเป็น UUID4"
 
 #: blueprints/ots_api/marker_api.py:112
 #, python-format
 msgid "Invalid type: %(cot_type)s"
-msgstr ""
+msgstr "ประเภท CoT ไม่ถูกต้อง: %(cot_type)s"
 
 #: blueprints/ots_api/marker_api.py:269
 #, python-format
 msgid "Failed to parse data: %(e)s"
-msgstr ""
+msgstr "แยกวิเคราะห์ข้อมูลไม่สำเร็จ: %(e)s"
 
 #: blueprints/ots_api/marker_api.py:283
 msgid "Please provide the UID of the marker to delete"
-msgstr ""
+msgstr "โปรดระบุ UID ของมาร์กเกอร์ (Marker) ที่ต้องการลบ"
 
 #: blueprints/ots_api/marker_api.py:294
 msgid "Unknown UID"
-msgstr ""
+msgstr "ไม่รู้จัก UID"
 
 #: blueprints/ots_api/mediamtx_api.py:305
 #: blueprints/ots_api/mediamtx_api.py:404
 msgid "Please specify a path name"
-msgstr ""
+msgstr "โปรดระบุชื่อพาธ (Path)"
 
 #: blueprints/ots_api/mediamtx_api.py:309
 msgid "Path cannot begin with a slash"
-msgstr ""
+msgstr "พาธต้องไม่ขึ้นต้นด้วยเครื่องหมายทับ (/)"
 
 #: blueprints/ots_api/mediamtx_api.py:327
 #: blueprints/ots_api/mediamtx_api.py:413
 #, python-format
 msgid "Path %(path)s not found"
-msgstr ""
+msgstr "ไม่พบพาธ %(path)s"
 
 #: blueprints/ots_api/mediamtx_api.py:421
 msgid "MediaMTX is not running"
-msgstr ""
+msgstr "MediaMTX ไม่ได้ทำงานอยู่"
 
 #: blueprints/ots_api/meshtastic_api.py:167
 msgid "Please provide the URL of the channel to delete"
-msgstr ""
+msgstr "โปรดระบุ URL ของช่อง (Channel) ที่ต้องการลบ"
 
 #: blueprints/ots_api/mission_api.py:163 blueprints/ots_api/mission_api.py:281
 #, python-format
 msgid "Invalid property: %(key)s"
-msgstr ""
+msgstr "คุณสมบัติ (Property) ไม่ถูกต้อง: %(key)s"
 
 #: blueprints/ots_api/mission_api.py:254
 msgid "Only an admin or the mission creator can change this mission"
-msgstr ""
+msgstr "เฉพาะผู้ดูแลระบบหรือผู้สร้างภารกิจเท่านั้นที่สามารถเปลี่ยนแปลงภารกิจนี้ได้"
 
 #: blueprints/ots_api/mission_api.py:298
 msgid "Please specify a mission name"
-msgstr ""
+msgstr "โปรดระบุชื่อภารกิจ"
 
 #: blueprints/ots_api/mission_api.py:400
 msgid "Please provide the mission password"
-msgstr ""
+msgstr "โปรดระบุรหัสผ่านภารกิจ"
 
 #: blueprints/ots_api/plugin_api.py:50
 msgid "Server plugins must be zip, whl, or tar.gz files"
-msgstr ""
+msgstr "ปลั๊กอินของเซิร์ฟเวอร์ต้องเป็นไฟล์ .zip, .whl หรือ .tar.gz เท่านั้น"
 
 #: blueprints/ots_api/plugin_api.py:66 blueprints/ots_api/plugin_api.py:99
 #: blueprints/ots_api/plugin_api.py:115 blueprints/ots_api/plugin_api.py:130
 msgid "Plugins are disabled"
-msgstr ""
+msgstr "ปลั๊กอินถูกปิดใช้งานอยู่"
 
 #: blueprints/ots_api/plugin_api.py:91
 #, python-format
 msgid "Plugin %(plugin_name)s not found"
-msgstr ""
+msgstr "ไม่พบปลั๊กอิน %(plugin_name)s"
 
 #: blueprints/ots_api/token_api.py:191
 #, python-format
 msgid "No token found for %(username)s"
-msgstr ""
+msgstr "ไม่พบโทเค็น (Token) สำหรับ %(username)s"
 
 #: blueprints/ots_api/token_api.py:222
 #, python-format
 msgid "Failed to delete token: %(e)s"
-msgstr ""
+msgstr "ลบโทเค็นไม่สำเร็จ: %(e)s"
 
 #: blueprints/ots_api/user_api.py:36
 msgid "LDAP is enabled, please use your LDAP server to create users"
-msgstr ""
+msgstr "LDAP เปิดใช้งานอยู่ โปรดใช้เซิร์ฟเวอร์ LDAP ของคุณเพื่อสร้างผู้ใช้"
 
 #: blueprints/ots_api/user_api.py:53
 msgid "Passwords do not match"
-msgstr ""
+msgstr "รหัสผ่านไม่ตรงกัน"
 
 #: blueprints/ots_api/user_api.py:65 blueprints/ots_api/user_api.py:338
 #, python-format
 msgid "Role %(role)s does not exist"
-msgstr ""
+msgstr "ไม่มีบทบาท %(role)s อยู่ในระบบ"
 
 #: blueprints/ots_api/user_api.py:75
 msgid "Only administrators can add users to the administrators role"
-msgstr ""
+msgstr "เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถเพิ่มผู้ใช้เข้าสู่บทบาทผู้ดูแลระบบ (Administrators) ได้"
 
 #: blueprints/ots_api/user_api.py:99
 #, python-format
 msgid "User %(username)s already exists"
-msgstr ""
+msgstr "มีผู้ใช้ %(username)s อยู่ในระบบแล้ว"
 
 #: blueprints/ots_api/user_api.py:114
 msgid "LDAP is enabled, please use your LDAP server to delete users"
-msgstr ""
+msgstr "LDAP เปิดใช้งานอยู่ โปรดใช้เซิร์ฟเวอร์ LDAP ของคุณเพื่อลบผู้ใช้"
 
 #: blueprints/ots_api/user_api.py:126
 msgid "You can't delete your own account"
-msgstr ""
+msgstr "คุณไม่สามารถลบบัญชีของตนเองได้"
 
 #: blueprints/ots_api/user_api.py:139
 #, python-format
 msgid "Failed to delete user: %(e)s"
-msgstr ""
+msgstr "ลบผู้ใช้ไม่สำเร็จ: %(e)s"
 
 #: blueprints/ots_api/user_api.py:155
 msgid "LDAP is enabled, please use your LDAP server to reset passwords"
-msgstr ""
+msgstr "LDAP เปิดใช้งานอยู่ โปรดใช้เซิร์ฟเวอร์ LDAP ของคุณเพื่อรีเซ็ตรหัสผ่าน"
 
 #: blueprints/ots_api/user_api.py:169
 msgid "Please specify a username and new password"
-msgstr ""
+msgstr "โปรดระบุชื่อผู้ใช้และรหัสผ่านใหม่"
 
 #: blueprints/ots_api/user_api.py:181
 #, python-format
 msgid "Your password must be at least %(characters)s characters long"
-msgstr ""
+msgstr "รหัสผ่านของคุณต้องมีความยาวอย่างน้อย %(characters)s ตัวอักษร"
 
 #: blueprints/ots_api/user_api.py:198
 #, python-format
 msgid "Could not find user %(username)s"
-msgstr ""
+msgstr "ไม่พบผู้ใช้ %(username)s นี้"
 
 #: blueprints/ots_api/user_api.py:213
 msgid "LDAP is enabled, please use your LDAP server to deactivate users"
-msgstr ""
+msgstr "LDAP เปิดใช้งานอยู่ โปรดใช้เซิร์ฟเวอร์ LDAP ของคุณเพื่อระงับการใช้งาน (Deactivate) ผู้ใช้"
 
 #: blueprints/ots_api/user_api.py:225
 msgid "Please specify the username to deactivate"
-msgstr ""
+msgstr "โปรดระบุชื่อผู้ใช้ที่ต้องการระงับการใช้งาน"
 
 #: blueprints/ots_api/user_api.py:250
 #, python-format
 msgid "%(username)s is already deactivated"
-msgstr ""
+msgstr "%(username)s นี้ถูกระงับการใช้งานอยู่แล้ว"
 
 #: blueprints/ots_api/user_api.py:263
 msgid "LDAP is enabled, please use your LDAP server to activate users"
-msgstr ""
+msgstr "LDAP เปิดใช้งานอยู่ โปรดใช้เซิร์ฟเวอร์ LDAP ของคุณเพื่อเปิดใช้งาน (Activate) ผู้ใช้"
 
 #: blueprints/ots_api/user_api.py:275
 msgid "Please specify the username to activate"
-msgstr ""
+msgstr "โปรดระบุชื่อผู้ใช้ที่ต้องการเปิดใช้งาน"
 
 #: blueprints/ots_api/user_api.py:300
 #, python-format
 msgid "%(username)s is already activated"
-msgstr ""
+msgstr "%(username)s ถูกเปิดใช้งานอยู่แล้ว"
 
 #: blueprints/ots_api/user_api.py:313
 msgid "LDAP is enabled, please use your LDAP server to assign roles"
-msgstr ""
+msgstr "LDAP เปิดใช้งานอยู่ โปรดใช้เซิร์ฟเวอร์ LDAP ของคุณเพื่อกำหนดบทบาท (Roles)"
 
 #: blueprints/ots_api/user_api.py:327
 msgid "Please specify a username and roles"
-msgstr ""
+msgstr "โปรดระบุชื่อผู้ใช้และบทบาท (Roles)"
 
 #: blueprints/ots_api/user_api.py:401
 #, python-format
 msgid "EUD %(eud_uid)s not found"
-msgstr ""
+msgstr "ไม่พบ EUD %(eud_uid)s"
 
 #: blueprints/ots_api/user_api.py:414
 #, python-format
 msgid "%(uid)s is already assigned to another user"
-msgstr ""
+msgstr "%(uid)s ถูกกำหนดให้กับผู้ใช้อื่นแล้ว"
 
 #: blueprints/ots_api/user_api.py:435 blueprints/ots_api/user_api.py:457
 msgid "LDAP is enabled, please use your LDAP server to manage users"
-msgstr ""
+msgstr "LDAP เปิดใช้งานอยู่ โปรดใช้เซิร์ฟเวอร์ LDAP ของคุณเพื่อจัดการผู้ใช้"
 
 #: blueprints/ots_api/user_api.py:488
 msgid "LDAP is enabled, please use your LDAP server to manage groups"
-msgstr ""
+msgstr "LDAP เปิดใช้งานอยู่ โปรดใช้ Server LDAP ของคุณเพื่อจัดการกลุ่ม"
 
 #: blueprints/ots_api/user_api.py:498
 msgid "Please provide a username"
-msgstr ""
+msgstr "โปรดระบุชื่อผู้ใช้"
 
 #: blueprints/ots_api/user_api.py:565
 msgid "Please provide a list of groups, a username, and a direction"
-msgstr ""
+msgstr "โปรดระบุรายชื่อกลุ่ม ชื่อผู้ใช้ และทิศทางในระบบ (Direction)"
 
 #: blueprints/ots_api/user_api.py:582
 #, python-format
 msgid "User %(username)s doesn't exist"
-msgstr ""
+msgstr "ไม่มีผู้ใช้ %(username)s ในระบบ"
 
 #: blueprints/ots_api/user_api.py:596
 #, python-format
 msgid "Group %(group_name)s doesn't exist"
-msgstr ""
+msgstr "ไม่มีกลุ่ม %(group_name)s อยู่ในระบบ"
 
 #: blueprints/ots_api/video_api.py:46
 msgid "Please specify a valid path"
-msgstr ""
+msgstr "โปรดระบุ Path ของวีดีโอให้ถูกต้อง"
 
 #: blueprints/ots_api/video_api.py:72
 #, python-format
 msgid "Invalid recording_id: %(recording_id)s"
-msgstr ""
+msgstr "recording_id ไม่ถูกต้อง: %(recording_id)s"
 
 #: blueprints/ots_api/video_api.py:97
 msgid "Recording not found"
-msgstr ""
+msgstr "ไม่พบการบันทึก (Recording)"
 
 #~ msgid "No token found for %s(username)s"
-#~ msgstr ""
+#~ msgstr "ไม่พบโทเค็น (Token) สำหรับ %s(username)s"
 
