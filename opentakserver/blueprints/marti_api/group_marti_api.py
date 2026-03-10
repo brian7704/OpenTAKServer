@@ -238,21 +238,18 @@ def put_active_bits():
 
 @group_api.route("/Marti/api/groups/active", methods=["PUT"])
 def put_active_groups():
-    logger.info(request.args)
-    logger.info(request.json)
-    uid = request.args.get("clientUid")
-    if not uid:
-        logger.error("clientUid required")
-        return jsonify({"success": False, "error": gettext("clientUid required")}), 400
-
     cert = verify_client_cert()
     username = cert.get_subject().commonName
     user = app.security.datastore.find_user(username=username)
 
-    groups_users = db.session.execute(db.session.query(GroupUser).filter_by(user_id=user.id)).all()
-    if not groups_users:
-        logger.warning(f"User {username} doesn't belong to any groups, defaulting to __ANON__")
-        return "", 400
+    uids = []
+
+    # CloudTAK doesn't send the clientUid so the group subscription is changed for all of their EUDs
+    if request.args.get("clientUid"):
+        uids.append(request.args.get("clientUid"))
+    else:
+        for eud in user.euds:
+            uids.append(eud.uid)
 
     rabbit_credentials = pika.PlainCredentials(
         app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD")
@@ -266,6 +263,29 @@ def put_active_groups():
     group_subscriptions = db.session.execute(
         db.session.query(GroupUser).filter_by(user_id=user.id)
     ).all()
+
+    # Make IN and OUT subscriptions for the __ANON__ group if the user doesn't belong to any groups
+    if not group_subscriptions:
+        anon_group = db.session.execute(db.session.query(Group).filter_by(name="__ANON__")).first()[
+            0
+        ]
+
+        anon_in_subscription = GroupUser(
+            user_id=user.id, group_id=anon_group.id, direction=Group.IN, enabled=True
+        )
+        anon_in_subscription.group = anon_group
+        anon_in_subscription.user = user
+
+        anon_out_subscription = GroupUser(
+            user_id=user.id, group_id=anon_group.id, direction=Group.OUT, enabled=True
+        )
+        anon_out_subscription.group = anon_group
+        anon_out_subscription.user = user
+
+        group_subscriptions = [
+            [anon_in_subscription],
+            [anon_out_subscription],
+        ]
 
     for subscription in request.json:
         direction = subscription.get("direction")
@@ -296,6 +316,7 @@ def put_active_groups():
         user_in_group = False
         for group_subscription in group_subscriptions:
             group_subscription = group_subscription[0]
+
             if (
                 group_subscription.group.name == group_name
                 and group_subscription.direction == direction
@@ -304,18 +325,20 @@ def put_active_groups():
                     group_subscription.enabled = active
                     db.session.add(group_subscription)
 
-                if active:
-                    channel.queue_bind(
-                        queue=uid,
-                        exchange="groups",
-                        routing_key=f"{group_subscription.group.name}.{group_subscription.direction}",
-                    )
-                else:
-                    channel.queue_unbind(
-                        queue=uid,
-                        exchange="groups",
-                        routing_key=f"{group_subscription.group.name}.{group_subscription.direction}",
-                    )
+                for uid in uids:
+                    if active:
+                        channel.queue_declare(queue=uid)
+                        channel.queue_bind(
+                            queue=uid,
+                            exchange="groups",
+                            routing_key=f"{group_subscription.group.name}.{group_subscription.direction}",
+                        )
+                    else:
+                        channel.queue_unbind(
+                            queue=uid,
+                            exchange="groups",
+                            routing_key=f"{group_subscription.group.name}.{group_subscription.direction}",
+                        )
 
                 user_in_group = True
 
