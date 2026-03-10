@@ -127,6 +127,8 @@ class ClientController(Thread):
         self.rabbit_channel = channel
         self.rabbit_channel.add_on_close_callback(self.on_channel_close)
 
+        self.rabbit_channel.exchange_declare("flask-socketio", durable=False, exchange_type="fanout")
+
         for message in self.cached_messages:
             self.route_cot(message)
 
