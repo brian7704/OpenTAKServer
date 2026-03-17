@@ -79,9 +79,8 @@ def get_adsb_data():
 
                 for craft in r.json()["ac"]:
                     try:
-                        logger.warning(craft)
                         event = adsbxcot.adsbx_to_cot(craft, known_craft=None)
-                        logger.info(event)
+
                     except ValueError as e:
                         logger.error(f"Failed to parse adsb data: {e}")
                         continue
@@ -89,7 +88,7 @@ def get_adsb_data():
                     # noinspection PyTypeChecker
                     channel.basic_publish(
                         exchange="cot_parser",
-                        routing_key="",
+                        routing_key="cot_parser",
                         body=json.dumps(
                             {
                                 "cot": str(BeautifulSoup(event, "xml")),
@@ -242,7 +241,7 @@ def get_aishub_data():
                 # noinspection PyTypeChecker
                 channel.basic_publish(
                     exchange="cot_parser",
-                    routing_key="",
+                    routing_key="cot_parser",
                     body=json.dumps(
                         {"cot": str(BeautifulSoup(event, "xml")), "uid": app.config["OTS_NODE_ID"]}
                     ),
