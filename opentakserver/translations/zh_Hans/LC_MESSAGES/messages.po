@@ -8,20 +8,22 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-02-26 10:44-0500\n"
-"PO-Revision-Date: 2026-02-26 10:20-0500\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"PO-Revision-Date: 2026-03-06 18:39+0000\n"
+"Last-Translator: Lee Ka Ming <RYOHEI19920102@hotmail.com>\n"
+"Language-Team: Chinese (Simplified Han script) <https://"
+"weblate.opentakserver.io/projects/opentakserver/opentakserver/zh_Hans/>\n"
 "Language: zh_Hans\n"
-"Language-Team: zh_Hans <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Weblate 5.13.3\n"
 "Generated-By: Babel 2.15.0\n"
 
 #: blueprints/marti_api/cot_marti_api.py:32
 #, python-format
 msgid "No CoT found for UID %(uid)s"
-msgstr ""
+msgstr "未找到 CoT的UID"
 
 #: blueprints/marti_api/cot_marti_api.py:57
 #, python-format
@@ -30,11 +32,11 @@ msgstr ""
 
 #: blueprints/marti_api/data_package_marti_api.py:92
 msgid "This data package has already been uploaded"
-msgstr ""
+msgstr "数据包已上载"
 
 #: blueprints/marti_api/data_package_marti_api.py:181
 msgid "A file is required"
-msgstr ""
+msgstr "文件提交"
 
 #: blueprints/marti_api/data_package_marti_api.py:200
 #, python-format
@@ -68,7 +70,7 @@ msgstr ""
 
 #: blueprints/marti_api/group_marti_api.py:246
 msgid "clientUid required"
-msgstr ""
+msgstr "提供验证用户ID"
 
 #: blueprints/marti_api/group_marti_api.py:274
 #: blueprints/ots_api/group_api.py:365 blueprints/ots_api/user_api.py:574
@@ -77,11 +79,11 @@ msgstr ""
 
 #: blueprints/marti_api/group_marti_api.py:283
 msgid "The active attribute must be true or false"
-msgstr ""
+msgstr "属性启用是否"
 
 #: blueprints/marti_api/group_marti_api.py:292
 msgid "Group name is required"
-msgstr ""
+msgstr "提供团体名称"
 
 #: blueprints/marti_api/group_marti_api.py:331
 #, python-format
@@ -95,7 +97,7 @@ msgstr ""
 
 #: blueprints/marti_api/group_marti_api.py:383
 msgid "Please provide a group name and direction"
-msgstr ""
+msgstr "请提供团体名称及目的"
 
 #: blueprints/marti_api/group_marti_api.py:404
 #, python-format
@@ -117,7 +119,7 @@ msgstr ""
 #: blueprints/marti_api/mission_marti_api.py:1456
 #: blueprints/ots_api/mission_api.py:409
 msgid "Invalid password"
-msgstr ""
+msgstr "密码无效"
 
 #: blueprints/marti_api/mission_marti_api.py:439
 msgid "Missions are only supported on SSL connections"
@@ -125,7 +127,7 @@ msgstr ""
 
 #: blueprints/marti_api/mission_marti_api.py:453
 msgid "Please provide a mission name and creatorUid"
-msgstr ""
+msgstr "请提供任务名称和策划验证用户ID"
 
 #: blueprints/marti_api/mission_marti_api.py:468
 #, python-format
@@ -145,7 +147,7 @@ msgstr ""
 
 #: blueprints/marti_api/mission_marti_api.py:632
 msgid "Invalid mission name"
-msgstr ""
+msgstr "无效的任务名称(禁止使用)"
 
 #: blueprints/marti_api/mission_marti_api.py:643
 #: blueprints/marti_api/mission_marti_api.py:734
@@ -156,7 +158,7 @@ msgstr ""
 #: blueprints/ots_api/mission_api.py:308
 #, python-format
 msgid "Mission %(mission_name)s not found"
-msgstr ""
+msgstr "%(mission_name)任务档案中没有"
 
 #: blueprints/marti_api/mission_marti_api.py:675
 #: blueprints/marti_api/mission_marti_api.py:749
@@ -724,4 +726,3 @@ msgstr ""
 
 #~ msgid "No token found for %s(username)s"
 #~ msgstr ""
-
