@@ -690,7 +690,7 @@ class CoTController:
     def parse_marker(self, event, uid, point_pk, cot_pk):
         if (
             (
-                re.match("^a-[f|h|u|p|a|n|s|j|k]-[Z|P|A|G|S|U|F]", event.attrs["type"])
+                re.match("^a-[fhupansjk]-[ZPAGSUF]", event.attrs["type"])
                 or
                 # Spot map
                 re.match("^b-m-p", event.attrs["type"])
