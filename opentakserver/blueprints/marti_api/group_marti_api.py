@@ -481,11 +481,15 @@ def group_active_force():
         "distinguishedName": "",
         "direction": "",
         "created": "",
-        "type": "SYSTEM",  # Can also be LDAP but OTS doesn't support LDAP yet
         "bitpos": 0,
         "active": True,
         "description": "",
     }
+
+    if app.config.get("OTS_ENABLE_LDAP"):
+        response["type"] = "LDAP"
+    else:
+        response["type"] = "SYSTEM"
 
     return jsonify(response)
 
