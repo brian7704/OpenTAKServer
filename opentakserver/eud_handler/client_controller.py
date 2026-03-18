@@ -110,8 +110,10 @@ class ClientController(Thread):
             )
             self.rabbit_channel: Channel | None = None
             # Start the pika ioloop in a thread or else it blocks and we can't receive any CoT messages
-            self.iothread = Thread(target=self.rabbit_connection.ioloop.start, name="IOLOOP")
-            self.iothread.daemon = True
+            self.iothread = Thread(
+                target=self.rabbit_connection.ioloop.start, name=f"IOLOOP_{self.common_name}"
+            )
+            # self.iothread.daemon = True
             self.iothread.start()
             self.is_consuming = False
         except BaseException as e:
@@ -120,14 +122,15 @@ class ClientController(Thread):
 
     def on_connection_open(self, connection: pika.SelectConnection):
         self.rabbit_connection.channel(on_open_callback=self.on_channel_open)
-        self.rabbit_connection.add_on_close_callback(self.on_close)
 
     def on_channel_open(self, channel: Channel):
         self.logger.debug(f"Opening RabbitMQ channel for {self.callsign or self.address}")
         self.rabbit_channel = channel
         self.rabbit_channel.add_on_close_callback(self.on_channel_close)
 
-        self.rabbit_channel.exchange_declare("flask-socketio", durable=False, exchange_type="fanout")
+        self.rabbit_channel.exchange_declare(
+            "flask-socketio", durable=False, exchange_type="fanout"
+        )
 
         for message in self.cached_messages:
             self.route_cot(message)
@@ -347,6 +350,7 @@ class ClientController(Thread):
                 self.logger.error(str(e))
                 self.logger.error(traceback.format_exc())
                 # Client disconnected abruptly, either ATAK crashed, lost network connectivity, the battery died, etc
+                self.stop()
                 return
             except (ConnectionError, ConnectionResetError) as e:
                 self.logger.info(f"Closing connection {e}")
