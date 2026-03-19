@@ -449,12 +449,12 @@ class CoTController:
                 try:
                     with self.context:
                         from_eud = self.db.session.execute(
-                            self.db.session.query(EUD).filter_by(uid=geochat.sender_uid)
+                            self.db.session.query(EUD).filter_by(uid=chat_group.attrs["uid0"])
                         ).first()[0]
 
                         tak_packet = atak_pb2.TAKPacket()
                         tak_packet.contact.device_callsign, size = unishox2.compress(
-                            geochat.sender_uid
+                            chat_group.attrs["uid0"]
                         )
                         tak_packet.contact.callsign, size = unishox2.compress(from_eud.callsign)
                         tak_packet.chat.message, size = unishox2.compress(remarks.text)
