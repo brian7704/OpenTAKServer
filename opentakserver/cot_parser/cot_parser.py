@@ -1013,7 +1013,7 @@ def setup_logging(app):
 
     os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs"), exist_ok=True)
     fh = TimedRotatingFileHandler(
-        os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs", "opentakserver.log"),
+        os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs", "cot_parser.log"),
         when=app.config.get("OTS_LOG_ROTATE_WHEN"),
         interval=app.config.get("OTS_LOG_ROTATE_INTERVAL"),
         backupCount=app.config.get("OTS_BACKUP_COUNT"),

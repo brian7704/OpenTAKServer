@@ -71,9 +71,14 @@ def setup_logging(app):
         color_log_handler.setFormatter(color_log_formatter)
         logger.addHandler(color_log_handler)
 
+    opts = args()
+    log_file_name = "eud_handler_tcp.log"
+    if opts.ssl:
+        log_file_name = "eud_handler_ssl.log"
+
     os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs"), exist_ok=True)
     fh = TimedRotatingFileHandler(
-        os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs", "opentakserver.log"),
+        os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs", log_file_name),
         when=app.config.get("OTS_LOG_ROTATE_WHEN"),
         interval=app.config.get("OTS_LOG_ROTATE_INTERVAL"),
         backupCount=app.config.get("OTS_BACKUP_COUNT"),
