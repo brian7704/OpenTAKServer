@@ -1,5 +1,6 @@
 import typing as t
 
+from flask_babel import gettext
 from flask_security import PasswordUtil
 
 
@@ -9,5 +10,5 @@ class PasswordValidator(PasswordUtil):
         self, password: str, is_register: bool, **kwargs: t.Any
     ) -> t.Tuple[t.Optional[t.List], str]:
         if "@" in password or ":" in password:
-            return ["Passwords should not include @ or : characters"], password
+            return [gettext("Passwords should not include @ or : characters")], password
         return super().validate(password, is_register, **kwargs)

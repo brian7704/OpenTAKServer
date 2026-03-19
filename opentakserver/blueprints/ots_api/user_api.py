@@ -185,6 +185,17 @@ def admin_reset_password():
             400,
         )
 
+    if ":" in new_password or "@" in new_password:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("Passwords should not include @ or : characters"),
+                },
+            ),
+            400,
+        )
+
     user = app.security.datastore.find_user(username=username)
     if user:
         admin_change_password(user, new_password, False)
