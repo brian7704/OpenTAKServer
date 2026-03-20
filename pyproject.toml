@@ -30,6 +30,7 @@ Flask-Security-Too = {version="5.7.1", extras=["common", "mfa"]}
 flask-socketio = "5.5.1"
 flask-sqlalchemy = "3.1.1"
 gevent = "25.5.1"
+grpcio = "1.78.1"
 httpx = {version = "0.28.1", extras = ["http2"]}
 kombu = "5.6.0"
 lastversion = "*"
@@ -93,11 +94,13 @@ build-backend = "poetry_dynamic_versioning.backend"
 opentakserver = "opentakserver.app:start"
 eud_handler = "opentakserver.eud_handler.eud_handler:main"
 cot_parser = "opentakserver.cot_parser.cot_parser:main"
+fed_client = "opentakserver.fed_client.fed_client:main"
 
 [tool.black]
 line_length = 100
 target-version = ["py311"]
 src = ["opentakserver/", "tests/"]
+extend-exclude = "opentakserver/proto/"
 
 [tool.isort]
 known_first_party = "opentakserver"
