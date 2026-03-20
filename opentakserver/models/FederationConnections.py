@@ -30,5 +30,8 @@ class FederationConnections(db.model):
     )
     use_token_auth: Mapped[bool] = mapped_column(Boolean)
     auth_token_type: Mapped[enum] = mapped_column(Enum(AuthTokenTypeEnum), nullable=True)
-    auth_token: Mapped[str] = mapped_column(String(255), nullable=True)
+    auth_token: Mapped[int] = mapped_column(
+        Integer, ForeignKey("federate_tokens.id"), nullable=True
+    )
     last_error: Mapped[str] = mapped_column(String(1024), nullable=True)
+    certificate: Mapped[id] = mapped_column(Integer, ForeignKey("certificates.id"), nullable=True)
