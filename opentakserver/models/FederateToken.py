@@ -29,12 +29,11 @@ class FederateToken(db.Model):
         }
 
     def to_json(self):
-        def serialize(self):
-            return {
-                "name": self.name,
-                "expiration": iso8601_string_from_datetime(self.expiration),
-                "token": self.token,
-                "share_alerts": str(self.share_alerts),
-                "archive": str(self.archive),
-                "notes": self.notes,
-            }
+        return {
+            "name": self.name,
+            "expiration": iso8601_string_from_datetime(self.expiration),
+            "token": self.token,
+            "share_alerts": str(self.share_alerts),
+            "archive": str(self.archive),
+            "notes": self.notes,
+        }
