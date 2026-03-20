@@ -35,3 +35,5 @@ class FederationConnections(db.model):
     )
     last_error: Mapped[str] = mapped_column(String(1024), nullable=True)
     certificate: Mapped[id] = mapped_column(Integer, ForeignKey("certificates.id"), nullable=True)
+    description: Mapped[str] = mapped_column(String(1024), nullable=True)
+    uid: Mapped[str] = mapped_column(String(255), nullable=True)
