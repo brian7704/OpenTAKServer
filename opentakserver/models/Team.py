@@ -34,9 +34,10 @@ class Team(db.Model):
         "Brown": "#964B00",
         "Gray": "#808080",
     }
+    fallback_color = "#808080"
 
     def get_team_color(self):
-        return self.colors[self.name]
+        return self.colors.get(self.name, self.fallback_color)
 
     def serialize(self):
         return {
@@ -48,5 +49,5 @@ class Team(db.Model):
             "name": self.name,
             "chatroom": self.chatroom.to_json() if self.chatroom else None,
             "euds": [eud.to_json() for eud in self.euds] if self.euds else None,
-            "color": self.colors[self.name],
+            "color": self.colors.get(self.name, self.fallback_color),
         }
