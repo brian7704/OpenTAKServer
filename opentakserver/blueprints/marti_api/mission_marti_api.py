@@ -971,11 +971,11 @@ def delete_invitation(mission_name: str, invitation_type: str, invitee: str):
     elif invitation_type.lower() == "callsign":
         query = query.where(MissionInvitation.callsign == invitee)
     elif invitation_type.lower() == "username":
-        query = query.where(MissionInvitation.username == invite)
+        query = query.where(MissionInvitation.username == invitee)
     elif invitation_type.lower() == "group":
-        query = query.where(MissionInvitation.group == invite)
+        query = query.where(MissionInvitation.group == invitee)
     elif invitation_type.lower() == "team":
-        query = query.where(MissionInvitation.team == invite)
+        query = query.where(MissionInvitation.team == invitee)
 
     invitations = db.session.execute(query).scalars()
     for invitation in invitations:
@@ -1379,7 +1379,7 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
         group_filters.append(GroupMission.group_id == 1)
 
     query = db.session.query(GroupMission).filter_by(mission_name=mission_name)
-    query.where(or_(*group_filters))
+    query = query.where(or_(*group_filters))
     mission_groups = db.session.execute(query).scalars()
 
     if not mission_groups:

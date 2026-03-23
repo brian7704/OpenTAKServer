@@ -208,7 +208,7 @@ def create_edit_mission():
         )
         channel = rabbit_connection.channel()
 
-        for group in groups:
+        for group in (groups or []):
             logger.error(f"Publishing to {group.group.name}.{group.direction}")
             channel.basic_publish(
                 exchange="groups",
