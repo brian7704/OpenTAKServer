@@ -398,6 +398,7 @@ def get_missions():
         logger.debug(traceback.format_exc())
         return jsonify({"success": False, "error": str(e)}), 500
 
+    logger.warning(response)
     return jsonify(response)
 
 

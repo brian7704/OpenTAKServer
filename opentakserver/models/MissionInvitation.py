@@ -23,7 +23,7 @@ class MissionInvitation(db.Model):
     __tablename__ = "mission_invitations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    mission_name: Mapped[str] = mapped_column(String(255), ForeignKey("missions.name"))
+    mission_name: Mapped[str] = mapped_column(String(255), ForeignKey("missions.name"), nullable=True)
     mission_guid: Mapped[str] = mapped_column(String(255), nullable=True)
     client_uid: Mapped[str] = mapped_column(
         String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True
