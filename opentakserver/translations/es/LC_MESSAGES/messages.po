@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-02-26 10:44-0500\n"
-"PO-Revision-Date: 2026-04-01 20:22+0000\n"
+"PO-Revision-Date: 2026-04-01 20:31+0000\n"
 "Last-Translator: deantonious <deantonious@gmail.com>\n"
 "Language-Team: Spanish <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/es/>\n"
@@ -518,22 +518,20 @@ msgid "Invalid type: %(cot_type)s"
 msgstr "Tipo no válido: %(cot_type)s"
 
 #: blueprints/ots_api/marker_api.py:269
-#, fuzzy, python-format
+#, python-format
 msgid "Failed to parse data: %(e)s"
-msgstr "No se pudieron analizar los datos: %(e)s"
+msgstr "No se pudieron procesar los datos: %(e)s"
 
 #: blueprints/ots_api/marker_api.py:283
 msgid "Please provide the UID of the marker to delete"
 msgstr "Proporcione el UID del marcador que desea eliminar"
 
 #: blueprints/ots_api/marker_api.py:294
-#, fuzzy
 msgid "Unknown UID"
 msgstr "UID desconocido"
 
 #: blueprints/ots_api/mediamtx_api.py:305
 #: blueprints/ots_api/mediamtx_api.py:404
-#, fuzzy
 msgid "Please specify a path name"
 msgstr "Por favor especifique un nombre de ruta"
 
@@ -543,7 +541,7 @@ msgstr "La ruta no puede comenzar con una barra"
 
 #: blueprints/ots_api/mediamtx_api.py:327
 #: blueprints/ots_api/mediamtx_api.py:413
-#, fuzzy, python-format
+#, python-format
 msgid "Path %(path)s not found"
 msgstr "Ruta %(path)s no encontrada"
 
@@ -556,7 +554,7 @@ msgid "Please provide the URL of the channel to delete"
 msgstr "Proporcione la URL del canal que desea eliminar"
 
 #: blueprints/ots_api/mission_api.py:163 blueprints/ots_api/mission_api.py:281
-#, fuzzy, python-format
+#, python-format
 msgid "Invalid property: %(key)s"
 msgstr "Propiedad no válida: %(key)s"
 
@@ -565,12 +563,10 @@ msgid "Only an admin or the mission creator can change this mission"
 msgstr "Sólo un administrador o el creador de la misión puede cambiar esta misión"
 
 #: blueprints/ots_api/mission_api.py:298
-#, fuzzy
 msgid "Please specify a mission name"
-msgstr "Por favor especifique un nombre para la misión"
+msgstr "Por favor especifique un nombre de misión"
 
 #: blueprints/ots_api/mission_api.py:400
-#, fuzzy
 msgid "Please provide the mission password"
 msgstr "Por favor proporcione la contraseña de la misión"
 
@@ -584,17 +580,17 @@ msgid "Plugins are disabled"
 msgstr "Los complementos están deshabilitados"
 
 #: blueprints/ots_api/plugin_api.py:91
-#, fuzzy, python-format
+#, python-format
 msgid "Plugin %(plugin_name)s not found"
 msgstr "Plugin %(plugin_name)s no encontrado"
 
 #: blueprints/ots_api/token_api.py:191
-#, fuzzy, python-format
+#, python-format
 msgid "No token found for %(username)s"
 msgstr "No se encontró ningún token para %(username)s"
 
 #: blueprints/ots_api/token_api.py:222
-#, fuzzy, python-format
+#, python-format
 msgid "Failed to delete token: %(e)s"
 msgstr "No se pudo eliminar el token: %(e)s"
 
