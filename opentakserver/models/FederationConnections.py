@@ -11,7 +11,7 @@ class AuthTokenTypeEnum(enum.Enum):
     MANUAL = "manual"
 
 
-class FederationConnections(db.model):
+class FederationConnections(db.Model):
     __tablename__ = "federation_connections"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
