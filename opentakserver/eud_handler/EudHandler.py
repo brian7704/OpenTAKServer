@@ -94,14 +94,11 @@ class EudHandler(socketserver.BaseRequestHandler):
         self.logger = logging.getLogger()
 
     def handle(self):
-        self.logger.warning("HANDLE")
         cot = ""
 
         while not self.shutdown:
             try:
-                self.logger.warning("GETTING DATA")
                 data = self.request.recv(65536)
-                self.logger.info(f"GOT DATA {len(data)}")
             except Exception as e:
                 self.logger.debug(f"recv failed: {e}")
                 break
@@ -385,9 +382,9 @@ class EudHandler(socketserver.BaseRequestHandler):
                     self.is_authenticated = True
                     self.user = user
                     try:
-                        eud = db.session.execute(
-                            db.session.query(EUD).filter_by(uid=uid)
-                        ).first()[0]
+                        eud = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()[
+                            0
+                        ]
                         self.logger.debug(
                             "Associating EUD uid {} to user {}".format(eud.uid, user.username)
                         )
@@ -485,9 +482,7 @@ class EudHandler(socketserver.BaseRequestHandler):
                 elif "mission" in destination.attrs:
                     with self.app.app_context():
                         mission = db.session.execute(
-                            db.session.query(Mission).filter_by(
-                                name=destination.attrs["mission"]
-                            )
+                            db.session.query(Mission).filter_by(name=destination.attrs["mission"])
                         ).first()
 
                         if not mission:

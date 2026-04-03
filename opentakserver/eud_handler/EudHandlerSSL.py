@@ -23,6 +23,7 @@ class EudHandlerSSL(EudHandler):
 
                     with self.app.app_context():
                         self.user = self.app.security.datastore.find_user(username=self.common_name)
+                        self.handle_auth("")
         except BaseException as e:
             self.logger.warning("Failed to do handshake: {}".format(e))
             self.logger.error(traceback.format_exc())
