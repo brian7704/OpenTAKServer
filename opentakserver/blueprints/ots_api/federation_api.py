@@ -10,7 +10,9 @@ from werkzeug.datastructures import ImmutableMultiDict
 from opentakserver.blueprints.ots_api.api import paginate, search
 from opentakserver.extensions import db
 from opentakserver.forms.FedTokenForm import FedTokenForm
+from opentakserver.forms.FederationConnectionForm import FederationConnectionForm
 from opentakserver.models.FederateToken import FederateToken
+from opentakserver.models.FederationConnection import FederationConnection
 
 federation_blueprint = Blueprint("federation_blueprint", __name__)
 
@@ -42,7 +44,7 @@ def get_tokens():
 
 
 @roles_required("administrator")
-@federation_blueprint.route("/api/federation/token")
+@federation_blueprint.route("/api/federation/token", methods=["POST"])
 def create_token():
     """
     Creates a new federation token and saves it to the database.
@@ -92,3 +94,51 @@ def create_token():
         db.commit()
 
         return jsonify({"success": True, "token": fed_token.to_json()})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation")
+def get_federations():
+    """
+    Gets a list of federation connections
+    :param display_name: Name of the connection
+    :param address: Federate server's address
+    :param port: Federate server's port
+    :param enabled:
+    :param protocol_version: Federation protocol version
+
+    :return: A list of federation connections
+    """
+
+    query = db.session.query(FederationConnection)
+    query = search(query, FederationConnection, "display_name")
+    query = search(query, FederationConnection, "address")
+    query = search(query, FederationConnection, "port")
+    query = search(query, FederationConnection, "enabled")
+    query = search(query, FederationConnection, "protocol_version")
+
+    return paginate(query)
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation", methods=["POST"])
+def create_federation():
+    """
+    Creates a new federation connection
+    :return:
+    """
+
+    form = FederationConnectionForm(formdata=ImmutableMultiDict(request.json))
+    if not form.validate():
+        return jsonify({"success": False, "error": form.errors}), 400
+
+    fed_connection = FederationConnection().from_wtforms(form)
+    db.session.add(fed_connection)
+    db.session.commit()
+
+    # TODO: Fork a fed client process here
+
+    return jsonify({"success": True}), 200
+
+
+# TODO: Endpoints for enabling/disabling, deleting

@@ -26,3 +26,4 @@ class Federate(db.Model):
     use_group_hop_limiting: Mapped[bool] = mapped_column(Boolean)
     # takserver notes field says "Notes may contain upper and lower case letters, numbers, spaces and underscores up to 30 characters."
     notes: Mapped[str] = mapped_column(String(255))
+    certificate_file: Mapped[str] = mapped_column(String(255))

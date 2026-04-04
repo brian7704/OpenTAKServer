@@ -14,7 +14,7 @@ from flask_security.models import fsqla
 
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.extensions import logger, db
-from opentakserver.models.FederationConnections import FederationConnections
+from opentakserver.models.FederationConnection import FederationConnection
 from opentakserver.models.WebAuthn import WebAuthn
 from opentakserver.proto import fig_pb2_grpc, fig_pb2
 
@@ -95,57 +95,59 @@ def status():
 
 
 def main():
-    connections = db.session.execute(db.session.query(FederationConnections)).all()
+    connections = db.session.execute(db.session.query(FederationConnection)).all()
 
     for connection in connections:
-        connection: FederationConnections = connection[0]
 
-        channel_creds = grpc.ssl_channel_credentials(
-            open(
-                os.path.join(
-                    app.config.get("OTS_CA_FOLDER"),
-                    "certs",
-                    "opentakserver",
-                    "opentakserver.pem",
-                ),
-                "rb",
-            ).read(),
-            open(
-                os.path.join(
-                    app.config.get("OTS_CA_FOLDER"),
-                    "certs",
-                    "opentakserver",
-                    "opentakserver.nopass.key",
-                ),
-                "rb",
-            ).read(),
-            open(
-                os.path.join(
-                    app.config.get("OTS_CA_FOLDER"),
-                    "certs",
-                    f"{connection.certificate.server_address}.pem",
-                ),
-                "rb",
-            ).read(),
-        )
+        if os.fork() == 0:
+            connection: FederationConnection = connection[0]
 
-        # https://github.com/grpc/grpc/blob/master/examples/python/hellostreamingworld/async_greeter_client.py
+            channel_creds = grpc.ssl_channel_credentials(
+                open(
+                    os.path.join(
+                        app.config.get("OTS_CA_FOLDER"),
+                        "certs",
+                        "opentakserver",
+                        "opentakserver.pem",
+                    ),
+                    "rb",
+                ).read(),
+                open(
+                    os.path.join(
+                        app.config.get("OTS_CA_FOLDER"),
+                        "certs",
+                        "opentakserver",
+                        "opentakserver.nopass.key",
+                    ),
+                    "rb",
+                ).read(),
+                open(
+                    os.path.join(
+                        app.config.get("OTS_CA_FOLDER"),
+                        "certs",
+                        f"{connection.certificate.server_address}.pem",
+                    ),
+                    "rb",
+                ).read(),
+            )
 
-        with grpc.aio.secure_channel(
-            f"{connection.address}:{connection.port}", channel_creds, compression=True
-        ) as chanel:
-            stub = fig_pb2_grpc.FederatedChannelStub(chanel)
-            identity = fig_pb2.Identity()
-            identity.name = connection.display_name
-            identity.uid = str(uuid.uuid4())
-            identity.description = connection.description
-            identity.type = 3
-            identity.serverId = connection.uid
-            subscription = fig_pb2.Subscription()
-            subscription.identity.CopyFrom(identity)
+            # https://github.com/grpc/grpc/blob/master/examples/python/hellostreamingworld/async_greeter_client.py
 
-            async for response in stub.ClientEventStream(subscription):
-                logger.warning(f"ClientEventStream response {response}")
+            with grpc.aio.secure_channel(
+                f"{connection.address}:{connection.port}", channel_creds, compression=True
+            ) as chanel:
+                stub = fig_pb2_grpc.FederatedChannelStub(chanel)
+                identity = fig_pb2.Identity()
+                identity.name = connection.display_name
+                identity.uid = str(uuid.uuid4())
+                identity.description = connection.description
+                identity.type = 3
+                identity.serverId = connection.uid
+                subscription = fig_pb2.Subscription()
+                subscription.identity.CopyFrom(identity)
+
+                async for response in stub.ClientEventStream(subscription):
+                    logger.warning(f"ClientEventStream response {response}")
 
 
 if __name__ == "__main__":
