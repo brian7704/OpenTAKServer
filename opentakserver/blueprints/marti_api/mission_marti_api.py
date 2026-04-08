@@ -398,7 +398,6 @@ def get_missions():
         logger.debug(traceback.format_exc())
         return jsonify({"success": False, "error": str(e)}), 500
 
-    logger.warning(response)
     return jsonify(response)
 
 
@@ -1842,7 +1841,7 @@ def add_content_keywords(content_hash: str):
 
 @mission_marti_api.route("/Marti/api/missions/guid/<mission_guid>/contents", methods=["PUT"])
 @mission_marti_api.route("/Marti/api/missions/<mission_name>/contents", methods=["PUT"])
-def mission_contents(mission_name: str, mission_guid: str):
+def mission_contents(mission_name: str | None = None, mission_guid: str | None = None):
     """Associates content/files with a mission"""
     permission_granted = check_permission(mission_name)
     if isinstance(permission_granted, flask.Response):
@@ -1850,15 +1849,21 @@ def mission_contents(mission_name: str, mission_guid: str):
 
     body = request.json
 
-    mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
+    mission = None
+
+    if mission_name:
+        mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
+    elif mission_guid:
+        mission = db.session.execute(db.session.query(Mission).filter_by(guid=mission_guid)).first()
     if not mission:
-        logger.error(f"No such mission: {mission_name}")
+        logger.error(f"No such mission: {mission_name} - {mission_guid}")
         return (
             jsonify(
                 {
                     "success": False,
                     "error": gettext(
-                        "No such mission: %(mission_name)s", mission_name=mission_name
+                        "No such mission: %(mission_name)s",
+                        mission_name=mission_name or mission_guid,
                     ),
                 }
             ),
@@ -2038,7 +2043,7 @@ def mission_contents(mission_name: str, mission_guid: str):
 
 @mission_marti_api.route("/Marti/api/missions/gui/<mission_guid>/contents", methods=["DELETE"])
 @mission_marti_api.route("/Marti/api/missions/<mission_name>/contents", methods=["DELETE"])
-def delete_content(mission_name: str, mission_guid: str):
+def delete_content(mission_name: str | None = None, mission_guid: str | None = None):
     if "iTAK" not in request.user_agent.string:
         token = verify_token()
         if not token or token["MISSION_NAME"] != mission_name:
@@ -2060,12 +2065,15 @@ def delete_content(mission_name: str, mission_guid: str):
         mission = db.session.query(Mission).filter_by(guid=mission_guid).first()
 
     if not mission:
+        logger.error(f"Mission not found: {mission_name} - {mission_guid}")
+
         return (
             jsonify(
                 {
                     "success": False,
                     "error": gettext(
-                        "Mission %(mission_name)s not found", mission_name=mission_name
+                        "Mission %(mission_name)s not found",
+                        mission_name=mission_name or mission_guid,
                     ),
                 }
             ),
