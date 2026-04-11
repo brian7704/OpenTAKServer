@@ -39,7 +39,16 @@ from opentakserver.certificate_authority import CertificateAuthority
 from opentakserver.controllers.meshtastic_controller import MeshtasticController
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.EmailValidator import EmailValidator
-from opentakserver.extensions import apscheduler, babel, db, ldap_manager, logger, mail, socketio
+from opentakserver.extensions import (
+    apscheduler,
+    babel,
+    db,
+    ldap_manager,
+    logger,
+    mail,
+    oidc,
+    socketio,
+)
 from opentakserver.models.Group import Group, GroupTypeEnum
 from opentakserver.models.Icon import Icon
 from opentakserver.models.role import Role
@@ -65,6 +74,19 @@ def get_locale():
 def get_timezone():
     # Always return UTC and let the frontend handle converting timezones
     return pytz.timezone("UTC")
+
+
+def _init_oidc(app):
+    if not app.config.get("OTS_ENABLE_OIDC"):
+        return
+
+    logger.info("Enabling OIDC via flask-oidc")
+    if oidc is None:
+        raise RuntimeError(
+            "OTS_ENABLE_OIDC is enabled but flask-oidc is not installed. Install flask-oidc to use OIDC."
+        )
+
+    oidc.init_app(app)
 
 
 def init_extensions(app):
@@ -124,6 +146,8 @@ def init_extensions(app):
         logger.info("Enabling LDAP")
         ldap_manager.init_app(app)
         identity_attributes.append({"ldap": {}})
+
+    _init_oidc(app)
 
     app.config.update({"SECURITY_USER_IDENTITY_ATTRIBUTES": identity_attributes})
 
@@ -304,8 +328,6 @@ def create_app(cli=True):
 
         app.register_blueprint(scheduler_blueprint)
 
-        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
-
     else:
         from opentakserver.blueprints.cli import ots, translate
 
@@ -355,6 +377,7 @@ def create_app(cli=True):
 
         app.register_blueprint(scheduler_blueprint)
 
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1, x_proto=1, x_port=1)
     return app
 
 

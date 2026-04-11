@@ -107,6 +107,42 @@ class DefaultConfig:
     LDAP_BIND_USER_DN = "cn=admin,ou=users=dc=example,dc=com"
     LDAP_BIND_USER_PASSWORD = "password"
 
+    # OIDC / SSO settings
+    OTS_ENABLE_OIDC = os.getenv("OTS_ENABLE_OIDC", "False").lower() in ["true", "1", "yes"]
+    OTS_OIDC_NAME = os.getenv("OTS_OIDC_NAME", "oidc")
+    OTS_OIDC_CLIENT_ID = os.getenv("OTS_OIDC_CLIENT_ID", "")
+    OTS_OIDC_CLIENT_SECRET = os.getenv("OTS_OIDC_CLIENT_SECRET", "")
+
+    # Authlib uses this for discovery and to discover OpenID endpoints
+    OTS_OIDC_METADATA_URL = os.getenv("OTS_OIDC_METADATA_URL", "")
+
+    # Manual OpenID endpoints (used when metadata is not configured)
+    OTS_OIDC_AUTHORIZATION_ENDPOINT = os.getenv("OTS_OIDC_AUTHORIZATION_ENDPOINT", "")
+    OTS_OIDC_TOKEN_ENDPOINT = os.getenv("OTS_OIDC_TOKEN_ENDPOINT", "")
+    OTS_OIDC_USERINFO_ENDPOINT = os.getenv("OTS_OIDC_USERINFO_ENDPOINT", "")
+
+    OTS_OIDC_SCOPE = os.getenv("OTS_OIDC_SCOPE", "openid profile email")
+    OTS_OIDC_REDIRECT_URI = os.getenv("OTS_OIDC_REDIRECT_URI", "/api/oidc/callback")
+    OTS_OIDC_ISSUER = os.getenv("OTS_OIDC_ISSUER", "")
+    OTS_OIDC_USE_PKCE = os.getenv("OTS_OIDC_USE_PKCE", "False").lower() in ["true", "1", "yes"]
+    OTS_OIDC_PKCE_METHOD = os.getenv("OTS_OIDC_PKCE_METHOD", "S256")
+    OTS_OIDC_INCLUDE_AUTH_TOKEN_IN_CALLBACK_JSON = os.getenv(
+        "OTS_OIDC_INCLUDE_AUTH_TOKEN_IN_CALLBACK_JSON", "False"
+    ).lower() in ["true", "1", "yes"]
+
+    # Claims used to create and update OTS users
+    OTS_OIDC_USERNAME_CLAIMS = os.getenv(
+        "OTS_OIDC_USERNAME_CLAIMS", "preferred_username, upn, email, sub"
+    )
+    OTS_OIDC_EMAIL_CLAIM = os.getenv("OTS_OIDC_EMAIL_CLAIM", "email")
+    OTS_OIDC_ROLE_CLAIM = os.getenv("OTS_OIDC_ROLE_CLAIM", "groups")
+    OTS_OIDC_SUBJECT_CLAIM = os.getenv("OTS_OIDC_SUBJECT_CLAIM", "sub")
+    OTS_OIDC_ISSUER_CLAIM = os.getenv("OTS_OIDC_ISSUER_CLAIM", "iss")
+
+    # Role mapping behavior
+    OTS_OIDC_ADMIN_ROLES = os.getenv("OTS_OIDC_ADMIN_ROLES", "administrator")
+    OTS_OIDC_DEFAULT_ROLES = os.getenv("OTS_OIDC_DEFAULT_ROLES", "user")
+
     # See https://docs.python.org/3/library/logging.handlers.html#logging.handlers.TimedRotatingFileHandler
     OTS_LOG_ROTATE_WHEN = os.getenv("OTS_LOG_ROTATE_WHEN", "midnight")
     OTS_LOG_ROTATE_INTERVAL = int(os.getenv("OTS_LOG_ROTATE_INTERVAL", 0))
