@@ -5,6 +5,7 @@ import jwt
 from flask import Blueprint, request, jsonify, current_app as app
 from flask_login import current_user
 from flask_security import roles_required
+from flask_babel import gettext
 from werkzeug.datastructures import ImmutableMultiDict
 
 from opentakserver.blueprints.ots_api.api import paginate, search
@@ -141,4 +142,25 @@ def create_federation():
     return jsonify({"success": True}), 200
 
 
-# TODO: Endpoints for enabling/disabling, deleting
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation", methods=["DELETE"])
+def delete_federation():
+    """
+    Delete a federation connection
+
+    :return:
+    """
+
+    connection_id = request.args.get("id")
+    if not connection_id:
+        return jsonify({"success": False, "error": gettext("Missing connection ID")}), 400
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation", methods=["PATCH"])
+def toggle_federation():
+    """
+    Enable or disable a federation connection
+
+    :return:
+    """
