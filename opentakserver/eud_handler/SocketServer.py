@@ -32,7 +32,17 @@ class SocketServer:
         while not self.shutdown:
             try:
                 sock, addr = self.socket.accept()
+
                 if self.ssl:
+                    try:
+                        sock.settimeout(10)
+                        sock.do_handshake()
+                        sock.settimeout(None)
+                    except (socket.timeout, ssl.SSLError, OSError) as e:
+                        self.logger.warning("TLS handshake failed from {}: {}".format(addr[0], e))
+                        sock.close()
+                        continue
+
                     self.logger.info("New SSL connection from {}".format(addr[0]))
                 else:
                     self.logger.info("New TCP connection from {}".format(addr[0]))
@@ -82,7 +92,7 @@ class SocketServer:
 
             context = self.get_ssl_context()
 
-            sconn = context.wrap_socket(sock, server_side=True)
+            sconn = context.wrap_socket(sock, server_side=True, do_handshake_on_connect=False)
             sconn.bind(("0.0.0.0", self.port))
             sconn.listen(0)
 
