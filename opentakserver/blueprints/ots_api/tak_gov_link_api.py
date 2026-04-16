@@ -301,6 +301,7 @@ def download_plugin():
 
     content_disposition = response.headers.get("content-disposition")
     filename = re.search(r"filename=\"(.+)\"", content_disposition).group(1)
+    os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages"), exist_ok=True)
     with open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "packages", filename), "wb") as f:
         f.write(response.content)
 
