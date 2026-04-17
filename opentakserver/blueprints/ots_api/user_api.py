@@ -454,7 +454,7 @@ def get_users():
     query = db.session.query(User)
     query = search(query, User, "username")
 
-    return paginate(query)
+    return paginate(query, User)
 
 
 @user_api_blueprint.route("/api/users/all")
