@@ -53,6 +53,8 @@ def create_user():
         return jsonify({"success": False, "error": gettext("Passwords do not match")}), 400
 
     roles = request.json.get("roles")
+    if not roles:
+        roles = ["user"]
     roles_cleaned = []
 
     for role in roles:
