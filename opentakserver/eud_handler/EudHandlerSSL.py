@@ -15,7 +15,9 @@ class EudHandlerSSL(EudHandler):
         super().setup()
 
         try:
+            self.request.settimeout(10)
             self.request.do_handshake()
+            self.request.settimeout(None)
             for c in self.request.getpeercert()["subject"]:
                 if c[0][0] == "commonName":
                     self.common_name = c[0][1]

@@ -42,6 +42,7 @@ class DefaultConfig:
     ]
     OTS_TCP_STREAMING_PORT = int(os.getenv("OTS_TCP_STREAMING_PORT", 8088))
     OTS_SSL_STREAMING_PORT = int(os.getenv("OTS_SSL_STREAMING_PORT", 8089))
+    OTS_STREAMING_INTERFACE = int(os.getenv("OTS_STREAMING_INTERFACE", "0.0.0.0"))
     OTS_BACKUP_COUNT = int(os.getenv("OTS_BACKUP_COUNT", 7))
     OTS_ENABLE_CHANNELS = os.getenv("OTS_ENABLE_CHANNELS", "True").lower() in ["true", "1", "yes"]
 

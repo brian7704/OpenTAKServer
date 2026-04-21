@@ -37,7 +37,6 @@ from opentakserver.extensions import logger as ots_logger, db, ldap_manager
 from opentakserver.functions import iso8601_string_from_datetime, datetime_from_iso8601_string
 
 # These unused imports are required by SQLAlchemy, don't remove them
-from opentakserver.eud_handler.SocketServer import SocketServer
 from opentakserver.models.Alert import Alert
 from opentakserver.models.CasEvac import CasEvac
 from opentakserver.models.Certificate import Certificate

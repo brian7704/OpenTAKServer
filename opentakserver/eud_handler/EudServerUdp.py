@@ -3,11 +3,11 @@ import socketserver
 import ssl
 
 
-class EudServer(socketserver.ForkingTCPServer):
+class EudServer(socketserver.ForkingUDPServer):
     allow_reuse_address = True
     daemon_threads = True
     logger = None
-    port = 8088
+    port = 8087
 
     def __init__(self, server_address, eud_handler, logger, app_context):
         self.server_address = server_address

@@ -10,6 +10,7 @@ import flask_wtf
 import yaml
 from apscheduler.jobstores import sqlalchemy
 from flask import Flask, jsonify
+from flask_babel import gettext
 from flask_security import SQLAlchemyUserDatastore, Security
 from flask_security.models import fsqla
 
@@ -28,6 +29,9 @@ def args():
     parser.add_argument(
         "--ssl", help="Enable SSL", default=False, action=argparse.BooleanOptionalAction
     )
+    parser.add_argument(
+        "--udp", help=gettext("UDP Server"), default=False, action=argparse.BooleanOptionalAction
+    )
     return parser.parse_args()
 
 
@@ -36,6 +40,9 @@ def setup_logging(app):
     if app.config.get("DEBUG"):
         level = logging.DEBUG
     logger.setLevel(level)
+
+    print("SETUP LOGGIN")
+    logger.info("LOGGING!!")
 
     if sys.stdout.isatty():
         color_log_handler = colorlog.StreamHandler()
@@ -132,11 +139,19 @@ def status():
 def main():
     opts = args()
     if opts.ssl:
-        socket_server = EudServerSSL(("0.0.0.0", 9999), EudHandlerSSL, logger)
+        socket_server = EudServerSSL(
+            (app.config.get("OTS_STREAMING_INTERFACE"), app.config.get("OTS_SSL_STREAMING_PORT")),
+            EudHandlerSSL,
+            logger,
+            app,
+        )
         logger.info(f"Started SSL server on port {app.config.get('OTS_SSL_STREAMING_PORT')}")
     else:
         socket_server = EudServer(
-            ("0.0.0.0", app.config.get("OTS_SSL_STREAMING_PORT")), EudHandler, logger
+            (app.config.get("OTS_STREAMING_INTERFACE"), app.config.get("OTS_TCP_STREAMING_PORT")),
+            EudHandler,
+            logger,
+            app,
         )
         logger.info(f"Started TCP server on port {app.config.get('OTS_TCP_STREAMING_PORT')}")
 
