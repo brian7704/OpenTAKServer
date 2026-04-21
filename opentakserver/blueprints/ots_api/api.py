@@ -68,7 +68,6 @@ def paginate(query: db.Query, model=None):
         if model:
             sort_by = request.args.get("sort_by")
             sort_direction = request.args.get("sort_direction")
-            logger.warning(f"sort_by: {sort_by} direction: {sort_direction}")
             if sort_by and (sort_direction == "asc" or not sort_direction):
                 query = query.order_by(getattr(model, sort_by).asc())
             elif sort_by and sort_direction == "desc":
