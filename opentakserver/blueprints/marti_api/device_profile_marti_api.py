@@ -182,11 +182,11 @@ def create_profile_zip(enrollment=True, syncSecago=-1, clientUid: str | None = N
             plugins_query = plugins_query.filter(Packages.publish_time >= publish_time)
         if clientUid:
             device_profile_query = device_profile_query.filter(
-                or_(DeviceProfiles.eud_uid == clientUid, DeviceProfiles.eud_uid is None)
+                or_(DeviceProfiles.eud_uid == clientUid, DeviceProfiles.eud_uid.is_(None))
             )
             # TODO: Support data packages and plugins per EUD
         else:
-            device_profile_query = device_profile_query.filter(DeviceProfiles.clientUid is None)
+            device_profile_query = device_profile_query.filter(DeviceProfiles.eud_uid.is_(None))
 
         device_profiles = db.session.execute(device_profile_query).all()
         data_packages = db.session.execute(data_package_query).all()
