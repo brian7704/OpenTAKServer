@@ -525,7 +525,7 @@ def main(app):
 
 
 def reload_config():
-
+    pass
 
 def start():
     app = create_app(cli=False)
