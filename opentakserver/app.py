@@ -1,3 +1,5 @@
+import signal
+
 from gevent import monkey
 
 monkey.patch_all()
@@ -522,6 +524,9 @@ def main(app):
             app.plugin_manager.stop_plugins()
 
 
+def reload_config():
+
+
 def start():
     app = create_app(cli=False)
 
@@ -531,5 +536,7 @@ def start():
             name="user", permissions={"user-read", "user-write"}
         )
         app.security.datastore.add_role_to_user(user, default_role)
+
+    signal.signal(signal.SIGHUP, reload_config)
 
     main(app)

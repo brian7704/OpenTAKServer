@@ -295,9 +295,12 @@ def mediamtx_webhook():
 @auth_required()
 def add_update_stream():
     try:
+        logger.warning(request.json)
         form = MediaMTXPathConfig(formdata=ImmutableMultiDict(request.json))
         if not form.validate():
             return jsonify({"success": False, "errors": form.errors}), 400
+
+        logger.warning(form.fields())
 
         path = bleach.clean(request.json.get("path", ""))
 

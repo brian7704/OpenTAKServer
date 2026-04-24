@@ -1,8 +1,10 @@
 from flask_wtf import FlaskForm
 from wtforms import BooleanField, IntegerField, StringField
 
+from opentakserver.forms.Fields import Fields
 
-class MediaMTXPathConfig(FlaskForm):
+
+class MediaMTXPathConfig(FlaskForm, Fields):
     def __init__(self, formdata, **kwargs):
         super().__init__(formdata, **kwargs)
 

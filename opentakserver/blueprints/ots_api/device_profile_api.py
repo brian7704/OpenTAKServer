@@ -24,6 +24,12 @@ def get_device_profiles():
     return paginate(query)
 
 
+@device_profile_api_blueprint.route("/api/profiles/form")
+@auth_required()
+def get_form():
+    return DeviceProfileForm().fields()
+
+
 @device_profile_api_blueprint.route("/api/profiles", methods=["POST"])
 @auth_required()
 @roles_required("administrator")

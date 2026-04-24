@@ -18,6 +18,7 @@ from opentakserver.blueprints.ots_api.scheduler_api import scheduler_api_bluepri
 from opentakserver.blueprints.ots_api.token_api import token_api_blueprint
 from opentakserver.blueprints.ots_api.user_api import user_api_blueprint
 from opentakserver.blueprints.ots_api.video_api import video_api_blueprint
+from opentakserver.blueprints.ots_api.settings_api import settings_api_blueprint
 
 from .language_api import language_api
 from .ldap_api import ldap_blueprint
@@ -43,3 +44,4 @@ ots_api.register_blueprint(token_api_blueprint)
 ots_api.register_blueprint(ldap_blueprint)
 ots_api.register_blueprint(tak_gov_link_blueprint)
 ots_api.register_blueprint(language_api)
+ots_api.register_blueprint(settings_api_blueprint)
