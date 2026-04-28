@@ -260,7 +260,9 @@ def create_edit_mission():
         )
 
     for key in request.json:
-        if key == "groups":
+        if key == "password" and request.json.get("password"):
+            mission.password = hash_password(request.json.get("password"))
+        elif key == "groups":
             db.session.execute(sqlalchemy.delete(GroupMission).filter_by(mission_name=mission_name))
             db.session.commit()
 
