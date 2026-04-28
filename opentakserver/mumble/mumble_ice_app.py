@@ -1,5 +1,6 @@
 import os
 import threading
+import time
 from threading import Timer
 
 import Ice
@@ -37,10 +38,14 @@ class MumbleIceDaemon(threading.Thread):
 
         # Create Ice connection
         ice = Ice.initialize(idata)
-        proxy = ice.stringToProxy("Meta:tcp -h 127.0.0.1 -p 6502")
-        secret = ""
-        if secret != "":
+
+        # Set Ice secret BEFORE any proxy calls
+        secret = self.app.config.get('OTS_ICE_SECRET', '')
+        if secret:
             ice.getImplicitContext().put("secret", secret)
+            self.logger.info(f"Set Ice secret in run() method")
+
+        proxy = ice.stringToProxy("Meta:tcp -h 127.0.0.1 -p 6502")
         try:
             meta = Murmur.MetaPrx.checkedCast(proxy)
         except Ice.ConnectionRefusedException:
@@ -63,6 +68,9 @@ class MumbleIceApp(Ice.Application):
         self.failed_watch = False
         self.watchdog = None
         self.auth = None
+        self.adapter = None
+        # server_id -> ServerCallbackPrx; guards against duplicate registration
+        self.server_callbacks = {}
 
     def run(self, *args):
         if not self.initialize_ice_connection():
@@ -84,8 +92,14 @@ class MumbleIceApp(Ice.Application):
         configured servers
         """
 
-        # if False and 'ice_secret':
-        #     self.ice.getImplicitContext().put("secret", "some_secret")
+        # Set the Ice secret from config
+        ice_secret = self.app.config.get('OTS_ICE_SECRET', '')
+        self.logger.info(f"Ice secret from config: {len(ice_secret)} chars, type: {type(ice_secret)}")
+        if ice_secret:
+            self.ice.getImplicitContext().put("secret", ice_secret)
+            self.logger.info("Ice secret set in ImplicitContext")
+        else:
+            self.logger.warning("No OTS_ICE_SECRET found in config!")
 
         self.logger.debug("Connecting to Ice server ({}:{})".format("127.0.0.1", 6502))
         base = self.ice.stringToProxy("Meta:tcp -h {} -p {}".format("127.0.0.1", 6502))
@@ -93,6 +107,7 @@ class MumbleIceApp(Ice.Application):
 
         adapter = self.ice.createObjectAdapterWithEndpoints("Callback.Client", "tcp -h 127.0.0.1")
         adapter.activate()
+        self.adapter = adapter
 
         metacbprx = adapter.addWithUUID(MetaCallback(self))
         self.metacb = Murmur.MetaCallbackPrx.uncheckedCast(metacbprx)
@@ -117,6 +132,7 @@ class MumbleIceApp(Ice.Application):
                     "Setting mumble authenticator for virtual server {}".format(server.id())
                 )
                 server.setAuthenticator(self.auth)
+                self.attach_server_callback(server)
 
         except (
             Murmur.InvalidSecretException,
@@ -141,6 +157,38 @@ class MumbleIceApp(Ice.Application):
         self.connected = True
         return True
 
+    def attach_server_callback(self, server):
+        """Register DirectionEnforcementCallback for IN/OUT suppress enforcement.
+
+        Guarded against duplicate registration — check_connection() calls
+        attach_callbacks() every 10 seconds.  The guard is cleared by
+        on_server_stopped() so a restarted virtual server gets a fresh
+        callback correctly.
+        """
+        server_id = server.id()
+        if server_id in self.server_callbacks:
+            return
+
+        cb = DirectionEnforcementCallback(self.app, self.logger, server)
+        cbprx = self.adapter.addWithUUID(cb)
+        server_cb = Murmur.ServerCallbackPrx.uncheckedCast(cbprx)
+
+        try:
+            server.addCallback(server_cb)
+            self.server_callbacks[server_id] = server_cb
+            self.logger.info(f"Direction enforcement callback attached to server {server_id}")
+        except Exception as e:
+            self.logger.error(f"Failed to attach server callback to {server_id}: {e}")
+
+    def on_server_stopped(self, server_id):
+        """Clear the callback guard and any cached session state for a stopped server.
+
+        Without this, the duplicate-registration guard would prevent re-registration
+        when the virtual server restarts.
+        """
+        self.server_callbacks.pop(server_id, None)
+        self.logger.info(f"Cleared callback guard for stopped server {server_id}")
+
     def check_connection(self):
         """
         Tries reapplies all callbacks to make sure the authenticator
@@ -159,6 +207,200 @@ class MumbleIceApp(Ice.Application):
         self.watchdog.start()
 
 
+class DirectionEnforcementCallback(Murmur.ServerCallback):
+    """Enforces OTS IN/OUT speak direction by setting Murmur's suppress flag.
+
+    Channel access (who can enter which channel) is controlled by Murmur's
+    own ACL configuration.  This callback's only job is to mute users whose
+    OTS group membership has direction=OUT (listen-only) and unmute those
+    with direction=IN.
+
+    All Ice proxy calls (getState/setState) are dispatched to a background
+    daemon thread to avoid deadlocking the Ice thread pool.
+    """
+
+    def __init__(self, app, logger, server):
+        Murmur.ServerCallback.__init__(self)
+        self.app = app
+        self.logger = logger
+        self.server = server
+        self.server_id = server.id()
+        self._channel_cache = None
+        self._channel_cache_time = 0
+        self._session_lock = threading.Lock()
+        self._session_cache = {}  # session_id -> {directions, is_admin, cached_at}
+
+    # ------------------------------------------------------------------ helpers
+
+    def _get_channel_map(self):
+        """Return {channel_id: channel_name}, cached for 60 seconds."""
+        if self._channel_cache is None or (time.time() - self._channel_cache_time) > 60:
+            try:
+                channels = self.server.getChannels()
+                self._channel_cache = {cid: ch.name for cid, ch in channels.items()}
+                self._channel_cache_time = time.time()
+            except Exception as e:
+                self.logger.error(f"Failed to refresh channel map: {e}")
+                return self._channel_cache or {}
+        return self._channel_cache
+
+    def _get_user_directions(self, session_id, username):
+        """Return (group_directions dict, is_admin) for a user, cached for 30 seconds.
+
+        group_directions maps group_name -> 'IN' or 'OUT'.
+        Prefers IN over OUT when a user has both rows for the same group.
+        """
+        cache_ttl = 30
+        now = time.time()
+
+        with self._session_lock:
+            cached = self._session_cache.get(session_id)
+            if cached and (now - cached['cached_at']) < cache_ttl:
+                return cached['directions'], cached['is_admin']
+
+        group_directions = {}
+        is_admin = False
+
+        try:
+            with self.app.app_context():
+                from opentakserver.models.user import User
+                from opentakserver.models.EUD import EUD
+                from opentakserver.extensions import db
+
+                user = User.query.filter_by(username=username).first()
+
+                if not user and "---" in username:
+                    base = username.split("---")[0]
+                    eud = EUD.query.filter_by(callsign=base).first()
+                    if eud and eud.user_id:
+                        user = db.session.get(User, eud.user_id)
+
+                if not user:
+                    self.logger.warning(f"Direction lookup: OTS user not found for '{username}'")
+                    return {}, False
+
+                for membership in user.group_memberships:
+                    if not membership.enabled:
+                        continue
+                    grp = membership.group.name
+                    # Prefer IN over OUT if both rows exist for the same group
+                    if group_directions.get(grp) != 'IN':
+                        group_directions[grp] = membership.direction
+
+                is_admin = any(r.name == 'administrator' for r in user.roles)
+        except Exception as e:
+            self.logger.error(f"Direction lookup failed for '{username}': {e}", exc_info=True)
+            return {}, False
+
+        with self._session_lock:
+            self._session_cache[session_id] = {
+                'directions': group_directions,
+                'is_admin': is_admin,
+                'cached_at': now,
+            }
+
+        return group_directions, is_admin
+
+    def _dispatch_apply(self, session, username, channel_id, group_directions, is_admin):
+        """Dispatch only the Ice state calls to a background thread.
+
+        DB queries run in the Ice dispatch thread (same as authenticate() — works fine).
+        Only getState()/setState() must be off-thread to avoid deadlocking the Ice pool.
+        """
+        threading.Thread(
+            target=self._apply_direction,
+            args=(session, username, channel_id, group_directions, is_admin),
+            daemon=True,
+        ).start()
+
+    def _apply_direction(self, session, username, channel_id, group_directions, is_admin):
+        """Background thread: apply suppress flag via Ice calls only."""
+        try:
+            # Admins are never suppressed by this callback, so skip all Ice calls.
+            # Calling getState() here blocks for 30s and crashes the connection.
+            if is_admin:
+                return
+
+            channel_map = self._get_channel_map()
+            channel_name = channel_map.get(channel_id, f"unknown({channel_id})")
+
+            # Root channel: always allow speaking
+            if channel_name == 'Root':
+                try:
+                    s = self.server.getState(session)
+                    if s.suppress:
+                        s.suppress = False
+                        self.server.setState(s)
+                        self.logger.info(f"UNMUTED (Root): {username}")
+                except Exception as e:
+                    self.logger.error(f"Failed to clear suppress for '{username}' in Root: {e}")
+                return
+
+            direction = group_directions.get(channel_name)
+            if direction is None:
+                return
+
+            s = self.server.getState(session)
+            should_suppress = (direction == 'OUT')
+
+            if should_suppress and not s.suppress:
+                s.suppress = True
+                self.server.setState(s)
+                self.logger.info(f"LISTEN ONLY: {username} in {channel_name} (direction=OUT)")
+                try:
+                    self.server.sendMessage(
+                        session,
+                        f"<b>Listen Only:</b> You are receive-only in {channel_name}.",
+                    )
+                except Exception:
+                    pass
+
+            elif not should_suppress and s.suppress:
+                s.suppress = False
+                self.server.setState(s)
+                self.logger.info(f"SPEAK ENABLED: {username} in {channel_name} (direction=IN)")
+
+        except Exception as e:
+            self.logger.error(
+                f"Unhandled error applying direction for '{username}' session={session}: {e}",
+                exc_info=True,
+            )
+
+    # ----------------------------------------------------------- Ice callbacks
+
+    def userConnected(self, state, current=None):
+        self.logger.info(
+            f"User connected: {state.name} (session={state.session}, userid={state.userid}) "
+            f"channel={state.channel}"
+        )
+        # DB lookup runs here in the Ice dispatch thread (safe — same as authenticate())
+        directions, is_admin = self._get_user_directions(state.session, state.name)
+        # Only the Ice getState/setState calls go to a background thread
+        self._dispatch_apply(state.session, state.name, state.channel, directions, is_admin)
+
+    def userDisconnected(self, state, current=None):
+        with self._session_lock:
+            self._session_cache.pop(state.session, None)
+        self.logger.info(f"User disconnected: {state.name} (session={state.session})")
+
+    def userStateChanged(self, state, current=None):
+        """Fire on any state change — channel moves trigger direction re-check."""
+        directions, is_admin = self._get_user_directions(state.session, state.name)
+        self._dispatch_apply(state.session, state.name, state.channel, directions, is_admin)
+
+    def userTextMessage(self, state, message, current=None):
+        pass
+
+    def channelCreated(self, state, current=None):
+        self._channel_cache = None
+
+    def channelRemoved(self, state, current=None):
+        self._channel_cache = None
+
+    def channelStateChanged(self, state, current=None):
+        self._channel_cache = None
+
+
 class MetaCallback(Murmur.MetaCallback):
     def __init__(self, authenticator):
         Murmur.MetaCallback.__init__(self)
@@ -169,11 +411,13 @@ class MetaCallback(Murmur.MetaCallback):
         This function is called when a virtual server is started
         and makes sure an authenticator gets attached if needed.
         """
+        server_id = server.id()
         self.authenticator.logger.info(
-            "Setting authenticator for virtual server {}".format(server.id())
+            "Virtual server {} started — attaching authenticator and direction callback".format(server_id)
         )
         try:
             server.setAuthenticator(self.authenticator.auth)
+            self.authenticator.attach_server_callback(server)
         # Apparently this server was restarted without us noticing
         except (Murmur.InvalidSecretException, Ice.UnknownUserException) as e:
             if hasattr(e, "unknown") and e.unknown != "Murmur::InvalidSecretException":
@@ -190,9 +434,11 @@ class MetaCallback(Murmur.MetaCallback):
             # Only try to output the server id if we think we are still connected to prevent
             # flooding of our thread pool
             try:
+                server_id = server.id()
                 self.authenticator.logger.info(
-                    "Authenticated virtual server {} got stopped".format(server.id())
+                    "Virtual server {} stopped — clearing callback guard".format(server_id)
                 )
+                self.authenticator.on_server_stopped(server_id)
                 return
             except Ice.ConnectionRefusedException:
                 self.authenticator.connected = False
