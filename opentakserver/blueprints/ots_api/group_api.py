@@ -157,6 +157,15 @@ def get_group_members():
 @group_api.route("/api/groups/members", methods=["DELETE"])
 @roles_required("administrator")
 def remove_user_from_group():
+    """Remove a user from a group. If direction is omitted, removes all direction rows.
+
+    :parameter: username
+    :parameter: group_name
+    :parameter: direction - Optional: IN or OUT. Omit to remove all memberships for the user in this group.
+
+    :return: 200 on success
+    :rtype: Response
+    """
     if app.config.get("OTS_ENABLE_LDAP"):
         return (
             jsonify(
@@ -174,12 +183,12 @@ def remove_user_from_group():
     group_name = request.args.get("group_name")
     direction = request.args.get("direction")
 
-    if not username or not group_name or not direction:
+    if not username or not group_name:
         return (
             jsonify(
                 {
                     "success": False,
-                    "error": gettext("Please provide the username, group name, and direction"),
+                    "error": gettext("Please provide the username and group name"),
                 }
             ),
             400,
@@ -187,18 +196,19 @@ def remove_user_from_group():
 
     username = bleach.clean(username)
     group_name = bleach.clean(group_name)
-    direction = bleach.clean(direction)
 
-    if direction != Group.IN and direction != Group.OUT:
-        return (
-            jsonify(
-                {
-                    "success": False,
-                    "error": gettext("Invalid direction: %(direction)s", direction=direction),
-                }
-            ),
-            400,
-        )
+    if direction:
+        direction = bleach.clean(direction)
+        if direction != Group.IN and direction != Group.OUT:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": gettext("Invalid direction: %(direction)s", direction=direction),
+                    }
+                ),
+                400,
+            )
 
     user = app.security.datastore.find_user(username=username)
     if not user:
@@ -216,12 +226,16 @@ def remove_user_from_group():
     if not group:
         return jsonify({"success": False, "error": gettext("Group %(group_name)s not found")}), 404
 
+    group_obj = group[0]
+
     try:
-        GroupUser.query.filter_by(
-            group_id=group[0].id, user_id=user.id, direction=direction
-        ).delete()
+        query = GroupUser.query.filter_by(group_id=group_obj.id, user_id=user.id)
+        if direction:
+            query = query.filter_by(direction=direction)
+        query.delete()
         db.session.commit()
 
+        directions_to_unbind = [direction] if direction else [Group.IN, Group.OUT]
         rabbit_credentials = pika.PlainCredentials(
             app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD")
         )
@@ -231,9 +245,10 @@ def remove_user_from_group():
         )
         channel = rabbit_connection.channel()
         for eud in user.euds:
-            channel.queue_unbind(
-                exchange="groups", queue=eud.uid, routing_key=f"{group_name}.{direction}"
-            )
+            for dir_key in directions_to_unbind:
+                channel.queue_unbind(
+                    exchange="groups", queue=eud.uid, routing_key=f"{group_name}.{dir_key}"
+                )
 
         channel.close()
         rabbit_connection.close()
@@ -248,6 +263,159 @@ def remove_user_from_group():
                     "success": False,
                     "error": gettext(
                         "Failed to remove %(username)s from %(group_name)s: %(e)s",
+                        username=username,
+                        group_name=group_name,
+                        e=str(e),
+                    ),
+                }
+            ),
+            500,
+        )
+
+
+@group_api.route("/api/groups/members", methods=["PATCH"])
+@roles_required("administrator")
+def set_group_membership_level():
+    """Atomically set a user's membership level in a group.
+
+    Membership levels:
+    - full: user can transmit and receive (IN + OUT rows)
+    - listen: user receives only, cannot transmit (OUT row only)
+    - transmit: user transmits only, cannot receive (IN row only)
+    - none: user removed from group entirely (no rows)
+
+    :parameter: username
+    :parameter: group_name
+    :parameter: level - One of: full, listen, transmit, none
+
+    :return: 200 on success
+    :rtype: Response
+    """
+    if app.config.get("OTS_ENABLE_LDAP"):
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext(
+                        "LDAP is enabled. Please view and edit groups on your LDAP server"
+                    ),
+                }
+            ),
+            400,
+        )
+
+    username = request.json.get("username")
+    group_name = request.json.get("group_name")
+    level = request.json.get("level")
+
+    if not username or not group_name or not level:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("Please provide the username, group name, and level"),
+                }
+            ),
+            400,
+        )
+
+    level_to_directions = {
+        "full": {Group.IN, Group.OUT},
+        "listen": {Group.OUT},
+        "transmit": {Group.IN},
+        "none": set(),
+    }
+
+    if level not in level_to_directions:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext(
+                        "Invalid level: %(level)s. Must be one of: full, listen, transmit, none",
+                        level=level,
+                    ),
+                }
+            ),
+            400,
+        )
+
+    username = bleach.clean(username)
+    group_name = bleach.clean(group_name)
+    level = bleach.clean(level)
+
+    user = app.security.datastore.find_user(username=username)
+    if not user:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("User %(username)s not found", username=username),
+                }
+            ),
+            404,
+        )
+
+    group = db.session.execute(db.session.query(Group).filter_by(name=group_name)).first()
+    if not group:
+        return jsonify({"success": False, "error": gettext("Group %(group_name)s not found")}), 404
+
+    group_obj = group[0]
+    target_dirs = level_to_directions[level]
+
+    try:
+        existing = (
+            db.session.query(GroupUser)
+            .filter_by(user_id=user.id, group_id=group_obj.id)
+            .all()
+        )
+        existing_dirs = {m.direction for m in existing}
+
+        # Add missing direction rows
+        for direction in target_dirs - existing_dirs:
+            membership = GroupUser()
+            membership.user_id = user.id
+            membership.group_id = group_obj.id
+            membership.direction = direction
+            db.session.add(membership)
+
+        # Remove rows no longer in the target set
+        dirs_to_remove = existing_dirs - target_dirs
+        for membership in existing:
+            if membership.direction in dirs_to_remove:
+                db.session.delete(membership)
+
+        db.session.commit()
+
+        # Unbind RabbitMQ queues for removed directions
+        if dirs_to_remove and user.euds:
+            rabbit_credentials = pika.PlainCredentials(
+                app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD")
+            )
+            rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+            rabbit_connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
+            )
+            channel = rabbit_connection.channel()
+            for eud in user.euds:
+                for direction in dirs_to_remove:
+                    channel.queue_unbind(
+                        exchange="groups", queue=eud.uid, routing_key=f"{group_name}.{direction}"
+                    )
+            channel.close()
+            rabbit_connection.close()
+
+        return jsonify({"success": True, "level": level})
+    except BaseException as e:
+        db.session.rollback()
+        logger.error(f"Failed to set membership level for {username} in {group_name}: {e}")
+        logger.debug(traceback.format_exc())
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext(
+                        "Failed to set membership level for %(username)s in %(group_name)s: %(e)s",
                         username=username,
                         group_name=group_name,
                         e=str(e),
