@@ -37,10 +37,14 @@ class MumbleIceDaemon(threading.Thread):
 
         # Create Ice connection
         ice = Ice.initialize(idata)
-        proxy = ice.stringToProxy("Meta:tcp -h 127.0.0.1 -p 6502")
-        secret = ""
-        if secret != "":
+        
+        # Set Ice secret BEFORE any proxy calls
+        secret = self.app.config.get('OTS_ICE_SECRET', '')
+        if secret:
             ice.getImplicitContext().put("secret", secret)
+            self.logger.info(f"Set Ice secret in run() method")
+        
+        proxy = ice.stringToProxy("Meta:tcp -h 127.0.0.1 -p 6502")
         try:
             meta = Murmur.MetaPrx.checkedCast(proxy)
         except Ice.ConnectionRefusedException:
@@ -84,8 +88,14 @@ class MumbleIceApp(Ice.Application):
         configured servers
         """
 
-        # if False and 'ice_secret':
-        #     self.ice.getImplicitContext().put("secret", "some_secret")
+        # Set the Ice secret from config
+        ice_secret = self.app.config.get('OTS_ICE_SECRET', '')
+        self.logger.info(f"Ice secret from config: {len(ice_secret)} chars, type: {type(ice_secret)}")
+        if ice_secret:
+            self.ice.getImplicitContext().put("secret", ice_secret)
+            self.logger.info("Ice secret set in ImplicitContext")
+        else:
+            self.logger.warning("No OTS_ICE_SECRET found in config!")
 
         self.logger.debug("Connecting to Ice server ({}:{})".format("127.0.0.1", 6502))
         base = self.ice.stringToProxy("Meta:tcp -h {} -p {}".format("127.0.0.1", 6502))
