@@ -117,7 +117,7 @@ def create_edit_mission():
 
                     if not current_user.has_role("administrator"):
                         for group in groups:
-                            if group.id == group_id:
+                            if group.group_id == int(group_id):
                                 user_in_group = True
                                 break
 
@@ -208,7 +208,7 @@ def create_edit_mission():
         )
         channel = rabbit_connection.channel()
 
-        for group in (groups or []):
+        for group in groups or []:
             logger.error(f"Publishing to {group.group.name}.{group.direction}")
             channel.basic_publish(
                 exchange="groups",
@@ -326,9 +326,13 @@ def delete_mission():
         sqlalchemy.delete(MissionChange).where(MissionChange.mission_name == mission_name)
     )
 
-    chatroom: Chatroom | None = db.session.execute(db.session.query(Chatroom).where(Chatroom.name == mission_name)).scalar()
+    chatroom: Chatroom | None = db.session.execute(
+        db.session.query(Chatroom).where(Chatroom.name == mission_name)
+    ).scalar()
     if chatroom:
-        db.session.execute(sqlalchemy.delete(ChatroomsUids).where(ChatroomsUids.chatroom_id == chatroom.id))
+        db.session.execute(
+            sqlalchemy.delete(ChatroomsUids).where(ChatroomsUids.chatroom_id == chatroom.id)
+        )
         db.session.execute(sqlalchemy.delete(GeoChat).where(GeoChat.chatroom_id == chatroom.id))
         db.session.delete(chatroom)
 
