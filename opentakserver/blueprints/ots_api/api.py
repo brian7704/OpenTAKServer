@@ -393,7 +393,7 @@ def query_cot():
     query = search(query, CoT, "sender_callsign")
     query = search(query, CoT, "sender_uid")
 
-    return paginate(query)
+    return paginate(query, CoT)
 
 
 @api_blueprint.route("/api/alerts", methods=["GET"])
@@ -430,7 +430,7 @@ def query_points():
     query = search(query, EUD, "uid")
     query = search(query, EUD, "callsign")
 
-    return paginate(query)
+    return paginate(query, Point)
 
 
 @api_blueprint.route("/api/rabbitmq/<path>", methods=["POST"])
@@ -582,7 +582,7 @@ def get_icon():
     query = search(query, Icon, "groupName")
     query = search(query, Icon, "type2525b")
 
-    return paginate(query)
+    return paginate(query, Icon)
 
 
 @api_blueprint.route("/api/itak_qr_string")

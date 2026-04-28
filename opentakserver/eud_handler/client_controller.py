@@ -185,6 +185,33 @@ class ClientController(Thread):
             self.close_connection()
             self.logger.error(traceback.format_exc())
 
+    def _on_ioloop(self, callback):
+        """Schedule ``callback`` to run on the pika ioloop thread.
+
+        ``pika.SelectConnection`` and its channels are not thread-safe; the
+        only documented cross-thread API is
+        ``connection.ioloop.add_callback_threadsafe``. Every channel operation
+        triggered from the TCP-reader thread (``run`` and everything reachable
+        from ``handle_cot``) must be funneled through here, otherwise the
+        publish, queue declare, etc. interleave with the ioloop's own work and
+        get silently dropped or corrupt the channel state.
+        """
+        if (
+            not self.rabbit_connection
+            or self.rabbit_connection.is_closing
+            or self.rabbit_connection.is_closed
+        ):
+            return
+        self.rabbit_connection.ioloop.add_callback_threadsafe(callback)
+
+    def _publish_threadsafe(self, **kwargs):
+        """Schedule ``basic_publish(**kwargs)`` on the pika ioloop thread.
+
+        Convenience wrapper around :meth:`_on_ioloop` for the common case.
+        See that method for the full rationale.
+        """
+        self._on_ioloop(lambda: self.rabbit_channel.basic_publish(**kwargs))
+
     def handle_auth(self, auth: str):
         self.logger.debug(auth)
         if auth:
@@ -450,8 +477,14 @@ class ClientController(Thread):
                 ):
 
                     self.logger.debug(f"Declaring queue for {self.callsign} {self.uid}")
-                    self.rabbit_channel.queue_declare(queue=self.callsign)
-                    self.rabbit_channel.queue_declare(queue=self.uid)
+                    callsign_queue = self.callsign
+                    uid_queue = self.uid
+                    self._on_ioloop(
+                        lambda: self.rabbit_channel.queue_declare(queue=callsign_queue)
+                    )
+                    self._on_ioloop(
+                        lambda: self.rabbit_channel.queue_declare(queue=uid_queue)
+                    )
 
                     with self.app.app_context():
                         if self.is_ssl:
@@ -464,8 +497,10 @@ class ClientController(Thread):
                                 self.logger.debug(
                                     f"{self.callsign} doesn't belong to any groups, adding them to the __ANON__ group"
                                 )
-                                self.rabbit_channel.queue_bind(
-                                    exchange="groups", queue=self.uid, routing_key="__ANON__.OUT"
+                                self._on_ioloop(
+                                    lambda q=self.uid: self.rabbit_channel.queue_bind(
+                                        exchange="groups", queue=q, routing_key="__ANON__.OUT"
+                                    )
                                 )
                                 if {
                                     "exchange": "groups",
@@ -483,10 +518,11 @@ class ClientController(Thread):
                             elif group_memberships and self.is_ssl:
                                 for membership in group_memberships:
                                     membership = membership[0]
-                                    self.rabbit_channel.queue_bind(
-                                        exchange="groups",
-                                        queue=self.uid,
-                                        routing_key=f"{membership.group.name}.OUT",
+                                    routing_key = f"{membership.group.name}.OUT"
+                                    self._on_ioloop(
+                                        lambda q=self.uid, rk=routing_key: self.rabbit_channel.queue_bind(
+                                            exchange="groups", queue=q, routing_key=rk,
+                                        )
                                     )
 
                                     if {
@@ -502,8 +538,10 @@ class ClientController(Thread):
                                             }
                                         )
 
-                        self.rabbit_channel.queue_bind(
-                            exchange="missions", routing_key="missions", queue=self.uid
+                        self._on_ioloop(
+                            lambda q=self.uid: self.rabbit_channel.queue_bind(
+                                exchange="missions", routing_key="missions", queue=q
+                            )
                         )
                         if {
                             "exchange": "missions",
@@ -519,11 +557,15 @@ class ClientController(Thread):
                             )
 
                         # The DMs queue also binds by callsign since the <dest> tag in CoT messages can be by callsign instead of UID
-                        self.rabbit_channel.queue_bind(
-                            exchange="dms", queue=self.uid, routing_key=self.uid
+                        self._on_ioloop(
+                            lambda q=self.uid: self.rabbit_channel.queue_bind(
+                                exchange="dms", queue=q, routing_key=q
+                            )
                         )
-                        self.rabbit_channel.queue_bind(
-                            exchange="dms", queue=self.callsign, routing_key=self.callsign
+                        self._on_ioloop(
+                            lambda q=self.callsign: self.rabbit_channel.queue_bind(
+                                exchange="dms", queue=q, routing_key=q
+                            )
                         )
 
                         if {
@@ -552,8 +594,10 @@ class ClientController(Thread):
                             self.logger.debug(
                                 f"{self.callsign} is connected via TCP, adding them to the __ANON__ group"
                             )
-                            self.rabbit_channel.queue_bind(
-                                exchange="groups", queue=self.uid, routing_key="__ANON__.OUT"
+                            self._on_ioloop(
+                                lambda q=self.uid: self.rabbit_channel.queue_bind(
+                                    exchange="groups", queue=q, routing_key="__ANON__.OUT"
+                                )
                             )
                             self.bound_queues.append(
                                 {
@@ -563,11 +607,15 @@ class ClientController(Thread):
                                 }
                             )
 
-                        self.rabbit_channel.basic_consume(
-                            queue=self.callsign, on_message_callback=self.on_message, auto_ack=True
+                        self._on_ioloop(
+                            lambda q=self.callsign: self.rabbit_channel.basic_consume(
+                                queue=q, on_message_callback=self.on_message, auto_ack=True
+                            )
                         )
-                        self.rabbit_channel.basic_consume(
-                            queue=self.uid, on_message_callback=self.on_message, auto_ack=True
+                        self._on_ioloop(
+                            lambda q=self.uid: self.rabbit_channel.basic_consume(
+                                queue=q, on_message_callback=self.on_message, auto_ack=True
+                            )
                         )
 
             if "phone" in contact.attrs and contact.attrs["phone"]:
@@ -675,7 +723,7 @@ class ClientController(Thread):
                         "binary": False,
                         "host_id": uuid.uuid4().hex,
                     }
-                    self.rabbit_channel.basic_publish(
+                    self._publish_threadsafe(
                         exchange="flask-socketio",
                         routing_key="",
                         body=json.dumps(message).encode(),
@@ -725,7 +773,7 @@ class ClientController(Thread):
                 routing_key = (
                     f"{self.app.config.get('OTS_MESHTASTIC_TOPIC')}.2.e.{channel.name}.outgoing"
                 )
-                self.rabbit_channel.basic_publish(
+                self._publish_threadsafe(
                     exchange="amq.topic",
                     routing_key=routing_key,
                     body=service_envelope.SerializeToString(),
@@ -742,23 +790,32 @@ class ClientController(Thread):
             and not self.rabbit_channel.is_closing
             and not self.rabbit_channel.is_closed
         ):
-            self.rabbit_channel.queue_unbind(
-                queue=self.uid, exchange="missions", routing_key="missions"
+            self._on_ioloop(
+                lambda q=self.uid: self.rabbit_channel.queue_unbind(
+                    queue=q, exchange="missions", routing_key="missions"
+                )
             )
-            self.rabbit_channel.queue_unbind(queue=self.uid, exchange="groups")
+            self._on_ioloop(
+                lambda q=self.uid: self.rabbit_channel.queue_unbind(
+                    queue=q, exchange="groups"
+                )
+            )
             with self.app.app_context():
                 missions = db.session.execute(db.session.query(Mission)).all()
                 for mission in missions:
-                    self.rabbit_channel.queue_unbind(
-                        queue=self.uid,
-                        exchange="missions",
-                        routing_key=f"missions.{mission[0].name}",
+                    routing_key = f"missions.{mission[0].name}"
+                    self._on_ioloop(
+                        lambda q=self.uid, rk=routing_key: self.rabbit_channel.queue_unbind(
+                            queue=q, exchange="missions", routing_key=rk,
+                        )
                     )
                     self.logger.debug(f"Unbound {self.uid} from mission.{mission[0].name}")
 
             for bind in self.bound_queues:
-                self.rabbit_channel.queue_unbind(
-                    exchange=bind["exchange"], queue=bind["queue"], routing_key=bind["routing_key"]
+                self._on_ioloop(
+                    lambda b=bind: self.rabbit_channel.queue_unbind(
+                        exchange=b["exchange"], queue=b["queue"], routing_key=b["routing_key"]
+                    )
                 )
 
     def send_disconnect_cot(self):
@@ -810,7 +867,7 @@ class ClientController(Thread):
                         self.logger.debug(
                             f"Publishing to group {group.group.name}.{group.direction}"
                         )
-                        self.rabbit_channel.basic_publish(
+                        self._publish_threadsafe(
                             exchange="groups",
                             routing_key=f"{group.group.name}.{group.direction}",
                             body=message,
@@ -823,7 +880,7 @@ class ClientController(Thread):
                 and not self.rabbit_channel.is_closing
                 and not self.rabbit_channel.is_closed
             ):
-                self.rabbit_channel.basic_publish(
+                self._publish_threadsafe(
                     exchange="groups",
                     routing_key=f"__ANON__.{Group.OUT}",
                     body=message,
@@ -852,7 +909,7 @@ class ClientController(Thread):
             return
 
         # Route all CoTs to the firehose exchange for plugins and users that connect directly to RabbitMQ
-        self.rabbit_channel.basic_publish(
+        self._publish_threadsafe(
             exchange="firehose",
             body=json.dumps({"uid": self.uid, "cot": str(event)}),
             routing_key="",
@@ -860,7 +917,7 @@ class ClientController(Thread):
         )
 
         # Route all cots to the cot_parser direct exchange to be processed by a pool of cot_parser processes
-        self.rabbit_channel.basic_publish(
+        self._publish_threadsafe(
             exchange="cot_parser",
             body=json.dumps({"uid": self.uid, "cot": str(event)}),
             routing_key="cot_parser",
@@ -879,7 +936,7 @@ class ClientController(Thread):
 
                 # ATAK and WinTAK use callsign, iTAK uses uid
                 if "callsign" in destination.attrs and destination.attrs["callsign"]:
-                    self.rabbit_channel.basic_publish(
+                    self._publish_threadsafe(
                         exchange="dms",
                         routing_key=destination.attrs["callsign"],
                         body=json.dumps({"uid": self.uid, "cot": str(event)}),
@@ -890,7 +947,7 @@ class ClientController(Thread):
 
                 # iTAK uses its own UID in the <dest> tag when sending CoTs to a mission so we don't send those to the dms exchange
                 elif "uid" in destination.attrs and destination["uid"] != self.uid:
-                    self.rabbit_channel.basic_publish(
+                    self._publish_threadsafe(
                         exchange="dms",
                         routing_key=destination.attrs["uid"],
                         body=json.dumps({"uid": self.uid, "cot": str(event)}),
@@ -915,8 +972,8 @@ class ClientController(Thread):
                             return
 
                         mission = mission[0]
-                        self.rabbit_channel.basic_publish(
-                            "missions",
+                        self._publish_threadsafe(
+                            exchange="missions",
                             routing_key=f"missions.{destination.attrs['mission']}",
                             body=json.dumps({"uid": self.uid, "cot": str(event)}),
                             properties=pika.BasicProperties(
@@ -994,15 +1051,15 @@ class ClientController(Thread):
                                 ).decode("utf-8"),
                             }
                             mission_changes.append({"mission": mission.name, "message": body})
-                            self.rabbit_channel.basic_publish(
-                                "missions",
+                            self._publish_threadsafe(
+                                exchange="missions",
                                 routing_key=f"missions.{mission.name}",
                                 body=json.dumps(body),
                             )
 
         if not destinations and not self.is_ssl:
             # Publish all CoT messages received by TCP and that have no destination to the __ANON__ group
-            self.rabbit_channel.basic_publish(
+            self._publish_threadsafe(
                 exchange="groups",
                 routing_key="__ANON__.OUT",
                 body=json.dumps({"uid": self.uid, "cot": str(event)}),
@@ -1019,7 +1076,7 @@ class ClientController(Thread):
                 ).all()
                 if not group_memberships:
                     # Default to the __ANON__ group if the user doesn't belong to any IN groups
-                    self.rabbit_channel.basic_publish(
+                    self._publish_threadsafe(
                         exchange="groups",
                         routing_key="__ANON__.OUT",
                         body=json.dumps({"uid": self.uid, "cot": str(event)}),
@@ -1030,7 +1087,7 @@ class ClientController(Thread):
 
                 for membership in group_memberships:
                     membership = membership[0]
-                    self.rabbit_channel.basic_publish(
+                    self._publish_threadsafe(
                         exchange="groups",
                         routing_key=f"{membership.group.name}.{Group.OUT}",
                         body=json.dumps({"uid": self.uid, "cot": str(event)}),
@@ -1041,8 +1098,8 @@ class ClientController(Thread):
 
         if mission_changes:
             for change in mission_changes:
-                self.rabbit_channel.basic_publish(
-                    "missions",
+                self._publish_threadsafe(
+                    exchange="missions",
                     routing_key=f"missions.{change['mission']}",
                     body=json.dumps(change["message"]),
                     properties=pika.BasicProperties(
