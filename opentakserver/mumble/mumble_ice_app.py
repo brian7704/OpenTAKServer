@@ -316,19 +316,24 @@ class DirectionEnforcementCallback(Murmur.ServerCallback):
     def _apply_direction(self, session, username, channel_id, group_directions, is_admin):
         """Background thread: apply suppress flag via Ice calls only."""
         try:
+            # Admins are never suppressed by this callback, so skip all Ice calls.
+            # Calling getState() here blocks for 30s and crashes the connection.
+            if is_admin:
+                return
+
             channel_map = self._get_channel_map()
             channel_name = channel_map.get(channel_id, f"unknown({channel_id})")
 
-            # Admins and Root: always allow speaking
-            if is_admin or channel_name == 'Root':
+            # Root channel: always allow speaking
+            if channel_name == 'Root':
                 try:
                     s = self.server.getState(session)
                     if s.suppress:
                         s.suppress = False
                         self.server.setState(s)
-                        self.logger.info(f"UNMUTED (admin/Root): {username}")
+                        self.logger.info(f"UNMUTED (Root): {username}")
                 except Exception as e:
-                    self.logger.error(f"Failed to clear suppress for '{username}': {e}")
+                    self.logger.error(f"Failed to clear suppress for '{username}' in Root: {e}")
                 return
 
             direction = group_directions.get(channel_name)
