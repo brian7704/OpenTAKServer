@@ -8,6 +8,7 @@ class EudServer(socketserver.ForkingTCPServer):
     daemon_threads = True
     logger = None
     port = 8088
+    max_children = 9999999
 
     def __init__(self, server_address, eud_handler, logger, app_context):
         self.server_address = server_address

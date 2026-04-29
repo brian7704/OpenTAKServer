@@ -41,9 +41,6 @@ def setup_logging(app):
         level = logging.DEBUG
     logger.setLevel(level)
 
-    print("SETUP LOGGIN")
-    logger.info("LOGGING!!")
-
     if sys.stdout.isatty():
         color_log_handler = colorlog.StreamHandler()
         color_log_formatter = colorlog.ColoredFormatter(
