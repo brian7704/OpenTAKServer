@@ -45,6 +45,12 @@ class DefaultConfig:
     OTS_BACKUP_COUNT = int(os.getenv("OTS_BACKUP_COUNT", 7))
     OTS_ENABLE_CHANNELS = os.getenv("OTS_ENABLE_CHANNELS", "True").lower() in ["true", "1", "yes"]
 
+    # Map defaults
+    OTS_MAP_DEFAULT_LAT = float(os.getenv("OTS_MAP_DEFAULT_LAT", 10))
+    OTS_MAP_DEFAULT_LON = float(os.getenv("OTS_MAP_DEFAULT_LON", 0))
+    OTS_MAP_DEFAULT_ZOOM = int(os.getenv("OTS_MAP_DEFAULT_ZOOM", 3))
+    OTS_MAP_DEFAULT_LAYER = os.getenv("OTS_MAP_DEFAULT_LAYER", "OSM")
+
     # RabbitMQ Settings
     OTS_RABBITMQ_SERVER_ADDRESS = os.getenv("OTS_RABBITMQ_SERVER_ADDRESS", "127.0.0.1")
     OTS_RABBITMQ_USERNAME = os.getenv("OTS_RABBITMQ_USERNAME", "guest")
