@@ -76,6 +76,14 @@ def get_timezone():
     return pytz.timezone("UTC")
 
 
+def _normalize_samesite(value):
+    if value is None:
+        return None
+
+    value = str(value).strip()
+    return value.lower() or None
+
+
 def _init_oidc(app):
     if not app.config.get("OTS_ENABLE_OIDC"):
         return
@@ -86,7 +94,32 @@ def _init_oidc(app):
             "OTS_ENABLE_OIDC is enabled but flask-oidc is not installed. Install flask-oidc to use OIDC."
         )
 
+    if _normalize_samesite(app.config.get("SESSION_COOKIE_SAMESITE")) == "strict":
+        logger.warning(
+            "SESSION_COOKIE_SAMESITE=strict breaks browser OIDC callbacks; overriding it to Lax"
+        )
+        app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
     oidc.init_app(app)
+
+
+def _build_security_identity_attributes(app):
+    identity_attributes = [
+        {"username": {"mapper": uia_username_mapper, "case_insensitive": True}}
+    ]
+
+    if app.config.get("OTS_ENABLE_EMAIL"):
+        identity_attributes.append(
+            {"email": {"mapper": uia_email_mapper, "case_insensitive": True}}
+        )
+
+    if app.config.get("OTS_ENABLE_LDAP"):
+        identity_attributes.append({"ldap": {}})
+
+    if app.config.get("OTS_ENABLE_OIDC"):
+        identity_attributes.append({"oidc": {}})
+
+    return identity_attributes
 
 
 def init_extensions(app):
@@ -117,13 +150,10 @@ def init_extensions(app):
             }
         }
     )
-    identity_attributes = [{"username": {"mapper": uia_username_mapper, "case_insensitive": True}}]
+    identity_attributes = _build_security_identity_attributes(app)
 
     # Don't allow registration unless email is enabled
     if app.config.get("OTS_ENABLE_EMAIL"):
-        identity_attributes.append(
-            {"email": {"mapper": uia_email_mapper, "case_insensitive": True}}
-        )
         app.config.update(
             {
                 "SECURITY_REGISTERABLE": True,
@@ -145,7 +175,6 @@ def init_extensions(app):
     if app.config.get("OTS_ENABLE_LDAP"):
         logger.info("Enabling LDAP")
         ldap_manager.init_app(app)
-        identity_attributes.append({"ldap": {}})
 
     _init_oidc(app)
 

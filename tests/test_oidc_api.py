@@ -310,7 +310,7 @@ def test_oidc_login_uses_forwarded_proto_for_callback_url(
     assert mock_client.redirect_uri == "https://ots.example.com/api/oidc/callback"
 
 
-def test_oidc_login_clears_stale_state_when_args_are_missing(
+def test_oidc_login_clears_existing_flow_state_when_args_are_missing(
     real_oidc_api, app_with_db, client_with_db, monkeypatch
 ):
     app = app_with_db
@@ -320,7 +320,7 @@ def test_oidc_login_clears_stale_state_when_args_are_missing(
     monkeypatch.setattr(real_oidc_api, "_get_oidc_client", lambda: mock_client)
 
     with client_with_db.session_transaction() as session:
-        session["ots_oidc_next"] = "/stale"
+        session["ots_oidc_next"] = "/previous"
         session["ots_oidc_return_json"] = True
 
     response = client_with_db.get("/api/oidc/login")
@@ -367,7 +367,7 @@ def test_oidc_login_authorize_redirect_failure_returns_error(
     monkeypatch.setattr(real_oidc_api, "_get_oidc_client", lambda: BrokenOIDCClient())
 
     with client_with_db.session_transaction() as session:
-        session["ots_oidc_next"] = "/stale"
+        session["ots_oidc_next"] = "/previous"
         session["ots_oidc_return_json"] = True
 
     response = client_with_db.get("/api/oidc/login")
@@ -380,7 +380,7 @@ def test_oidc_login_authorize_redirect_failure_returns_error(
         assert "ots_oidc_return_json" not in session
 
 
-def test_oidc_callback_token_exchange_failure_clears_temporary_state(
+def test_oidc_callback_token_exchange_failure_clears_flow_state(
     real_oidc_api, client_with_db, app_with_db, monkeypatch
 ):
     app = app_with_db
@@ -393,7 +393,7 @@ def test_oidc_callback_token_exchange_failure_clears_temporary_state(
     monkeypatch.setattr(real_oidc_api, "_get_oidc_client", lambda: BrokenOIDCClient())
 
     with client_with_db.session_transaction() as session:
-        session["ots_oidc_next"] = "/stale"
+        session["ots_oidc_next"] = "/previous"
         session["ots_oidc_return_json"] = True
 
     response = client_with_db.get("/api/oidc/callback?code=test-code")
@@ -448,7 +448,7 @@ def test_oidc_callback_rejects_missing_authorization_code(
     assert response.json["error"] == "Invalid OIDC callback"
 
 
-def test_oidc_callback_hydrates_user_and_returns_json(
+def test_oidc_callback_syncs_user_and_returns_json(
     real_oidc_api, client_with_db, app_with_db, monkeypatch
 ):
     app = app_with_db
@@ -487,14 +487,44 @@ def test_oidc_callback_hydrates_user_and_returns_json(
     assert role_names == {"operator", "admin"}
 
     with client_with_db.session_transaction() as session:
-        assert session["oidc_auth_token"]
-        assert session["oidc_auth_profile"]["sub"] == "callback-user-123"
+        assert "oidc_auth_token" not in session
+        assert "oidc_auth_profile" not in session
 
     with app.app_context():
         user = app.security.datastore.find_user(username="callback_user")
         assert user is not None
         assert user.oidc_issuer == "https://issuer.example"
         assert user.oidc_subject == "callback-user-123"
+
+
+def test_oidc_callback_clears_oidc_session_artifacts(
+    real_oidc_api, client_with_db, app_with_db, monkeypatch
+):
+    app = app_with_db
+    app.config["OTS_ENABLE_OIDC"] = True
+
+    claims = {
+        "iss": "https://issuer.example",
+        "sub": "session-artifact-user-123",
+        "preferred_username": "session_artifact_user",
+        "email": "session-artifact-user@example.com",
+        "groups": ["user"],
+    }
+
+    mock_client = _MockOIDCClient(token={"userinfo": claims})
+    monkeypatch.setattr(real_oidc_api, "_get_oidc_client", lambda: mock_client)
+
+    with client_with_db.session_transaction() as session:
+        session["ots_oidc_return_json"] = True
+        session["oidc_auth_token"] = {"access_token": "placeholder-token"}
+        session["oidc_auth_profile"] = {"sub": "placeholder-subject"}
+
+    response = client_with_db.get("/api/oidc/callback?code=test-code")
+
+    assert response.status_code == 200
+    with client_with_db.session_transaction() as session:
+        assert "oidc_auth_token" not in session
+        assert "oidc_auth_profile" not in session
 
 
 def test_oidc_callback_redirects_to_return_url(real_oidc_api, app_with_db, client_with_db, monkeypatch):
@@ -624,6 +654,48 @@ def test_oidc_callback_fetches_userinfo_when_token_missing(
     assert mock_client.userinfo_called is True
 
 
+
+def test_oidc_callback_merges_userinfo_endpoint_claims_with_embedded_claims(
+    real_oidc_api, client_with_db, app_with_db, monkeypatch
+):
+    app = app_with_db
+    app.config["OTS_ENABLE_OIDC"] = True
+    app.config["OTS_OIDC_DEFAULT_ROLES"] = "user"
+    app.config["OTS_OIDC_ADMIN_ROLES"] = "ots-admin"
+
+    embedded_claims = {
+        "iss": "https://issuer.example",
+        "sub": "merged-user-123",
+    }
+    userinfo_claims = {
+        "iss": "https://issuer.example",
+        "sub": "merged-user-123",
+        "preferred_username": "merged_user",
+        "email": "merged-user@example.com",
+        "groups": ["ots-admin"],
+    }
+
+    mock_client = _MockOIDCClient(
+        token={"access_token": "tok", "userinfo": embedded_claims},
+        fallback_userinfo=userinfo_claims,
+    )
+    monkeypatch.setattr(real_oidc_api, "_get_oidc_client", lambda: mock_client)
+
+    with client_with_db.session_transaction() as session:
+        session["ots_oidc_return_json"] = True
+
+    response = client_with_db.get("/api/oidc/callback?code=test-code")
+
+    assert response.status_code == 200
+    payload = response.json
+    assert payload["success"] is True
+    assert payload["username"] == "merged_user"
+    assert payload["email"] == "merged-user@example.com"
+    role_names = {role["name"] for role in payload["roles"]}
+    assert role_names == {"ots-admin", "administrator"}
+    assert mock_client.userinfo_called is True
+
+
 @pytest.fixture
 def app_module():
     return import_module("opentakserver.app")
@@ -656,6 +728,7 @@ def test_build_oidc_client_registration_enables_pkce_for_public_client(app, oidc
             "OTS_OIDC_CLIENT_SECRET": "",
             "OTS_OIDC_METADATA_URL": "https://issuer.example/.well-known/openid-configuration",
             "OTS_OIDC_SCOPE": "openid profile email",
+            "OTS_OIDC_TOKEN_ENDPOINT_AUTH_METHOD": "",
             "OTS_OIDC_USE_PKCE": False,
         }
     )
@@ -669,6 +742,7 @@ def test_build_oidc_client_registration_enables_pkce_for_public_client(app, oidc
         == "https://issuer.example/.well-known/openid-configuration"
     )
     assert registration["client_kwargs"]["scope"] == "openid profile email"
+    assert registration["client_kwargs"]["token_endpoint_auth_method"] == "none"
     assert registration["client_kwargs"]["code_challenge_method"] == "S256"
 
 
@@ -679,6 +753,7 @@ def test_build_oidc_client_registration_can_enable_pkce_for_confidential_client(
             "OTS_OIDC_CLIENT_SECRET": "super-secret",
             "OTS_OIDC_METADATA_URL": "https://issuer.example/.well-known/openid-configuration",
             "OTS_OIDC_SCOPE": "openid profile email",
+            "OTS_OIDC_TOKEN_ENDPOINT_AUTH_METHOD": "",
             "OTS_OIDC_USE_PKCE": True,
             "OTS_OIDC_PKCE_METHOD": "S256",
         }
@@ -688,6 +763,23 @@ def test_build_oidc_client_registration_can_enable_pkce_for_confidential_client(
 
     assert registration["client_secret"] == "super-secret"
     assert registration["client_kwargs"]["code_challenge_method"] == "S256"
+    assert "token_endpoint_auth_method" not in registration["client_kwargs"]
+
+
+def test_build_oidc_client_registration_can_override_token_endpoint_auth_method(app, oidc_module):
+    app.config.update(
+        {
+            "OTS_OIDC_CLIENT_ID": "confidential-client",
+            "OTS_OIDC_CLIENT_SECRET": "super-secret",
+            "OTS_OIDC_METADATA_URL": "https://issuer.example/.well-known/openid-configuration",
+            "OTS_OIDC_SCOPE": "openid profile email",
+            "OTS_OIDC_TOKEN_ENDPOINT_AUTH_METHOD": "client_secret_post",
+        }
+    )
+
+    registration = oidc_module._build_client_registration(app)
+
+    assert registration["client_kwargs"]["token_endpoint_auth_method"] == "client_secret_post"
 
 
 @pytest.mark.parametrize("pkce_method", ["plain", "s256", "S512"])
@@ -817,12 +909,76 @@ def test_init_oidc_calls_extension_init_app(app, app_module, monkeypatch):
             "OTS_OIDC_CLIENT_SECRET": "",
             "OTS_OIDC_METADATA_URL": "https://issuer.example/.well-known/openid-configuration",
             "OTS_OIDC_SCOPE": "openid profile email",
+            "OTS_OIDC_TOKEN_ENDPOINT_AUTH_METHOD": "",
         }
     )
 
     app_module._init_oidc(app)
 
     assert fake_oidc.init_app_called is True
+
+
+def test_init_oidc_relaxes_strict_session_cookie_same_site_to_lax(
+    app, app_module, monkeypatch
+):
+    class FakeOIDC:
+        def init_app(self, flask_app):
+            return None
+
+    monkeypatch.setattr(app_module, "oidc", FakeOIDC())
+
+    app.config.update(
+        {
+            "OTS_ENABLE_OIDC": True,
+            "OTS_OIDC_NAME": "main-oidc",
+            "OTS_OIDC_CLIENT_ID": "public-client",
+            "OTS_OIDC_CLIENT_SECRET": "",
+            "OTS_OIDC_METADATA_URL": "https://issuer.example/.well-known/openid-configuration",
+            "OTS_OIDC_SCOPE": "openid profile email",
+            "OTS_OIDC_TOKEN_ENDPOINT_AUTH_METHOD": "",
+            "SESSION_COOKIE_SAMESITE": "strict",
+        }
+    )
+
+    app_module._init_oidc(app)
+
+    assert app.config["SESSION_COOKIE_SAMESITE"] == "Lax"
+
+
+
+def test_build_security_identity_attributes_adds_oidc_when_enabled(app, app_module):
+    app.config.update(
+        {
+            "OTS_ENABLE_EMAIL": True,
+            "OTS_ENABLE_LDAP": True,
+            "OTS_ENABLE_OIDC": True,
+        }
+    )
+
+    identity_attributes = app_module._build_security_identity_attributes(app)
+
+    assert [next(iter(attribute)) for attribute in identity_attributes] == [
+        "username",
+        "email",
+        "ldap",
+        "oidc",
+    ]
+
+
+
+def test_login_form_identity_attributes_expose_oidc_when_enabled(app, app_module):
+    app.config["OTS_ENABLE_OIDC"] = True
+    app.config["SECURITY_USER_IDENTITY_ATTRIBUTES"] = app_module._build_security_identity_attributes(app)
+
+    with app.test_client() as client:
+        response = client.get(
+            "/api/login?include_auth_token",
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+        )
+
+    assert response.status_code == 200
+    assert "oidc" in response.json["response"]["identity_attributes"]
+
 
 
 def test_oidc_extension_init_app_populates_internal_oidc_settings(app, oidc_module):
@@ -834,6 +990,7 @@ def test_oidc_extension_init_app_populates_internal_oidc_settings(app, oidc_modu
             "OTS_OIDC_CLIENT_SECRET": "",
             "OTS_OIDC_METADATA_URL": "https://issuer.example/.well-known/openid-configuration",
             "OTS_OIDC_SCOPE": "openid profile email",
+            "OTS_OIDC_TOKEN_ENDPOINT_AUTH_METHOD": "",
         }
     )
 
@@ -878,6 +1035,7 @@ def test_defaultconfig_reads_oidc_claim_and_role_mapping_from_env(monkeypatch):
     monkeypatch.setenv("OTS_OIDC_ROLE_CLAIM", "realm_access.roles")
     monkeypatch.setenv("OTS_OIDC_ADMIN_ROLES", "global-admin,ots-admin")
     monkeypatch.setenv("OTS_OIDC_DEFAULT_ROLES", "viewer")
+    monkeypatch.setenv("OTS_OIDC_TOKEN_ENDPOINT_AUTH_METHOD", "client_secret_post")
 
     module = _load_defaultconfig_module()
     cfg = module.DefaultConfig
@@ -887,6 +1045,7 @@ def test_defaultconfig_reads_oidc_claim_and_role_mapping_from_env(monkeypatch):
     assert cfg.OTS_OIDC_ROLE_CLAIM == "realm_access.roles"
     assert cfg.OTS_OIDC_ADMIN_ROLES == "global-admin,ots-admin"
     assert cfg.OTS_OIDC_DEFAULT_ROLES == "viewer"
+    assert cfg.OTS_OIDC_TOKEN_ENDPOINT_AUTH_METHOD == "client_secret_post"
 
 
 def test_defaultconfig_oidc_claim_and_role_mapping_defaults_when_env_absent(monkeypatch):
@@ -896,6 +1055,7 @@ def test_defaultconfig_oidc_claim_and_role_mapping_defaults_when_env_absent(monk
         "OTS_OIDC_ROLE_CLAIM",
         "OTS_OIDC_ADMIN_ROLES",
         "OTS_OIDC_DEFAULT_ROLES",
+        "OTS_OIDC_TOKEN_ENDPOINT_AUTH_METHOD",
     ]:
         monkeypatch.delenv(key, raising=False)
 
@@ -907,3 +1067,4 @@ def test_defaultconfig_oidc_claim_and_role_mapping_defaults_when_env_absent(monk
     assert cfg.OTS_OIDC_ROLE_CLAIM == "groups"
     assert cfg.OTS_OIDC_ADMIN_ROLES == "administrator"
     assert cfg.OTS_OIDC_DEFAULT_ROLES == "user"
+    assert cfg.OTS_OIDC_TOKEN_ENDPOINT_AUTH_METHOD == ""

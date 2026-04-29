@@ -49,12 +49,26 @@ def _resolve_configured_issuer(app):
     return None
 
 
+def _configured_token_endpoint_auth_method(app):
+    return _normalize_optional_string(app.config.get("OTS_OIDC_TOKEN_ENDPOINT_AUTH_METHOD"))
+
+
 def _build_client_registration(app):
     client_id = _normalize_optional_string(app.config.get("OTS_OIDC_CLIENT_ID"))
     client_secret = _normalize_optional_string(app.config.get("OTS_OIDC_CLIENT_SECRET"))
     metadata_url = _normalize_optional_string(app.config.get("OTS_OIDC_METADATA_URL"))
 
     client_kwargs = {"scope": app.config.get("OTS_OIDC_SCOPE")}
+
+    token_endpoint_auth_method = _configured_token_endpoint_auth_method(app)
+    if token_endpoint_auth_method:
+        logger.info(
+            "Using configured OIDC token endpoint auth method: %s",
+            token_endpoint_auth_method,
+        )
+        client_kwargs["token_endpoint_auth_method"] = token_endpoint_auth_method
+    elif not client_secret:
+        client_kwargs["token_endpoint_auth_method"] = "none"
 
     use_pkce = bool(app.config.get("OTS_OIDC_USE_PKCE")) or not client_secret
     if use_pkce:
@@ -128,7 +142,12 @@ def _build_extension_config(app):
 
     registration = _build_client_registration(app)
     secrets = _build_client_secrets(app)
-    token_endpoint_auth_method = "client_secret_post" if registration.get("client_secret") else "none"
+
+    token_endpoint_auth_method = _configured_token_endpoint_auth_method(app)
+    if not token_endpoint_auth_method:
+        token_endpoint_auth_method = (
+            "none" if not registration.get("client_secret") else "client_secret_basic"
+        )
 
     return {
         "OIDC_ENABLED": True,
@@ -153,11 +172,7 @@ class OpenTAKOIDCExtension(OpenIDConnect):
             raise ValueError('The value "openid" must be in the OIDC_SCOPES')
 
         registration = dict(app.config["OTS_OIDC_CLIENT_REGISTRATION"])
-        client_kwargs = dict(registration.get("client_kwargs") or {})
-        client_kwargs.setdefault(
-            "token_endpoint_auth_method", app.config["OIDC_INTROSPECTION_AUTH_METHOD"]
-        )
-        registration["client_kwargs"] = client_kwargs
+        registration["client_kwargs"] = dict(registration.get("client_kwargs") or {})
 
         self.oauth = OAuth(app)
         self.oauth.register(name="oidc", update_token=self._update_token, **registration)

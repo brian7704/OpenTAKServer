@@ -112,6 +112,7 @@ class DefaultConfig:
     OTS_OIDC_NAME = os.getenv("OTS_OIDC_NAME", "oidc")
     OTS_OIDC_CLIENT_ID = os.getenv("OTS_OIDC_CLIENT_ID", "")
     OTS_OIDC_CLIENT_SECRET = os.getenv("OTS_OIDC_CLIENT_SECRET", "")
+    OTS_OIDC_TOKEN_ENDPOINT_AUTH_METHOD = os.getenv("OTS_OIDC_TOKEN_ENDPOINT_AUTH_METHOD", "")
 
     # Authlib uses this for discovery and to discover OpenID endpoints
     OTS_OIDC_METADATA_URL = os.getenv("OTS_OIDC_METADATA_URL", "")

@@ -340,9 +340,15 @@ def _sync_oidc_user(claims):
 def _clear_oidc_flow_state():
     session.pop("ots_oidc_next", None)
     session.pop("ots_oidc_return_json", None)
+    # OTS uses the Flask-Security session for local login state and should not
+    # persist provider-issued OIDC tokens in the browser session cookie.
+    session.pop("oidc_auth_token", None)
+    session.pop("oidc_auth_profile", None)
 
 
 def _pop_oidc_flow_state():
+    session.pop("oidc_auth_token", None)
+    session.pop("oidc_auth_profile", None)
     return (
         _to_bool(session.pop("ots_oidc_return_json", False)),
         _sanitize_next_url(session.pop("ots_oidc_next", "/")),
@@ -356,9 +362,14 @@ def _fetch_oidc_userinfo(client, token):
         return client.userinfo()
 
 
-def _store_flask_oidc_session(token, claims):
-    session["oidc_auth_token"] = token if isinstance(token, dict) else {}
-    session["oidc_auth_profile"] = claims
+def _merge_claim_sets(primary_claims, secondary_claims):
+    merged_claims = dict(primary_claims or {})
+    if isinstance(secondary_claims, dict):
+        for key, value in secondary_claims.items():
+            if value is not None:
+                merged_claims[key] = value
+
+    return merged_claims
 
 
 def _fetch_oidc_claims(client):
@@ -372,38 +383,60 @@ def _fetch_oidc_claims(client):
             level="warning",
         )
 
-    claims = token.get("userinfo") if isinstance(token, dict) else None
+    embedded_claims = token.get("userinfo") if isinstance(token, dict) else None
+    if embedded_claims is not None and not isinstance(embedded_claims, dict):
+        return None, _oidc_error_response(
+            "Invalid OIDC user info",
+            400,
+            log_message="OIDC user info payload was not a JSON object",
+            level="warning",
+        )
+
+    claims = dict(embedded_claims or {})
+
+    if isinstance(token, dict) and token.get("access_token"):
+        try:
+            userinfo_claims = _fetch_oidc_userinfo(client, token)
+        except Exception as e:
+            if claims:
+                logger.debug(
+                    "Falling back to embedded OIDC claims after userinfo fetch failed: %s",
+                    e,
+                )
+                return claims, None
+
+            return None, _oidc_error_response(
+                "Failed to fetch OIDC user info",
+                400,
+                log_message=f"Failed to read OIDC user info: {e}",
+                level="warning",
+            )
+
+        if not isinstance(userinfo_claims, dict):
+            if claims:
+                logger.debug(
+                    "Ignoring non-object OIDC userinfo payload and using embedded claims instead"
+                )
+                return claims, None
+
+            return None, _oidc_error_response(
+                "Invalid OIDC user info",
+                400,
+                log_message="OIDC user info payload was not a JSON object",
+                level="warning",
+            )
+
+        claims = _merge_claim_sets(claims, userinfo_claims)
+
     if claims:
-        if isinstance(claims, dict):
-            _store_flask_oidc_session(token, claims)
-            return claims, None
-        return None, _oidc_error_response(
-            "Invalid OIDC user info",
-            400,
-            log_message="OIDC user info payload was not a JSON object",
-            level="warning",
-        )
+        return claims, None
 
-    try:
-        claims = _fetch_oidc_userinfo(client, token)
-    except Exception as e:
-        return None, _oidc_error_response(
-            "Failed to fetch OIDC user info",
-            400,
-            log_message=f"Failed to read OIDC user info: {e}",
-            level="warning",
-        )
-
-    if not isinstance(claims, dict):
-        return None, _oidc_error_response(
-            "Invalid OIDC user info",
-            400,
-            log_message="OIDC user info payload was not a JSON object",
-            level="warning",
-        )
-
-    _store_flask_oidc_session(token, claims)
-    return claims, None
+    return None, _oidc_error_response(
+        "Invalid OIDC user info",
+        400,
+        log_message="OIDC callback did not provide user claims",
+        level="warning",
+    )
 
 
 def _complete_oidc_login(user):
