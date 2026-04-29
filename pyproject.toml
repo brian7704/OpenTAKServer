@@ -61,6 +61,7 @@ yt-dlp = "*"
 # Keep zope-event at 5.1.1, DO NOT UPGRADE
 zope-event = "5.1.1"
 zope-interface = "8.1.1"
+flask-oidc = "2.4.0"
 
 [tool.poetry.group.dev.dependencies]
 isort = "^7.0.0"
