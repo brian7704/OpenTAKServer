@@ -25,8 +25,6 @@ from flask import Flask
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import SQLAlchemyUserDatastore, Security, verify_password
 from flask_security.models import fsqla
-from meshtastic import BROADCAST_NUM
-from meshtastic.protobuf import mesh_pb2, portnums_pb2, mqtt_pb2
 from pika.channel import Channel
 from sqlalchemy import insert, update, select
 
@@ -51,7 +49,6 @@ from opentakserver.models.Group import Group
 from opentakserver.models.GroupMission import GroupMission
 from opentakserver.models.GroupUser import GroupUser
 from opentakserver.models.Marker import Marker
-from opentakserver.models.Meshtastic import MeshtasticChannel
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
 from opentakserver.models.MissionContentMission import MissionContentMission
@@ -872,8 +869,6 @@ class EudHandler(socketserver.BaseRequestHandler):
                     )
                     db.session.commit()
 
-                self.send_meshtastic_node_info(eud)
-
                 # If the RabbitMQ channel is open, publish the EUD info to socketio to be displayed on the web UI map.
                 # Also save the EUD's info for on_channel_open to publish
                 self.eud = eud
@@ -897,57 +892,6 @@ class EudHandler(socketserver.BaseRequestHandler):
                             expiration=self.app.config.get("OTS_RABBITMQ_TTL")
                         ),
                     )
-
-    def send_meshtastic_node_info(self, eud):
-        if self.app.config.get("OTS_ENABLE_MESHTASTIC") and eud.platform != "Meshtastic":
-            user_info = mesh_pb2.User()
-            setattr(user_info, "id", "!{:x}".format(eud.meshtastic_id))
-            user_info.long_name = eud.callsign
-            # Use the last 4 characters of the UID as the short name
-            user_info.short_name = eud.uid[-4:]
-            user_info.hw_model = mesh_pb2.HardwareModel.PRIVATE_HW
-
-            # Note to future self: The Meshtastic firmware expects a User payload when the Portnum is NodeInfo
-            # DO NOT SEND A NODEINFO PAYLOAD!
-            encoded_message = mesh_pb2.Data()
-            encoded_message.portnum = portnums_pb2.NODEINFO_APP
-            encoded_message.payload = user_info.SerializeToString()
-
-            message_id = random.getrandbits(32)
-            mesh_packet = mesh_pb2.MeshPacket()
-            mesh_packet.id = message_id
-
-            try:
-                setattr(mesh_packet, "from", int(eud.meshtastic_id, 16))
-            except BaseException as e:
-                setattr(mesh_packet, "from", eud.meshtastic_id)
-            mesh_packet.to = BROADCAST_NUM
-            mesh_packet.want_ack = False
-            mesh_packet.hop_limit = 3
-            mesh_packet.decoded.CopyFrom(encoded_message)
-
-            service_envelope = mqtt_pb2.ServiceEnvelope()
-            service_envelope.packet.CopyFrom(mesh_packet)
-            service_envelope.gateway_id = "OpenTAKServer"
-
-            channels = db.session.execute(
-                select(MeshtasticChannel).filter(MeshtasticChannel.uplink_enabled is True)
-            )
-            for channel in channels:
-                channel = channel[0]
-                service_envelope.channel_id = channel
-                routing_key = (
-                    f"{self.app.config.get('OTS_MESHTASTIC_TOPIC')}.2.e.{channel.name}.outgoing"
-                )
-                self.rabbit_channel.basic_publish(
-                    exchange="amq.topic",
-                    routing_key=routing_key,
-                    body=service_envelope.SerializeToString(),
-                    properties=pika.BasicProperties(
-                        expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                    ),
-                )
-                self.logger.debug("Published message to " + routing_key)
 
     def unbind_rabbitmq_queues(self):
         if (
