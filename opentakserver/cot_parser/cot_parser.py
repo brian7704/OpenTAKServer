@@ -1,5 +1,6 @@
 import base64
 import datetime
+from datetime import timedelta, timezone
 import logging
 import os
 import platform
@@ -7,6 +8,7 @@ import random
 import sys
 import time
 import traceback
+import uuid
 from logging.handlers import TimedRotatingFileHandler
 
 import bleach
@@ -22,6 +24,7 @@ from flask_security import SQLAlchemyUserDatastore
 from flask_security.models import fsqla
 from flask_socketio import SocketIO
 from meshtastic import BROADCAST_NUM, mesh_pb2, mqtt_pb2, portnums_pb2
+from opentakserver.models.GroupUser import GroupUser
 from pika.channel import Channel
 from sqlalchemy import exc, insert, select, update
 
@@ -934,6 +937,76 @@ class CoTController:
                     downlink_channels.append(channel.name)
             return downlink_channels
 
+    def send_disconnect_cot(self, uid: str, user_id: str):
+        if uid:
+            now = datetime.now(timezone.utc)
+            stale = datetime.now(timezone.utc) + timedelta(seconds=10)
+
+            event = Element(
+                "event",
+                {
+                    "how": "h-g-i-g-o",
+                    "type": "t-x-d-d",
+                    "version": "2.0",
+                    "uid": str(uuid.uuid4()),
+                    "start": iso8601_string_from_datetime(now),
+                    "time": iso8601_string_from_datetime(now),
+                    "stale": iso8601_string_from_datetime(stale),
+                },
+            )
+            point = SubElement(
+                event,
+                "point",
+                {"ce": "9999999", "le": "9999999", "hae": "0", "lat": "0", "lon": "0"},
+            )
+            detail = SubElement(event, "detail")
+            link = SubElement(detail, "link", {"relation": "p-p", "uid": uid, "type": "a-f-G-U-C"})
+            flow_tags = SubElement(
+                detail,
+                "_flow-tags_",
+                {"TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0": iso8601_string_from_datetime(now)},
+            )
+
+            message = json.dumps({"uid": uid, "cot": tostring(event).decode("utf-8")})
+            if self.rabbit_channel and not self.rabbit_channel.is_closed and user_id:
+                with app.app_context():
+                    group_query = db.session.query(GroupUser).filter_by(
+                        user_id=user_id, direction=Group.OUT, enabled=True
+                    )
+                    groups = db.session.execute(group_query).all()
+                    for group in groups:
+                        group = group[0]
+                        self.logger.debug(
+                            f"Publishing to group {group.group.name}.{group.direction}"
+                        )
+                        self.rabbit_channel.basic_publish(
+                            exchange="groups",
+                            routing_key=f"{group.group.name}.{group.direction}",
+                            body=message,
+                            properties=pika.BasicProperties(
+                                expiration=app.config.get("OTS_RABBITMQ_TTL")
+                            ),
+                        )
+            elif (
+                self.rabbit_channel
+                and not self.rabbit_channel.is_closing
+                and not self.rabbit_channel.is_closed
+            ):
+                self.rabbit_channel.basic_publish(
+                    exchange="groups",
+                    routing_key=f"__ANON__.{Group.OUT}",
+                    body=message,
+                    properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+                )
+
+            with app.app_context():
+                db.session.execute(
+                    update(EUD)
+                    .filter(EUD.uid == uid)
+                    .values(last_status="Disconnected", last_event_time=now)
+                )
+                db.session.commit()
+
     def on_message(
         self,
         channel: pika.channel.Channel,
@@ -944,6 +1017,11 @@ class CoTController:
         try:
             start = time.time()
             body = json.loads(body)
+
+            if body.get("disconnected"):
+                self.send_disconnect_cot(body.get("uid"), body.get("user_id"))
+                return
+
             soup = BeautifulSoup(body["cot"], "xml")
             event: BeautifulSoup = soup.find("event")
 

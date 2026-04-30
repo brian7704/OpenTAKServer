@@ -11,6 +11,7 @@ import sys
 import traceback
 import uuid
 from logging.handlers import TimedRotatingFileHandler
+from socket import socket, SHUT_RDWR
 from threading import Thread
 from xml.etree.ElementTree import Element, SubElement, tostring, fromstring, ParseError
 
@@ -85,9 +86,10 @@ class EudHandler(socketserver.BaseRequestHandler):
     bound_queues = []
     phone_number = None
 
-    def __init__(self, request, client_address, server):
+    def __init__(self, request: socket, client_address, server):
         super().__init__(request, client_address, server)
         self.logger = logging.getLogger()
+        self.socket: socket = request
 
     def handle(self):
         cot = ""
@@ -122,6 +124,8 @@ class EudHandler(socketserver.BaseRequestHandler):
                     break
 
             cot = ""
+
+        self.close_connection()
 
     def pong(self, event):
         if event.attrs.get("type") == "t-x-c-t":
@@ -183,7 +187,31 @@ class EudHandler(socketserver.BaseRequestHandler):
         print("finish")
 
     def close_connection(self):
-        pass
+        self.logger.info("{} disconnected".format(self.client_address[0]))
+
+        self.rabbit_channel.basic_publish(
+            exchange="cot_parser",
+            body=json.dumps(
+                {"uid": self.uid, "cot": None, "disconnected": True, "user_id": self.user.id}
+            ),
+            routing_key="cot_parser",
+            properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
+        )
+
+        self.unbind_rabbitmq_queues()
+
+        if (
+            self.rabbit_channel
+            and not self.rabbit_channel.is_closing
+            and not self.rabbit_channel.is_closed
+        ):
+            self.rabbit_channel.close()
+
+        if not self.shutdown:
+            self.shutdown = True
+
+            self.request.shutdown(SHUT_RDWR)
+            self.request.close()
 
     def create_app(self):
         app = Flask(__name__)
@@ -918,84 +946,3 @@ class EudHandler(socketserver.BaseRequestHandler):
                 self.rabbit_channel.queue_unbind(
                     exchange=bind["exchange"], queue=bind["queue"], routing_key=bind["routing_key"]
                 )
-
-    def send_disconnect_cot(self):
-        if self.uid:
-            now = datetime.datetime.now(datetime.timezone.utc)
-            stale = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=10)
-
-            event = Element(
-                "event",
-                {
-                    "how": "h-g-i-g-o",
-                    "type": "t-x-d-d",
-                    "version": "2.0",
-                    "uid": str(uuid.uuid4()),
-                    "start": iso8601_string_from_datetime(now),
-                    "time": iso8601_string_from_datetime(now),
-                    "stale": iso8601_string_from_datetime(stale),
-                },
-            )
-            point = SubElement(
-                event,
-                "point",
-                {"ce": "9999999", "le": "9999999", "hae": "0", "lat": "0", "lon": "0"},
-            )
-            detail = SubElement(event, "detail")
-            link = SubElement(
-                detail, "link", {"relation": "p-p", "uid": self.uid, "type": "a-f-G-U-C"}
-            )
-            flow_tags = SubElement(
-                detail,
-                "_flow-tags_",
-                {"TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0": iso8601_string_from_datetime(now)},
-            )
-
-            message = json.dumps({"uid": self.uid, "cot": tostring(event).decode("utf-8")})
-            if (
-                self.rabbit_channel
-                and not self.rabbit_channel.is_closing
-                and not self.rabbit_channel.is_closed
-                and self.user
-            ):
-                with self.app.app_context():
-                    group_query = db.session.query(GroupUser).filter_by(
-                        user_id=self.user.id, direction=Group.OUT, enabled=True
-                    )
-                    groups = db.session.execute(group_query).all()
-                    for group in groups:
-                        group = group[0]
-                        self.logger.debug(
-                            f"Publishing to group {group.group.name}.{group.direction}"
-                        )
-                        self.rabbit_channel.basic_publish(
-                            exchange="groups",
-                            routing_key=f"{group.group.name}.{group.direction}",
-                            body=message,
-                            properties=pika.BasicProperties(
-                                expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                            ),
-                        )
-            elif (
-                self.rabbit_channel
-                and not self.rabbit_channel.is_closing
-                and not self.rabbit_channel.is_closed
-            ):
-                self.rabbit_channel.basic_publish(
-                    exchange="groups",
-                    routing_key=f"__ANON__.{Group.OUT}",
-                    body=message,
-                    properties=pika.BasicProperties(
-                        expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                    ),
-                )
-
-            with self.app.app_context():
-                db.session.execute(
-                    update(EUD)
-                    .filter(EUD.uid == self.uid)
-                    .values(last_status="Disconnected", last_event_time=now)
-                )
-                db.session.commit()
-
-        self.logger.info("{} disconnected".format(self.client_address[0]))
