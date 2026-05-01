@@ -7,7 +7,6 @@ from flask import Blueprint
 from flask import current_app as app
 from flask import jsonify, request, send_from_directory
 from flask_babel import gettext
-from flask_security import current_user
 from OpenSSL import crypto
 from OpenSSL.crypto import X509
 from simplekml import Document, GxMultiTrack, GxTrack, Icon, IconStyle, Kml, Style
@@ -62,7 +61,7 @@ def client_end_points():
             {
                 "callsign": eud.callsign,
                 "uid": eud.uid,
-                "username": current_user.username if current_user.is_authenticated else "anonymous",
+                "username": eud.user.username if eud.user else "anonymous",
                 "lastEventTime": iso8601_string_from_datetime(eud.last_event_time),
                 "lastStatus": eud.last_status,
             }
