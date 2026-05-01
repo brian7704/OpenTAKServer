@@ -137,6 +137,7 @@ class DefaultConfig:
     OTS_PROFILE_MAP_SOURCES = True
 
     OTS_ENABLE_MUMBLE_AUTHENTICATION = False
+    OTS_ICE_SECRET = ""
 
     OTS_IP_WHITELIST = ["127.0.0.1"]
 
