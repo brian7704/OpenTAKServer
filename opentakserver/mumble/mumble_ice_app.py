@@ -75,6 +75,9 @@ class MumbleIceApp(Ice.Application):
         self.adapter = None
         # server_id -> ServerCallbackPrx; guards against duplicate registration
         self.server_callbacks = {}
+        # Expose this daemon to Flask blueprints so group_api can request channel
+        # syncs after add/delete.  app.extensions is a plain dict; reads are thread-safe.
+        self.app.extensions["mumble_ice_app"] = self
 
     def run(self, *args):
         if not self.initialize_ice_connection():
@@ -175,6 +178,66 @@ class MumbleIceApp(Ice.Application):
             self.logger.info(f"Direction enforcement callback attached to server {server_id}")
         except Exception as e:
             self.logger.error(f"Failed to attach server callback to {server_id}: {e}")
+
+        self.sync_channels_from_groups(server)
+
+    def sync_channels_from_groups(self, server):
+        """Create a root-level Mumble channel for each OTS group lacking one.
+
+        Channel name == group name so DirectionEnforcementCallback's lookup
+        (which keys by channel name) keeps working.  Skips __ANON__.  Never
+        deletes channels — too risky if users are mid-conversation; logs instead.
+        """
+        try:
+            with self.app.app_context():
+                from opentakserver.extensions import db
+                from opentakserver.models.Group import Group
+                rows = db.session.query(Group).all()
+                group_names = {g.name for g in rows if g.name and g.name != "__ANON__"}
+
+            if not group_names:
+                return
+
+            existing = server.getChannels()
+            root_names = {ch.name for ch in existing.values() if ch.parent == 0}
+
+            missing = group_names - root_names
+            stale = root_names - group_names - {"Root"}
+
+            for name in sorted(missing):
+                try:
+                    cid = server.addChannel(name, 0)
+                    self.logger.info(
+                        f"Mumble channel created for OTS group '{name}' "
+                        f"(server={server.id()}, channel_id={cid})"
+                    )
+                except Exception as e:
+                    self.logger.error(f"Failed to create channel '{name}': {e}")
+
+            for name in sorted(stale):
+                self.logger.warning(
+                    f"Mumble channel '{name}' has no matching OTS group "
+                    f"(server={server.id()}); leaving in place"
+                )
+        except Exception as e:
+            self.logger.error(
+                f"sync_channels_from_groups failed: {e}", exc_info=True
+            )
+
+    def request_sync(self):
+        """Trigger a channel sync on all booted servers off-thread.
+
+        Called by group_api after add/delete so newly-created groups get a
+        Mumble channel without waiting for the next service restart.
+        """
+        threading.Thread(target=self._sync_all_servers, daemon=True).start()
+
+    def _sync_all_servers(self):
+        try:
+            for server in self.meta.getBootedServers():
+                self.sync_channels_from_groups(server)
+        except Exception as e:
+            self.logger.error(f"_sync_all_servers: {e}", exc_info=True)
 
     def on_server_stopped(self, server_id):
         """Clear the callback guard and any cached session state for a stopped server.

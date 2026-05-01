@@ -18,6 +18,21 @@ from opentakserver.models.GroupUser import GroupUser
 group_api = Blueprint("group_api", __name__)
 
 
+def _request_mumble_channel_sync():
+    """Best-effort: ask the Mumble Ice daemon to sync channels to OTS groups.
+
+    Why: channel name == group name is required for direction enforcement, so
+    a new OTS group needs a matching Mumble channel. Silent no-op if the Ice
+    daemon isn't running.
+    """
+    try:
+        ice_app = app.extensions.get("mumble_ice_app")
+        if ice_app is not None:
+            ice_app.request_sync()
+    except Exception as e:
+        logger.warning(f"Failed to request Mumble channel sync: {e}")
+
+
 @group_api.route("/api/groups")
 @roles_required("administrator")
 def get_groups():
@@ -318,6 +333,7 @@ def add_group():
             500,
         )
 
+    _request_mumble_channel_sync()
     return jsonify({"success": True})
 
 
@@ -469,4 +485,5 @@ def delete_group():
             500,
         )
 
+    _request_mumble_channel_sync()
     return jsonify({"success": True})
