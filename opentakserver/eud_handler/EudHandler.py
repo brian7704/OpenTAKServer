@@ -451,6 +451,7 @@ class EudHandler(socketserver.BaseRequestHandler):
             # Close the DB connection once the EUD is authenticated and identified
             with self.app.app_context():
                 db.session.close()
+                db.engine.dispose()
 
         self.publish_cot(event)
 
