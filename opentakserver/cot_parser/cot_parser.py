@@ -969,7 +969,7 @@ class CoTController:
 
             message = json.dumps({"uid": uid, "cot": tostring(event).decode("utf-8")})
             if self.rabbit_channel and not self.rabbit_channel.is_closed and user_id:
-                with app.app_context():
+                with self.context:
                     group_query = db.session.query(GroupUser).filter_by(
                         user_id=user_id, direction=Group.OUT, enabled=True
                     )
@@ -999,13 +999,127 @@ class CoTController:
                     properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
                 )
 
-            with app.app_context():
+            with self.context:
                 db.session.execute(
                     update(EUD)
                     .filter(EUD.uid == uid)
                     .values(last_status="Disconnected", last_event_time=now)
                 )
                 db.session.commit()
+
+    def generate_mission_change(self, uid: str, event: BeautifulSoup):
+        self.logger.warning("mission change")
+        destinations = event.find_all("dest")
+        mission_changes = []
+
+        if not destinations:
+            self.logger.warning(f"No destinations found")
+            return
+
+        for destination in destinations:
+            self.logger.warning(destination)
+            if "mission" in destination.attrs:
+                with self.context:
+                    mission = db.session.execute(
+                        db.session.query(Mission).filter_by(name=destination.attrs["mission"])
+                    ).first()
+
+                    if not mission:
+                        self.logger.error(f"No such mission found: {destination.attrs['mission']}")
+                        return
+
+                    mission = mission[0]
+                    self.rabbit_channel.basic_publish(
+                        "missions",
+                        routing_key=f"missions.{destination.attrs['mission']}",
+                        body=json.dumps({"uid": uid, "cot": str(event)}),
+                        properties=pika.BasicProperties(
+                            expiration=app.config.get("OTS_RABBITMQ_TTL")
+                        ),
+                    )
+
+                    mission_uid = db.session.execute(
+                        db.session.query(MissionUID).filter_by(uid=event.attrs["uid"])
+                    ).first()
+
+                    if not mission_uid:
+                        mission_uid = MissionUID()
+                        mission_uid.uid = event.attrs["uid"]
+                        mission_uid.mission_name = destination.attrs["mission"]
+                        mission_uid.timestamp = datetime_from_iso8601_string(event.attrs["start"])
+                        mission_uid.creator_uid = uid
+                        mission_uid.cot_type = event.attrs["type"]
+
+                        color = event.find("color")
+                        icon = event.find("usericon")
+                        point = event.find("point")
+                        contact = event.find("contact")
+
+                        if color and "argb" in color.attrs:
+                            mission_uid.color = color.attrs["argb"]
+                        elif color and "value" in color.attrs:
+                            mission_uid.color = color.attrs["value"]
+                        if icon:
+                            mission_uid.iconset_path = icon["iconsetpath"]
+                        if point:
+                            mission_uid.latitude = float(point.attrs["lat"])
+                            mission_uid.longitude = float(point.attrs["lon"])
+                        if contact:
+                            mission_uid.callsign = contact.attrs["callsign"]
+
+                        try:
+                            db.session.add(mission_uid)
+                            db.session.commit()
+                        except sqlalchemy.exc.IntegrityError:
+                            db.session.rollback()
+                            db.session.execute(update(MissionUID).values(**mission_uid.serialize()))
+
+                        mission_change = MissionChange()
+                        mission_change.isFederatedChange = False
+                        mission_change.change_type = MissionChange.ADD_CONTENT
+                        mission_change.mission_name = destination.attrs["mission"]
+                        mission_change.timestamp = datetime_from_iso8601_string(
+                            event.attrs["start"]
+                        )
+                        mission_change.creator_uid = uid
+                        mission_change.server_time = datetime_from_iso8601_string(
+                            event.attrs["start"]
+                        )
+                        mission_change.mission_uid = event.attrs["uid"]
+
+                        change_pk = db.session.execute(
+                            insert(MissionChange).values(**mission_change.serialize())
+                        )
+                        db.session.commit()
+
+                        body = {
+                            "uid": self.context.app.config.get("OTS_NODE_ID"),
+                            "cot": tostring(
+                                generate_mission_change_cot(
+                                    mission_name=str(destination.attrs["mission"]),
+                                    mission=mission,
+                                    mission_change=mission_change,
+                                    cot_event=event,
+                                )
+                            ).decode("utf-8"),
+                        }
+                        mission_changes.append({"mission": mission.name, "message": body})
+                        self.rabbit_channel.basic_publish(
+                            "missions",
+                            routing_key=f"missions.{mission.name}",
+                            body=json.dumps(body),
+                        )
+
+        if mission_changes:
+            for change in mission_changes:
+                self.rabbit_channel.basic_publish(
+                    "missions",
+                    routing_key=f"missions.{change['mission']}",
+                    body=json.dumps(change["message"]),
+                    properties=pika.BasicProperties(
+                        expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")
+                    ),
+                )
 
     def on_message(
         self,
@@ -1018,12 +1132,20 @@ class CoTController:
             start = time.time()
             body = json.loads(body)
 
+            self.logger.error(body)
+
             if body.get("disconnected"):
                 self.send_disconnect_cot(body.get("uid"), body.get("user_id"))
+                self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
                 return
 
             soup = BeautifulSoup(body["cot"], "xml")
-            event: BeautifulSoup = soup.find("event")
+            event: BeautifulSoup | None = soup.find("event")
+
+            if not event:
+                self.logger.error("NO EVENT")
+                self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
+                return
 
             uid = body["uid"] or event.attrs["uid"]
             if uid == self.context.app.config["OTS_NODE_ID"]:
@@ -1039,6 +1161,7 @@ class CoTController:
                 self.parse_marker(event, uid, point_pk, cot_pk)
                 self.parse_rbline(event, uid, point_pk, cot_pk)
                 self.parse_stats(event, uid)
+                self.generate_mission_change(uid, event)
                 self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
 
                 # EUD went offline

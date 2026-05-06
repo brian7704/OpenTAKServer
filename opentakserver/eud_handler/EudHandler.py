@@ -51,7 +51,7 @@ from opentakserver.models.GroupMission import GroupMission
 from opentakserver.models.GroupUser import GroupUser
 from opentakserver.models.Marker import Marker
 from opentakserver.models.Mission import Mission
-from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
+from opentakserver.models.MissionChange import MissionChange
 from opentakserver.models.MissionContentMission import MissionContentMission
 from opentakserver.models.MissionInvitation import MissionInvitation
 from opentakserver.models.MissionLogEntry import MissionLogEntry
@@ -502,104 +502,7 @@ class EudHandler(socketserver.BaseRequestHandler):
                         ),
                     )
 
-                # For data sync missions
-                elif "mission" in destination.attrs:
-                    with self.app.app_context():
-                        mission = db.session.execute(
-                            db.session.query(Mission).filter_by(name=destination.attrs["mission"])
-                        ).first()
-
-                        if not mission:
-                            self.logger.error(
-                                f"No such mission found: {destination.attrs['mission']}"
-                            )
-                            return
-
-                        mission = mission[0]
-                        self.rabbit_channel.basic_publish(
-                            "missions",
-                            routing_key=f"missions.{destination.attrs['mission']}",
-                            body=json.dumps({"uid": self.uid, "cot": str(event)}),
-                            properties=pika.BasicProperties(
-                                expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                            ),
-                        )
-
-                        mission_uid = db.session.execute(
-                            db.session.query(MissionUID).filter_by(uid=event.attrs["uid"])
-                        ).first()
-
-                        if not mission_uid:
-                            mission_uid = MissionUID()
-                            mission_uid.uid = event.attrs["uid"]
-                            mission_uid.mission_name = destination.attrs["mission"]
-                            mission_uid.timestamp = datetime_from_iso8601_string(
-                                event.attrs["start"]
-                            )
-                            mission_uid.creator_uid = creator_uid
-                            mission_uid.cot_type = event.attrs["type"]
-
-                            color = event.find("color")
-                            icon = event.find("usericon")
-                            point = event.find("point")
-                            contact = event.find("contact")
-
-                            if color and "argb" in color.attrs:
-                                mission_uid.color = color.attrs["argb"]
-                            elif color and "value" in color.attrs:
-                                mission_uid.color = color.attrs["value"]
-                            if icon:
-                                mission_uid.iconset_path = icon["iconsetpath"]
-                            if point:
-                                mission_uid.latitude = float(point.attrs["lat"])
-                                mission_uid.longitude = float(point.attrs["lon"])
-                            if contact:
-                                mission_uid.callsign = contact.attrs["callsign"]
-
-                            try:
-                                db.session.add(mission_uid)
-                                db.session.commit()
-                            except sqlalchemy.exc.IntegrityError:
-                                db.session.rollback()
-                                db.session.execute(
-                                    update(MissionUID).values(**mission_uid.serialize())
-                                )
-
-                            mission_change = MissionChange()
-                            mission_change.isFederatedChange = False
-                            mission_change.change_type = MissionChange.ADD_CONTENT
-                            mission_change.mission_name = destination.attrs["mission"]
-                            mission_change.timestamp = datetime_from_iso8601_string(
-                                event.attrs["start"]
-                            )
-                            mission_change.creator_uid = creator_uid
-                            mission_change.server_time = datetime_from_iso8601_string(
-                                event.attrs["start"]
-                            )
-                            mission_change.mission_uid = event.attrs["uid"]
-
-                            change_pk = db.session.execute(
-                                insert(MissionChange).values(**mission_change.serialize())
-                            )
-                            db.session.commit()
-
-                            body = {
-                                "uid": self.app.config.get("OTS_NODE_ID"),
-                                "cot": tostring(
-                                    generate_mission_change_cot(
-                                        destination.attrs["mission"],
-                                        mission,
-                                        mission_change,
-                                        cot_event=event,
-                                    )
-                                ).decode("utf-8"),
-                            }
-                            mission_changes.append({"mission": mission.name, "message": body})
-                            self.rabbit_channel.basic_publish(
-                                "missions",
-                                routing_key=f"missions.{mission.name}",
-                                body=json.dumps(body),
-                            )
+                # CoT messages belonging to Data Sync missions (i.e. <dest mission="mission name" /> are handled by cot_parser
 
         if not destinations and not self.is_ssl:
             # Publish all CoT messages received by TCP and that have no destination to the __ANON__ group
@@ -639,17 +542,6 @@ class EudHandler(socketserver.BaseRequestHandler):
                             expiration=self.app.config.get("OTS_RABBITMQ_TTL")
                         ),
                     )
-
-        if mission_changes:
-            for change in mission_changes:
-                self.rabbit_channel.basic_publish(
-                    "missions",
-                    routing_key=f"missions.{change['mission']}",
-                    body=json.dumps(change["message"]),
-                    properties=pika.BasicProperties(
-                        expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                    ),
-                )
 
     def parse_device_info(self, event):
         link = event.find("link")
