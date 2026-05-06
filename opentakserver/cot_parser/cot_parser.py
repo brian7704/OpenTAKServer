@@ -938,6 +938,7 @@ class CoTController:
             return downlink_channels
 
     def send_disconnect_cot(self, uid: str, user_id: str):
+        self.logger.warning("Sending disconnect cot to {}".format(uid))
         if uid:
             now = datetime.now(timezone.utc)
             stale = datetime.now(timezone.utc) + timedelta(seconds=10)
@@ -976,9 +977,6 @@ class CoTController:
                     groups = db.session.execute(group_query).all()
                     for group in groups:
                         group = group[0]
-                        self.logger.debug(
-                            f"Publishing to group {group.group.name}.{group.direction}"
-                        )
                         self.rabbit_channel.basic_publish(
                             exchange="groups",
                             routing_key=f"{group.group.name}.{group.direction}",
@@ -986,6 +984,16 @@ class CoTController:
                             properties=pika.BasicProperties(
                                 expiration=app.config.get("OTS_RABBITMQ_TTL")
                             ),
+                        )
+
+                        self.rabbit_channel.queue_bind(
+                            queue=uid,
+                            exchange="groups",
+                            routing_key=f"{group.group.name}.{group.direction}",
+                        )
+
+                        self.logger.debug(
+                            f"Unbound {uid} from {group.group.name}.{group.direction}"
                         )
             elif (
                 self.rabbit_channel
@@ -999,7 +1007,20 @@ class CoTController:
                     properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
                 )
 
+                self.rabbit_channel.queue_unbind(
+                    queue=uid, exchange="groups", routing_key=f"__ANON__.{Group.OUT}"
+                )
+
             with self.context:
+                missions = db.session.execute(db.session.query(Mission)).all()
+                for mission in missions:
+                    self.rabbit_channel.queue_unbind(
+                        queue=uid,
+                        exchange="missions",
+                        routing_key=f"missions.{mission[0].name}",
+                    )
+                    self.logger.debug(f"Unbound {uid} from mission.{mission[0].name}")
+
                 db.session.execute(
                     update(EUD)
                     .filter(EUD.uid == uid)
@@ -1008,16 +1029,13 @@ class CoTController:
                 db.session.commit()
 
     def generate_mission_change(self, uid: str, event: BeautifulSoup):
-        self.logger.warning("mission change")
         destinations = event.find_all("dest")
         mission_changes = []
 
         if not destinations:
-            self.logger.warning(f"No destinations found")
             return
 
         for destination in destinations:
-            self.logger.warning(destination)
             if "mission" in destination.attrs:
                 with self.context:
                     mission = db.session.execute(
@@ -1121,6 +1139,78 @@ class CoTController:
                     ),
                 )
 
+    def route_cot(self, event, uid: str, user_id: int):
+        if not uid or uid == self.context.app.config.get("OTS_NODE_ID"):
+            # This is a server generated CoT (i.e. ADS-B scheduled job) which was already properly routed
+            return
+
+        destinations = event.find_all("dest")
+        if destinations:
+
+            for destination in destinations:
+                # ATAK and WinTAK use callsign, iTAK uses uid
+                if "callsign" in destination.attrs and destination.attrs["callsign"]:
+                    self.rabbit_channel.basic_publish(
+                        exchange="dms",
+                        routing_key=destination.attrs["callsign"],
+                        body=json.dumps({"uid": uid, "cot": str(event)}),
+                        properties=pika.BasicProperties(
+                            expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")
+                        ),
+                    )
+
+                # iTAK uses its own UID in the <dest> tag when sending CoTs to a mission so we don't send those to the dms exchange
+                elif "uid" in destination.attrs and destination["uid"] != uid:
+                    self.rabbit_channel.basic_publish(
+                        exchange="dms",
+                        routing_key=destination.attrs["uid"],
+                        body=json.dumps({"uid": uid, "cot": str(event)}),
+                        properties=pika.BasicProperties(
+                            expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")
+                        ),
+                    )
+
+                # CoT messages belonging to Data Sync missions (i.e. <dest mission="mission name" /> are handled by cot_parser
+
+        if not destinations and not user_id:
+            # Publish all CoT messages received by TCP and that have no destination to the __ANON__ group
+            self.rabbit_channel.basic_publish(
+                exchange="groups",
+                routing_key="__ANON__.OUT",
+                body=json.dumps({"uid": uid, "cot": str(event)}),
+                properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+            )
+            return
+
+        if not destinations:
+            with self.context:
+                group_memberships = db.session.execute(
+                    db.session.query(GroupUser).filter_by(
+                        user_id=user_id, direction=Group.IN, enabled=True
+                    )
+                ).all()
+                if not group_memberships:
+                    # Default to the __ANON__ group if the user doesn't belong to any IN groups
+                    self.rabbit_channel.basic_publish(
+                        exchange="groups",
+                        routing_key="__ANON__.OUT",
+                        body=json.dumps({"uid": uid, "cot": str(event)}),
+                        properties=pika.BasicProperties(
+                            expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")
+                        ),
+                    )
+
+                for membership in group_memberships:
+                    membership = membership[0]
+                    self.rabbit_channel.basic_publish(
+                        exchange="groups",
+                        routing_key=f"{membership.group.name}.{Group.OUT}",
+                        body=json.dumps({"uid": uid, "cot": str(event)}),
+                        properties=pika.BasicProperties(
+                            expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")
+                        ),
+                    )
+
     def on_message(
         self,
         channel: pika.channel.Channel,
@@ -1132,8 +1222,6 @@ class CoTController:
             start = time.time()
             body = json.loads(body)
 
-            self.logger.error(body)
-
             if body.get("disconnected"):
                 self.send_disconnect_cot(body.get("uid"), body.get("user_id"))
                 self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
@@ -1143,7 +1231,6 @@ class CoTController:
             event: BeautifulSoup | None = soup.find("event")
 
             if not event:
-                self.logger.error("NO EVENT")
                 self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
                 return
 
@@ -1162,6 +1249,7 @@ class CoTController:
                 self.parse_rbline(event, uid, point_pk, cot_pk)
                 self.parse_stats(event, uid)
                 self.generate_mission_change(uid, event)
+                self.route_cot(event, uid, body.get("user_id"))
                 self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
 
                 # EUD went offline

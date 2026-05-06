@@ -85,6 +85,7 @@ class EudHandler(socketserver.BaseRequestHandler):
     uid = None
     bound_queues = []
     phone_number = None
+    group_memberships = []
 
     def __init__(self, request: socket, client_address, server):
         super().__init__(request, client_address, server)
@@ -192,7 +193,12 @@ class EudHandler(socketserver.BaseRequestHandler):
         self.rabbit_channel.basic_publish(
             exchange="cot_parser",
             body=json.dumps(
-                {"uid": self.uid, "cot": None, "disconnected": True, "user_id": self.user.id}
+                {
+                    "uid": self.uid,
+                    "cot": None,
+                    "disconnected": True,
+                    "user_id": self.user.id if self.user else None,
+                }
             ),
             routing_key="cot_parser",
             properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
@@ -278,7 +284,7 @@ class EudHandler(socketserver.BaseRequestHandler):
         )
 
         for message in self.cached_messages:
-            self.route_cot(message)
+            self.publish_cot(message)
 
         self.cached_messages.clear()
 
@@ -442,10 +448,13 @@ class EudHandler(socketserver.BaseRequestHandler):
 
         if event and not self.uid:
             self.parse_device_info(event)
+            # Close the DB connection once the EUD is authenticated and identified
+            with self.app.app_context():
+                db.session.close()
 
-        self.route_cot(event)
+        self.publish_cot(event)
 
-    def route_cot(self, event):
+    def publish_cot(self, event):
         if not event:
             return
 
@@ -465,83 +474,12 @@ class EudHandler(socketserver.BaseRequestHandler):
         # Route all cots to the cot_parser direct exchange to be processed by a pool of cot_parser processes
         self.rabbit_channel.basic_publish(
             exchange="cot_parser",
-            body=json.dumps({"uid": self.uid, "cot": str(event)}),
+            body=json.dumps(
+                {"uid": self.uid, "cot": str(event), "user_id": self.user.id if self.user else None}
+            ),
             routing_key="cot_parser",
             properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
         )
-
-        mission_changes = []
-        destinations = event.find_all("dest")
-        if destinations:
-
-            for destination in destinations:
-                creator = event.find("creator")
-                creator_uid = self.uid
-                if creator and "uid" in creator.attrs:
-                    creator_uid = creator.attrs["uid"]
-
-                # ATAK and WinTAK use callsign, iTAK uses uid
-                if "callsign" in destination.attrs and destination.attrs["callsign"]:
-                    self.rabbit_channel.basic_publish(
-                        exchange="dms",
-                        routing_key=destination.attrs["callsign"],
-                        body=json.dumps({"uid": self.uid, "cot": str(event)}),
-                        properties=pika.BasicProperties(
-                            expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                        ),
-                    )
-
-                # iTAK uses its own UID in the <dest> tag when sending CoTs to a mission so we don't send those to the dms exchange
-                elif "uid" in destination.attrs and destination["uid"] != self.uid:
-                    self.rabbit_channel.basic_publish(
-                        exchange="dms",
-                        routing_key=destination.attrs["uid"],
-                        body=json.dumps({"uid": self.uid, "cot": str(event)}),
-                        properties=pika.BasicProperties(
-                            expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                        ),
-                    )
-
-                # CoT messages belonging to Data Sync missions (i.e. <dest mission="mission name" /> are handled by cot_parser
-
-        if not destinations and not self.is_ssl:
-            # Publish all CoT messages received by TCP and that have no destination to the __ANON__ group
-            self.rabbit_channel.basic_publish(
-                exchange="groups",
-                routing_key="__ANON__.OUT",
-                body=json.dumps({"uid": self.uid, "cot": str(event)}),
-                properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
-            )
-            return
-
-        if not destinations:
-            with self.app.app_context():
-                group_memberships = db.session.execute(
-                    db.session.query(GroupUser).filter_by(
-                        user_id=self.user.id, direction=Group.IN, enabled=True
-                    )
-                ).all()
-                if not group_memberships:
-                    # Default to the __ANON__ group if the user doesn't belong to any IN groups
-                    self.rabbit_channel.basic_publish(
-                        exchange="groups",
-                        routing_key="__ANON__.OUT",
-                        body=json.dumps({"uid": self.uid, "cot": str(event)}),
-                        properties=pika.BasicProperties(
-                            expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                        ),
-                    )
-
-                for membership in group_memberships:
-                    membership = membership[0]
-                    self.rabbit_channel.basic_publish(
-                        exchange="groups",
-                        routing_key=f"{membership.group.name}.{Group.OUT}",
-                        body=json.dumps({"uid": self.uid, "cot": str(event)}),
-                        properties=pika.BasicProperties(
-                            expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                        ),
-                    )
 
     def parse_device_info(self, event):
         link = event.find("link")
@@ -613,12 +551,15 @@ class EudHandler(socketserver.BaseRequestHandler):
 
                             elif group_memberships and self.is_ssl:
                                 for membership in group_memberships:
-                                    membership = membership[0]
-                                    self.rabbit_channel.queue_bind(
-                                        exchange="groups",
-                                        queue=self.uid,
-                                        routing_key=f"{membership.group.name}.OUT",
-                                    )
+                                    membership: GroupUser = membership[0]
+                                    self.group_memberships.append(membership)
+
+                                    if membership.enabled:
+                                        self.rabbit_channel.queue_bind(
+                                            exchange="groups",
+                                            queue=self.uid,
+                                            routing_key=f"{membership.group.name}.OUT",
+                                        )
 
                                     if {
                                         "exchange": "groups",
@@ -643,8 +584,8 @@ class EudHandler(socketserver.BaseRequestHandler):
                         } not in self.bound_queues:
                             self.bound_queues.append(
                                 {
-                                    "exchange": "groups",
-                                    "routing_key": "__ANON__.OUT",
+                                    "exchange": "missions",
+                                    "routing_key": "missions",
                                     "queue": self.uid,
                                 }
                             )
@@ -824,15 +765,6 @@ class EudHandler(socketserver.BaseRequestHandler):
                 queue=self.uid, exchange="missions", routing_key="missions"
             )
             self.rabbit_channel.queue_unbind(queue=self.uid, exchange="groups")
-            with self.app.app_context():
-                missions = db.session.execute(db.session.query(Mission)).all()
-                for mission in missions:
-                    self.rabbit_channel.queue_unbind(
-                        queue=self.uid,
-                        exchange="missions",
-                        routing_key=f"missions.{mission[0].name}",
-                    )
-                    self.logger.debug(f"Unbound {self.uid} from mission.{mission[0].name}")
 
             for bind in self.bound_queues:
                 self.rabbit_channel.queue_unbind(
