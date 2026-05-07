@@ -7,51 +7,30 @@ from logging.handlers import TimedRotatingFileHandler
 
 import colorlog
 import flask_wtf
-import sqlalchemy
 import yaml
+from apscheduler.jobstores import sqlalchemy
 from flask import Flask, jsonify
-from flask_security import Security, SQLAlchemyUserDatastore
+from flask_babel import gettext
+from flask_security import SQLAlchemyUserDatastore, Security
 from flask_security.models import fsqla
 
-from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.EmailValidator import EmailValidator
-
-# These unused imports are required by SQLAlchemy, don't remove them
-from opentakserver.eud_handler.SocketServer import SocketServer
-from opentakserver.extensions import db, ldap_manager, logger
-from opentakserver.models.Alert import Alert
-from opentakserver.models.CasEvac import CasEvac
-from opentakserver.models.Certificate import Certificate
-from opentakserver.models.Chatrooms import Chatroom
-from opentakserver.models.ChatroomsUids import ChatroomsUids
-from opentakserver.models.CoT import CoT
-from opentakserver.models.DataPackage import DataPackage
-from opentakserver.models.DeviceProfiles import DeviceProfiles
-from opentakserver.models.EUD import EUD
-from opentakserver.models.EUDStats import EUDStats
-from opentakserver.models.Group import Group
-from opentakserver.models.GroupMission import GroupMission
-from opentakserver.models.Marker import Marker
-from opentakserver.models.Mission import Mission
-from opentakserver.models.MissionChange import MissionChange
-from opentakserver.models.MissionContentMission import MissionContentMission
-from opentakserver.models.MissionInvitation import MissionInvitation
-from opentakserver.models.MissionLogEntry import MissionLogEntry
-from opentakserver.models.MissionUID import MissionUID
-from opentakserver.models.Point import Point
-from opentakserver.models.RBLine import RBLine
-from opentakserver.models.Team import Team
-from opentakserver.models.VideoRecording import VideoRecording
-from opentakserver.models.VideoStream import VideoStream
-from opentakserver.models.WebAuthn import WebAuthn
-from opentakserver.models.ZMIST import ZMIST
 from opentakserver.PasswordValidator import PasswordValidator
+from opentakserver.defaultconfig import DefaultConfig
+from opentakserver.eud_handler import EudHandler
+from opentakserver.eud_handler.EudHandlerSSL import EudHandlerSSL
+from opentakserver.eud_handler.EudServer import EudServer
+from opentakserver.eud_handler.EudServerSSL import EudServerSSL
+from opentakserver.extensions import logger, db, ldap_manager
 
 
 def args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--ssl", help="Enable SSL", default=False, action=argparse.BooleanOptionalAction
+    )
+    parser.add_argument(
+        "--udp", help=gettext("UDP Server"), default=False, action=argparse.BooleanOptionalAction
     )
     return parser.parse_args()
 
@@ -69,6 +48,7 @@ def setup_logging(app):
             datefmt="%Y-%m-%d %H:%M:%S %Z",
         )
         color_log_handler.setFormatter(color_log_formatter)
+        color_log_handler.set_name("eud_handler")
         logger.addHandler(color_log_handler)
 
     opts = args()
@@ -89,6 +69,7 @@ def setup_logging(app):
         )
     )
     logger.addHandler(fh)
+    return logger
 
 
 def create_app():
@@ -155,16 +136,26 @@ def status():
 def main():
     opts = args()
     if opts.ssl:
-        socket_server = SocketServer(
-            logger, app.app_context(), app.config.get("OTS_SSL_STREAMING_PORT"), True
+        socket_server = EudServerSSL(
+            (app.config.get("OTS_STREAMING_INTERFACE"), app.config.get("OTS_SSL_STREAMING_PORT")),
+            EudHandlerSSL,
+            logger,
+            app,
         )
         logger.info(f"Started SSL server on port {app.config.get('OTS_SSL_STREAMING_PORT')}")
     else:
-        socket_server = SocketServer(
-            logger, app.app_context(), app.config.get("OTS_TCP_STREAMING_PORT")
+        socket_server = EudServer(
+            (app.config.get("OTS_STREAMING_INTERFACE"), app.config.get("OTS_TCP_STREAMING_PORT")),
+            EudHandler,
+            logger,
+            app,
         )
         logger.info(f"Started TCP server on port {app.config.get('OTS_TCP_STREAMING_PORT')}")
-    socket_server.run()
+
+    try:
+        socket_server.serve_forever()
+    except KeyboardInterrupt:
+        logger.info("Shutting down server")
 
 
 if __name__ == "__main__":
