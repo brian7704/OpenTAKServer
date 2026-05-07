@@ -1,5 +1,6 @@
 import base64
 import datetime
+from datetime import timedelta, timezone
 import logging
 import os
 import platform
@@ -7,6 +8,7 @@ import random
 import sys
 import time
 import traceback
+import uuid
 from logging.handlers import TimedRotatingFileHandler
 
 import bleach
@@ -22,6 +24,7 @@ from flask_security import SQLAlchemyUserDatastore
 from flask_security.models import fsqla
 from flask_socketio import SocketIO
 from meshtastic import BROADCAST_NUM, mesh_pb2, mqtt_pb2, portnums_pb2
+from opentakserver.models.GroupUser import GroupUser
 from pika.channel import Channel
 from sqlalchemy import exc, insert, select, update
 
@@ -934,6 +937,280 @@ class CoTController:
                     downlink_channels.append(channel.name)
             return downlink_channels
 
+    def send_disconnect_cot(self, uid: str, user_id: str):
+        self.logger.warning("Sending disconnect cot to {}".format(uid))
+        if uid:
+            now = datetime.now(timezone.utc)
+            stale = datetime.now(timezone.utc) + timedelta(seconds=10)
+
+            event = Element(
+                "event",
+                {
+                    "how": "h-g-i-g-o",
+                    "type": "t-x-d-d",
+                    "version": "2.0",
+                    "uid": str(uuid.uuid4()),
+                    "start": iso8601_string_from_datetime(now),
+                    "time": iso8601_string_from_datetime(now),
+                    "stale": iso8601_string_from_datetime(stale),
+                },
+            )
+            point = SubElement(
+                event,
+                "point",
+                {"ce": "9999999", "le": "9999999", "hae": "0", "lat": "0", "lon": "0"},
+            )
+            detail = SubElement(event, "detail")
+            link = SubElement(detail, "link", {"relation": "p-p", "uid": uid, "type": "a-f-G-U-C"})
+            flow_tags = SubElement(
+                detail,
+                "_flow-tags_",
+                {"TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0": iso8601_string_from_datetime(now)},
+            )
+
+            message = json.dumps({"uid": uid, "cot": tostring(event).decode("utf-8")})
+            if self.rabbit_channel and not self.rabbit_channel.is_closed and user_id:
+                with self.context:
+                    group_query = db.session.query(GroupUser).filter_by(
+                        user_id=user_id, direction=Group.OUT, enabled=True
+                    )
+                    groups = db.session.execute(group_query).all()
+                    for group in groups:
+                        group = group[0]
+                        self.rabbit_channel.basic_publish(
+                            exchange="groups",
+                            routing_key=f"{group.group.name}.{group.direction}",
+                            body=message,
+                            properties=pika.BasicProperties(
+                                expiration=app.config.get("OTS_RABBITMQ_TTL")
+                            ),
+                        )
+
+                        self.rabbit_channel.queue_bind(
+                            queue=uid,
+                            exchange="groups",
+                            routing_key=f"{group.group.name}.{group.direction}",
+                        )
+
+                        self.logger.debug(
+                            f"Unbound {uid} from {group.group.name}.{group.direction}"
+                        )
+            elif (
+                self.rabbit_channel
+                and not self.rabbit_channel.is_closing
+                and not self.rabbit_channel.is_closed
+            ):
+                self.rabbit_channel.basic_publish(
+                    exchange="groups",
+                    routing_key=f"__ANON__.{Group.OUT}",
+                    body=message,
+                    properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+                )
+
+                self.rabbit_channel.queue_unbind(
+                    queue=uid, exchange="groups", routing_key=f"__ANON__.{Group.OUT}"
+                )
+
+            with self.context:
+                missions = db.session.execute(db.session.query(Mission)).all()
+                for mission in missions:
+                    self.rabbit_channel.queue_unbind(
+                        queue=uid,
+                        exchange="missions",
+                        routing_key=f"missions.{mission[0].name}",
+                    )
+                    self.logger.debug(f"Unbound {uid} from mission.{mission[0].name}")
+
+                db.session.execute(
+                    update(EUD)
+                    .filter(EUD.uid == uid)
+                    .values(last_status="Disconnected", last_event_time=now)
+                )
+                db.session.commit()
+
+    def generate_mission_change(self, uid: str, event: BeautifulSoup):
+        destinations = event.find_all("dest")
+        mission_changes = []
+
+        if not destinations:
+            return
+
+        for destination in destinations:
+            if "mission" in destination.attrs:
+                with self.context:
+                    mission = db.session.execute(
+                        db.session.query(Mission).filter_by(name=destination.attrs["mission"])
+                    ).first()
+
+                    if not mission:
+                        self.logger.error(f"No such mission found: {destination.attrs['mission']}")
+                        return
+
+                    mission = mission[0]
+                    self.rabbit_channel.basic_publish(
+                        "missions",
+                        routing_key=f"missions.{destination.attrs['mission']}",
+                        body=json.dumps({"uid": uid, "cot": str(event)}),
+                        properties=pika.BasicProperties(
+                            expiration=app.config.get("OTS_RABBITMQ_TTL")
+                        ),
+                    )
+
+                    mission_uid = db.session.execute(
+                        db.session.query(MissionUID).filter_by(uid=event.attrs["uid"])
+                    ).first()
+
+                    if not mission_uid:
+                        mission_uid = MissionUID()
+                        mission_uid.uid = event.attrs["uid"]
+                        mission_uid.mission_name = destination.attrs["mission"]
+                        mission_uid.timestamp = datetime_from_iso8601_string(event.attrs["start"])
+                        mission_uid.creator_uid = uid
+                        mission_uid.cot_type = event.attrs["type"]
+
+                        color = event.find("color")
+                        icon = event.find("usericon")
+                        point = event.find("point")
+                        contact = event.find("contact")
+
+                        if color and "argb" in color.attrs:
+                            mission_uid.color = color.attrs["argb"]
+                        elif color and "value" in color.attrs:
+                            mission_uid.color = color.attrs["value"]
+                        if icon:
+                            mission_uid.iconset_path = icon["iconsetpath"]
+                        if point:
+                            mission_uid.latitude = float(point.attrs["lat"])
+                            mission_uid.longitude = float(point.attrs["lon"])
+                        if contact:
+                            mission_uid.callsign = contact.attrs["callsign"]
+
+                        try:
+                            db.session.add(mission_uid)
+                            db.session.commit()
+                        except sqlalchemy.exc.IntegrityError:
+                            db.session.rollback()
+                            db.session.execute(update(MissionUID).values(**mission_uid.serialize()))
+
+                        mission_change = MissionChange()
+                        mission_change.isFederatedChange = False
+                        mission_change.change_type = MissionChange.ADD_CONTENT
+                        mission_change.mission_name = destination.attrs["mission"]
+                        mission_change.timestamp = datetime_from_iso8601_string(
+                            event.attrs["start"]
+                        )
+                        mission_change.creator_uid = uid
+                        mission_change.server_time = datetime_from_iso8601_string(
+                            event.attrs["start"]
+                        )
+                        mission_change.mission_uid = event.attrs["uid"]
+
+                        change_pk = db.session.execute(
+                            insert(MissionChange).values(**mission_change.serialize())
+                        )
+                        db.session.commit()
+
+                        body = {
+                            "uid": self.context.app.config.get("OTS_NODE_ID"),
+                            "cot": tostring(
+                                generate_mission_change_cot(
+                                    mission_name=str(destination.attrs["mission"]),
+                                    mission=mission,
+                                    mission_change=mission_change,
+                                    cot_event=event,
+                                )
+                            ).decode("utf-8"),
+                        }
+                        mission_changes.append({"mission": mission.name, "message": body})
+                        self.rabbit_channel.basic_publish(
+                            "missions",
+                            routing_key=f"missions.{mission.name}",
+                            body=json.dumps(body),
+                        )
+
+        if mission_changes:
+            for change in mission_changes:
+                self.rabbit_channel.basic_publish(
+                    "missions",
+                    routing_key=f"missions.{change['mission']}",
+                    body=json.dumps(change["message"]),
+                    properties=pika.BasicProperties(
+                        expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")
+                    ),
+                )
+
+    def route_cot(self, event, uid: str, user_id: int):
+        if not uid or uid == self.context.app.config.get("OTS_NODE_ID"):
+            # This is a server generated CoT (i.e. ADS-B scheduled job) which was already properly routed
+            return
+
+        destinations = event.find_all("dest")
+        if destinations:
+
+            for destination in destinations:
+                # ATAK and WinTAK use callsign, iTAK uses uid
+                if "callsign" in destination.attrs and destination.attrs["callsign"]:
+                    self.rabbit_channel.basic_publish(
+                        exchange="dms",
+                        routing_key=destination.attrs["callsign"],
+                        body=json.dumps({"uid": uid, "cot": str(event)}),
+                        properties=pika.BasicProperties(
+                            expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")
+                        ),
+                    )
+
+                # iTAK uses its own UID in the <dest> tag when sending CoTs to a mission so we don't send those to the dms exchange
+                elif "uid" in destination.attrs and destination["uid"] != uid:
+                    self.rabbit_channel.basic_publish(
+                        exchange="dms",
+                        routing_key=destination.attrs["uid"],
+                        body=json.dumps({"uid": uid, "cot": str(event)}),
+                        properties=pika.BasicProperties(
+                            expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")
+                        ),
+                    )
+
+                # CoT messages belonging to Data Sync missions (i.e. <dest mission="mission name" /> are handled by cot_parser
+
+        if not destinations and not user_id:
+            # Publish all CoT messages received by TCP and that have no destination to the __ANON__ group
+            self.rabbit_channel.basic_publish(
+                exchange="groups",
+                routing_key="__ANON__.OUT",
+                body=json.dumps({"uid": uid, "cot": str(event)}),
+                properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
+            )
+            return
+
+        if not destinations:
+            with self.context:
+                group_memberships = db.session.execute(
+                    db.session.query(GroupUser).filter_by(
+                        user_id=user_id, direction=Group.IN, enabled=True
+                    )
+                ).all()
+                if not group_memberships:
+                    # Default to the __ANON__ group if the user doesn't belong to any IN groups
+                    self.rabbit_channel.basic_publish(
+                        exchange="groups",
+                        routing_key="__ANON__.OUT",
+                        body=json.dumps({"uid": uid, "cot": str(event)}),
+                        properties=pika.BasicProperties(
+                            expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")
+                        ),
+                    )
+
+                for membership in group_memberships:
+                    membership = membership[0]
+                    self.rabbit_channel.basic_publish(
+                        exchange="groups",
+                        routing_key=f"{membership.group.name}.{Group.OUT}",
+                        body=json.dumps({"uid": uid, "cot": str(event)}),
+                        properties=pika.BasicProperties(
+                            expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")
+                        ),
+                    )
+
     def on_message(
         self,
         channel: pika.channel.Channel,
@@ -944,8 +1221,18 @@ class CoTController:
         try:
             start = time.time()
             body = json.loads(body)
+
+            if body.get("disconnected"):
+                self.send_disconnect_cot(body.get("uid"), body.get("user_id"))
+                self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
+                return
+
             soup = BeautifulSoup(body["cot"], "xml")
-            event: BeautifulSoup = soup.find("event")
+            event: BeautifulSoup | None = soup.find("event")
+
+            if not event:
+                self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
+                return
 
             uid = body["uid"] or event.attrs["uid"]
             if uid == self.context.app.config["OTS_NODE_ID"]:
@@ -961,6 +1248,8 @@ class CoTController:
                 self.parse_marker(event, uid, point_pk, cot_pk)
                 self.parse_rbline(event, uid, point_pk, cot_pk)
                 self.parse_stats(event, uid)
+                self.generate_mission_change(uid, event)
+                self.route_cot(event, uid, body.get("user_id"))
                 self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
 
                 # EUD went offline
