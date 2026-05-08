@@ -21,6 +21,7 @@ from opentakserver.eud_handler import EudHandler
 from opentakserver.eud_handler.EudHandlerSSL import EudHandlerSSL
 from opentakserver.eud_handler.EudServer import EudServer
 from opentakserver.eud_handler.EudServerSSL import EudServerSSL
+from opentakserver.eud_handler.EudServerUdp import EudServerUdp
 from opentakserver.extensions import logger, db, ldap_manager
 
 
@@ -55,6 +56,8 @@ def setup_logging(app):
     log_file_name = "eud_handler_tcp.log"
     if opts.ssl:
         log_file_name = "eud_handler_ssl.log"
+    if opts.udp:
+        log_file_name = "eud_handler_udp.log"
 
     os.makedirs(os.path.join(app.config.get("OTS_DATA_FOLDER"), "logs"), exist_ok=True)
     fh = TimedRotatingFileHandler(
@@ -135,6 +138,10 @@ def status():
 
 def main():
     opts = args()
+    if opts.ssl and opts.udp:
+        logger.error("Cannot use --ssl and --udp at the same time")
+        return
+
     if opts.ssl:
         socket_server = EudServerSSL(
             (app.config.get("OTS_STREAMING_INTERFACE"), app.config.get("OTS_SSL_STREAMING_PORT")),
@@ -143,6 +150,13 @@ def main():
             app,
         )
         logger.info(f"Started SSL server on port {app.config.get('OTS_SSL_STREAMING_PORT')}")
+    elif opts.udp:
+        socket_server = EudServerUdp(
+            (app.config.get("OTS_STREAMING_INTERFACE"), app.config.get("OTS_UDP_PORT")),
+            EudHandler,
+            logger,
+            app,
+        )
     else:
         socket_server = EudServer(
             (app.config.get("OTS_STREAMING_INTERFACE"), app.config.get("OTS_TCP_STREAMING_PORT")),

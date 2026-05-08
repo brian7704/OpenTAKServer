@@ -40,6 +40,7 @@ class DefaultConfig:
         "1",
         "yes",
     ]
+    OTS_UDP_PORT = int(os.getenv("OTS_UDP_PORT", 8087))
     OTS_TCP_STREAMING_PORT = int(os.getenv("OTS_TCP_STREAMING_PORT", 8088))
     OTS_SSL_STREAMING_PORT = int(os.getenv("OTS_SSL_STREAMING_PORT", 8089))
     OTS_STREAMING_INTERFACE = os.getenv("OTS_STREAMING_INTERFACE", "0.0.0.0")

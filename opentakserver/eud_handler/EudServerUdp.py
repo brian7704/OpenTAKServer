@@ -3,7 +3,7 @@ import socketserver
 import ssl
 
 
-class EudServer(socketserver.ForkingUDPServer):
+class EudServerUdp(socketserver.ForkingUDPServer):
     allow_reuse_address = True
     daemon_threads = True
     logger = None
