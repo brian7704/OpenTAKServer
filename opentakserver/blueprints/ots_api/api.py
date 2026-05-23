@@ -18,7 +18,7 @@ from flask import jsonify, request, send_from_directory, session
 from flask_babel import gettext
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import auth_required, current_user, verify_password
-from sqlalchemy import select
+from sqlalchemy import String, Text, Unicode, UnicodeText, func, select
 
 from opentakserver import __version__ as version
 from opentakserver.certificate_authority import CertificateAuthority
@@ -68,10 +68,22 @@ def paginate(query: db.Query, model=None):
         if model:
             sort_by = request.args.get("sort_by")
             sort_direction = request.args.get("sort_direction")
-            if sort_by and (sort_direction == "asc" or not sort_direction):
-                query = query.order_by(getattr(model, sort_by).asc())
-            elif sort_by and sort_direction == "desc":
-                query = query.order_by(getattr(model, sort_by).desc())
+            if sort_by:
+                column = getattr(model, sort_by)
+                # Sort string columns case-insensitively so "alice" sorts next
+                # to "Alice" instead of after every uppercase entry (Postgres
+                # default collation is byte-ordered: Z < a).
+                try:
+                    is_string_col = isinstance(
+                        column.type, (String, Text, Unicode, UnicodeText)
+                    )
+                except AttributeError:
+                    is_string_col = False
+                sort_expr = func.lower(column) if is_string_col else column
+                if sort_direction == "desc":
+                    query = query.order_by(sort_expr.desc())
+                else:
+                    query = query.order_by(sort_expr.asc())
     except BaseException as e:
         return (
             jsonify(
