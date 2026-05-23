@@ -110,7 +110,15 @@ def new_atak_qr_string():
                 token = token[0]
             else:
                 token = Token()
-                token.creation = int(time.time())
+            # Issuing a fresh QR for this user. Reset both creation (so the
+            # JWT's iat is now and the claims hash advances, invalidating
+            # any prior JWT for this user) and total_uses (so the new token
+            # starts from 0 against max_uses -- otherwise a re-issued row
+            # whose total_uses already hit max_uses would look immediately
+            # consumed to verify_token and the GET endpoint, even though
+            # nobody has scanned the new QR yet).
+            token.creation = int(time.time())
+            token.total_uses = 0
 
             expiration = int(request.json.get("exp")) if request.json.get("exp") else None
             # PyJWT uses timestamps in seconds to check expiration and not_before
