@@ -196,13 +196,24 @@ def get_atak_qr_strings():
     if token:
         t = token[0]
         now = int(time.time())
-        expired = t.expiration and t.expiration < now
-        exhausted = t.max_uses and t.total_uses >= t.max_uses
-        if expired or exhausted or t.disabled:
+        if t.expiration and t.expiration < now:
+            reason = "expired"
+        elif t.disabled:
+            reason = "disabled"
+        elif t.max_uses and t.total_uses >= t.max_uses:
+            # In normal operation verify_token deletes the row at exhaustion,
+            # so this branch is only hit if something incremented total_uses
+            # without going through verify_token. Treat as consumed.
+            reason = "consumed"
+        else:
+            reason = None
+
+        if reason is not None:
             return (
                 jsonify(
                     {
                         "success": False,
+                        "reason": reason,
                         "error": gettext("No token found for %(username)s", username=username),
                     }
                 ),
@@ -218,10 +229,16 @@ def get_atak_qr_strings():
         )
         return jsonify(response)
     else:
+        # Row absent. Could be "never issued" or "issued then consumed and
+        # auto-deleted by verify_token." The UI distinguishes these by
+        # whether it previously saw a 200 for this username in the same
+        # session: if yes, treat as enrollment success; if no, treat as
+        # no-token-issued.
         return (
             jsonify(
                 {
                     "success": False,
+                    "reason": "not_found",
                     "error": gettext("No token found for %(username)s", username=username),
                 }
             ),
