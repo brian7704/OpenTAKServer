@@ -135,6 +135,9 @@ def new_atak_qr_string():
                 except ValueError:
                     pass
 
+            if not token.max_uses:
+                token.max_uses = 1
+
             token.username = username
             token.disabled = (
                 request.json.get("disabled") if "disabled" in request.json.keys() else None
@@ -143,6 +146,11 @@ def new_atak_qr_string():
 
             db.session.add(token)
             db.session.commit()
+
+            logger.info(
+                f"User {current_user.username} issued ATAK QR for {username} "
+                f"(max_uses={token.max_uses}, exp={token.expiration})"
+            )
 
             response = token.to_json()
             response["success"] = True
@@ -178,12 +186,27 @@ def get_atak_qr_strings():
 
     token = db.session.execute(query).first()
     if token:
-        response = token[0].to_json()
+        t = token[0]
+        now = int(time.time())
+        expired = t.expiration and t.expiration < now
+        exhausted = t.max_uses and t.total_uses >= t.max_uses
+        if expired or exhausted or t.disabled:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": gettext("No token found for %(username)s", username=username),
+                    }
+                ),
+                404,
+            )
+
+        response = t.to_json()
         response["success"] = True
-        response["disabled"] = token[0].disabled
-        response["total_uses"] = token[0].total_uses
+        response["disabled"] = t.disabled
+        response["total_uses"] = t.total_uses
         response["qr_string"] = (
-            f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={token[0].username}&token={token[0].generate_token()}"
+            f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={t.username}&token={t.generate_token()}"
         )
         return jsonify(response)
     else:
@@ -215,6 +238,8 @@ def delete_token():
 
         db.session.execute(delete(Token).where(Token.username == username))
         db.session.commit()
+
+        logger.info(f"User {current_user.username} deleted ATAK QR for {username}")
 
         return jsonify({"success": True})
     except BaseException as e:

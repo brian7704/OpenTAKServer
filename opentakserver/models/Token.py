@@ -122,15 +122,22 @@ class Token(db.Model):
                     logger.error("Token disabled")
                     return False
 
+                # DB row is source of truth, not the JWT claim. The POST endpoint
+                # defaults max_uses=1 and a backfill migration sets it on legacy rows;
+                # a row with max_uses unset is treated as exhausted, intentionally
+                # invalidating pre-fix tokens that were unlimited-use.
                 if (
-                    "max" in decoded_token.keys()
-                    and token_from_db.total_uses >= decoded_token["max"]
+                    token_from_db.max_uses is None
+                    or token_from_db.total_uses >= token_from_db.max_uses
                 ):
                     logger.error(f"Too many uses for token {token_hash}")
                     return False
 
                 token_from_db.total_uses += 1
-                db.session.add(token_from_db)
+                if token_from_db.total_uses >= token_from_db.max_uses:
+                    db.session.delete(token_from_db)
+                else:
+                    db.session.add(token_from_db)
                 db.session.commit()
 
                 return True
