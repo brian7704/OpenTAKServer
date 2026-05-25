@@ -2041,7 +2041,7 @@ def mission_contents(mission_name: str | None = None, mission_guid: str | None =
     )
 
 
-@mission_marti_api.route("/Marti/api/missions/gui/<mission_guid>/contents", methods=["DELETE"])
+@mission_marti_api.route("/Marti/api/missions/guid/<mission_guid>/contents", methods=["DELETE"])
 @mission_marti_api.route("/Marti/api/missions/<mission_name>/contents", methods=["DELETE"])
 def delete_content(mission_name: str | None = None, mission_guid: str | None = None):
     if "iTAK" not in request.user_agent.string:
