@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from flask_security.models import fsqla_v3 as fsqla
-from sqlalchemy import String
+from sqlalchemy import String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from opentakserver.extensions import db
@@ -14,7 +14,11 @@ from opentakserver.models.WebAuthn import WebAuthn
 
 @dataclass
 class User(db.Model, fsqla.FsUserMixin):
+    __table_args__ = (UniqueConstraint("oidc_issuer", "oidc_subject", name="uq_user_oidc_identity"),)
+
     email = db.Column(String(255), nullable=True)
+    oidc_issuer = db.Column(String(255), nullable=True)
+    oidc_subject = db.Column(String(255), nullable=True)
     video_streams = relationship("VideoStream", back_populates="user")
     euds = relationship("EUD", back_populates="user")
     data_packages = relationship("DataPackage", back_populates="user")

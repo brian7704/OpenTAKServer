@@ -23,4 +23,13 @@ migrate = Migrate()
 
 ldap_manager = LDAP3LoginManager()
 
+# OIDC helper used by the OIDC blueprint. LDAP remains supported as-is and this client
+# is only initialized when OTS_ENABLE_OIDC is enabled.
+try:
+    from opentakserver.oidc import OpenTAKOIDCExtension
+
+    oidc = OpenTAKOIDCExtension()
+except ModuleNotFoundError:
+    oidc = None
+
 babel = Babel()
