@@ -1,19 +1,23 @@
 import datetime
 import os
+import pathlib
+import shutil
+import traceback
 
 import jwt
-from flask import Blueprint, request, jsonify, current_app as app
+from flask import Blueprint, request, jsonify, current_app as app, send_from_directory
 from flask_login import current_user
 from flask_security import roles_required
 from flask_babel import gettext
 from werkzeug.datastructures import ImmutableMultiDict
 
-from opentakserver.blueprints.ots_api.api import paginate, search
-from opentakserver.extensions import db
+from opentakserver.blueprints.ots_api.api import paginate, search, change_config_setting
+from opentakserver.extensions import db, logger
 from opentakserver.forms.FedTokenForm import FedTokenForm
 from opentakserver.forms.FederationConnectionForm import FederationConnectionForm
 from opentakserver.models.FederateToken import FederateToken
 from opentakserver.models.FederationConnection import FederationConnection
+from opentakserver.certificate_authority import CertificateAuthority
 
 federation_blueprint = Blueprint("federation_blueprint", __name__)
 
@@ -164,3 +168,48 @@ def toggle_federation():
 
     :return:
     """
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/certificate")
+def get_federation_certificate():
+    """
+    Download the federation cert needed by the server you're federating to
+
+    :return: Federation certificate file
+    """
+
+    fed_cert = pathlib.Path(app.config.get("OTS_FEDERATION_CERTIFICATE"))
+    send_from_directory(fed_cert.parent, fed_cert.name)
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/certificate", methods=["POST", "PATCH"])
+def regenerate_federation_certificate():
+    """
+    Regenerates the federation certificate. <b>THIS WILL DELETE THE OLD FEDERATION CERTIFICATE!</b> You will need to re-upload
+    this certificate to any servers you're currently federated with.
+
+    Use this to change the common name of the certificate to something other than the default "federation" such as your FQDN.
+
+    :param: common_name - (Optional) The common name for the new certificate. Will default to "federation" if none is provided.
+
+    :return: 200 on success, 500 on error
+    """
+
+    common_name = request.json.get("common_name", "federation")
+
+    try:
+        certificate_authority = CertificateAuthority(logger, app)
+        certificate_authority.issue_certificate(common_name, True)
+        cert_file = os.path.join(
+            app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".pem"
+        )
+        change_config_setting("OTS_FEDERATION_CERTIFICATE", cert_file)
+
+        return jsonify({"success": True, "cert_file": cert_file})
+
+    except BaseException as e:
+        logger.error(f"Failed to generate federation certificate: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 500

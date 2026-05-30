@@ -84,6 +84,10 @@ class DefaultConfig:
         f"/C={OTS_CA_COUNTRY}/ST={OTS_CA_STATE}/L={OTS_CA_CITY}/O={OTS_CA_ORGANIZATION}/OU={OTS_CA_ORGANIZATIONAL_UNIT}",
     )
 
+    OTS_FEDERATION_CERTIFICATE = os.path.join(
+        OTS_CA_FOLDER, "certs", "federation", "federation.pem"
+    )
+
     OTS_COT_PARSER_PROCESSES = int(os.getenv("OTS_COT_PARSER_PROCESSES", 1))
 
     OTS_ENABLE_LDAP = False

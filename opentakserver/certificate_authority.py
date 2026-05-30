@@ -112,6 +112,7 @@ class CertificateAuthority:
 
             self.logger.debug("Creating server cert...")
             self.issue_certificate("opentakserver", True)
+            self.issue_certificate("federation", True)
             self.logger.info(
                 "Certificate authority created successfully. You may need to restart nginx if it's proxying SSL requests."
             )
