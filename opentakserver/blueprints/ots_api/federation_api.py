@@ -11,6 +11,7 @@ from flask_security import roles_required
 from flask_babel import gettext
 from werkzeug.datastructures import ImmutableMultiDict
 
+from forms.FederateForm import FederateForm
 from opentakserver.models.Federate import Federate
 from opentakserver.blueprints.ots_api.api import paginate, search, change_config_setting
 from opentakserver.extensions import db, logger
@@ -138,9 +139,20 @@ def create_federation():
     if not form.validate():
         return jsonify({"success": False, "error": form.errors}), 400
 
-    fed_connection = FederationConnection().from_wtforms(form)
-    db.session.add(fed_connection)
-    db.session.commit()
+    try:
+        fed_connection = FederationConnection().from_wtforms(form)
+        db.session.add(fed_connection)
+        db.session.commit()
+    except BaseException as e:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("Failed to create connection: %(error)s", e=str(e)),
+                }
+            ),
+            500,
+        )
 
     # TODO: Fork a fed client process here
 
@@ -231,4 +243,18 @@ def get_federates():
 @roles_required("administrator")
 @federation_blueprint.route("/api/federate", methods=["POST"])
 def add_federate():
-    return jsonify({"success": True})
+    form = FederateForm(formdata=ImmutableMultiDict(request.json))
+    if form.validate():
+        federate = Federate()
+        federate.from_wtf(form)
+
+        try:
+            db.session.add(federate)
+            db.session.commit()
+        except BaseException as e:
+            logger.error(f"Failed to add federation: {e}")
+            logger.debug(traceback.format_exc())
+            return jsonify({"success": False, "error": str(e)}), 500
+
+    else:
+        return jsonify({"success": True, "error": form.errors}), 200

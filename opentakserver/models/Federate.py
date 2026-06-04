@@ -30,3 +30,16 @@ class Federate(db.Model):
     issuer: Mapped[str] = mapped_column(String(255))
     subject: Mapped[str] = mapped_column(String(255))
     serial_number: Mapped[int] = mapped_column(Integer)
+
+    def from_wtf(self, form):
+        self.name = form.name.data
+        self.shared_alerts = form.shared_alerts.data
+        self.federate_group_matching = form.federate_group_matching.data
+        self.automatic_group_matching = form.automatic_group_matching.data
+        self.max_hops = form.max_hops.data
+        self.use_group_hop_limiting = form.use_group_hop_limiting.data
+        self.notes = form.notes.data
+        self.certificate_file = form.certificate_file.data
+        self.issuer = form.issuer.data
+        self.subject = form.subject.data
+        self.serial_number = form.serial_number.data
