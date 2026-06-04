@@ -11,6 +11,7 @@ from flask_security import roles_required
 from flask_babel import gettext
 from werkzeug.datastructures import ImmutableMultiDict
 
+from opentakserver.models.Federate import Federate
 from opentakserver.blueprints.ots_api.api import paginate, search, change_config_setting
 from opentakserver.extensions import db, logger
 from opentakserver.forms.FedTokenForm import FedTokenForm
@@ -213,3 +214,21 @@ def regenerate_federation_certificate():
         logger.error(f"Failed to generate federation certificate: {e}")
         logger.debug(traceback.format_exc())
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federate")
+def get_federates():
+    query = db.session.query(Federate)
+    query = search(query, Federate, "name")
+    query = search(query, Federate, "issuer")
+    query = search(query, Federate, "subject")
+    query = search(query, Federate, "serial_number")
+
+    return paginate(query, Federate)
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federate", methods=["POST"])
+def add_federate():
+    return jsonify({"success": True})

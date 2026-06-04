@@ -27,3 +27,6 @@ class Federate(db.Model):
     # takserver notes field says "Notes may contain upper and lower case letters, numbers, spaces and underscores up to 30 characters."
     notes: Mapped[str] = mapped_column(String(255))
     certificate_file: Mapped[str] = mapped_column(String(255))
+    issuer: Mapped[str] = mapped_column(String(255))
+    subject: Mapped[str] = mapped_column(String(255))
+    serial_number: Mapped[int] = mapped_column(Integer)
