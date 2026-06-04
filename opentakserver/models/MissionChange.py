@@ -79,9 +79,9 @@ class MissionChange(db.Model):
 
 
 def generate_mission_change_cot(
-    author_uid: str,
-    mission: Mission,
-    mission_change: MissionChange,
+    mission_name: str,
+    mission: Mission = None,
+    mission_change: MissionChange = None,
     content: MissionContent | None = None,
     cot_event: BeautifulSoup | None = None,
     mission_uid: MissionUID = None,
@@ -98,7 +98,7 @@ def generate_mission_change_cot(
         "event",
         {
             "version": "2.0",
-            "uid": uid,
+            "uid": str(uid),
             "type": cot_type,
             "how": "h-g-i-g-o",
             "start": iso8601_string_from_datetime(mission_change.timestamp),
@@ -113,16 +113,19 @@ def generate_mission_change_cot(
         event, "point", {"ce": "9999999", "le": "9999999", "hae": "0.0", "lat": "0.0", "lon": "0.0"}
     )
 
+    if not mission:
+        mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).scalar()
+
     detail = SubElement(event, "detail")
     mission_element = SubElement(
         detail,
         "mission",
         {
-            "type": mission_change.change_type,
+            "type": str(mission_change.change_type),
             "tool": "public",
-            "name": mission.name,
-            "guid": mission.guid,
-            "authorUid": mission_change.creator_uid,
+            "name": mission_name,
+            "guid": str(mission.guid),
+            "authorUid": str(mission_change.creator_uid),
         },
     )
     mission_changes_element = SubElement(mission_element, "MissionChanges")

@@ -36,6 +36,23 @@ def create_ca():
 
 
 @ots.command()
+@with_appcontext
+@click.argument("cn")
+def issue_certificate(cn):
+    ca = CertificateAuthority(logger, app)
+    if ca.check_if_ca_exists():
+        ca.issue_certificate(cn)
+
+
+@ots.command()
+@with_appcontext
+def issue_server_certificate():
+    ca = CertificateAuthority(logger, app)
+    if ca.check_if_ca_exists():
+        ca.issue_certificate("opentakserver", True)
+
+
+@ots.command()
 @click.option("--overwrite", is_flag=True)
 @with_appcontext
 def generate_config(overwrite):

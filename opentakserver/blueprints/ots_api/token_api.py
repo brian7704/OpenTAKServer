@@ -33,8 +33,11 @@ def cloudtak_oauth_token():
     :return: jwt
     """
 
-    username = bleach.clean(request.args.get("username"))
-    password = bleach.clean(request.args.get("password"))
+    logger.warning(request.data)
+    logger.warning(request.form)
+
+    username = bleach.clean(request.args.get("username") or request.form.get("username"))
+    password = bleach.clean(request.args.get("password") or request.form.get("password"))
 
     if app.config.get("OTS_ENABLE_LDAP"):
         result = ldap_manager.authenticate(username, password)

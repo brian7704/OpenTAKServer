@@ -76,7 +76,7 @@ def tls_config():
     second_name_entry.set("name", "OU")
     second_name_entry.set("value", app.config.get("OTS_CA_ORGANIZATIONAL_UNIT"))
 
-    return tostring(root_element), 200, {"Content-Type": "application/xml"}
+    return tostring(root_element), 200, {"Content-Type": "text/plain; charset=UTF-8"}
 
 
 @certificate_authority_api_blueprint.route("/Marti/api/tls/signClient/", methods=["POST"])

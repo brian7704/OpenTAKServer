@@ -53,6 +53,8 @@ def create_user():
         return jsonify({"success": False, "error": gettext("Passwords do not match")}), 400
 
     roles = request.json.get("roles")
+    if not roles:
+        roles = ["user"]
     roles_cleaned = []
 
     for role in roles:
@@ -454,7 +456,7 @@ def get_users():
     query = db.session.query(User)
     query = search(query, User, "username")
 
-    return paginate(query)
+    return paginate(query, User)
 
 
 @user_api_blueprint.route("/api/users/all")

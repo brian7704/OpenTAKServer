@@ -6,6 +6,8 @@ from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from opentakserver.extensions import db
+from opentakserver.functions import iso8601_string_from_datetime
+from opentakserver.models.MissionRole import MissionRole
 
 
 class InvitationTypeEnum(str, enum.Enum):
@@ -21,7 +23,8 @@ class MissionInvitation(db.Model):
     __tablename__ = "mission_invitations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    mission_name: Mapped[str] = mapped_column(String(255), ForeignKey("missions.name"))
+    mission_name: Mapped[str] = mapped_column(String(255), ForeignKey("missions.name"), nullable=True)
+    mission_guid: Mapped[str] = mapped_column(String(255), nullable=True)
     client_uid: Mapped[str] = mapped_column(
         String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True
     )
@@ -44,6 +47,7 @@ class MissionInvitation(db.Model):
     def serialize(self):
         return {
             "mission_name": self.mission_name,
+            "mission_guid": self.mission_guid,
             "client_uid": self.client_uid,
             "callsign": self.callsign,
             "username": self.username,
@@ -56,3 +60,15 @@ class MissionInvitation(db.Model):
 
     def to_json(self):
         return self.serialize()
+
+    def to_marti_json(self):
+        return {
+            "missionName": self.mission_name,
+            "invitee": self.eud_uid,
+            "role": [MissionRole.MISSION_SUBSCRIBER],
+            "type": self.type,
+            "creatorUid": self.creator_uid,
+            "createTime": iso8601_string_from_datetime(),
+            "token": "",
+            "missionGuid": self.mission.guid or self.mission_guid,
+        }

@@ -6,6 +6,7 @@ import sqlalchemy.exc
 from flask import Blueprint, jsonify, request
 from flask_babel import gettext
 from flask_security import auth_required, current_user
+from opentakserver.models.GroupUser import GroupUser
 from sqlalchemy import insert, update
 from werkzeug.datastructures import ImmutableMultiDict
 
@@ -17,6 +18,7 @@ from opentakserver.functions import *
 from opentakserver.models.CasEvac import CasEvac
 from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
+from opentakserver.models.Group import Group
 from opentakserver.models.Point import Point
 from opentakserver.models.ZMIST import ZMIST
 
@@ -105,23 +107,7 @@ def add_casevac():
         db.session.commit()
         logger.debug(f"Updated CasEvac {casevac.uid}")
 
-    rabbit_credentials = pika.PlainCredentials(
-        app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD")
-    )
-    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
-    rabbit_connection = pika.BlockingConnection(
-        pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
-    )
-    channel = rabbit_connection.channel()
-    channel.basic_publish(
-        exchange="cot",
-        routing_key="",
-        body=json.dumps({"cot": cot.xml, "uid": app.config["OTS_NODE_ID"]}),
-        properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
-    )
     route_cot(cot.xml, current_user)
-    channel.close()
-    rabbit_connection.close()
 
     casevac.zmist = zmist
     socketio.emit("casevac", casevac.to_json(), namespace="/socket.io")
@@ -173,23 +159,7 @@ def delete_casevac():
         {"TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0": iso8601_string_from_datetime(now)},
     )
 
-    rabbit_credentials = pika.PlainCredentials(
-        app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD")
-    )
-    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
-    rabbit_connection = pika.BlockingConnection(
-        pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
-    )
-    channel = rabbit_connection.channel()
-    channel.basic_publish(
-        exchange="cot",
-        routing_key="",
-        body=json.dumps({"cot": tostring(event).decode("utf-8"), "uid": app.config["OTS_NODE_ID"]}),
-        properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
-    )
     route_cot(tostring(event).decode("utf-8"), current_user)
-    channel.close()
-    rabbit_connection.close()
 
     db.session.delete(casevac)
     db.session.commit()

@@ -401,28 +401,39 @@ def get_missions():
     return jsonify(response)
 
 
+@mission_marti_api.route("/Marti/api/missions/guid/<mission_guid>/invitations", methods=["GET"])
+@mission_marti_api.route("/Marti/api/missions/<mission_name>/invitations", methods=["GET"])
 @mission_marti_api.route("/Marti/api/missions/all/invitations", methods=["GET"])
 @mission_marti_api.route("/Marti/api/missions/invitations", methods=["GET"])
-def all_invitations():
+def all_invitations(mission_name: str | None = None, mission_guid: str | None = None):
     if "clientUid" in request.args and request.args.get("clientUid"):
         client_uid = bleach.clean(request.args.get("clientUid"))
     else:
-        return "", 200
+        client_uid = None
 
     response = {
         "version": "3",
-        "type": "Mission",
+        "type": "MissionInvitation",
         "data": [],
         "nodeId": app.config.get("OTS_NODE_ID"),
         "messages": [],
     }
 
-    invitations = db.session.execute(
-        db.session.query(MissionInvitation).filter_by(client_uid=client_uid)
-    ).all()
+    query = db.session.query(MissionInvitation)
+    if client_uid:
+        query = query.where(MissionInvitation.client_uid == client_uid)
+
+    if mission_name:
+        query = query.join(Mission).where(Mission.name == mission_name)
+    elif mission_guid:
+        query = query.join(Mission).where(Mission.guid == mission_guid)
+
+    logger.info(query)
+
+    invitations = db.session.execute(query).all()
 
     for invitation in invitations:
-        response["data"].append(invitation[0].mission_name)
+        response["data"].append(invitation[0].to_marti_json())
 
     return jsonify(response)
 
@@ -971,11 +982,11 @@ def delete_invitation(mission_name: str, invitation_type: str, invitee: str):
     elif invitation_type.lower() == "callsign":
         query = query.where(MissionInvitation.callsign == invitee)
     elif invitation_type.lower() == "username":
-        query = query.where(MissionInvitation.username == invite)
+        query = query.where(MissionInvitation.username == invitee)
     elif invitation_type.lower() == "group":
-        query = query.where(MissionInvitation.group == invite)
+        query = query.where(MissionInvitation.group == invitee)
     elif invitation_type.lower() == "team":
-        query = query.where(MissionInvitation.team == invite)
+        query = query.where(MissionInvitation.team == invitee)
 
     invitations = db.session.execute(query).scalars()
     for invitation in invitations:
@@ -1379,7 +1390,7 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
         group_filters.append(GroupMission.group_id == 1)
 
     query = db.session.query(GroupMission).filter_by(mission_name=mission_name)
-    query.where(or_(*group_filters))
+    query = query.where(or_(*group_filters))
     mission_groups = db.session.execute(query).scalars()
 
     if not mission_groups:
@@ -1828,8 +1839,9 @@ def add_content_keywords(content_hash: str):
     return "", 200
 
 
+@mission_marti_api.route("/Marti/api/missions/guid/<mission_guid>/contents", methods=["PUT"])
 @mission_marti_api.route("/Marti/api/missions/<mission_name>/contents", methods=["PUT"])
-def mission_contents(mission_name: str):
+def mission_contents(mission_name: str | None = None, mission_guid: str | None = None):
     """Associates content/files with a mission"""
     permission_granted = check_permission(mission_name)
     if isinstance(permission_granted, flask.Response):
@@ -1837,15 +1849,21 @@ def mission_contents(mission_name: str):
 
     body = request.json
 
-    mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
+    mission = None
+
+    if mission_name:
+        mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
+    elif mission_guid:
+        mission = db.session.execute(db.session.query(Mission).filter_by(guid=mission_guid)).first()
     if not mission:
-        logger.error(f"No such mission: {mission_name}")
+        logger.error(f"No such mission: {mission_name} - {mission_guid}")
         return (
             jsonify(
                 {
                     "success": False,
                     "error": gettext(
-                        "No such mission: %(mission_name)s", mission_name=mission_name
+                        "No such mission: %(mission_name)s",
+                        mission_name=mission_name or mission_guid,
                     ),
                 }
             ),
@@ -2023,8 +2041,9 @@ def mission_contents(mission_name: str):
     )
 
 
+@mission_marti_api.route("/Marti/api/missions/guid/<mission_guid>/contents", methods=["DELETE"])
 @mission_marti_api.route("/Marti/api/missions/<mission_name>/contents", methods=["DELETE"])
-def delete_content(mission_name: str):
+def delete_content(mission_name: str | None = None, mission_guid: str | None = None):
     if "iTAK" not in request.user_agent.string:
         token = verify_token()
         if not token or token["MISSION_NAME"] != mission_name:
@@ -2032,19 +2051,29 @@ def delete_content(mission_name: str):
         eud_uid = token["sub"]
     else:
         # cert_is_valid will either be True or flask.Response. If it's flask.Response it indicates an error
-        role = verify_itak_certificate(mission_name)
+        role = verify_itak_certificate(mission_name, mission_guid)
         if isinstance(role, flask.Response):
             return role
         eud_uid = role.clientUid
 
-    mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
+    query = db.session.query(Mission)
+    mission = None
+
+    if mission_name:
+        mission = db.session.execute(query.filter_by(name=mission_name)).first()
+    elif mission_guid:
+        mission = db.session.query(Mission).filter_by(guid=mission_guid).first()
+
     if not mission:
+        logger.error(f"Mission not found: {mission_name} - {mission_guid}")
+
         return (
             jsonify(
                 {
                     "success": False,
                     "error": gettext(
-                        "Mission %(mission_name)s not found", mission_name=mission_name
+                        "Mission %(mission_name)s not found",
+                        mission_name=mission_name or mission_guid,
                     ),
                 }
             ),

@@ -52,7 +52,7 @@ def get_groups():
     query = search(query, Group, "bitpos")
     query = search(query, Group, "active")
 
-    return paginate(query)
+    return paginate(query, Group)
 
 
 @group_api.route("/api/groups/all", methods=["GET"])

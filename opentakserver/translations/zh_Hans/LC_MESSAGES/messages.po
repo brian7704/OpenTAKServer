@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-02-26 10:44-0500\n"
-"PO-Revision-Date: 2026-03-06 18:39+0000\n"
+"PO-Revision-Date: 2026-05-07 04:55+0000\n"
 "Last-Translator: Lee Ka Ming <RYOHEI19920102@hotmail.com>\n"
 "Language-Team: Chinese (Simplified Han script) <https://"
 "weblate.opentakserver.io/projects/opentakserver/opentakserver/zh_Hans/>\n"
@@ -23,12 +23,12 @@ msgstr ""
 #: blueprints/marti_api/cot_marti_api.py:32
 #, python-format
 msgid "No CoT found for UID %(uid)s"
-msgstr "未找到 CoT的UID"
+msgstr "未发现 UID %(uid)s 的 CoT"
 
 #: blueprints/marti_api/cot_marti_api.py:57
 #, python-format
 msgid "Invalid secago value: %(sec_ago)s"
-msgstr ""
+msgstr "无效的 sec_ago 值：%(sec_ago)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:92
 msgid "This data package has already been uploaded"
@@ -41,32 +41,32 @@ msgstr "文件提交"
 #: blueprints/marti_api/data_package_marti_api.py:200
 #, python-format
 msgid "Invalid file extension: %(extension)s"
-msgstr ""
+msgstr "无效的文件扩展名：%(extension)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:385
 #, python-format
 msgid "File not found: %(filename)s}"
-msgstr ""
+msgstr "找不到指定的文件：%(filename)s"
 
 #: blueprints/marti_api/group_marti_api.py:40
 msgid "Groups are only supported on SSL connections"
-msgstr ""
+msgstr "仅 SSL 连接支持群组功能"
 
 #: blueprints/marti_api/group_marti_api.py:109
 #: blueprints/marti_api/group_marti_api.py:167
 msgid "Please specify a groupNameFilter"
-msgstr ""
+msgstr "组名过滤器"
 
 #: blueprints/marti_api/group_marti_api.py:122
 #: blueprints/marti_api/group_marti_api.py:180
 #, python-format
 msgid "Please specify a groupNameFilter that starts with %(prefix)s"
-msgstr ""
+msgstr "请指定组名过滤器，且必须以 %(prefix)s 开头"
 
 #: blueprints/marti_api/group_marti_api.py:134
 #: blueprints/marti_api/group_marti_api.py:192
 msgid "groupNameFilter must end with either _READ or _WRITE"
-msgstr ""
+msgstr "组名过滤器 (groupNameFilter) 必须以 _READ 或 _WRITE 结尾"
 
 #: blueprints/marti_api/group_marti_api.py:246
 msgid "clientUid required"
@@ -75,7 +75,7 @@ msgstr "提供验证用户ID"
 #: blueprints/marti_api/group_marti_api.py:274
 #: blueprints/ots_api/group_api.py:365 blueprints/ots_api/user_api.py:574
 msgid "Direction must be IN or OUT"
-msgstr ""
+msgstr "传输方向必须设置为 IN 或 OUT"
 
 #: blueprints/marti_api/group_marti_api.py:283
 msgid "The active attribute must be true or false"
@@ -88,12 +88,12 @@ msgstr "提供团体名称"
 #: blueprints/marti_api/group_marti_api.py:331
 #, python-format
 msgid "%(username)s is not in the %(group_name)s group"
-msgstr ""
+msgstr "用户 %(username)s 不属于 %(group_name)s 群组"
 
 #: blueprints/marti_api/group_marti_api.py:356
 #, python-format
 msgid "Failed to update group subscriptions for %(username)s: %(e)s"
-msgstr ""
+msgstr "更新 %(username)s 的组订阅失败：%(e)s"
 
 #: blueprints/marti_api/group_marti_api.py:383
 msgid "Please provide a group name and direction"
@@ -102,18 +102,18 @@ msgstr "请提供团体名称及目的"
 #: blueprints/marti_api/group_marti_api.py:404
 #, python-format
 msgid "No group found: %(group_name)s, %(direction)s"
-msgstr ""
+msgstr "找不到组：%(group_name)s (%(direction)s)"
 
 #: blueprints/marti_api/marti_api.py:108
 #, python-format
 msgid "No such UID: %(uid)s"
-msgstr ""
+msgstr "找不到指定的 UID：%(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:323
 #: blueprints/marti_api/mission_marti_api.py:1256
 #, python-format
 msgid "No mission found with guid: %(mission_guid)s"
-msgstr ""
+msgstr "不存在此 GUID 对应的任务：%(mission_guid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:333
 #: blueprints/marti_api/mission_marti_api.py:1456
@@ -123,7 +123,7 @@ msgstr "密码无效"
 
 #: blueprints/marti_api/mission_marti_api.py:439
 msgid "Missions are only supported on SSL connections"
-msgstr ""
+msgstr "仅 SSL 连接支持任务功能"
 
 #: blueprints/marti_api/mission_marti_api.py:453
 msgid "Please provide a mission name and creatorUid"
@@ -132,18 +132,18 @@ msgstr "请提供任务名称和策划验证用户ID"
 #: blueprints/marti_api/mission_marti_api.py:468
 #, python-format
 msgid "Invalid creatorUid: %(creator_uid)s"
-msgstr ""
+msgstr "创建者 UID 无效：%(creator_uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:517
 #, python-format
 msgid "Group not found: %(group_name)s"
-msgstr ""
+msgstr "找不到组：%(group_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:604
 #: blueprints/ots_api/mission_api.py:197
 #, python-format
 msgid "Failed to add mission: %(e)s"
-msgstr ""
+msgstr "添加任务失败：%(e)s"
 
 #: blueprints/marti_api/mission_marti_api.py:632
 msgid "Invalid mission name"
@@ -158,7 +158,7 @@ msgstr "无效的任务名称(禁止使用)"
 #: blueprints/ots_api/mission_api.py:308
 #, python-format
 msgid "Mission %(mission_name)s not found"
-msgstr "%(mission_name)任务档案中没有"
+msgstr "未找到任务 %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:675
 #: blueprints/marti_api/mission_marti_api.py:749
@@ -167,562 +167,562 @@ msgstr "%(mission_name)任务档案中没有"
 #: blueprints/marti_api/mission_marti_api.py:2031
 #: blueprints/marti_api/mission_marti_api.py:2183
 msgid "Missing or invalid token"
-msgstr ""
+msgstr "令牌缺失或无效"
 
 #: blueprints/marti_api/mission_marti_api.py:699
 msgid "Only mission owners can delete missions"
-msgstr ""
+msgstr "只有任务所有者才能删除任务"
 
 #: blueprints/marti_api/mission_marti_api.py:759
 msgid "Please provide the password"
-msgstr ""
+msgstr "请输入密码"
 
 #: blueprints/marti_api/mission_marti_api.py:769
 msgid "You do not have permission to change this mission's password"
-msgstr ""
+msgstr "您没有权限修改该任务的密码"
 
 #: blueprints/marti_api/mission_marti_api.py:831
 #, python-format
 msgid "No EUD found with UID %(invitee)s"
-msgstr ""
+msgstr "未找到 UID 为 %(invitee)s 的终端设备 (EUD)"
 
 #: blueprints/marti_api/mission_marti_api.py:846
 #, python-format
 msgid "No EUD found with callsign %(invitee)s"
-msgstr ""
+msgstr "未找到呼号为 %(invitee)s 的终端设备 (EUD)"
 
 #: blueprints/marti_api/mission_marti_api.py:861
 #, python-format
 msgid "No user found with username %(invitee)s"
-msgstr ""
+msgstr "未找到用户名为 %(invitee)s 的用户"
 
 #: blueprints/marti_api/mission_marti_api.py:878
 #, python-format
 msgid "No group found: %(invitee)s"
-msgstr ""
+msgstr "未找到组：%(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:893
 #, python-format
 msgid "Team not found: %(invitee)s"
-msgstr ""
+msgstr "未找到团队：%(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:955
 #, python-format
 msgid "Invalid invitation type: %(invitation_type)s"
-msgstr ""
+msgstr "无效的邀请类型：%(invitation_type)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1003
 #: blueprints/marti_api/mission_marti_api.py:1591
 #: blueprints/ots_api/mission_api.py:384
 #, python-format
 msgid "Mission not found: %(mission_name)s"
-msgstr ""
+msgstr "未找到任务：%(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1041
 #, python-format
 msgid "Invalid invitation type: %(invitation)s"
-msgstr ""
+msgstr "无效的邀请：%(invitation)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1133
 #, python-format
 msgid "No such mission found: %(mission_name)s"
-msgstr ""
+msgstr "未找到该任务：%(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1150
 msgid "Only mission owners can change EUD roles"
-msgstr ""
+msgstr "只有任务所有者才能修改终端设备 (EUD) 角色"
 
 #: blueprints/marti_api/mission_marti_api.py:1157
 #: blueprints/ots_api/marker_api.py:86
 msgid "Please provide a UID"
-msgstr ""
+msgstr "请输入 UID"
 
 #: blueprints/marti_api/mission_marti_api.py:1165
 #, python-format
 msgid "Invalid UID: %(client_uid)s"
-msgstr ""
+msgstr "无效的UID：%(client_uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1179
 #, python-format
 msgid "Invalid role: %(new_role)s"
-msgstr ""
+msgstr "无效的角色：%(new_role)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1309
 #: blueprints/marti_api/mission_marti_api.py:1352
 #, python-format
 msgid "Cannot find mission %(mission_name)s"
-msgstr ""
+msgstr "找不到任务：%(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1364
 #, python-format
 msgid "Cannot find mission %(mission_guid)s"
-msgstr ""
+msgstr "找不到任务：%(mission_guid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1390
 #, python-format
 msgid "%(username)s and mission %(mission_name)s are not in the same group"
-msgstr ""
+msgstr "用户 %(username)s 与任务 %(mission_name)s 不在同一个组中"
 
 #: blueprints/marti_api/mission_marti_api.py:1410
 #: blueprints/ots_api/mediamtx_api.py:58
 msgid "Invalid token"
-msgstr ""
+msgstr "无效的令牌"
 
 #: blueprints/marti_api/mission_marti_api.py:1443
 msgid "Missing UID"
-msgstr ""
+msgstr "缺少 UID"
 
 #: blueprints/marti_api/mission_marti_api.py:1449
 #, python-format
 msgid "Invalid UID: %(uid)s"
-msgstr ""
+msgstr "无效的UID：%(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1683
 msgid "Missing or invalid certificate"
-msgstr ""
+msgstr "证书缺失或无效"
 
 #: blueprints/marti_api/mission_marti_api.py:1699
 msgid "File name cannot be blank"
-msgstr ""
+msgstr "文件名不能为空"
 
 #: blueprints/marti_api/mission_marti_api.py:1732
 #, python-format
 msgid "%(extension)s is not an allowed file extension"
-msgstr ""
+msgstr "不支持的文件后缀名：%(extension)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1808
 #, python-format
 msgid "No content found with hash: %(content_hash)s"
-msgstr ""
+msgstr "未找到哈希值为 %(content_hash)s 的内容"
 
 #: blueprints/marti_api/mission_marti_api.py:1847
 #, python-format
 msgid "No such mission: %(mission_name)s"
-msgstr ""
+msgstr "不存在该任务：%(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1868
 #, python-format
 msgid "No such file with hash %(content_hash)s"
-msgstr ""
+msgstr "不存在哈希值为 %(content_hash)s 的文件"
 
 #: blueprints/marti_api/mission_marti_api.py:2074
 #, python-format
 msgid "UID %(uid)s not found"
-msgstr ""
+msgstr "未找到UID：%(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:2104
 #, python-format
 msgid "No content found with hash %(hash)s"
-msgstr ""
+msgstr "未找到哈希值为 %(hash)s 的内容"
 
 #: blueprints/marti_api/mission_marti_api.py:2133
 #, python-format
 msgid "Failed to delete content with hash %(hash)s: %(e)s"
-msgstr ""
+msgstr "删除哈希值为 %(hash)s 的内容失败：%(e)s"
 
 #: blueprints/marti_api/video_marti_api.py:146
 msgid "Invalid Certificate"
-msgstr ""
+msgstr "无效的证书"
 
 #: blueprints/marti_api/video_marti_api.py:209
 msgid "Video not found"
-msgstr ""
+msgstr "未找到视频"
 
 #: blueprints/marti_api/video_marti_api.py:216
 #: blueprints/ots_api/group_api.py:209 blueprints/ots_api/user_api.py:508
 #, python-format
 msgid "User %(username)s not found"
-msgstr ""
+msgstr "未找到用户：%(username)s"
 
 #: blueprints/marti_api/video_marti_api.py:233
 #, python-format
 msgid "Video stream with uid %(uid)s not found"
-msgstr ""
+msgstr "未找到 UID 为 %(uid)s 的视频串流"
 
 #: blueprints/ots_api/api.py:82
 #, python-format
 msgid "Invalid sort column: %(sort_by)s"
-msgstr ""
+msgstr "无效的排序列：%(sort_by)s"
 
 #: blueprints/ots_api/api.py:283
 #, python-format
 msgid "Invalid username: %(username)s"
-msgstr ""
+msgstr "无效的用户名：%(username)s"
 
 #: blueprints/ots_api/api.py:324
 #, python-format
 msgid "Certificate already exists for %(username)s"
-msgstr ""
+msgstr "用户 %(username)s 已存在证书"
 
 #: blueprints/ots_api/api.py:360
 msgid "Please specify a callsign"
-msgstr ""
+msgstr "请指定呼号"
 
 #: blueprints/ots_api/casevac_api.py:148
 #, python-format
 msgid "Unknown UID: %(uid)s"
-msgstr ""
+msgstr "未知 UID：%(uid)s"
 
 #: blueprints/ots_api/data_package_api.py:47
 msgid ""
 "Server connection data packages can't be installed on enrollment or "
 "connection"
-msgstr ""
+msgstr "服务器连接数据包无法在注册或连接时安装"
 
 #: blueprints/ots_api/data_package_api.py:83
 msgid "Invalid/unknown hash"
-msgstr ""
+msgstr "无效或未知的哈希值"
 
 #: blueprints/ots_api/data_package_api.py:134
 msgid "Please provide a data package hash"
-msgstr ""
+msgstr "请输入数据包的哈希值"
 
 #: blueprints/ots_api/data_package_api.py:150
 #, python-format
 msgid "Data package with hash '%(hash)s' not found"
-msgstr ""
+msgstr "未找到哈希值为“%(hash)s”的数据包"
 
 #: blueprints/ots_api/device_profile_api.py:61
 msgid "Please specify the preference_key"
-msgstr ""
+msgstr "请指定首选项键 (preference_key)"
 
 #: blueprints/ots_api/device_profile_api.py:74
 #, python-format
 msgid "Unknown preference_key: %(preference_key)s"
-msgstr ""
+msgstr "无法识别的首选项键：%(preference_key)s"
 
 #: blueprints/ots_api/group_api.py:41 blueprints/ots_api/group_api.py:124
 #: blueprints/ots_api/group_api.py:165
 msgid "LDAP is enabled. Please view and edit groups on your LDAP server"
-msgstr ""
+msgstr "LDAP 已启用。请在您的 LDAP 服务器上查看和编辑群组"
 
 #: blueprints/ots_api/group_api.py:182
 msgid "Please provide the username, group name, and direction"
-msgstr ""
+msgstr "请提供用户名、组名和方向"
 
 #: blueprints/ots_api/group_api.py:197
 #, python-format
 msgid "Invalid direction: %(direction)s"
-msgstr ""
+msgstr "无效的方向：%(direction)s"
 
 #: blueprints/ots_api/group_api.py:217
 #, python-format
 msgid "Group %(group_name)s not found"
-msgstr ""
+msgstr "未找到组：%(group_name)s"
 
 #: blueprints/ots_api/group_api.py:253
 #, python-format
 msgid "Failed to remove %(username)s from %(group_name)s: %(e)s"
-msgstr ""
+msgstr "无法将 %(username)s 从 %(group_name)s 中移除：%(e)s"
 
 #: blueprints/ots_api/group_api.py:274
 msgid "LDAP is enabled, please use your LDAP server to add groups"
-msgstr ""
+msgstr "LDAP 已启用，请使用您的 LDAP 服务器添加群组"
 
 #: blueprints/ots_api/group_api.py:281
 msgid "Missing name"
-msgstr ""
+msgstr "缺少名称"
 
 #: blueprints/ots_api/group_api.py:303
 #, python-format
 msgid "%(name)s group already exists"
-msgstr ""
+msgstr "组“%(name)s”已存在"
 
 #: blueprints/ots_api/group_api.py:315
 #, python-format
 msgid "Failed to add %(name)s group: %(e)s"
-msgstr ""
+msgstr "无法添加组“%(name)s”：%(e)s"
 
 #: blueprints/ots_api/group_api.py:341 blueprints/ots_api/user_api.py:548
 msgid "LDAP is enabled, please use your LDAP server to add users to groups"
-msgstr ""
+msgstr "LDAP 已启用，请使用您的 LDAP 服务器将用户添加至群组"
 
 #: blueprints/ots_api/group_api.py:358
 msgid "Please provide a list of users, group name, and direction"
-msgstr ""
+msgstr "请提供用户列表、组名和方向"
 
 #: blueprints/ots_api/group_api.py:374 blueprints/ots_api/user_api.py:236
 #: blueprints/ots_api/user_api.py:286 blueprints/ots_api/user_api.py:352
 #: blueprints/ots_api/user_api.py:390
 #, python-format
 msgid "User %(username)s does not exist"
-msgstr ""
+msgstr "用户 %(username)s 不存在"
 
 #: blueprints/ots_api/group_api.py:386
 #, python-format
 msgid "Group %(group_name)s does not exist"
-msgstr ""
+msgstr "组 %(group_name)s 不存在"
 
 #: blueprints/ots_api/group_api.py:416
 msgid "LDAP is enabled, please use your LDAP server to delete groups"
-msgstr ""
+msgstr "LDAP 已启用，请使用您的 LDAP 服务器删除群组"
 
 #: blueprints/ots_api/group_api.py:425
 msgid "Missing group name"
-msgstr ""
+msgstr "缺少组名"
 
 #: blueprints/ots_api/group_api.py:430
 msgid "The __ANON__ group cannot be deleted"
-msgstr ""
+msgstr "不能删除 ANON 组"
 
 #: blueprints/ots_api/group_api.py:443
 #, python-format
 msgid "No such group: %(group_name)s"
-msgstr ""
+msgstr "没有此组：%(group_name)s"
 
 #: blueprints/ots_api/group_api.py:465
 #, python-format
 msgid "Failed to delete %(group_name)s: %(e)s"
-msgstr ""
+msgstr "无法删除组“%(group_name)s”：%(e)s"
 
 #: blueprints/ots_api/language_api.py:13
 msgid "This is a test"
-msgstr ""
+msgstr "这是一次测试"
 
 #: blueprints/ots_api/marker_api.py:48
 msgid "Please provide a latitude and longitude"
-msgstr ""
+msgstr "请提供经度和纬度"
 
 #: blueprints/ots_api/marker_api.py:57
 #, python-format
 msgid "Invalid latitude: %(latitude)s"
-msgstr ""
+msgstr "纬度无效：%(latitude)s"
 
 #: blueprints/ots_api/marker_api.py:69
 #, python-format
 msgid "Invalid longitude: %(longitude)s"
-msgstr ""
+msgstr "经度无效：%(longitude)s"
 
 #: blueprints/ots_api/marker_api.py:80
 #, python-format
 msgid "Failed to parse lat/lon: %(e)s"
-msgstr ""
+msgstr "解析经纬度出错：%(e)s"
 
 #: blueprints/ots_api/marker_api.py:88
 msgid "Please provide a name"
-msgstr ""
+msgstr "请提供名称"
 
 #: blueprints/ots_api/marker_api.py:96
 msgid "Invalid UID. UIDs need to be in UUID4 format"
-msgstr ""
+msgstr "UID 格式错误。UID 应当是 UUID4 格式"
 
 #: blueprints/ots_api/marker_api.py:112
 #, python-format
 msgid "Invalid type: %(cot_type)s"
-msgstr ""
+msgstr "无效类型：%(cot_type)s"
 
 #: blueprints/ots_api/marker_api.py:269
 #, python-format
 msgid "Failed to parse data: %(e)s"
-msgstr ""
+msgstr "无法解析数据：%(e)s"
 
 #: blueprints/ots_api/marker_api.py:283
 msgid "Please provide the UID of the marker to delete"
-msgstr ""
+msgstr "请提供要删除的标记 UID"
 
 #: blueprints/ots_api/marker_api.py:294
 msgid "Unknown UID"
-msgstr ""
+msgstr "未知 UID"
 
 #: blueprints/ots_api/mediamtx_api.py:305
 #: blueprints/ots_api/mediamtx_api.py:404
 msgid "Please specify a path name"
-msgstr ""
+msgstr "请指定路径名称"
 
 #: blueprints/ots_api/mediamtx_api.py:309
 msgid "Path cannot begin with a slash"
-msgstr ""
+msgstr "路径不能以/开头"
 
 #: blueprints/ots_api/mediamtx_api.py:327
 #: blueprints/ots_api/mediamtx_api.py:413
 #, python-format
 msgid "Path %(path)s not found"
-msgstr ""
+msgstr "未找到路径 %(path)s"
 
 #: blueprints/ots_api/mediamtx_api.py:421
 msgid "MediaMTX is not running"
-msgstr ""
+msgstr "MediaMTX 尚未启动"
 
 #: blueprints/ots_api/meshtastic_api.py:167
 msgid "Please provide the URL of the channel to delete"
-msgstr ""
+msgstr "请提供要删除的频道 URL"
 
 #: blueprints/ots_api/mission_api.py:163 blueprints/ots_api/mission_api.py:281
 #, python-format
 msgid "Invalid property: %(key)s"
-msgstr ""
+msgstr "无效属性：%(key)s"
 
 #: blueprints/ots_api/mission_api.py:254
 msgid "Only an admin or the mission creator can change this mission"
-msgstr ""
+msgstr "只有管理员或任务创建者可以修改此任务"
 
 #: blueprints/ots_api/mission_api.py:298
 msgid "Please specify a mission name"
-msgstr ""
+msgstr "请指定任务名称"
 
 #: blueprints/ots_api/mission_api.py:400
 msgid "Please provide the mission password"
-msgstr ""
+msgstr "请提供任务密码"
 
 #: blueprints/ots_api/plugin_api.py:50
 msgid "Server plugins must be zip, whl, or tar.gz files"
-msgstr ""
+msgstr "服务器插件必须是 zip、whl 或 tar.gz 文件"
 
 #: blueprints/ots_api/plugin_api.py:66 blueprints/ots_api/plugin_api.py:99
 #: blueprints/ots_api/plugin_api.py:115 blueprints/ots_api/plugin_api.py:130
 msgid "Plugins are disabled"
-msgstr ""
+msgstr "插件已禁用"
 
 #: blueprints/ots_api/plugin_api.py:91
 #, python-format
 msgid "Plugin %(plugin_name)s not found"
-msgstr ""
+msgstr "未找到插件 %(plugin_name)s"
 
 #: blueprints/ots_api/token_api.py:191
 #, python-format
 msgid "No token found for %(username)s"
-msgstr ""
+msgstr "未找到用户 %(username)s 的令牌"
 
 #: blueprints/ots_api/token_api.py:222
 #, python-format
 msgid "Failed to delete token: %(e)s"
-msgstr ""
+msgstr "删除令牌失败：%(e)s"
 
 #: blueprints/ots_api/user_api.py:36
 msgid "LDAP is enabled, please use your LDAP server to create users"
-msgstr ""
+msgstr "LDAP 已启用，请使用您的 LDAP 服务器创建用户"
 
 #: blueprints/ots_api/user_api.py:53
 msgid "Passwords do not match"
-msgstr ""
+msgstr "密码不匹配"
 
 #: blueprints/ots_api/user_api.py:65 blueprints/ots_api/user_api.py:338
 #, python-format
 msgid "Role %(role)s does not exist"
-msgstr ""
+msgstr "角色 %(role)s 不存在"
 
 #: blueprints/ots_api/user_api.py:75
 msgid "Only administrators can add users to the administrators role"
-msgstr ""
+msgstr "只有管理员才能将用户添加到管理员角色"
 
 #: blueprints/ots_api/user_api.py:99
 #, python-format
 msgid "User %(username)s already exists"
-msgstr ""
+msgstr "用户 %(username)s 已存在"
 
 #: blueprints/ots_api/user_api.py:114
 msgid "LDAP is enabled, please use your LDAP server to delete users"
-msgstr ""
+msgstr "LDAP 已启用，请使用您的 LDAP 服务器删除用户"
 
 #: blueprints/ots_api/user_api.py:126
 msgid "You can't delete your own account"
-msgstr ""
+msgstr "你不能删除自己的账号"
 
 #: blueprints/ots_api/user_api.py:139
 #, python-format
 msgid "Failed to delete user: %(e)s"
-msgstr ""
+msgstr "删除用户失败：%(e)s"
 
 #: blueprints/ots_api/user_api.py:155
 msgid "LDAP is enabled, please use your LDAP server to reset passwords"
-msgstr ""
+msgstr "LDAP 已启用，请使用您的 LDAP 服务器重置密码"
 
 #: blueprints/ots_api/user_api.py:169
 msgid "Please specify a username and new password"
-msgstr ""
+msgstr "请指定用户名和新密码"
 
 #: blueprints/ots_api/user_api.py:181
 #, python-format
 msgid "Your password must be at least %(characters)s characters long"
-msgstr ""
+msgstr "密码长度必须至少为 %(characters)s 个字符"
 
 #: blueprints/ots_api/user_api.py:198
 #, python-format
 msgid "Could not find user %(username)s"
-msgstr ""
+msgstr "找不到用户 %(username)s"
 
 #: blueprints/ots_api/user_api.py:213
 msgid "LDAP is enabled, please use your LDAP server to deactivate users"
-msgstr ""
+msgstr "LDAP 已启用，请使用您的 LDAP 服务器停用用户"
 
 #: blueprints/ots_api/user_api.py:225
 msgid "Please specify the username to deactivate"
-msgstr ""
+msgstr "请指定要停用的用户名"
 
 #: blueprints/ots_api/user_api.py:250
 #, python-format
 msgid "%(username)s is already deactivated"
-msgstr ""
+msgstr "用户 %(username)s 已处于停用状态"
 
 #: blueprints/ots_api/user_api.py:263
 msgid "LDAP is enabled, please use your LDAP server to activate users"
-msgstr ""
+msgstr "LDAP 已启用，请使用您的 LDAP 服务器激活用户"
 
 #: blueprints/ots_api/user_api.py:275
 msgid "Please specify the username to activate"
-msgstr ""
+msgstr "请指定要启用的用户名"
 
 #: blueprints/ots_api/user_api.py:300
 #, python-format
 msgid "%(username)s is already activated"
-msgstr ""
+msgstr "%(username)s 已经激活"
 
 #: blueprints/ots_api/user_api.py:313
 msgid "LDAP is enabled, please use your LDAP server to assign roles"
-msgstr ""
+msgstr "LDAP 已启用，请使用您的 LDAP 服务器分配角色"
 
 #: blueprints/ots_api/user_api.py:327
 msgid "Please specify a username and roles"
-msgstr ""
+msgstr "请指定用户名和角色"
 
 #: blueprints/ots_api/user_api.py:401
 #, python-format
 msgid "EUD %(eud_uid)s not found"
-msgstr ""
+msgstr "未找到 EUD %(eud_uid)s"
 
 #: blueprints/ots_api/user_api.py:414
 #, python-format
 msgid "%(uid)s is already assigned to another user"
-msgstr ""
+msgstr "%(uid)s 已分配给另一个用户"
 
 #: blueprints/ots_api/user_api.py:435 blueprints/ots_api/user_api.py:457
 msgid "LDAP is enabled, please use your LDAP server to manage users"
-msgstr ""
+msgstr "LDAP 已启用，请使用您的 LDAP 服务器管理用户"
 
 #: blueprints/ots_api/user_api.py:488
 msgid "LDAP is enabled, please use your LDAP server to manage groups"
-msgstr ""
+msgstr "LDAP 已启用，请使用您的 LDAP 服务器管理群组"
 
 #: blueprints/ots_api/user_api.py:498
 msgid "Please provide a username"
-msgstr ""
+msgstr "请提供用户名"
 
 #: blueprints/ots_api/user_api.py:565
 msgid "Please provide a list of groups, a username, and a direction"
-msgstr ""
+msgstr "请提供组列表、用户名和方向"
 
 #: blueprints/ots_api/user_api.py:582
 #, python-format
 msgid "User %(username)s doesn't exist"
-msgstr ""
+msgstr "用户 %(username)s 不存在"
 
 #: blueprints/ots_api/user_api.py:596
 #, python-format
 msgid "Group %(group_name)s doesn't exist"
-msgstr ""
+msgstr "组 %(group_name)s 不存在"
 
 #: blueprints/ots_api/video_api.py:46
 msgid "Please specify a valid path"
-msgstr ""
+msgstr "请指定有效路径"
 
 #: blueprints/ots_api/video_api.py:72
 #, python-format
 msgid "Invalid recording_id: %(recording_id)s"
-msgstr ""
+msgstr "无效的录制 ID：%(recording_id)s"
 
 #: blueprints/ots_api/video_api.py:97
 msgid "Recording not found"
-msgstr ""
+msgstr "未找到录制内容"
 
 #~ msgid "No token found for %s(username)s"
 #~ msgstr ""
