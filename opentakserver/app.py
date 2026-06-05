@@ -139,7 +139,6 @@ def init_extensions(app):
         },
         supports_credentials=True,
     )
-    flask_wtf.CSRFProtect(app)
 
     socketio_logger = False
     if app.config.get("DEBUG"):
@@ -318,8 +317,6 @@ def create_app(cli=True):
             )
             db.init_app(app)
             Migrate(app, db)
-
-        flask_wtf.CSRFProtect(app)
 
         try:
             fsqla.FsModels.set_db_info(db)
