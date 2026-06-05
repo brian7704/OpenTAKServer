@@ -52,8 +52,35 @@ class FederationConnection(db.Model):
         self.federate_id = form.federate_id.data
         self.fallback_connection = form.fallback_connection.data
         self.use_token_auth = form.use_token_auth.data
-        self.auth_token_type = form.auth_token_type.data
+        self.auth_token_type = form.auth_token_type.data.upper()
         self.auth_token = form.auth_token.data
         self.last_error = form.last_error.data
         self.description = form.description.data
         self.uid = str(uuid.uuid4())
+
+    def serialize(self):
+        return {
+            "display_name": self.display_name,
+            "address": self.address,
+            "port": self.port,
+            "enabled": self.enabled,
+            "protocol_version": self.protocol_version,
+            "reconnect_interval": self.reconnect_interval,
+            "unlimited_retries": self.unlimited_retries,
+            "max_retries": self.max_retries,
+            "federate_id": self.federate_id,
+            "fallback_connection": self.fallback_connection,
+            "use_token_auth": self.use_token_auth,
+            "auth_token_type": self.auth_token_type,
+            "auth_token": self.auth_token,
+            "last_error": self.last_error,
+            "description": self.description,
+            "uid": self.uid,
+        }
+
+    def to_json(self):
+        return_value = self.serialize()
+        return_value["id"] = self.id
+        return_value["auth_token_type"] = str(self.auth_token_type)
+        return_value["federate"] = self.federate.to_json()
+        return return_value

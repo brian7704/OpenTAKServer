@@ -51,7 +51,7 @@ def get_tokens():
     query = search(query, FederateToken, "archives")
     query = search(query, FederateToken, "notes")
 
-    return paginate(query)
+    return paginate(query, FederateToken)
 
 
 @roles_required("administrator")
@@ -128,7 +128,18 @@ def get_federations():
     query = search(query, FederationConnection, "enabled")
     query = search(query, FederationConnection, "protocol_version")
 
-    return paginate(query)
+    return paginate(query, FederationConnection)
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/all")
+def get_all_federations():
+    federation_connections = db.session.execute(db.session.query(FederationConnection)).scalars()
+    return_value = []
+    for federation_connection in federation_connections:
+        return_value.append(federation_connection.to_json())
+
+    return jsonify({"success": True, "results": return_value})
 
 
 @roles_required("administrator")
@@ -144,15 +155,19 @@ def create_federation():
         return jsonify({"success": False, "error": form.errors}), 400
 
     try:
-        fed_connection = FederationConnection().from_wtforms(form)
+        fed_connection = FederationConnection()
+        fed_connection.from_wtforms(form)
+        logger.error(fed_connection.to_json())
         db.session.add(fed_connection)
         db.session.commit()
     except BaseException as e:
+        logger.error(f"Failed to create connection: {e}")
+        logger.debug(traceback.format_exc())
         return (
             jsonify(
                 {
                     "success": False,
-                    "error": gettext("Failed to create connection: %(error)s", e=str(e)),
+                    "error": gettext("Failed to create connection: %(error)s", error=str(e)),
                 }
             ),
             500,
@@ -242,6 +257,18 @@ def get_federates():
     query = search(query, Federate, "serial_number")
 
     return paginate(query, Federate)
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/federate/all")
+def get_all_federates():
+    federates = db.session.execute(db.session.query(Federate)).scalars()
+    return_value = []
+
+    for federate in federates:
+        return_value.append(federate.to_json())
+
+    return jsonify({"success": True, "results": return_value})
 
 
 @roles_required("administrator")
@@ -337,7 +364,6 @@ def upload_federation_certificate():
 
     cert_file.stream.seek(0)
     cert_bytes = cert_file.stream.read()
-    logger.debug(f"Certificate: {cert_bytes} {type(cert_bytes)}")
 
     try:
         cert = x509.load_pem_x509_certificate(cert_bytes, default_backend())

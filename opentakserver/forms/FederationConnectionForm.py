@@ -18,7 +18,7 @@ class FederationConnectionForm(FlaskForm):
         default=False, false_values=false_values, validators=[Optional()]
     )
     max_retries = IntegerField(default=3, validators=[Optional()])
-    federate_id: IntegerField(validators=[DataRequired()])
+    federate_id = IntegerField(validators=[DataRequired()])
     fallback_connection = IntegerField(validators=[Optional()])
     use_token_auth = BooleanField(default=False, false_values=false_values, validators=[Optional()])
     auth_token_type = StringField(default=None, validators=[Optional()])

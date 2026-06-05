@@ -69,4 +69,6 @@ class Federate(db.Model):
         }
 
     def to_json(self):
-        return self.serialize()
+        return_value = self.serialize()
+        return_value["id"] = self.id
+        return return_value
