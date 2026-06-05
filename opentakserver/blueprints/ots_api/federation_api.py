@@ -1,17 +1,21 @@
 import datetime
 import os
 import pathlib
-import shutil
 import traceback
+
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
 
 import jwt
 from flask import Blueprint, request, jsonify, current_app as app, send_from_directory
 from flask_login import current_user
 from flask_security import roles_required
 from flask_babel import gettext
+from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError
 from werkzeug.datastructures import ImmutableMultiDict
 
-from forms.FederateForm import FederateForm
+from opentakserver.forms.FederateForm import FederateForm
 from opentakserver.models.Federate import Federate
 from opentakserver.blueprints.ots_api.api import paginate, search, change_config_setting
 from opentakserver.extensions import db, logger
@@ -197,7 +201,7 @@ def get_federation_certificate():
 
 
 @roles_required("administrator")
-@federation_blueprint.route("/api/federation/certificate", methods=["POST", "PATCH"])
+@federation_blueprint.route("/api/federation/certificate", methods=["PATCH"])
 def regenerate_federation_certificate():
     """
     Regenerates the federation certificate. <b>THIS WILL DELETE THE OLD FEDERATION CERTIFICATE!</b> You will need to re-upload
@@ -229,7 +233,7 @@ def regenerate_federation_certificate():
 
 
 @roles_required("administrator")
-@federation_blueprint.route("/api/federate")
+@federation_blueprint.route("/api/federation/federate")
 def get_federates():
     query = db.session.query(Federate)
     query = search(query, Federate, "name")
@@ -241,20 +245,115 @@ def get_federates():
 
 
 @roles_required("administrator")
-@federation_blueprint.route("/api/federate", methods=["POST"])
+@federation_blueprint.route("/api/federation/federate", methods=["POST"])
 def add_federate():
     form = FederateForm(formdata=ImmutableMultiDict(request.json))
     if form.validate():
         federate = Federate()
         federate.from_wtf(form)
 
+        if not federate.certificate_file:
+            return (
+                jsonify({"success": False, "error": gettext("Certificate file is required")}),
+                400,
+            )
+        if not os.path.exists(
+            os.path.join(
+                app.config.get("OTS_DATA_FOLDER"), "federation", str(federate.certificate_file)
+            )
+        ):
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": gettext(
+                            "Cannot find certificate file %(cert_file)s",
+                            cert_file=federate.certificate_file,
+                        ),
+                    }
+                ),
+                400,
+            )
+        if not federate.issuer or not federate.subject or not federate.serial_number:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": gettext("Serial number, subject, and issuer are required"),
+                    }
+                ),
+                400,
+            )
+
         try:
             db.session.add(federate)
             db.session.commit()
+            return jsonify({"success": True, "federate": federate.to_json()}), 200
+        except IntegrityError:
+            db.session.rollback()
+            db.session.execute(
+                update(Federate)
+                .where(Federate.serial_number == federate.serial_number)
+                .values(**federate.serialize())
+            )
+            db.session.commit()
+            return jsonify({"success": True, "federate": federate.to_json()}), 200
         except BaseException as e:
             logger.error(f"Failed to add federation: {e}")
             logger.debug(traceback.format_exc())
             return jsonify({"success": False, "error": str(e)}), 500
 
     else:
-        return jsonify({"success": True, "error": form.errors}), 200
+        return jsonify({"success": False, "error": form.errors}), 400
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/certificate", methods=["POST"])
+def upload_federation_certificate():
+    """
+    Uploads a new federate certificate
+    """
+    # application/x-pem-file
+    cert_file = request.files.get("cert_file")
+    if not cert_file:
+        return jsonify({"success": False, "error": gettext("No file uploaded")}), 400
+
+    if (
+        cert_file.mimetype != "application/x-x509-ca-cert"
+        and cert_file.mimetype != "application/x-pem-file"
+    ):
+        return (
+            jsonify({"success": False, "error": gettext("Certificates must be in PEM format")}),
+            400,
+        )
+
+    pathlib.Path(os.path.join(app.config.get("OTS_DATA_FOLDER"), "federation")).mkdir(
+        parents=True, exist_ok=True
+    )
+
+    cert_file.save(
+        os.path.join(app.config.get("OTS_DATA_FOLDER"), "federation", f"{cert_file.filename}")
+    )
+
+    cert_file.stream.seek(0)
+    cert_bytes = cert_file.stream.read()
+    logger.debug(f"Certificate: {cert_bytes} {type(cert_bytes)}")
+
+    try:
+        cert = x509.load_pem_x509_certificate(cert_bytes, default_backend())
+    except BaseException as e:
+        logger.error(f"Failed to load certificate: {e}")
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    return (
+        jsonify(
+            {
+                "success": True,
+                "certificate_file": cert_file.filename,
+                "issuer": cert.issuer.rfc4514_string(),
+                "subject": cert.subject.rfc4514_string(),
+                "serial_number": str(cert.serial_number),
+            }
+        ),
+        200,
+    )
