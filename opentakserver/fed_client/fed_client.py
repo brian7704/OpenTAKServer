@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import sys
@@ -12,6 +13,29 @@ from flask import Flask, jsonify
 from flask_security import SQLAlchemyUserDatastore
 from flask_security.models import fsqla
 
+from opentakserver.models.CoT import CoT
+from opentakserver.models.CasEvac import CasEvac
+from opentakserver.models.ZMIST import ZMIST
+from opentakserver.models.Chatrooms import Chatroom
+from opentakserver.models.ChatroomsUids import ChatroomsUids
+from opentakserver.models.DataPackage import DataPackage
+from opentakserver.models.Certificate import Certificate
+from opentakserver.models.EUDStats import EUDStats
+from opentakserver.models.DeviceProfiles import DeviceProfiles
+from opentakserver.models.VideoStream import VideoStream
+from opentakserver.models.VideoRecording import VideoRecording
+from opentakserver.models.RBLine import RBLine
+from opentakserver.models.Point import Point
+from opentakserver.models.Marker import Marker
+from opentakserver.models.EUD import EUD
+from opentakserver.models.Alert import Alert
+from opentakserver.models.Federate import Federate
+from opentakserver.models.Mission import Mission
+from opentakserver.models.MissionLogEntry import MissionLogEntry
+from opentakserver.models.MissionContentMission import MissionContentMission
+from opentakserver.models.MissionChange import MissionChange
+from opentakserver.models.MissionInvitation import MissionInvitation
+from opentakserver.models.GroupMission import GroupMission
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.extensions import logger, db
 from opentakserver.models.FederationConnection import FederationConnection
@@ -94,61 +118,62 @@ def status():
     return jsonify({"status": "ok"})
 
 
-def main():
-    connections = db.session.execute(db.session.query(FederationConnection)).all()
+async def main():
+    with app.app_context():
+        connections = db.session.execute(db.session.query(FederationConnection)).all()
 
-    for connection in connections:
+        for connection in connections:
 
-        if os.fork() == 0:
-            connection: FederationConnection = connection[0]
+            if os.fork() == 0:
+                connection: FederationConnection = connection[0]
 
-            channel_creds = grpc.ssl_channel_credentials(
-                open(
-                    os.path.join(
-                        app.config.get("OTS_CA_FOLDER"),
-                        "certs",
-                        "opentakserver",
-                        "opentakserver.pem",
-                    ),
-                    "rb",
-                ).read(),
-                open(
-                    os.path.join(
-                        app.config.get("OTS_CA_FOLDER"),
-                        "certs",
-                        "opentakserver",
-                        "opentakserver.nopass.key",
-                    ),
-                    "rb",
-                ).read(),
-                open(
-                    os.path.join(
-                        app.config.get("OTS_CA_FOLDER"),
-                        "certs",
-                        f"{connection.certificate.server_address}.pem",
-                    ),
-                    "rb",
-                ).read(),
-            )
+                channel_creds = grpc.ssl_channel_credentials(
+                    open(
+                        os.path.join(
+                            app.config.get("OTS_CA_FOLDER"),
+                            "certs",
+                            "opentakserver",
+                            "opentakserver.pem",
+                        ),
+                        "rb",
+                    ).read(),
+                    open(
+                        os.path.join(
+                            app.config.get("OTS_CA_FOLDER"),
+                            "certs",
+                            "opentakserver",
+                            "opentakserver.nopass.key",
+                        ),
+                        "rb",
+                    ).read(),
+                    open(
+                        os.path.join(
+                            app.config.get("OTS_CA_FOLDER"),
+                            "certs",
+                            f"{connection.federate.certificate_file}",
+                        ),
+                        "rb",
+                    ).read(),
+                )
 
-            # https://github.com/grpc/grpc/blob/master/examples/python/hellostreamingworld/async_greeter_client.py
+                # https://github.com/grpc/grpc/blob/master/examples/python/hellostreamingworld/async_greeter_client.py
 
-            with grpc.aio.secure_channel(
-                f"{connection.address}:{connection.port}", channel_creds, compression=True
-            ) as chanel:
-                stub = fig_pb2_grpc.FederatedChannelStub(chanel)
-                identity = fig_pb2.Identity()
-                identity.name = connection.display_name
-                identity.uid = str(uuid.uuid4())
-                identity.description = connection.description
-                identity.type = 3
-                identity.serverId = connection.uid
-                subscription = fig_pb2.Subscription()
-                subscription.identity.CopyFrom(identity)
+                with grpc.aio.secure_channel(
+                    f"{connection.address}:{connection.port}", channel_creds, compression=True
+                ) as channel:
+                    stub = fig_pb2_grpc.FederatedChannelStub(channel)
+                    identity = fig_pb2.Identity()
+                    identity.name = connection.display_name
+                    identity.uid = str(uuid.uuid4())
+                    identity.description = connection.description
+                    identity.type = 3
+                    identity.serverId = connection.uid
+                    subscription = fig_pb2.Subscription()
+                    subscription.identity.CopyFrom(identity)
 
-                async for response in stub.ClientEventStream(subscription):
-                    logger.warning(f"ClientEventStream response {response}")
+                    async for response in stub.ClientEventStream(subscription):
+                        logger.warning(f"ClientEventStream response {response}")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
