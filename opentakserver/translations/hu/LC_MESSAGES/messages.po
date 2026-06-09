@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-06-08 21:20-0400\n"
-"PO-Revision-Date: 2026-06-09 14:05+0000\n"
+"PO-Revision-Date: 2026-06-09 23:59+0000\n"
 "Last-Translator: Visnitz Tamás <valami@adi.hu>\n"
 "Language-Team: Hungarian <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/hu/>\n"
@@ -52,11 +52,11 @@ msgstr "Érvénytelen fájlkiterjesztés (%(extension)s)"
 #: blueprints/marti_api/data_package_marti_api.py:385
 #, python-format
 msgid "File not found: %(filename)s}"
-msgstr "%(filename)s Fájl nem található"
+msgstr "%(filename)s fájl nem található"
 
 #: blueprints/marti_api/group_marti_api.py:40
 msgid "Groups are only supported on SSL connections"
-msgstr "A csoportok kizárólag SSL-kapcsolattal támogatottak (%(fájlnév)s)"
+msgstr "A csoportok kizárólag SSL-kapcsolattal támogatottak %(filename)s"
 
 #: blueprints/marti_api/group_marti_api.py:109
 #: blueprints/marti_api/group_marti_api.py:167
@@ -200,7 +200,7 @@ msgstr "Nem található végberendezés (EUD) a %(invitee)s hívójellel"
 #: blueprints/marti_api/mission_marti_api.py:873
 #, python-format
 msgid "No user found with username %(invitee)s"
-msgstr "Nem található felhasználó ezzel a felhasználónévvel: %(meghívott)s"
+msgstr "Nem található felhasználó ezzel a felhasználónévvel: %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:889
 #, python-format
@@ -242,7 +242,7 @@ msgstr ""
 #: blueprints/marti_api/mission_marti_api.py:1168
 #: blueprints/ots_api/marker_api.py:86
 msgid "Please provide a UID"
-msgstr "Kérjük, adjon meg egy egyedi azonosítót (UID)"
+msgstr "Kérjük, adjon meg egy egyedi végfelhasználói azonosítót (UID)"
 
 #: blueprints/marti_api/mission_marti_api.py:1176
 #, python-format
@@ -339,7 +339,7 @@ msgstr "Érvénytelen tanúsítvány"
 
 #: blueprints/marti_api/video_marti_api.py:209
 msgid "Video not found"
-msgstr "Videó nem található"
+msgstr "A videó nem található"
 
 #: blueprints/marti_api/video_marti_api.py:216
 #: blueprints/ots_api/group_api.py:209 blueprints/ots_api/user_api.py:521
@@ -369,7 +369,7 @@ msgstr "A tanúsítvány már létezik ehhez a felhasználónévhez: %(username)
 
 #: blueprints/ots_api/api.py:371
 msgid "Please specify a callsign"
-msgstr "Kérjük, adjon meg egy hívójelet"
+msgstr "Kérjük, adj meg egy hívójelet"
 
 #: blueprints/ots_api/casevac_api.py:134
 #, python-format
@@ -381,362 +381,399 @@ msgid ""
 "Server connection data packages can't be installed on enrollment or "
 "connection"
 msgstr ""
+"A szerverkapcsolati adatcsomagok nem telepíthetők regisztráció vagy "
+"csatlakozás közben"
 
 #: blueprints/ots_api/data_package_api.py:83
 msgid "Invalid/unknown hash"
-msgstr ""
+msgstr "Érvénytelen vagy ismeretlen ujjlenyomat (hash)"
 
 #: blueprints/ots_api/data_package_api.py:134
 msgid "Please provide a data package hash"
-msgstr ""
+msgstr "Kérjük, add meg az adatcsomag ujjlenyomatát (hash)"
 
 #: blueprints/ots_api/data_package_api.py:150
 #, python-format
 msgid "Data package with hash '%(hash)s' not found"
-msgstr ""
+msgstr "Nem található a(z) '%(hash)s' hash-sel rendelkező adatcsomag"
 
 #: blueprints/ots_api/device_profile_api.py:68
 msgid "Please specify the preference_key"
-msgstr ""
+msgstr "Kérjük, add meg a preference_key értéket"
 
 #: blueprints/ots_api/device_profile_api.py:82
 #, python-format
 msgid "Unknown preference_key: %(preference_key)s"
-msgstr ""
+msgstr "ismeretlen preference_key: %(preference_key)s"
 
 #: blueprints/ots_api/group_api.py:42 blueprints/ots_api/group_api.py:125
 #: blueprints/ots_api/group_api.py:166
 msgid "LDAP is enabled. Please view and edit groups on your LDAP server"
 msgstr ""
+"Az LDAP engedélyezve van. Csoportok megtekintése és szerkesztése az LDAP-"
+"kiszolgálón lehetséges"
 
 #: blueprints/ots_api/group_api.py:182
 msgid "Please provide the username, group name, and direction"
 msgstr ""
+"Kérjük, add meg a felhasználónevet, csoportnevet és a kommunikáció irányát"
 
 #: blueprints/ots_api/group_api.py:197
 #, python-format
 msgid "Invalid direction: %(direction)s"
-msgstr ""
+msgstr "Érvénytelen adat irány: %(direction)s"
 
 #: blueprints/ots_api/group_api.py:217
 #, python-format
 msgid "Group %(group_name)s not found"
-msgstr ""
+msgstr "A(z) %(group_name)s csoport nem található"
 
 #: blueprints/ots_api/group_api.py:250
 #, python-format
 msgid "Failed to remove %(username)s from %(group_name)s: %(e)s"
 msgstr ""
+"Nem sikerült eltávolítani a(z) %(username)s felhasználót a(z) %(group_name)s "
+"csoportból: %(e)s"
 
 #: blueprints/ots_api/group_api.py:274
 msgid "LDAP is enabled, please use your LDAP server to add groups"
 msgstr ""
+"Az LDAP engedélyezve van, csoportok hozzáadásához használd az LDAP-"
+"kiszolgálót"
 
 #: blueprints/ots_api/group_api.py:281
 msgid "Missing name"
-msgstr ""
+msgstr "Hiányzó név"
 
 #: blueprints/ots_api/group_api.py:303
 #, python-format
 msgid "%(name)s group already exists"
-msgstr ""
+msgstr "A %(name)s csoport már létezik"
 
 #: blueprints/ots_api/group_api.py:315
 #, python-format
 msgid "Failed to add %(name)s group: %(e)s"
-msgstr ""
+msgstr "Nem sikerült hozzáadni a(z) %(name)s csoportot: %(e)s"
 
 #: blueprints/ots_api/group_api.py:342 blueprints/ots_api/user_api.py:562
 msgid "LDAP is enabled, please use your LDAP server to add users to groups"
 msgstr ""
+"Az LDAP engedélyezve van, használd az LDAP-kiszolgálót felhasználók "
+"csoportokhoz adásához"
 
 #: blueprints/ots_api/group_api.py:358
 msgid "Please provide a list of users, group name, and direction"
 msgstr ""
+"Kérjük, add meg a felhasználók listáját, a csoport nevét és az adatok irányát"
 
 #: blueprints/ots_api/group_api.py:374 blueprints/ots_api/user_api.py:249
 #: blueprints/ots_api/user_api.py:299 blueprints/ots_api/user_api.py:365
 #: blueprints/ots_api/user_api.py:403
 #, python-format
 msgid "User %(username)s does not exist"
-msgstr ""
+msgstr "A(z) %(username)s felhasználó nem létezik"
 
 #: blueprints/ots_api/group_api.py:387
 #, python-format
 msgid "Group %(group_name)s does not exist"
-msgstr ""
+msgstr "A(z) %(group_name)s csoport nem létezik"
 
 #: blueprints/ots_api/group_api.py:417
 msgid "LDAP is enabled, please use your LDAP server to delete groups"
 msgstr ""
+"Az LDAP engedélyezve van, csoportok törléséhez használd az LDAP-kiszolgálót"
 
 #: blueprints/ots_api/group_api.py:425
 msgid "Missing group name"
-msgstr ""
+msgstr "Hiányzó csoportnév"
 
 #: blueprints/ots_api/group_api.py:430
 msgid "The __ANON__ group cannot be deleted"
-msgstr ""
+msgstr "A(z) __ANON__ csoport nem törölhető"
 
 #: blueprints/ots_api/group_api.py:442
 #, python-format
 msgid "No such group: %(group_name)s"
-msgstr ""
+msgstr "Nincs ilyen csoport: %(group_name)s"
 
 #: blueprints/ots_api/group_api.py:463
 #, python-format
 msgid "Failed to delete %(group_name)s: %(e)s"
-msgstr ""
+msgstr "Nem sikerült törölni %(group_name)s: %(e)s"
 
 #: blueprints/ots_api/language_api.py:13
 msgid "This is a test"
-msgstr ""
+msgstr "Ez egy teszt"
 
 #: blueprints/ots_api/marker_api.py:48
 msgid "Please provide a latitude and longitude"
-msgstr ""
+msgstr "Kérjük, add meg a szélességi és hosszúsági koordinátákat"
 
 #: blueprints/ots_api/marker_api.py:58
 #, python-format
 msgid "Invalid latitude: %(latitude)s"
-msgstr ""
+msgstr "Érvénytelen szélességi fok: %(latitude)s"
 
 #: blueprints/ots_api/marker_api.py:70
 #, python-format
 msgid "Invalid longitude: %(longitude)s"
-msgstr ""
+msgstr "Érvénytelen hosszúsági fok: %(longitude)s"
 
 #: blueprints/ots_api/marker_api.py:80
 #, python-format
 msgid "Failed to parse lat/lon: %(e)s"
-msgstr ""
+msgstr "Nem sikerült elemezni a szélességi/hosszúsági fokot: %(e)s"
 
 #: blueprints/ots_api/marker_api.py:88
 msgid "Please provide a name"
-msgstr ""
+msgstr "Kérjük, adj meg egy nevet"
 
 #: blueprints/ots_api/marker_api.py:96
 msgid "Invalid UID. UIDs need to be in UUID4 format"
 msgstr ""
+"Érvénytelen az UID. Az egyedi azonosítóknak UUID4 formátumúaknak kell lenniük"
 
 #: blueprints/ots_api/marker_api.py:112
 #, python-format
 msgid "Invalid type: %(cot_type)s"
-msgstr ""
+msgstr "Érvénytelen típus: %(cot_type)s"
 
 #: blueprints/ots_api/marker_api.py:269
 #, python-format
 msgid "Failed to parse data: %(e)s"
-msgstr ""
+msgstr "Nem sikerült elemezni az adatokat: %(e)s"
 
 #: blueprints/ots_api/marker_api.py:283
 msgid "Please provide the UID of the marker to delete"
 msgstr ""
+"Kérjük, add meg a törölni kívánt jelölő (marker) egyedi azonosítóját (UID)"
 
 #: blueprints/ots_api/marker_api.py:294
 msgid "Unknown UID"
-msgstr ""
+msgstr "Ismeretlen azonosító (UID)"
 
 #: blueprints/ots_api/mediamtx_api.py:305
 #: blueprints/ots_api/mediamtx_api.py:404
 msgid "Please specify a path name"
-msgstr ""
+msgstr "Kérjük, adj meg egy elérési utat"
 
 #: blueprints/ots_api/mediamtx_api.py:309
 msgid "Path cannot begin with a slash"
-msgstr ""
+msgstr "Az elérési út nem kezdődhet perjellel"
 
 #: blueprints/ots_api/mediamtx_api.py:327
 #: blueprints/ots_api/mediamtx_api.py:413
 #, python-format
 msgid "Path %(path)s not found"
-msgstr ""
+msgstr "%(path)s elérési út nem található"
 
 #: blueprints/ots_api/mediamtx_api.py:421
 msgid "MediaMTX is not running"
-msgstr ""
+msgstr "A MediaMTX (szerver) nem fut"
 
 #: blueprints/ots_api/meshtastic_api.py:167
 msgid "Please provide the URL of the channel to delete"
-msgstr ""
+msgstr "Kérjük, add meg a törlendő csatorna URL-címét"
 
 #: blueprints/ots_api/mission_api.py:163 blueprints/ots_api/mission_api.py:283
 #, python-format
 msgid "Invalid property: %(key)s"
-msgstr ""
+msgstr "Érvénytelen tulajdonság: %(key)s"
 
 #: blueprints/ots_api/mission_api.py:255
 msgid "Only an admin or the mission creator can change this mission"
 msgstr ""
+"Csak egy adminisztrátor vagy a küldetés létrehozója szerkesztheti ezt a "
+"küldetést"
 
 #: blueprints/ots_api/mission_api.py:300
 msgid "Please specify a mission name"
-msgstr ""
+msgstr "Kérjük, add meg a küldetés nevét"
 
 #: blueprints/ots_api/mission_api.py:406
 msgid "Please provide the mission password"
-msgstr ""
+msgstr "Kérlek, add meg a küldetés jelszavát"
 
 #: blueprints/ots_api/plugin_api.py:51
 msgid "Server plugins must be zip, whl, or tar.gz files"
 msgstr ""
+"A szerver pluginoknak zip, whl vagy tar.gz kiterjesztésű fájloknak kell "
+"lenniük"
 
 #: blueprints/ots_api/plugin_api.py:66 blueprints/ots_api/plugin_api.py:99
 #: blueprints/ots_api/plugin_api.py:115 blueprints/ots_api/plugin_api.py:130
 msgid "Plugins are disabled"
-msgstr ""
+msgstr "A bővítmények le vannak tiltva"
 
 #: blueprints/ots_api/plugin_api.py:92
 #, python-format
 msgid "Plugin %(plugin_name)s not found"
-msgstr ""
+msgstr "A(z) %(plugin_name)s bővítmény nem található"
 
 #: blueprints/ots_api/token_api.py:194
 #, python-format
 msgid "No token found for %(username)s"
-msgstr ""
+msgstr "Nem található token a következőhöz: %(username)s"
 
 #: blueprints/ots_api/token_api.py:225
 #, python-format
 msgid "Failed to delete token: %(e)s"
-msgstr ""
+msgstr "Nem sikerült törölni a(z) %(e)s tokent"
 
 #: blueprints/ots_api/user_api.py:37
 msgid "LDAP is enabled, please use your LDAP server to create users"
 msgstr ""
+"Az LDAP engedélyezve van, felhasználók létrehozásához használd az LDAP-"
+"kiszolgálót"
 
 #: blueprints/ots_api/user_api.py:53
 msgid "Passwords do not match"
-msgstr ""
+msgstr "A jelszavak nem egyeznek meg"
 
 #: blueprints/ots_api/user_api.py:67 blueprints/ots_api/user_api.py:351
 #, python-format
 msgid "Role %(role)s does not exist"
-msgstr ""
+msgstr "A(z) %(role)s szerepkör nem létezik"
 
 #: blueprints/ots_api/user_api.py:78
 msgid "Only administrators can add users to the administrators role"
-msgstr ""
+msgstr "Csak az adminisztrátorok adhatnak hozzá más adminisztrátorokat"
 
 #: blueprints/ots_api/user_api.py:101
 #, python-format
 msgid "User %(username)s already exists"
-msgstr ""
+msgstr "A(z) %(username)s felhasználó már létezik"
 
 #: blueprints/ots_api/user_api.py:117
 msgid "LDAP is enabled, please use your LDAP server to delete users"
 msgstr ""
+"Az LDAP engedélyezve van, a felhasználók törléséhez használd az LDAP-"
+"kiszolgálót"
 
 #: blueprints/ots_api/user_api.py:128
 msgid "You can't delete your own account"
-msgstr ""
+msgstr "Nem törölheted a saját fiókodat"
 
 #: blueprints/ots_api/user_api.py:141
 #, python-format
 msgid "Failed to delete user: %(e)s"
-msgstr ""
+msgstr "Nem sikerült törölni a(z) %(e)s felhasználót"
 
 #: blueprints/ots_api/user_api.py:158
 msgid "LDAP is enabled, please use your LDAP server to reset passwords"
 msgstr ""
+"Az LDAP engedélyezve van, használd az LDAP-kiszolgálót a jelszavak "
+"visszaállításához"
 
 #: blueprints/ots_api/user_api.py:171
 msgid "Please specify a username and new password"
-msgstr ""
+msgstr "Kérjük, adj meg egy felhasználónevet és egy új jelszót"
 
 #: blueprints/ots_api/user_api.py:182
 #, python-format
 msgid "Your password must be at least %(characters)s characters long"
-msgstr ""
+msgstr "A jelszavadnak legalább %(characters)s karakter hosszúnak kell lennie"
 
 #: blueprints/ots_api/user_api.py:211
 #, python-format
 msgid "Could not find user %(username)s"
-msgstr ""
+msgstr "Nem található a(z) %(username)s felhasználó"
 
 #: blueprints/ots_api/user_api.py:227
 msgid "LDAP is enabled, please use your LDAP server to deactivate users"
 msgstr ""
+"Az LDAP engedélyezve van, kérjük, az LDAP-kiszolgáló segítségével tiltsd le "
+"a felhasználókat"
 
 #: blueprints/ots_api/user_api.py:238
 msgid "Please specify the username to deactivate"
-msgstr ""
+msgstr "Kérjük, add meg a felhasználónevet a deaktiváláshoz"
 
 #: blueprints/ots_api/user_api.py:263
 #, python-format
 msgid "%(username)s is already deactivated"
-msgstr ""
+msgstr "A(z) %(username)s már deaktiválva van"
 
 #: blueprints/ots_api/user_api.py:277
 msgid "LDAP is enabled, please use your LDAP server to activate users"
 msgstr ""
+"Az LDAP engedélyezve van, használd az LDAP-kiszolgálót a felhasználók "
+"aktiválásához"
 
 #: blueprints/ots_api/user_api.py:288
 msgid "Please specify the username to activate"
-msgstr ""
+msgstr "Kérjük, add meg a felhasználónevet az aktiváláshoz"
 
 #: blueprints/ots_api/user_api.py:313
 #, python-format
 msgid "%(username)s is already activated"
-msgstr ""
+msgstr "A(z) %(username)s már aktiválva van"
 
 #: blueprints/ots_api/user_api.py:327
 msgid "LDAP is enabled, please use your LDAP server to assign roles"
 msgstr ""
+"Az LDAP engedélyezve van, a szerepkörök kiosztásához használd az LDAP-"
+"kiszolgálót"
 
 #: blueprints/ots_api/user_api.py:340
 msgid "Please specify a username and roles"
-msgstr ""
+msgstr "Kérjük, adj meg egy felhasználónevet és a szerepkörét"
 
 #: blueprints/ots_api/user_api.py:414
 #, python-format
 msgid "EUD %(eud_uid)s not found"
-msgstr ""
+msgstr "A(z) %(eud_uid)s végfelhasználói eszköz (EUD) nem található"
 
 #: blueprints/ots_api/user_api.py:427
 #, python-format
 msgid "%(uid)s is already assigned to another user"
-msgstr ""
+msgstr "A(z) %(uid)s már egy másik felhasználóhoz van rendelve"
 
 #: blueprints/ots_api/user_api.py:449 blueprints/ots_api/user_api.py:471
 msgid "LDAP is enabled, please use your LDAP server to manage users"
 msgstr ""
+"Az LDAP engedélyezve van, használd az LDAP-kiszolgálót a felhasználók "
+"kezeléséhez"
 
 #: blueprints/ots_api/user_api.py:502
 msgid "LDAP is enabled, please use your LDAP server to manage groups"
 msgstr ""
+"Az LDAP engedélyezve van, használd az LDAP-kiszolgálót a csoportok "
+"kezeléséhez"
 
 #: blueprints/ots_api/user_api.py:511
 msgid "Please provide a username"
-msgstr ""
+msgstr "Kérjük, adj meg egy felhasználónevet"
 
 #: blueprints/ots_api/user_api.py:579
 msgid "Please provide a list of groups, a username, and a direction"
 msgstr ""
+"Kérjük, add meg a csoportok listáját, a felhasználónevet és az kommunikációs "
+"irányt"
 
 #: blueprints/ots_api/user_api.py:595
 #, python-format
 msgid "User %(username)s doesn't exist"
-msgstr ""
+msgstr "A(z) %(username)s felhasználó nem létezik"
 
 #: blueprints/ots_api/user_api.py:610
 #, python-format
 msgid "Group %(group_name)s doesn't exist"
-msgstr ""
+msgstr "A(z) %(group_name)s csoport nem létezik"
 
 #: blueprints/ots_api/video_api.py:46
 msgid "Please specify a valid path"
-msgstr ""
+msgstr "Kérjük, adj meg egy érvényes elérési utat"
 
 #: blueprints/ots_api/video_api.py:73
 #, python-format
 msgid "Invalid recording_id: %(recording_id)s"
-msgstr ""
+msgstr "Érvénytelen felvételazonosító: %(recording_id)s"
 
 #: blueprints/ots_api/video_api.py:97
 msgid "Recording not found"
-msgstr ""
+msgstr "A felvétel nem található"
 
 #: eud_handler/eud_handler.py:34
 msgid "UDP Server"
-msgstr ""
+msgstr "UDP-kiszolgáló"
