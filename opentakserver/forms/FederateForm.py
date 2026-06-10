@@ -27,3 +27,4 @@ class FederateForm(FlaskForm):
     issuer = StringField(validators=[DataRequired()])
     subject = StringField(validators=[DataRequired()])
     serial_number = StringField(validators=[DataRequired()])
+    enabled = BooleanField(validators=[Optional()])

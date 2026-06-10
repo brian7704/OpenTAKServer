@@ -1,3 +1,4 @@
+from opentakserver.forms.FederateForm import FederateForm
 from sqlalchemy import JSON, TEXT, DateTime, ForeignKey, Integer, String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -41,11 +42,13 @@ class Federate(db.Model):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, false_values=false_values)
     federation_connections = relationship("FederationConnection", back_populates="federate")
 
-    def from_wtf(self, form):
+    def from_wtf(self, form: FederateForm):
         self.name = form.name.data
         self.shared_alerts = form.shared_alerts.data
+        self.archive = form.archive.data
         self.federate_group_matching = form.federate_group_matching.data
         self.automatic_group_matching = form.automatic_group_matching.data
+        self.fallback_group_matching = form.fallback_group_matching.data
         self.max_hops = form.max_hops.data
         self.use_group_hop_limiting = form.use_group_hop_limiting.data
         self.notes = form.notes.data
@@ -53,13 +56,16 @@ class Federate(db.Model):
         self.issuer = form.issuer.data
         self.subject = form.subject.data
         self.serial_number = form.serial_number.data
+        self.enabled = form.enabled.data
 
     def serialize(self):
         return {
             "name": self.name,
             "shared_alerts": self.shared_alerts,
+            "archive": self.archive,
             "federate_group_matching": self.federate_group_matching,
             "automatic_group_matching": self.automatic_group_matching,
+            "fallback_group_matching": self.fallback_group_matching,
             "max_hops": self.max_hops,
             "use_group_hop_limiting": self.use_group_hop_limiting,
             "notes": self.notes,
@@ -67,6 +73,7 @@ class Federate(db.Model):
             "issuer": self.issuer,
             "subject": self.subject,
             "serial_number": self.serial_number,
+            "enabled": self.enabled,
         }
 
     def to_json(self):

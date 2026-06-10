@@ -81,6 +81,6 @@ class FederationConnection(db.Model):
     def to_json(self):
         return_value = self.serialize()
         return_value["id"] = self.id
-        return_value["auth_token_type"] = str(self.auth_token_type)
+        return_value["auth_token_type"] = self.auth_token_type.value
         return_value["federate"] = self.federate.to_json()
         return return_value
