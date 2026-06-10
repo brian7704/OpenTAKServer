@@ -38,6 +38,7 @@ class Federate(db.Model):
     issuer: Mapped[str] = mapped_column(String(255))
     subject: Mapped[str] = mapped_column(String(255))
     serial_number: Mapped[str] = mapped_column(String(255), unique=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, false_values=false_values)
     federation_connections = relationship("FederationConnection", back_populates="federate")
 
     def from_wtf(self, form):

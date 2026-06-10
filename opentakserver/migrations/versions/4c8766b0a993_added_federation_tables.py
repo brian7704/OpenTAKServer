@@ -67,6 +67,12 @@ def upgrade():
             nullable=False,
             false_values=(False, "False", "false", ""),
         ),
+        sa.Column(
+            "enabled",
+            sa.Boolean(),
+            nullable=True,
+            false_values=(False, "False", "false", ""),
+        ),
         sa.Column("notes", sa.String(length=255), nullable=True),
         sa.Column("certificate_file", sa.String(length=255), nullable=False),
         sa.Column("issuer", sa.String(length=255), nullable=False),

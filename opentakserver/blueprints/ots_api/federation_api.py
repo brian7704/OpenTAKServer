@@ -157,7 +157,6 @@ def create_federation():
     try:
         fed_connection = FederationConnection()
         fed_connection.from_wtforms(form)
-        logger.error(fed_connection.to_json())
         db.session.add(fed_connection)
         db.session.commit()
     except BaseException as e:
@@ -190,6 +189,15 @@ def delete_federation():
     connection_id = request.args.get("id")
     if not connection_id:
         return jsonify({"success": False, "error": gettext("Missing connection ID")}), 400
+
+    try:
+        FederationConnection.query.filter_by(id=int(connection_id)).delete()
+        db.session.commit()
+        return jsonify({"success": True}), 200
+    except BaseException as e:
+        logger.error(f"Failed to delete connection: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @roles_required("administrator")
@@ -269,6 +277,37 @@ def get_all_federates():
         return_value.append(federate.to_json())
 
     return jsonify({"success": True, "results": return_value})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/federate", methods=["DELETE"])
+def delete_federate():
+    federation_id = request.args.get("id", None)
+    if not federation_id:
+        return jsonify({"success": False, "error": gettext("Please provide a federation ID")}), 400
+
+    try:
+        Federate.query.filter_by(id=int(federation_id)).delete()
+        db.session.commit()
+        return jsonify({"success": True}), 200
+    except BaseException as e:
+        logger.error(f"Failed to delete federation {e}")
+        logger.debug(traceback.format_exc())
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext(
+                        "Cannot delete a federate that is associated with a federation connection"
+                    ),
+                }
+            ),
+            400,
+        )
+    except BaseException as e:
+        logger.error(f"Failed to delete federation {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @roles_required("administrator")
