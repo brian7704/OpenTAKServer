@@ -2,7 +2,6 @@ from opentakserver.forms.FederateForm import FederateForm
 from sqlalchemy import JSON, TEXT, DateTime, ForeignKey, Integer, String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from opentakserver.functions import false_values
 from opentakserver.extensions import db
 from opentakserver.functions import iso8601_string_from_datetime
 
@@ -16,22 +15,17 @@ class Federate(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255))
-    shared_alerts: Mapped[bool] = mapped_column(Boolean, default=True, false_values=false_values)
-    archive: Mapped[bool] = mapped_column(Boolean, default=False, false_values=false_values)
-    federate_group_matching: Mapped[bool] = mapped_column(
-        Boolean, default=True, false_values=false_values
-    )
-    automatic_group_matching: Mapped[bool] = mapped_column(
-        Boolean, default=True, false_values=false_values
-    )
-    fallback_group_matching: Mapped[bool] = mapped_column(
-        Boolean, default=False, false_values=false_values
-    )
+    shared_alerts: Mapped[bool] = mapped_column(Boolean, default=True)
+    archive: Mapped[bool] = mapped_column(Boolean, default=False)
+    federate_group_matching: Mapped[bool] = mapped_column(Boolean, default=True)
+    automatic_group_matching: Mapped[bool] = mapped_column(Boolean, default=True)
+    fallback_group_matching: Mapped[bool] = mapped_column(Boolean, default=False)
     # -1 is takserver's default for no limit
     max_hops: Mapped[int] = mapped_column(Integer, default=-1)
     # When enabled, group hop limiting will be used in place of max hops. Individual group hop limits can be configured on the 'edit groups' page
     use_group_hop_limiting: Mapped[bool] = mapped_column(
-        Boolean, default=False, false_values=false_values
+        Boolean,
+        default=False,
     )
     # takserver notes field says "Notes may contain upper and lower case letters, numbers, spaces and underscores up to 30 characters."
     notes: Mapped[str] = mapped_column(String(255), nullable=True)
@@ -39,7 +33,7 @@ class Federate(db.Model):
     issuer: Mapped[str] = mapped_column(String(255))
     subject: Mapped[str] = mapped_column(String(255))
     serial_number: Mapped[str] = mapped_column(String(255), unique=True)
-    enabled: Mapped[bool] = mapped_column(Boolean, default=True, false_values=false_values)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     federation_connections = relationship("FederationConnection", back_populates="federate")
 
     def from_wtf(self, form: FederateForm):
