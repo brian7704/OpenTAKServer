@@ -160,6 +160,21 @@ class CertificateAuthority:
 
         self.sign_csr(csr_bytes, common_name, server)
 
+        # Include ca.pem in each cert for full chain verification (required by fedhub)
+        command = (
+            f"cat {os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca.pem")} >> {os.path.join(
+                self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name
+            )}.pem"
+        )
+
+        self.logger.debug(command)
+
+        exit_code = subprocess.call(command, shell=True)
+        if exit_code:
+            self.logger.error(f"Failed to create certificate. Exit code {exit_code}")
+            raise Exception(f"Failed to create certificate. Exit code {exit_code}")
+
+
         use_legacy = not subprocess.call("openssl list -providers", shell=True)
 
         if use_legacy:
