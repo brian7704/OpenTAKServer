@@ -397,15 +397,18 @@ def upload_federation_certificate():
         parents=True, exist_ok=True
     )
 
-    cert_file.save(
-        os.path.join(app.config.get("OTS_DATA_FOLDER"), "federation", f"{cert_file.filename}")
-    )
-
     cert_file.stream.seek(0)
     cert_bytes = cert_file.stream.read()
 
     try:
         cert = x509.load_pem_x509_certificate(cert_bytes, default_backend())
+
+        # Use the cert's serial number as the file name to avoid file naming conflicts since most certs will be named ca.pem
+        cert_file.save(
+            os.path.join(
+                app.config.get("OTS_DATA_FOLDER"), "federation", f"{cert.serial_number}.pem"
+            )
+        )
     except BaseException as e:
         logger.error(f"Failed to load certificate: {e}")
         return jsonify({"success": False, "error": str(e)}), 400

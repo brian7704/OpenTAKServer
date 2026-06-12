@@ -1,23 +1,29 @@
-import asyncio
+import argparse
 import logging
 import os
 import sys
+import traceback
 import uuid
-from argparse import gettext
+from logging import Logger
 from logging.handlers import TimedRotatingFileHandler
-
-from pika.channel import Channel
-from pika.spec import Basic, BasicProperties
 
 import colorlog
 import grpc
 import sqlalchemy
 import yaml
-from flask import Flask, jsonify
+from flask import Flask
 from flask_security import SQLAlchemyUserDatastore
 from flask_security.models import fsqla
-from opentakserver.rabbitmq_client import RabbitMQClient
+from opentakserver.models.WebAuthn import WebAuthn
 
+from opentakserver.defaultconfig import DefaultConfig
+
+from opentakserver.proto import fig_pb2_grpc, fig_pb2
+from pika.channel import Channel
+from pika.spec import Basic, BasicProperties
+
+from opentakserver.models.FederationConnection import FederationConnection
+from opentakserver.models.Federate import Federate
 from opentakserver.models.CoT import CoT
 from opentakserver.models.CasEvac import CasEvac
 from opentakserver.models.ZMIST import ZMIST
@@ -41,49 +47,32 @@ from opentakserver.models.MissionContentMission import MissionContentMission
 from opentakserver.models.MissionChange import MissionChange
 from opentakserver.models.MissionInvitation import MissionInvitation
 from opentakserver.models.GroupMission import GroupMission
-from opentakserver.defaultconfig import DefaultConfig
-from opentakserver.extensions import logger, db
-from opentakserver.models.FederationConnection import FederationConnection
-from opentakserver.models.WebAuthn import WebAuthn
-from opentakserver.proto import fig_pb2_grpc, fig_pb2
+from opentakserver.rabbitmq_client import RabbitMQClient
+from opentakserver.extensions import db, logger
 
 
 class FedDaemon(RabbitMQClient):
-    def __init__(self, context, connection_id: int):
+    connection: FederationConnection
+
+    def __init__(self, context, connection_id: int, logger: Logger):
         super().__init__(context)
         self.connection_id = connection_id
+        self.logger = logger
 
-        logger.info("Initializing federation connection")
+        self.logger.info("Initializing federation connection")
 
-        connection = db.session.execute(
-            db.session.query(FederationConnection).where(FederationConnection.id == connection_id)
-        ).first()
+        with self.context:
+            connection = db.session.execute(
+                db.session.query(FederationConnection).where(
+                    FederationConnection.id == connection_id
+                )
+            ).first()
 
-        logger.warning(connection[0].to_json())
+            logger.warning(connection[0].to_json())
 
-        self.connection = connection[0]
-
-        logger.warning("SHIT BALLS")
+            self.connection = connection[0]
 
         self.channel_creds = grpc.ssl_channel_credentials(
-            open(
-                os.path.join(
-                    self.context.app.config.get("OTS_CA_FOLDER"),
-                    "certs",
-                    "opentakserver",
-                    "opentakserver.pem",
-                ),
-                "rb",
-            ).read(),
-            open(
-                os.path.join(
-                    self.context.app.config.get("OTS_CA_FOLDER"),
-                    "certs",
-                    "opentakserver",
-                    "opentakserver.nopass.key",
-                ),
-                "rb",
-            ).read(),
             open(
                 os.path.join(
                     self.context.app.config.get("OTS_DATA_FOLDER"),
@@ -92,26 +81,51 @@ class FedDaemon(RabbitMQClient):
                 ),
                 "rb",
             ).read(),
+            open(
+                os.path.join(
+                    self.context.app.config.get("OTS_CA_FOLDER"),
+                    "certs",
+                    "federation",
+                    "federation.nopass.key",
+                ),
+                "rb",
+            ).read(),
+            open(
+                os.path.join(
+                    self.context.app.config.get("OTS_CA_FOLDER"),
+                    "certs",
+                    "federation",
+                    "federation.pem",
+                ),
+                "rb",
+            ).read(),
         )
 
-        logger.info("WTF")
-
-        self.federation_connect()
+        try:
+            self.federation_connect()
+        except BaseException as e:
+            logger.error(f"Failed to connect to federation server: {e}")
+            logger.debug(traceback.format_exc())
+            sys.exit(1)
 
         # https://github.com/grpc/grpc/blob/master/examples/python/hellostreamingworld/async_greeter_client.py
 
     def federation_connect(self):
-        logger.warning("SHITTTTTTT")
+        # TODO: get the CN of the federate's cert for the grpc.ssl_target_name_override option
         with grpc.secure_channel(
             f"{self.connection.address}:{self.connection.port}",
             self.channel_creds,
+            options=(
+                ("grpc.ssl_target_name_override", "federation"),
+                ("grpc.grpclb_call_timeout_ms", 0),
+            ),
             compression=grpc.Compression.Gzip,
         ) as channel:
             stub = fig_pb2_grpc.FederatedChannelStub(channel)
             identity = fig_pb2.Identity()
             identity.name = self.connection.display_name
             identity.uid = str(uuid.uuid4())
-            identity.description = self.connection.description
+            identity.description = str(self.connection.description)
             identity.type = 3
             identity.serverId = self.connection.uid
             subscription = fig_pb2.Subscription()
@@ -224,18 +238,24 @@ def create_app():
 app = create_app()
 
 
-async def main():
-    with app.app_context():
-        connections = db.session.execute(db.session.query(FederationConnection)).scalars().all()
-        db.session.close()
-
-        for connection in connections:
-            connection_id = connection.id
-            if os.fork() == 0:
-                logger.info(f"Launching connection {connection.display_name}")
-                daemon = FedDaemon(app.app_context(), connection_id)
-                daemon.federation_connect()
+def args():
+    parser = argparse.ArgumentParser()
+    """parser.add_argument(
+        "--address",
+        help=gettext("TAK Server or Fed Hub address to connect to"),
+        default=None,
+        type=str,
+        required=True,
+    )
+    parser.add_argument("--port", type=int, default=9102)
+    parser.add_argument("--reconnect-interval", type=int, default=30)
+    parser.add_argument("--unlimited-retries", default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--max-retries", type=int, default=3)
+    parser.add_argument("--fed-cert", type=str, default=None, required=True)"""
+    parser.add_argument("--connection-id", type=int, default=None, required=True)
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    main()
+    options = args()
+    daemon = FedDaemon(app.app_context(), options.connection_id, logger=logger)

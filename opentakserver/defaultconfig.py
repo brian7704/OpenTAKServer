@@ -87,7 +87,7 @@ class DefaultConfig:
     )
 
     OTS_FEDERATION_CERTIFICATE = os.path.join(
-        OTS_CA_FOLDER, "certs", "federation", "federation.pem"
+        OTS_CA_FOLDER, "ca.pem"
     )
 
     OTS_COT_PARSER_PROCESSES = int(os.getenv("OTS_COT_PARSER_PROCESSES", 1))
