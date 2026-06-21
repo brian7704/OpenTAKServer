@@ -986,7 +986,7 @@ class CoTController:
                             ),
                         )
 
-                        self.rabbit_channel.queue_bind(
+                        self.rabbit_channel.queue_unbind(
                             queue=uid,
                             exchange="groups",
                             routing_key=f"{group.group.name}.{group.direction}",
