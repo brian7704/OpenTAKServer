@@ -34,6 +34,13 @@ class MumbleAuthenticator(Murmur.ServerUpdatingAuthenticator):
         if username == "SuperUser":
             return (-2, None, None)
 
+        # The ATAK Vx plugin sends the Mumble username as "callsign---uid".
+        # Strip the UID suffix so lookup matches the OTS account (named after the callsign).
+        if "---" in username:
+            callsign = username.split("---")[0].strip()
+            if callsign:
+                username = callsign
+
         self.logger.info("Mumble auth request for {}".format(username))
 
         with self.app.app_context():
