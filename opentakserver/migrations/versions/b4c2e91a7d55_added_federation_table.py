@@ -1,7 +1,7 @@
 """Added federation table
 
 Revision ID: b4c2e91a7d55
-Revises: 6a7929c07690
+Revises: 00442761c803
 Create Date: 2026-07-17 20:15:00.000000
 
 """
@@ -11,7 +11,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "b4c2e91a7d55"
-down_revision = "6a7929c07690"
+down_revision = "00442761c803"
 branch_labels = None
 depends_on = None
 
