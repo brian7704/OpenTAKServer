@@ -20,6 +20,7 @@ import ssl
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.serialization import Encoding
 
 logger = logging.getLogger("OpenTAKServer")
 
@@ -82,8 +83,40 @@ def client_ssl_context(config) -> ssl.SSLContext:
     return _load_common(context, config)
 
 
+def truststore_pem(config) -> bytes:
+    """All trusted peer CA certificates concatenated (for gRPC root_certificates)."""
+    paths = _ca_paths(config)
+    if not paths:
+        raise NoFederationCAsError(truststore_folder(config))
+    blob = b""
+    for path in paths:
+        with open(path, "rb") as f:
+            blob += f.read()
+            if not blob.endswith(b"\n"):
+                blob += b"\n"
+    return blob
+
+
+def server_cert_pem(config) -> bytes:
+    cert, _ = _server_cert_paths(config)
+    with open(cert, "rb") as f:
+        return f.read()
+
+
+def server_key_pem(config) -> bytes:
+    _, key = _server_cert_paths(config)
+    with open(key, "rb") as f:
+        return f.read()
+
+
 def cert_fingerprint(der: bytes) -> str:
     return hashlib.sha256(der).hexdigest()
+
+
+def fingerprint_from_pem(pem: bytes) -> str | None:
+    if not pem:
+        return None
+    return cert_fingerprint(x509.load_pem_x509_certificate(pem).public_bytes(Encoding.DER))
 
 
 def peer_identity(ssl_socket: ssl.SSLSocket) -> tuple[str | None, str | None]:

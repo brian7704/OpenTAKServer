@@ -19,6 +19,31 @@ option objc_class_prefix = "TAK";
 
 package com.atakmap;
 
+// Federation v2 transport. v1 exchanges FederatedEvent as length-prefixed
+// frames over a raw TLS socket and ignores this service; v2 uses these RPCs
+// over gRPC/HTTP2. OpenTAKServer implements the situational-awareness subset:
+// getIdentity, HealthCheck, and the ClientEventStream/ServerEventStream event
+// streams. The ROL (mission federation) and group-mapping RPCs are declared
+// for wire compatibility but not served.
+service FederatedChannel {
+	rpc SendOneEvent(FederatedEvent) returns (Empty) {}
+	rpc BinaryMessageStream(stream BinaryBlob) returns (Empty) {}
+	rpc SendOneBlob(BinaryBlob) returns (Empty) {}
+	rpc getIdentity (Empty) returns (Identity) {}
+	rpc ClientEventStream (Subscription) returns (stream FederatedEvent) {}
+	rpc ServerEventStream (stream FederatedEvent) returns (Subscription) {}
+	rpc HealthCheck (ClientHealth) returns (ServerHealth) {}
+
+	rpc ClientROLStream (Subscription) returns (stream ROL) {}
+	rpc ServerROLStream (stream ROL) returns (Subscription) {}
+
+	rpc ServerFederateGroupsStream (Subscription) returns (stream FederateGroups) {}
+	rpc ClientFederateGroupsStream (stream FederateGroups) returns (Subscription) {}
+
+	rpc GetAuthTokenByX509 (BinaryBlob) returns (FederateTokenResponse) {}
+	rpc Getx509Identity (Empty) returns (BinaryBlob) {}
+}
+
 enum CRUD { INVALID = 0; CREATE = 1; READ = 2; UPDATE = 3; DELETE = 4; }
 enum BINARY_TYPES { EMPTY = 0; OTHER = 1; IMAGE = 2; }
 

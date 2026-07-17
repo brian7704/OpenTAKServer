@@ -56,6 +56,105 @@ DIALER_SCAN_SECONDS = 5
 GROUP_CACHE_SECONDS = 30
 
 
+# ---------------------------------------------------------------------------
+# Transport-agnostic event processing.
+#
+# v1 (framed TLS sockets) and v2 (gRPC streams) differ only in how bytes move;
+# the mapping, group filtering, loop guard, and federated-EUD registration are
+# identical, so they live here and are shared by both engines.
+# ---------------------------------------------------------------------------
+
+
+def build_outbound_event(envelope: dict, federate: dict, directory, node_id: str):
+    """Convert a firehose envelope to a FederatedEvent to send, or None.
+
+    Applies the loop guard (skip our own node), the per-federate outbound group
+    allowlist against the sender's groups, and the excluded-type filter.
+    """
+    uid = envelope.get("uid")
+    cot = envelope.get("cot")
+    if not cot or not uid or uid == node_id:
+        return None
+
+    allowed = set(federate.get("outbound_groups") or [])
+    if not allowed:
+        return None
+
+    groups = directory.sender_groups(uid) & allowed
+    if not groups:
+        return None
+
+    fed_event = cot_to_federated_event(cot)
+    if not fed_event or fed_event.event.type in EXCLUDED_COT_TYPES:
+        return None
+
+    fed_event.federateGroups.extend(sorted(groups))
+    return fed_event
+
+
+def apply_inbound_event(fed_event, federate: dict, directory, bridge, logger, remote_contacts):
+    """Handle one received FederatedEvent (contact and/or SA).
+
+    Registers federated EUDs, converts SA events to CoT, and publishes them to
+    the local cot_parser tagged with the federate's inbound groups. Returns True
+    if an SA event was published. ``remote_contacts`` is the caller's dict of
+    the peer's announced contacts, updated in place.
+    """
+    name = federate["name"]
+
+    if fed_event.HasField("contact"):
+        contact = fed_event.contact
+        if contact.operation == fig_pb2.DELETE:
+            remote_contacts.pop(contact.uid, None)
+            directory.remove_federated_eud(contact.uid)
+        else:
+            remote_contacts[contact.uid] = contact.callsign
+            directory.ensure_federated_eud(contact.uid, contact.callsign, name)
+        logger.debug(
+            f"Federate {name} contact "
+            f"{fig_pb2.CRUD.Name(contact.operation)}: {contact.callsign} ({contact.uid})"
+        )
+
+    if not fed_event.HasField("event"):
+        return False
+
+    inbound_groups = federate.get("inbound_groups") or []
+    if not inbound_groups:
+        return False
+
+    cot = federated_event_to_cot(fed_event)
+    if not cot:
+        return False
+
+    # Attribute the CoT to its originating EUD and make sure that EUD exists
+    # locally so the cot table's foreign key is satisfied and the remote unit
+    # shows up like a federated contact.
+    sender_uid, callsign = sender_identity(fed_event)
+    if sender_uid:
+        directory.ensure_federated_eud(sender_uid, callsign, name)
+
+    bridge.publish_inbound(
+        {
+            "uid": sender_uid or fed_event.event.uid,
+            "cot": cot,
+            "user_id": None,
+            "groups": inbound_groups,
+            "federate": name,
+        }
+    )
+    return True
+
+
+def contact_announcements(current: dict, previously_sent: dict):
+    """Yield (uid, callsign, operation) for contact changes to announce."""
+    for uid, callsign in current.items():
+        if previously_sent.get(uid) != callsign:
+            yield uid, callsign, fig_pb2.CREATE
+    for uid, callsign in list(previously_sent.items()):
+        if uid not in current:
+            yield uid, callsign, fig_pb2.DELETE
+
+
 class Directory:
     """Database lookups the engine needs, isolated for testability."""
 
@@ -323,38 +422,19 @@ class FederationConnection:
     def announce_contacts(self):
         """Send ContactListEntry create/delete for local EUD presence changes."""
         current = self.directory.connected_contacts()
-        for uid, callsign in current.items():
-            if self._sent_contacts.get(uid) != callsign:
-                self._send(contact_event(uid, callsign, fig_pb2.CREATE))
-        for uid, callsign in list(self._sent_contacts.items()):
-            if uid not in current:
-                self._send(contact_event(uid, callsign, fig_pb2.DELETE))
+        for uid, callsign, operation in contact_announcements(current, self._sent_contacts):
+            self._send(contact_event(uid, callsign, operation))
         self._sent_contacts = current
 
     def handle_outbound(self, body: bytes):
         """Firehose callback: filter by outbound groups, convert, and send."""
         try:
-            envelope = json.loads(body)
-            uid = envelope.get("uid")
-            cot = envelope.get("cot")
-            if not cot or not uid or uid == self.node_id:
-                return
-
-            allowed = set(self.federate.get("outbound_groups") or [])
-            if not allowed:
-                return
-
-            groups = self.directory.sender_groups(uid) & allowed
-            if not groups:
-                return
-
-            fed_event = cot_to_federated_event(cot)
-            if not fed_event or fed_event.event.type in EXCLUDED_COT_TYPES:
-                return
-
-            fed_event.federateGroups.extend(sorted(groups))
-            self._send(fed_event)
-            self.events_out += 1
+            fed_event = build_outbound_event(
+                json.loads(body), self.federate, self.directory, self.node_id
+            )
+            if fed_event is not None:
+                self._send(fed_event)
+                self.events_out += 1
         except (OSError, ssl.SSLError):
             self.close()
         except Exception as e:
@@ -364,49 +444,15 @@ class FederationConnection:
     # ---------------------------------------------------------------- receiving
 
     def handle_frame(self, fed_event: fig_pb2.FederatedEvent):
-        name = self.federate["name"]
-
-        if fed_event.HasField("contact"):
-            contact = fed_event.contact
-            if contact.operation == fig_pb2.DELETE:
-                self.remote_contacts.pop(contact.uid, None)
-                self.directory.remove_federated_eud(contact.uid)
-            else:
-                self.remote_contacts[contact.uid] = contact.callsign
-                self.directory.ensure_federated_eud(contact.uid, contact.callsign, name)
-            self.logger.debug(
-                f"Federate {name} contact "
-                f"{fig_pb2.CRUD.Name(contact.operation)}: {contact.callsign} ({contact.uid})"
-            )
-
-        if not fed_event.HasField("event"):
-            return
-
-        inbound_groups = self.federate.get("inbound_groups") or []
-        if not inbound_groups:
-            return
-
-        cot = federated_event_to_cot(fed_event)
-        if not cot:
-            return
-
-        # Attribute the CoT to its originating EUD and make sure that EUD exists
-        # locally so the cot table's foreign key is satisfied and the remote unit
-        # shows up like a federated contact.
-        sender_uid, callsign = sender_identity(fed_event)
-        if sender_uid:
-            self.directory.ensure_federated_eud(sender_uid, callsign, name)
-
-        self.bridge.publish_inbound(
-            {
-                "uid": sender_uid or fed_event.event.uid,
-                "cot": cot,
-                "user_id": None,
-                "groups": inbound_groups,
-                "federate": name,
-            }
-        )
-        self.events_in += 1
+        if apply_inbound_event(
+            fed_event,
+            self.federate,
+            self.directory,
+            self.bridge,
+            self.logger,
+            self.remote_contacts,
+        ):
+            self.events_in += 1
 
     def run(self):
         """Serve the connection; returns when the link dies."""
@@ -497,6 +543,7 @@ class FederationManager:
         self._lock = threading.Lock()
         self._dialing: set[int] = set()
         self._stop = threading.Event()
+        self._grpc_server = None
 
     # ----------------------------------------------------------------- registry
 
@@ -582,30 +629,10 @@ class FederationManager:
                 if not config or not config.get("enabled") or not config.get("outbound"):
                     return
 
-                try:
-                    raw_socket = socket.create_connection(
-                        (config["address"], config["port"]), timeout=HANDSHAKE_TIMEOUT_SECONDS
-                    )
-                    context = truststore.client_ssl_context(self.config)
-                    sock = context.wrap_socket(raw_socket, server_hostname=config["address"])
-                    sock.settimeout(None)
-
-                    fingerprint, common_name = truststore.peer_identity(sock)
-                    if (
-                        config.get("cert_fingerprint")
-                        and config["cert_fingerprint"] != fingerprint
-                    ):
-                        sock.close()
-                        raise ssl.SSLError(
-                            f"Federate '{config['name']}' presented certificate {fingerprint[:12]} "
-                            f"but {config['cert_fingerprint'][:12]} is pinned"
-                        )
-                    self.directory.pin_fingerprint(federate_id, fingerprint, common_name)
-
-                    self._run_connection(sock, config)
-                except (OSError, ssl.SSLError, truststore.NoFederationCAsError) as e:
-                    self.logger.warning(f"Federation dial to '{config['name']}' failed: {e}")
-                    self.directory.record_state(federate_id, connected=False, error=str(e))
+                if config.get("protocol_version") == 2:
+                    self._dial_v2(config)
+                else:
+                    self._dial_v1(config)
 
                 interval = config.get("reconnect_interval") or self.config.get(
                     "OTS_FEDERATION_RECONNECT_SECONDS", 30
@@ -614,6 +641,39 @@ class FederationManager:
         finally:
             with self._lock:
                 self._dialing.discard(federate_id)
+
+    def _dial_v1(self, config: dict):
+        try:
+            raw_socket = socket.create_connection(
+                (config["address"], config["port"]), timeout=HANDSHAKE_TIMEOUT_SECONDS
+            )
+            context = truststore.client_ssl_context(self.config)
+            sock = context.wrap_socket(raw_socket, server_hostname=config["address"])
+            sock.settimeout(None)
+
+            fingerprint, common_name = truststore.peer_identity(sock)
+            if config.get("cert_fingerprint") and config["cert_fingerprint"] != fingerprint:
+                sock.close()
+                raise ssl.SSLError(
+                    f"Federate '{config['name']}' presented certificate {fingerprint[:12]} "
+                    f"but {config['cert_fingerprint'][:12]} is pinned"
+                )
+            self.directory.pin_fingerprint(config["id"], fingerprint, common_name)
+
+            self._run_connection(sock, config)
+        except (OSError, ssl.SSLError, truststore.NoFederationCAsError) as e:
+            self.logger.warning(f"Federation dial to '{config['name']}' failed: {e}")
+            self.directory.record_state(config["id"], connected=False, error=str(e))
+
+    def _dial_v2(self, config: dict):
+        from opentakserver.federation.grpc_engine import GrpcClient
+
+        client = GrpcClient(self, config)
+        self._register(client)
+        try:
+            client.run()
+        finally:
+            self._unregister(client)
 
     def _dialer_supervisor(self):
         while not self._stop.is_set():
@@ -655,9 +715,27 @@ class FederationManager:
         finally:
             self._unregister(connection)
 
+    def _start_v2_server(self):
+        if not self.config.get("OTS_FEDERATION_ENABLE_V2", True):
+            return
+        try:
+            from opentakserver.federation import grpc_engine
+
+            server, port = grpc_engine.build_server(self)
+            server.start()
+            self._grpc_server = server
+            self.logger.info(f"Federation v2 (gRPC) listening on {port}")
+        except truststore.NoFederationCAsError as e:
+            self.logger.warning(f"Federation v2 server not started: {e}")
+        except Exception as e:
+            self.logger.error(f"Could not start federation v2 server: {e}")
+            self.logger.debug(traceback.format_exc())
+
     def run(self):
         listener = threading.Thread(target=self._listen, name="fed-listener", daemon=True)
         listener.start()
+
+        self._start_v2_server()
 
         supervisor = threading.Thread(
             target=self._dialer_supervisor, name="fed-dialer", daemon=True
@@ -672,6 +750,8 @@ class FederationManager:
 
     def stop(self):
         self._stop.set()
+        if self._grpc_server is not None:
+            self._grpc_server.stop(grace=1)
         with self._lock:
             connections = list(self.connections.values())
         for connection in connections:

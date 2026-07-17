@@ -53,6 +53,16 @@ class DefaultConfig:
         "yes",
     ]
     OTS_FEDERATION_V1_PORT = int(os.getenv("OTS_FEDERATION_V1_PORT", 9000))
+    OTS_FEDERATION_ENABLE_V2 = os.getenv("OTS_FEDERATION_ENABLE_V2", "True").lower() in [
+        "true",
+        "1",
+        "yes",
+    ]
+    OTS_FEDERATION_V2_PORT = int(os.getenv("OTS_FEDERATION_V2_PORT", 9001))
+    OTS_FEDERATION_V2_WORKERS = int(os.getenv("OTS_FEDERATION_V2_WORKERS", 16))
+    # gRPC verifies the peer's certificate CN against this authority (TAK
+    # federation trusts by CA, and OTS server certs use CN "opentakserver")
+    OTS_FEDERATION_V2_AUTHORITY = os.getenv("OTS_FEDERATION_V2_AUTHORITY", "opentakserver")
     OTS_FEDERATION_INTERFACE = os.getenv("OTS_FEDERATION_INTERFACE", "0.0.0.0")
     OTS_FEDERATION_RECONNECT_SECONDS = int(os.getenv("OTS_FEDERATION_RECONNECT_SECONDS", 30))
     OTS_FEDERATION_CONTACT_INTERVAL_SECONDS = int(
