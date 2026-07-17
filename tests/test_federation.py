@@ -258,9 +258,16 @@ class FakeDirectory:
         self.groups = groups or {}
         self.states = []
         self.auto_registered = []
+        self.federated_euds = {}
 
     def connected_contacts(self):
         return dict(self.contacts)
+
+    def ensure_federated_eud(self, uid, callsign, federate_name):
+        self.federated_euds[uid] = callsign
+
+    def remove_federated_eud(self, uid):
+        self.federated_euds.pop(uid, None)
 
     def sender_groups(self, uid):
         return self.groups.get(uid, {"__ANON__"})
@@ -477,6 +484,11 @@ def test_federation_end_to_end(federated_pair):
     pair.bridges_a[0].inject({"uid": "ANDROID-cafef00d", "cot": SA_COT.replace("deadbeef", "cafef00d")})
     _wait_for(lambda: pair.bridges_b[0].inbound, message="SA event on B")
     assert pair.bridges_b[0].inbound[0]["uid"] == "ANDROID-cafef00d"
+
+    # The remote sender was registered locally as a federated EUD, so its CoT
+    # can satisfy the cot->eud foreign key and it surfaces like a contact
+    assert "ANDROID-deadbeef" in pair.directory_a.federated_euds
+    assert pair.directory_a.federated_euds["ANDROID-deadbeef"] == "HAVOC13"
 
     # Fingerprints were learned/pinned
     assert pair.directory_b.federates[1]["cert_fingerprint"]

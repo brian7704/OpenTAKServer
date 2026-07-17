@@ -78,6 +78,17 @@ def create_app():
     except sqlalchemy.exc.InvalidRequestError:
         pass
 
+    # Import every model module so the SQLAlchemy registry can resolve
+    # cross-model relationships (e.g. Group -> groups_missions) when the
+    # engine queries EUDs and groups
+    import importlib
+    import pkgutil
+
+    import opentakserver.models
+
+    for module in pkgutil.iter_modules(opentakserver.models.__path__):
+        importlib.import_module(f"opentakserver.models.{module.name}")
+
     from opentakserver.models.role import Role
     from opentakserver.models.user import User
 

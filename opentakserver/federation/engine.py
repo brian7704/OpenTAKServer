@@ -35,6 +35,8 @@ import traceback
 from datetime import datetime, timezone
 
 import pika
+from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError
 
 from opentakserver.federation import truststore
 from opentakserver.federation.codec import DEFAULT_MAX_FRAME_BYTES, FrameDecoder, encode_frame
@@ -43,6 +45,7 @@ from opentakserver.federation.mapper import (
     contact_event,
     cot_to_federated_event,
     federated_event_to_cot,
+    sender_identity,
 )
 from opentakserver.federation.proto import fig_pb2
 
@@ -100,6 +103,54 @@ class Directory:
 
         self._group_cache[uid] = (time.monotonic(), groups)
         return groups
+
+    def ensure_federated_eud(self, uid: str, callsign: str | None, federate_name: str) -> None:
+        """Register a minimal EUD row for a federated entity.
+
+        Federated tracks reference EUDs that live on the peer server, but the
+        cot table's foreign key requires the sender to be a known local EUD.
+        Registering a lightweight row (like TAK Server's federated contacts)
+        lets federated CoT persist and route, and surfaces the remote unit in
+        the EUD list. Idempotent; callsign is best-effort (it may collide with
+        a local callsign, which is unique).
+        """
+        from opentakserver.extensions import db
+        from opentakserver.models.EUD import EUD
+
+        with self.app.app_context():
+            existing = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()
+            now = datetime.now(timezone.utc)
+            if existing:
+                db.session.execute(
+                    update(EUD)
+                    .where(EUD.uid == uid)
+                    .values(last_event_time=now, last_status=f"Federated ({federate_name})")
+                )
+                db.session.commit()
+                return
+
+            for attempt_callsign in (callsign, None):
+                eud = EUD()
+                eud.uid = uid
+                eud.callsign = attempt_callsign
+                eud.last_status = f"Federated ({federate_name})"
+                eud.last_event_time = now
+                try:
+                    db.session.add(eud)
+                    db.session.commit()
+                    return
+                except IntegrityError:
+                    db.session.rollback()  # callsign collision or race; retry bare
+
+    def remove_federated_eud(self, uid: str) -> None:
+        from opentakserver.extensions import db
+        from opentakserver.models.EUD import EUD
+
+        with self.app.app_context():
+            db.session.execute(
+                update(EUD).where(EUD.uid == uid).values(last_status="Disconnected")
+            )
+            db.session.commit()
 
     def federate_config(self, federate_id: int) -> dict | None:
         from opentakserver.extensions import db
@@ -313,14 +364,18 @@ class FederationConnection:
     # ---------------------------------------------------------------- receiving
 
     def handle_frame(self, fed_event: fig_pb2.FederatedEvent):
+        name = self.federate["name"]
+
         if fed_event.HasField("contact"):
             contact = fed_event.contact
             if contact.operation == fig_pb2.DELETE:
                 self.remote_contacts.pop(contact.uid, None)
+                self.directory.remove_federated_eud(contact.uid)
             else:
                 self.remote_contacts[contact.uid] = contact.callsign
+                self.directory.ensure_federated_eud(contact.uid, contact.callsign, name)
             self.logger.debug(
-                f"Federate {self.federate['name']} contact "
+                f"Federate {name} contact "
                 f"{fig_pb2.CRUD.Name(contact.operation)}: {contact.callsign} ({contact.uid})"
             )
 
@@ -335,13 +390,20 @@ class FederationConnection:
         if not cot:
             return
 
+        # Attribute the CoT to its originating EUD and make sure that EUD exists
+        # locally so the cot table's foreign key is satisfied and the remote unit
+        # shows up like a federated contact.
+        sender_uid, callsign = sender_identity(fed_event)
+        if sender_uid:
+            self.directory.ensure_federated_eud(sender_uid, callsign, name)
+
         self.bridge.publish_inbound(
             {
-                "uid": fed_event.event.uid,
+                "uid": sender_uid or fed_event.event.uid,
                 "cot": cot,
                 "user_id": None,
                 "groups": inbound_groups,
-                "federate": self.federate["name"],
+                "federate": name,
             }
         )
         self.events_in += 1

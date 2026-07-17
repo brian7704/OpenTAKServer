@@ -80,6 +80,11 @@ def cot_to_federated_event(cot: str) -> fig_pb2.FederatedEvent | None:
         return None
 
     geo.coordSource = event.attrs.get("how", "")
+
+    contact = event.find("contact")
+    if contact and contact.attrs.get("callsign"):
+        geo.screenName = contact.attrs["callsign"]
+
     if point:
         geo.lat = _float_attr(point, "lat", 0)
         geo.lon = _float_attr(point, "lon", 0)
@@ -240,6 +245,25 @@ def federated_event_to_cot(fed_event: fig_pb2.FederatedEvent) -> str | None:
         event.append(detail)
 
     return ET.tostring(event, encoding="unicode")
+
+
+def sender_identity(fed_event: fig_pb2.FederatedEvent) -> tuple[str | None, str | None]:
+    """Best-effort (uid, callsign) of the entity that originated an event.
+
+    For situational-awareness the track uid is the sender. For GeoChat the
+    track uid is the message id, so attribute to the sending EUD carried in
+    the chat detail instead - this is the uid the receiving server should
+    persist the CoT against.
+    """
+    geo = fed_event.event
+    if geo.other:
+        chat = BeautifulSoup(geo.other, "xml").find("__chat")
+        if chat:
+            chatgrp = chat.find("chatgrp")
+            sender = chatgrp.attrs.get("uid0") if chatgrp else None
+            if sender:
+                return sender, chat.attrs.get("senderCallsign") or None
+    return (geo.uid or None), (geo.screenName or None)
 
 
 def contact_event(
