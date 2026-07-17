@@ -1139,7 +1139,7 @@ class CoTController:
                     ),
                 )
 
-    def route_cot(self, event, uid: str, user_id: int):
+    def route_cot(self, event, uid: str, user_id: int, groups: list | None = None):
         if not uid or uid == self.context.app.config.get("OTS_NODE_ID"):
             # This is a server generated CoT (i.e. ADS-B scheduled job) which was already properly routed
             return
@@ -1171,6 +1171,20 @@ class CoTController:
                     )
 
                 # CoT messages belonging to Data Sync missions (i.e. <dest mission="mission name" /> are handled by cot_parser
+
+        if not destinations and groups:
+            # The publisher routed this message to explicit groups, e.g. the federation
+            # server tagging inbound federated traffic with a federate's inbound groups
+            for group_name in groups:
+                self.rabbit_channel.basic_publish(
+                    exchange="groups",
+                    routing_key=f"{group_name}.{Group.OUT}",
+                    body=json.dumps({"uid": uid, "cot": str(event)}),
+                    properties=pika.BasicProperties(
+                        expiration=self.context.app.config.get("OTS_RABBITMQ_TTL")
+                    ),
+                )
+            return
 
         if not destinations and not user_id:
             # Publish all CoT messages received by TCP and that have no destination to the __ANON__ group
@@ -1249,7 +1263,7 @@ class CoTController:
                 self.parse_rbline(event, uid, point_pk, cot_pk)
                 self.parse_stats(event, uid)
                 self.generate_mission_change(uid, event)
-                self.route_cot(event, uid, body.get("user_id"))
+                self.route_cot(event, uid, body.get("user_id"), body.get("groups"))
                 self.rabbit_channel.basic_ack(delivery_tag=basic_deliver.delivery_tag)
 
                 # EUD went offline
