@@ -1,10 +1,11 @@
-"""Federation v1 tests.
+"""Federation tests (v1 framed TLS and v2 gRPC).
 
 Unit coverage for the frame codec, the CoT <-> protobuf mapper, and the
-federation truststore, plus an end-to-end integration test that federates two
-in-process engines over real mutually-authenticated TLS sockets and asserts
-SA events, contacts, group filtering, and certificate rejection behave like
-TAK Server federation.
+federation truststore; an end-to-end v1 integration test that federates two
+in-process engines over real mutually-authenticated TLS sockets; and a v2
+integration test that drives the gRPC FederatedChannel over mutual TLS. All
+assert SA events, contacts, group filtering, and certificate handling behave
+like TAK Server federation.
 
 The engine's database and RabbitMQ touchpoints are injected (Directory and
 bridge fakes), so these tests need no broker and no database.
@@ -12,6 +13,7 @@ bridge fakes), so these tests need no broker and no database.
 
 import datetime
 import json
+import logging
 import socket
 import ssl
 import threading
@@ -27,7 +29,7 @@ from cryptography.x509.oid import NameOID
 from opentakserver.federation import mapper, truststore
 from opentakserver.federation.codec import FrameDecoder, FrameTooLargeError, encode_frame
 from opentakserver.federation.engine import FederationConnection, FederationManager
-from opentakserver.federation.proto import fig_pb2
+from opentakserver.federation.proto import fig_pb2, fig_pb2_grpc
 
 SA_COT = (
     '<event version="2.0" uid="ANDROID-deadbeef" type="a-f-G-U-C" how="m-g" '
@@ -358,6 +360,7 @@ def _make_manager(config, directory, bridge_factory):
     manager._lock = threading.Lock()
     manager._dialing = set()
     manager._stop = threading.Event()
+    manager._grpc_server = None
     return manager
 
 
@@ -539,3 +542,150 @@ def test_untrusted_ca_is_rejected(federated_pair, tmp_path):
             # Force the handshake failure to surface
             tls.recv(1)
     raw.close()
+
+
+# ------------------------------------------------------------- v2 (gRPC)
+
+
+def _gevent_monkey_patched():
+    """True if the process has been gevent monkey-patched.
+
+    conftest imports opentakserver.app, which calls monkey.patch_all(). gRPC's
+    native threads deadlock on gevent-patched sockets, so the in-process gRPC
+    tests can only run in a non-patched interpreter. The production
+    federation_server process does NOT monkey-patch, so v2 works there - it is
+    exercised end-to-end by tools/fed_live_test.py --v2.
+    """
+    try:
+        import socket as _socket
+
+        return "gevent" in _socket.socket.__module__
+    except Exception:  # noqa: BLE001
+        return False
+
+
+requires_no_gevent = pytest.mark.skipif(
+    _gevent_monkey_patched(),
+    reason="gRPC deadlocks under gevent monkey-patching; v2 is covered live by fed_live_test.py --v2",
+)
+
+
+def _grpc_manager(directory, bridge, config):
+    return SimpleNamespace(
+        config=config,
+        directory=directory,
+        logger=logging.getLogger("OpenTAKServer"),
+        bridge_factory=lambda: bridge,
+        node_id=config["OTS_NODE_ID"],
+    )
+
+
+@requires_no_gevent
+def test_federation_v2_grpc_inbound(tmp_path):
+    """Drive the v2 FederatedChannel over real mutual TLS.
+
+    A (client) dials B (server); getIdentity proves the mTLS handshake against
+    the federation truststore, and ServerEventStream proves an SA event routes
+    inbound and registers a federated EUD.
+    """
+    import grpc
+
+    from opentakserver.federation import grpc_engine
+
+    ca_a_key, ca_a = _make_ca("Enclave A CA")
+    ca_b_key, ca_b = _make_ca("Enclave B CA")
+    # gRPC verifies the peer CN against the target authority ("opentakserver")
+    key_a, cert_a = _make_cert("opentakserver", ca_a_key, ca_a)
+    key_b, cert_b = _make_cert("opentakserver", ca_b_key, ca_b)
+    folder_a = _write_identity(tmp_path, "a", key_a, cert_a, ca_a)
+    folder_b = _write_identity(tmp_path, "b", key_b, cert_b, ca_b)
+    (folder_a / "federation" / "enclave-b.pem").write_bytes(_pem(ca_b))
+    (folder_b / "federation" / "enclave-a.pem").write_bytes(_pem(ca_a))
+
+    port = _free_port()
+    server_cfg = _config(
+        folder_b, port, "node-b", {"OTS_FEDERATION_V2_PORT": port, "OTS_FEDERATION_V2_WORKERS": 4}
+    )
+    server_dir = FakeDirectory(
+        federates=[
+            {
+                "id": 1,
+                "name": "enclave-a",
+                "enabled": True,
+                "outbound": False,
+                "inbound_groups": ["__ANON__"],
+                "outbound_groups": ["__ANON__"],
+                "cert_fingerprint": None,
+            }
+        ]
+    )
+    server_bridge = FakeBridge()
+    manager = _grpc_manager(server_dir, server_bridge, server_cfg)
+
+    grpc_server, _ = grpc_engine.build_server(manager)
+    grpc_server.start()
+
+    client_cfg = _config(folder_a, 0, "node-a")
+    channel = grpc.secure_channel(
+        f"127.0.0.1:{port}",
+        grpc_engine._channel_credentials(client_cfg),
+        options=[("grpc.ssl_target_name_override", "opentakserver")],
+    )
+    try:
+        stub = fig_pb2_grpc.FederatedChannelStub(channel)
+
+        identity = stub.getIdentity(fig_pb2.Empty())
+        assert identity.name == "node-b"
+
+        assert stub.HealthCheck(fig_pb2.ClientHealth()).status == fig_pb2.ServerHealth.SERVING
+
+        event = mapper.cot_to_federated_event(SA_COT)
+        stub.ServerEventStream(iter([event]))
+
+        _wait_for(lambda: server_bridge.inbound, message="v2 inbound event")
+        envelope = server_bridge.inbound[0]
+        assert envelope["uid"] == "ANDROID-deadbeef"
+        assert envelope["groups"] == ["__ANON__"]
+        assert "ANDROID-deadbeef" in server_dir.federated_euds
+    finally:
+        channel.close()
+        grpc_server.stop(0)
+
+
+@requires_no_gevent
+def test_federation_v2_rejects_untrusted_client(tmp_path):
+    """A client whose CA is not in B's federation truststore is refused."""
+    import grpc
+
+    from opentakserver.federation import grpc_engine
+
+    _, ca_b = _make_ca("Enclave B CA")
+    ca_b_key, ca_b = _make_ca("Enclave B CA")
+    key_b, cert_b = _make_cert("opentakserver", ca_b_key, ca_b)
+    folder_b = _write_identity(tmp_path, "b", key_b, cert_b, ca_b)
+    (folder_b / "federation" / "enclave-b-self.pem").write_bytes(_pem(ca_b))
+
+    # Interloper: trusts B, but B does not trust the interloper's CA
+    ca_x_key, ca_x = _make_ca("Interloper CA")
+    key_x, cert_x = _make_cert("opentakserver", ca_x_key, ca_x)
+    folder_x = _write_identity(tmp_path, "x", key_x, cert_x, ca_x)
+    (folder_x / "federation" / "b.pem").write_bytes(_pem(ca_b))
+
+    port = _free_port()
+    server_cfg = _config(folder_b, port, "node-b", {"OTS_FEDERATION_V2_PORT": port})
+    manager = _grpc_manager(FakeDirectory(), FakeBridge(), server_cfg)
+    grpc_server, _ = grpc_engine.build_server(manager)
+    grpc_server.start()
+
+    channel = grpc.secure_channel(
+        f"127.0.0.1:{port}",
+        grpc_engine._channel_credentials(_config(folder_x, 0, "x")),
+        options=[("grpc.ssl_target_name_override", "opentakserver")],
+    )
+    try:
+        stub = fig_pb2_grpc.FederatedChannelStub(channel)
+        with pytest.raises(grpc.RpcError):
+            stub.getIdentity(fig_pb2.Empty(), timeout=5)
+    finally:
+        channel.close()
+        grpc_server.stop(0)

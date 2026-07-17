@@ -1,16 +1,25 @@
 # Federation
 
-OpenTAKServer implements TAK Server **federation v1**: server-to-server
+OpenTAKServer implements TAK Server **federation** (v1 and v2): server-to-server
 exchange of situational awareness with other TAK servers (official TAK Server
 or another OpenTAKServer), across independent administrative domains. Each
 side keeps its own users, certificate authority, and admin control, and
 allowlists what crosses the link.
 
-The wire format is the official one - length-prefixed protobuf
-`FederatedEvent` frames over mutually-authenticated TLS on port 9000 - so an
-official TAK Server can federate with OpenTAKServer with no changes on its
-side. The protobuf definitions are vendored from the TAK Product Center's
-public TAK Server source (GPLv3, like OpenTAKServer).
+Two transports, both carrying the official protobuf `FederatedEvent` and both
+using the same federation truststore and group model:
+
+- **v1** (port 9000): length-prefixed `FederatedEvent` frames over a
+  mutually-authenticated TLS socket.
+- **v2** (port 9001): the official `FederatedChannel` gRPC service over
+  HTTP/2 — `ClientEventStream`/`ServerEventStream` for events, plus
+  `getIdentity`/`HealthCheck`.
+
+The protobuf and service definitions are vendored from the TAK Product Center's
+public TAK Server source (GPLv3, like OpenTAKServer), so an official TAK Server
+can federate with OpenTAKServer with no changes on its side. Set a federate's
+`protocol_version` (1 or 2) to choose the transport for an outbound connection;
+both listeners run at once for inbound.
 
 ## What federates
 
@@ -18,8 +27,10 @@ public TAK Server source (GPLv3, like OpenTAKServer).
   including point-to-point chat addressed with `<marti><dest/>`
 - Contact announcements (`ContactListEntry` create/delete for connected EUDs)
 
-Not yet: mission/Data Sync federation, mission packages, and federation v2
-(the gRPC transport) - these are federation v2/ROL territory.
+Not yet: mission/Data Sync federation and mission packages — these are the ROL
+(resource operation language) side of v2, which is not implemented. v2 here is
+the SA subset of the `FederatedChannel` service (the ROL and group-mapping RPCs
+are declared for wire compatibility but not served).
 
 ## How it works
 
@@ -112,6 +123,9 @@ and assign federate groups.
 |-----|---------|---------|
 | `OTS_ENABLE_FEDERATION` | `False` | Master switch for the federation server |
 | `OTS_FEDERATION_V1_PORT` | `9000` | Listening port for federation v1 |
+| `OTS_FEDERATION_ENABLE_V2` | `True` | Also run the v2 (gRPC) listener |
+| `OTS_FEDERATION_V2_PORT` | `9001` | Listening port for federation v2 |
+| `OTS_FEDERATION_V2_AUTHORITY` | `opentakserver` | Peer cert CN gRPC verifies against (TAK trusts by CA; OTS server certs use CN `opentakserver`) |
 | `OTS_FEDERATION_INTERFACE` | `0.0.0.0` | Listening interface |
 | `OTS_FEDERATION_RECONNECT_SECONDS` | `30` | Default outbound reconnect interval |
 | `OTS_FEDERATION_CONTACT_INTERVAL_SECONDS` | `30` | Contact announcement refresh |
