@@ -8,8 +8,8 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-02-26 10:44-0500\n"
-"PO-Revision-Date: 2026-02-26 15:51+0000\n"
-"Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
+"PO-Revision-Date: 2026-07-18 23:17+0000\n"
+"Last-Translator: Valmo Trindade <val_mo_jr@hotmail.com>\n"
 "Language-Team: Portuguese (Brazil) <https://weblate.opentakserver.io/"
 "projects/opentakserver/opentakserver/pt_BR/>\n"
 "Language: pt_BR\n"
@@ -259,9 +259,9 @@ msgid "Cannot find mission %(mission_guid)s"
 msgstr "Não foi possível encontrar a missão %(mission_guid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1390
-#, fuzzy, python-format
+#, python-format
 msgid "%(username)s and mission %(mission_name)s are not in the same group"
-msgstr "{username} e a missão %(mission_name)s não estão no mesmo grupo"
+msgstr "%(username)s e a missão %(mission_name)s não estão no mesmo grupo"
 
 #: blueprints/marti_api/mission_marti_api.py:1410
 #: blueprints/ots_api/mediamtx_api.py:58
