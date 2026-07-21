@@ -28,7 +28,13 @@ from cryptography.x509.oid import NameOID
 
 from opentakserver.federation import mapper, truststore
 from opentakserver.federation.codec import FrameDecoder, FrameTooLargeError, encode_frame
-from opentakserver.federation.engine import FederationConnection, FederationManager
+from opentakserver.federation.engine import (
+    FederationConnection,
+    FederationManager,
+    apply_inbound_event,
+    parse_protocol_version,
+    verify_peer_fingerprint,
+)
 from opentakserver.federation.proto import fig_pb2, fig_pb2_grpc
 
 SA_COT = (
@@ -254,19 +260,28 @@ def test_ssl_context_requires_a_ca(tmp_path):
 class FakeDirectory:
     """In-memory stand-in for the engine's database lookups."""
 
-    def __init__(self, federates=None, contacts=None, groups=None):
+    def __init__(self, federates=None, contacts=None, groups=None, local_euds=None):
         self.federates = {federate["id"]: dict(federate) for federate in (federates or [])}
         self.contacts = contacts or {}
         self.groups = groups or {}
+        self.local_euds = set(local_euds or [])
         self.states = []
         self.auto_registered = []
         self.federated_euds = {}
 
-    def connected_contacts(self):
-        return dict(self.contacts)
+    def connected_contacts(self, allowed_groups):
+        allowed = set(allowed_groups or [])
+        return {
+            uid: callsign
+            for uid, callsign in self.contacts.items()
+            if self.sender_groups(uid) & allowed
+        }
 
     def ensure_federated_eud(self, uid, callsign, federate_name):
+        if uid in self.local_euds:
+            return False
         self.federated_euds[uid] = callsign
+        return True
 
     def remove_federated_eud(self, uid):
         self.federated_euds.pop(uid, None)
@@ -286,12 +301,11 @@ class FakeDirectory:
 
     def find_or_create_inbound(self, fingerprint, common_name, address):
         for federate in self.federates.values():
-            if federate.get("cert_fingerprint") in (None, fingerprint):
-                federate["cert_fingerprint"] = fingerprint
+            if federate.get("cert_fingerprint") == fingerprint:
                 return federate
         federate = {
             "id": len(self.federates) + 100,
-            "name": common_name or "unknown",
+            "name": f"{common_name or 'federate'}-{fingerprint[:12]}",
             "enabled": True,
             "outbound": False,
             "inbound_groups": [],
@@ -340,6 +354,14 @@ class FakeBridge:
         self._closed.set()
 
 
+class CaptureSocket:
+    def __init__(self):
+        self.frames = []
+
+    def sendall(self, frame):
+        self.frames.append(frame)
+
+
 def _wait_for(predicate, timeout=5, message="condition"):
     deadline = time.monotonic() + timeout
     while not predicate():
@@ -362,6 +384,208 @@ def _make_manager(config, directory, bridge_factory):
     manager._stop = threading.Event()
     manager._grpc_server = None
     return manager
+
+
+def test_contacts_follow_outbound_group_policy_and_revoke_access():
+    directory = FakeDirectory(
+        contacts={"uid-shared": "SHARED", "uid-secret": "SECRET"},
+        groups={"uid-shared": {"Cyan"}, "uid-secret": {"Secret"}},
+    )
+    federate = {
+        "id": 1,
+        "name": "partner",
+        "outbound_groups": ["Cyan"],
+    }
+    sock = CaptureSocket()
+    connection = FederationConnection(
+        sock,
+        federate,
+        directory,
+        FakeBridge(),
+        {"OTS_NODE_ID": "node-a"},
+        logging.getLogger("OpenTAKServer"),
+    )
+
+    connection.announce_contacts()
+    connection.federate["outbound_groups"] = []
+    connection.announce_contacts()
+
+    decoded = FrameDecoder().feed(b"".join(sock.frames))
+    assert [(event.contact.uid, event.contact.operation) for event in decoded] == [
+        ("uid-shared", fig_pb2.CREATE),
+        ("uid-shared", fig_pb2.DELETE),
+    ]
+
+
+def test_empty_inbound_groups_block_contacts_but_allow_revocation():
+    directory = FakeDirectory()
+    bridge = FakeBridge()
+    federate = {"name": "partner", "inbound_groups": []}
+    remote_contacts = {}
+
+    created = mapper.contact_event("uid-remote", "REMOTE")
+    assert not apply_inbound_event(
+        created,
+        federate,
+        directory,
+        bridge,
+        logging.getLogger("OpenTAKServer"),
+        remote_contacts,
+    )
+    assert not directory.federated_euds
+    assert not remote_contacts
+
+    directory.federated_euds["uid-remote"] = "REMOTE"
+    remote_contacts["uid-remote"] = "REMOTE"
+    deleted = mapper.contact_event("uid-remote", "REMOTE", fig_pb2.DELETE)
+    assert not apply_inbound_event(
+        deleted,
+        federate,
+        directory,
+        bridge,
+        logging.getLogger("OpenTAKServer"),
+        remote_contacts,
+    )
+    assert not directory.federated_euds
+    assert not remote_contacts
+
+
+def test_federated_event_cannot_take_over_a_local_uid():
+    directory = FakeDirectory(local_euds={"ANDROID-deadbeef"})
+    bridge = FakeBridge()
+
+    accepted = apply_inbound_event(
+        mapper.cot_to_federated_event(SA_COT),
+        {"name": "partner", "inbound_groups": ["Cyan"]},
+        directory,
+        bridge,
+        logging.getLogger("OpenTAKServer"),
+        {},
+    )
+
+    assert not accepted
+    assert not bridge.inbound
+    assert not directory.federated_euds
+
+
+def test_peer_fingerprint_pin_rejects_missing_or_changed_leaf():
+    federate = {"name": "partner", "cert_fingerprint": "a" * 64}
+    verify_peer_fingerprint(federate, "a" * 64)
+    with pytest.raises(ssl.SSLError):
+        verify_peer_fingerprint(federate, None)
+    with pytest.raises(ssl.SSLError):
+        verify_peer_fingerprint(federate, "b" * 64)
+
+
+def test_protocol_version_accepts_only_v1_or_v2():
+    assert parse_protocol_version(1) == 1
+    assert parse_protocol_version("2") == 2
+    for value in (None, "grpc", False, True, 1.0, 1.5, 0, 3):
+        with pytest.raises(ValueError):
+            parse_protocol_version(value)
+
+
+def test_federation_cli_group_only_update_does_not_supply_transport_defaults():
+    from opentakserver.federation.cli import build_parser
+
+    args = build_parser().parse_args(["add", "hub", "--groups", "Cyan"])
+
+    assert args.address is None
+    assert args.port is None
+    assert args.protocol is None
+
+
+def test_v2_identity_rpc_is_optional_for_official_tak():
+    """TAK 5.5 declares getIdentity but its server returns UNIMPLEMENTED."""
+    import grpc
+
+    from opentakserver.federation.grpc_engine import _optional_peer_name
+
+    class Unimplemented(grpc.RpcError):
+        def code(self):
+            return grpc.StatusCode.UNIMPLEMENTED
+
+    class OfficialTakStub:
+        def getIdentity(self, request):
+            raise Unimplemented()
+
+    assert _optional_peer_name(OfficialTakStub(), "official-tak") == (
+        "official-tak",
+        False,
+    )
+
+    class Denied(grpc.RpcError):
+        def code(self):
+            return grpc.StatusCode.PERMISSION_DENIED
+
+    class RejectedStub:
+        def getIdentity(self, request):
+            raise Denied()
+
+    with pytest.raises(Denied):
+        _optional_peer_name(RejectedStub(), "rejected")
+
+
+def test_v2_health_check_reports_serving_periodically():
+    from opentakserver.federation.grpc_engine import _health_check_loop
+
+    stop = threading.Event()
+
+    class OfficialHubStub:
+        requests = []
+
+        def HealthCheck(self, request, timeout):
+            self.requests.append((request, timeout))
+            stop.set()
+            return fig_pb2.ServerHealth(status=fig_pb2.ServerHealth.SERVING)
+
+    stub = OfficialHubStub()
+    worker = threading.Thread(
+        target=_health_check_loop,
+        args=(stub, stop, 0.01, logging.getLogger("OpenTAKServer"), "official-hub"),
+    )
+    worker.start()
+    worker.join(timeout=1)
+
+    assert not worker.is_alive()
+    assert len(stub.requests) == 1
+    assert stub.requests[0][0].status == fig_pb2.ClientHealth.SERVING
+    assert stub.requests[0][1] == 1.0
+
+
+def test_v2_health_check_tolerates_hub_57_noncompleting_response():
+    import grpc
+
+    from opentakserver.federation.grpc_engine import _health_check_loop
+
+    stop = threading.Event()
+
+    class HubDeadline(grpc.RpcError):
+        def code(self):
+            return grpc.StatusCode.DEADLINE_EXCEEDED
+
+        def details(self):
+            return "Stream removed (Deadline Exceeded)"
+
+    class OfficialHub57Stub:
+        calls = 0
+
+        def HealthCheck(self, request, timeout):
+            self.calls += 1
+            if self.calls == 2:
+                stop.set()
+            raise HubDeadline()
+
+    stub = OfficialHub57Stub()
+    worker = threading.Thread(
+        target=_health_check_loop,
+        args=(stub, stop, 0.01, logging.getLogger("OpenTAKServer"), "official-hub"),
+    )
+    worker.start()
+    worker.join(timeout=1)
+
+    assert not worker.is_alive()
+    assert stub.calls == 2
 
 
 # -------------------------------------------------------------- integration
@@ -394,7 +618,9 @@ def federated_pair(tmp_path):
                 "outbound": False,
                 "inbound_groups": ["__ANON__"],
                 "outbound_groups": ["__ANON__"],
-                "cert_fingerprint": None,
+                "cert_fingerprint": truststore.cert_fingerprint(
+                    cert_b.public_bytes(serialization.Encoding.DER)
+                ),
             }
         ],
         contacts={"uid-a1": "ALPHA"},
@@ -484,7 +710,9 @@ def test_federation_end_to_end(federated_pair):
     assert 'callsign="HAVOC13"' in envelope["cot"]
 
     # And the reverse direction
-    pair.bridges_a[0].inject({"uid": "ANDROID-cafef00d", "cot": SA_COT.replace("deadbeef", "cafef00d")})
+    pair.bridges_a[0].inject(
+        {"uid": "ANDROID-cafef00d", "cot": SA_COT.replace("deadbeef", "cafef00d")}
+    )
     _wait_for(lambda: pair.bridges_b[0].inbound, message="SA event on B")
     assert pair.bridges_b[0].inbound[0]["uid"] == "ANDROID-cafef00d"
 
@@ -615,7 +843,9 @@ def test_federation_v2_grpc_inbound(tmp_path):
                 "outbound": False,
                 "inbound_groups": ["__ANON__"],
                 "outbound_groups": ["__ANON__"],
-                "cert_fingerprint": None,
+                "cert_fingerprint": truststore.cert_fingerprint(
+                    cert_a.public_bytes(serialization.Encoding.DER)
+                ),
             }
         ]
     )
@@ -632,6 +862,17 @@ def test_federation_v2_grpc_inbound(tmp_path):
         options=[("grpc.ssl_target_name_override", "opentakserver")],
     )
     try:
+        fingerprint, common_name = truststore.probe_grpc_peer_identity(
+            client_cfg,
+            "127.0.0.1",
+            port,
+            "opentakserver",
+        )
+        assert fingerprint == truststore.cert_fingerprint(
+            cert_b.public_bytes(serialization.Encoding.DER)
+        )
+        assert common_name == "opentakserver"
+
         stub = fig_pb2_grpc.FederatedChannelStub(channel)
 
         identity = stub.getIdentity(fig_pb2.Empty())
@@ -659,7 +900,6 @@ def test_federation_v2_rejects_untrusted_client(tmp_path):
 
     from opentakserver.federation import grpc_engine
 
-    _, ca_b = _make_ca("Enclave B CA")
     ca_b_key, ca_b = _make_ca("Enclave B CA")
     key_b, cert_b = _make_cert("opentakserver", ca_b_key, ca_b)
     folder_b = _write_identity(tmp_path, "b", key_b, cert_b, ca_b)

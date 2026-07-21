@@ -15,8 +15,8 @@ class Federation(db.Model):
     Outbound federates are dialed by the federation server; inbound federates
     are auto-registered when a server whose CA is in the federation truststore
     connects. ``inbound_groups``/``outbound_groups`` gate the flow of data in
-    each direction - a federate with empty group lists exchanges nothing,
-    matching TAK Server's default posture.
+    each direction - a federate with empty group lists exchanges no new
+    contacts or data (contact revocations can still clear prior presence).
     """
 
     __tablename__ = "federation"
@@ -62,8 +62,6 @@ class Federation(db.Model):
             iso8601_string_from_datetime(self.last_connected) if self.last_connected else None
         )
         json["last_disconnected"] = (
-            iso8601_string_from_datetime(self.last_disconnected)
-            if self.last_disconnected
-            else None
+            iso8601_string_from_datetime(self.last_disconnected) if self.last_disconnected else None
         )
         return json

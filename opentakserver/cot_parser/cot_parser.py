@@ -62,6 +62,7 @@ from opentakserver.models.VideoStream import VideoStream
 from opentakserver.models.WebAuthn import WebAuthn
 from opentakserver.models.ZMIST import ZMIST
 from opentakserver.proto import atak_pb2
+from opentakserver.cot_parser.disconnect import process_disconnect
 
 
 class CoTController:
@@ -939,94 +940,7 @@ class CoTController:
 
     def send_disconnect_cot(self, uid: str, user_id: str):
         self.logger.warning("Sending disconnect cot to {}".format(uid))
-        if uid:
-            now = datetime.now(timezone.utc)
-            stale = datetime.now(timezone.utc) + timedelta(seconds=10)
-
-            event = Element(
-                "event",
-                {
-                    "how": "h-g-i-g-o",
-                    "type": "t-x-d-d",
-                    "version": "2.0",
-                    "uid": str(uuid.uuid4()),
-                    "start": iso8601_string_from_datetime(now),
-                    "time": iso8601_string_from_datetime(now),
-                    "stale": iso8601_string_from_datetime(stale),
-                },
-            )
-            point = SubElement(
-                event,
-                "point",
-                {"ce": "9999999", "le": "9999999", "hae": "0", "lat": "0", "lon": "0"},
-            )
-            detail = SubElement(event, "detail")
-            link = SubElement(detail, "link", {"relation": "p-p", "uid": uid, "type": "a-f-G-U-C"})
-            flow_tags = SubElement(
-                detail,
-                "_flow-tags_",
-                {"TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0": iso8601_string_from_datetime(now)},
-            )
-
-            message = json.dumps({"uid": uid, "cot": tostring(event).decode("utf-8")})
-            if self.rabbit_channel and not self.rabbit_channel.is_closed and user_id:
-                with self.context:
-                    group_query = db.session.query(GroupUser).filter_by(
-                        user_id=user_id, direction=Group.OUT, enabled=True
-                    )
-                    groups = db.session.execute(group_query).all()
-                    for group in groups:
-                        group = group[0]
-                        self.rabbit_channel.basic_publish(
-                            exchange="groups",
-                            routing_key=f"{group.group.name}.{group.direction}",
-                            body=message,
-                            properties=pika.BasicProperties(
-                                expiration=app.config.get("OTS_RABBITMQ_TTL")
-                            ),
-                        )
-
-                        self.rabbit_channel.queue_bind(
-                            queue=uid,
-                            exchange="groups",
-                            routing_key=f"{group.group.name}.{group.direction}",
-                        )
-
-                        self.logger.debug(
-                            f"Unbound {uid} from {group.group.name}.{group.direction}"
-                        )
-            elif (
-                self.rabbit_channel
-                and not self.rabbit_channel.is_closing
-                and not self.rabbit_channel.is_closed
-            ):
-                self.rabbit_channel.basic_publish(
-                    exchange="groups",
-                    routing_key=f"__ANON__.{Group.OUT}",
-                    body=message,
-                    properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
-                )
-
-                self.rabbit_channel.queue_unbind(
-                    queue=uid, exchange="groups", routing_key=f"__ANON__.{Group.OUT}"
-                )
-
-            with self.context:
-                missions = db.session.execute(db.session.query(Mission)).all()
-                for mission in missions:
-                    self.rabbit_channel.queue_unbind(
-                        queue=uid,
-                        exchange="missions",
-                        routing_key=f"missions.{mission[0].name}",
-                    )
-                    self.logger.debug(f"Unbound {uid} from mission.{mission[0].name}")
-
-                db.session.execute(
-                    update(EUD)
-                    .filter(EUD.uid == uid)
-                    .values(last_status="Disconnected", last_event_time=now)
-                )
-                db.session.commit()
+        return process_disconnect(self, uid, user_id)
 
     def generate_mission_change(self, uid: str, event: BeautifulSoup):
         destinations = event.find_all("dest")

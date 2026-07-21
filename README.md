@@ -34,8 +34,8 @@ Join us on our [Discord server](https://discord.gg/6uaVHjtfXN)
 - Mission API
   - Data Sync plugin
   - Fire Area Survey plugin
-- Federation v1 and v2 (server-to-server situational awareness with official
-  TAK Server or another OpenTAKServer, over framed TLS or gRPC, see
+- Federation v1 and v2 situational awareness (OTS-to-OTS, official TAK Server
+  5.5, and official Federation Hub 5.7 validated over framed TLS and gRPC; see
   [FEDERATION.md](FEDERATION.md))
 
 ## Planned Features

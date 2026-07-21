@@ -7,7 +7,6 @@ and database access, then serves federation connections until stopped.
 
 import logging
 import os
-import platform
 import sys
 from logging.handlers import TimedRotatingFileHandler
 

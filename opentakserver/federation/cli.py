@@ -18,7 +18,13 @@ import sys
 from sqlalchemy import select
 
 from opentakserver.federation import truststore
-from opentakserver.federation.federation_server import app
+
+
+def _get_app():
+    """Load the federation app only when a command needs runtime state."""
+    from opentakserver.federation.federation_server import app
+
+    return app
 
 
 def _print(obj, as_json):
@@ -47,6 +53,7 @@ def cmd_list(args):
     from opentakserver.extensions import db
     from opentakserver.models.Federation import Federation
 
+    app = _get_app()
     with app.app_context():
         rows = db.session.execute(select(Federation).order_by(Federation.name)).all()
         peers = [row[0].to_json() for row in rows]
@@ -73,6 +80,7 @@ def cmd_status(args):
     from opentakserver.extensions import db
     from opentakserver.models.Federation import Federation
 
+    app = _get_app()
     with app.app_context():
         rows = db.session.execute(select(Federation).order_by(Federation.name)).all()
         peers = []
@@ -118,11 +126,13 @@ def cmd_add(args):
     from opentakserver.extensions import db
     from opentakserver.models.Federation import Federation
 
+    app = _get_app()
     with app.app_context():
-        row = db.session.execute(
+        existing = db.session.execute(
             select(Federation).filter_by(name=args.name)
         ).first()
-        row = row[0] if row else Federation()
+        row = existing[0] if existing else Federation()
+        is_new = existing is None
         row.name = args.name
         if row.inbound_groups is None:
             row.inbound_groups = []
@@ -131,15 +141,26 @@ def cmd_add(args):
 
         if args.address is not None:
             row.address = args.address or None
+            row.outbound = bool(row.address)
+        elif is_new:
+            row.outbound = False
         if args.port is not None:
+            if not 1 <= args.port <= 65535:
+                print("error: --port must be between 1 and 65535", file=sys.stderr)
+                return 2
             row.port = args.port
-        row.protocol_version = args.protocol
-        row.outbound = bool(args.address)
+        if args.protocol is not None:
+            row.protocol_version = args.protocol
+        elif is_new:
+            row.protocol_version = 1
         if args.enabled is not None:
             row.enabled = args.enabled
         elif row.enabled is None:
             row.enabled = True
         if args.reconnect is not None:
+            if args.reconnect < 1:
+                print("error: --reconnect must be at least 1 second", file=sys.stderr)
+                return 2
             row.reconnect_interval = args.reconnect
 
         if args.in_groups is not None:
@@ -159,7 +180,10 @@ def cmd_add(args):
         db.session.commit()
         result = row.to_json()
 
-    _print({"ok": True, "federate": result}, args.json) or print(f"Saved federate '{args.name}'.")
+    if args.json:
+        _print({"ok": True, "federate": result}, True)
+    else:
+        print(f"Saved federate '{args.name}'.")
     return 0
 
 
@@ -167,6 +191,7 @@ def cmd_remove(args):
     from opentakserver.extensions import db
     from opentakserver.models.Federation import Federation
 
+    app = _get_app()
     with app.app_context():
         row = db.session.execute(
             select(Federation).filter_by(name=args.name)
@@ -177,7 +202,10 @@ def cmd_remove(args):
         db.session.delete(row[0])
         db.session.commit()
 
-    _print({"ok": True}, args.json) or print(f"Removed federate '{args.name}'.")
+    if args.json:
+        _print({"ok": True}, True)
+    else:
+        print(f"Removed federate '{args.name}'.")
     return 0
 
 
@@ -185,6 +213,7 @@ def _set_enabled(name, enabled, as_json):
     from opentakserver.extensions import db
     from opentakserver.models.Federation import Federation
 
+    app = _get_app()
     with app.app_context():
         row = db.session.execute(select(Federation).filter_by(name=name)).first()
         if not row:
@@ -193,9 +222,10 @@ def _set_enabled(name, enabled, as_json):
         row[0].enabled = enabled
         db.session.commit()
 
-    _print({"ok": True, "enabled": enabled}, as_json) or print(
-        f"Federate '{name}' {'enabled' if enabled else 'disabled'}."
-    )
+    if as_json:
+        _print({"ok": True, "enabled": enabled}, True)
+    else:
+        print(f"Federate '{name}' {'enabled' if enabled else 'disabled'}.")
     return 0
 
 
@@ -208,6 +238,7 @@ def cmd_disable(args):
 
 
 def cmd_ca_list(args):
+    app = _get_app()
     with app.app_context():
         cas = truststore.list_cas(app.config)
     if args.json:
@@ -227,19 +258,22 @@ def cmd_ca_import(args):
         return 1
     with open(args.file, "rb") as f:
         pem = f.read()
+    app = _get_app()
     with app.app_context():
         try:
             result = truststore.save_ca(app.config, args.name or os.path.basename(args.file), pem)
         except ValueError as e:
             print(f"error: invalid certificate: {e}", file=sys.stderr)
             return 1
-    _print({"ok": True, "ca": result}, args.json) or print(
-        f"Trusted federation CA '{result['filename']}' ({result.get('subject', '')})."
-    )
+    if args.json:
+        _print({"ok": True, "ca": result}, True)
+    else:
+        print(f"Trusted federation CA '{result['filename']}' ({result.get('subject', '')}).")
     return 0
 
 
 def cmd_ca_export(args):
+    app = _get_app()
     ca_path = os.path.join(app.config.get("OTS_CA_FOLDER"), "ca.pem")
     if not os.path.exists(ca_path):
         print(f"error: CA not found at {ca_path}", file=sys.stderr)
@@ -249,9 +283,10 @@ def cmd_ca_export(args):
     if args.out:
         with open(args.out, "wb") as f:
             f.write(pem)
-        _print({"ok": True, "path": args.out}, args.json) or print(
-            f"Exported this server's CA to {args.out} — hand it to the peer administrator."
-        )
+        if args.json:
+            _print({"ok": True, "path": args.out}, True)
+        else:
+            print(f"Exported this server's CA to {args.out} — hand it to the peer administrator.")
     else:
         sys.stdout.buffer.write(pem)
     return 0
@@ -271,7 +306,7 @@ def build_parser():
     add.add_argument("name")
     add.add_argument("--host", "--address", dest="address", default=None)
     add.add_argument("--port", type=int, default=None)
-    add.add_argument("--protocol", type=int, choices=(1, 2), default=1)
+    add.add_argument("--protocol", type=int, choices=(1, 2), default=None)
     add.add_argument("--reconnect", type=int, default=None)
     add.add_argument("--groups", default=None, help="comma-separated, sets both directions")
     add.add_argument("--in-groups", dest="in_groups", default=None)

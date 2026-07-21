@@ -4,7 +4,7 @@ v2 carries the same FederatedEvent messages as v1, but over the official TAK
 FederatedChannel gRPC service instead of length-prefixed TLS frames. This
 implements the SA subset:
 
-- getIdentity / HealthCheck housekeeping
+- getIdentity (when the peer serves it) / HealthCheck housekeeping
 - ClientEventStream: a federate subscribes and we stream our (group-filtered)
   events to it
 - ServerEventStream: a federate streams its events to us and we route them in
@@ -20,6 +20,7 @@ connecting federate from its client certificate.
 """
 
 import queue
+import ssl
 import threading
 import time
 from concurrent import futures
@@ -31,12 +32,14 @@ from opentakserver.federation.engine import (
     apply_inbound_event,
     build_outbound_event,
     contact_announcements,
+    verify_peer_fingerprint,
 )
 from opentakserver.federation.mapper import contact_event
 from opentakserver.federation.proto import fig_pb2, fig_pb2_grpc
 
 STREAM_POLL_SECONDS = 1.0
 OUTBOUND_QUEUE_MAX = 1000
+DEFAULT_HEALTH_CHECK_INTERVAL_SECONDS = 5.0
 
 
 def _channel_credentials(config):
@@ -71,6 +74,70 @@ def _peer_address(context):
     return parts[1] if len(parts) >= 2 else peer
 
 
+def _optional_peer_name(stub, fallback):
+    """Return the v2 peer name, tolerating TAK's optional identity RPC."""
+    try:
+        identity = stub.getIdentity(fig_pb2.Empty())
+        return identity.name or fallback, True
+    except grpc.RpcError as e:
+        if e.code() != grpc.StatusCode.UNIMPLEMENTED:
+            raise
+        return fallback, False
+
+
+def _health_check_loop(stub, stop, interval, logger, peer_name):
+    """Keep a v2 event stream alive using the official FIG health contract.
+
+    TAK Server and Federation Hub expire a client event stream when they do
+    not receive a SERVING health report within their configured timeout.  A
+    peer that does not implement the optional RPC remains usable; peers that
+    do implement it receive the same periodic report as a stock TAK client.
+    """
+    interval = float(interval)
+    if interval <= 0:
+        logger.warning(f"Federation v2 health checks disabled for '{peer_name}'")
+        return
+
+    request = fig_pb2.ClientHealth(status=fig_pb2.ClientHealth.SERVING)
+    # Hub 5.7 sends the unary response but does not call onCompleted(). Bound
+    # each call so it cannot occupy this worker forever, while leaving enough
+    # margin to refresh the Hub's default 15-second client timeout.
+    rpc_timeout = max(1.0, min(interval / 2.0, 5.0))
+    while not stop.wait(interval):
+        try:
+            response = stub.HealthCheck(request, timeout=rpc_timeout)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNIMPLEMENTED:
+                logger.debug(
+                    f"Federation v2 peer '{peer_name}' does not serve optional HealthCheck"
+                )
+                return
+            if e.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
+                # Federation Hub 5.7 updates the stream health and calls
+                # onNext(SERVING), but omits onCompleted() from this unary RPC.
+                # Python therefore reaches its local deadline even though the
+                # heartbeat was accepted. Keep refreshing as stock TAK's
+                # asynchronous client does.
+                logger.debug(
+                    f"Federation v2 health check to '{peer_name}' reached its "
+                    "completion deadline; continuing"
+                )
+                continue
+            else:
+                logger.warning(
+                    f"Federation v2 health check to '{peer_name}' failed: "
+                    f"{e.code()} {e.details()}"
+                )
+                return
+
+        if response.status != fig_pb2.ServerHealth.SERVING:
+            logger.warning(
+                f"Federation v2 peer '{peer_name}' reported unhealthy status "
+                f"{fig_pb2.ServerHealth.ServingStatus.Name(response.status)}"
+            )
+            return
+
+
 class FederationServicer(fig_pb2_grpc.FederatedChannelServicer):
     """Serves inbound federation v2 connections (we are the listener)."""
 
@@ -98,9 +165,7 @@ class FederationServicer(fig_pb2_grpc.FederatedChannelServicer):
 
     def _resolve_federate(self, context):
         fingerprint, cn = _peer_identity(context)
-        federate = self.directory.find_or_create_inbound(
-            fingerprint, cn, _peer_address(context)
-        )
+        federate = self.directory.find_or_create_inbound(fingerprint, cn, _peer_address(context))
         return federate
 
     def ServerEventStream(self, request_iterator, context):
@@ -127,9 +192,7 @@ class FederationServicer(fig_pb2_grpc.FederatedChannelServicer):
         finally:
             bridge.close()
             self.directory.record_state(federate["id"], connected=False)
-            self.logger.info(
-                f"Federation v2 inbound stream from '{name}' closed ({count} events)"
-            )
+            self.logger.info(f"Federation v2 inbound stream from '{name}' closed ({count} events)")
         return fig_pb2.Subscription(identity=self._identity_message())
 
     def ClientEventStream(self, request, context):
@@ -182,11 +245,11 @@ def _outbound_event_stream(manager, federate, context):
             now = time.monotonic()
             if now - last_contacts >= contact_interval:
                 last_contacts = now
-                current = directory.connected_contacts()
+                federate = directory.federate_config(federate["id"]) or federate
+                current = directory.connected_contacts(federate.get("outbound_groups") or [])
                 for uid, callsign, operation in contact_announcements(current, sent_contacts):
                     yield contact_event(uid, callsign, operation)
                 sent_contacts = current
-                federate = directory.federate_config(federate["id"]) or federate
 
             try:
                 body = outbound.get(timeout=STREAM_POLL_SECONDS)
@@ -249,7 +312,8 @@ class GrpcClient:
             now = time.monotonic()
             if now - last_contacts >= contact_interval:
                 last_contacts = now
-                current = self.directory.connected_contacts()
+                config = self.directory.federate_config(self.federate["id"]) or self.federate
+                current = self.directory.connected_contacts(config.get("outbound_groups") or [])
                 for uid, callsign, operation in contact_announcements(current, sent_contacts):
                     yield contact_event(uid, callsign, operation)
                 sent_contacts = current
@@ -278,7 +342,15 @@ class GrpcClient:
 
         try:
             credentials = _channel_credentials(self.config)
-        except truststore.NoFederationCAsError as e:
+            fingerprint, common_name = truststore.probe_grpc_peer_identity(
+                self.config,
+                config["address"],
+                config["port"],
+                authority,
+            )
+            verify_peer_fingerprint(config, fingerprint)
+            self.directory.pin_fingerprint(config["id"], fingerprint, common_name)
+        except (OSError, ssl.SSLError, truststore.NoFederationCAsError) as e:
             self.logger.warning(f"Federation v2 dial to '{config['name']}' failed: {e}")
             self.directory.record_state(config["id"], connected=False, error=str(e))
             return
@@ -291,9 +363,18 @@ class GrpcClient:
 
         try:
             grpc.channel_ready_future(channel).result(timeout=15)
-            identity = stub.getIdentity(fig_pb2.Empty())
+            # Official TAK Server 5.5 declares getIdentity in fig.proto but
+            # leaves the server-side method unimplemented.  Stock TAK clients
+            # do not require it; identity is carried in the stream Subscription
+            # instead.  Keep it as an optional diagnostic RPC so OTS remains
+            # compatible with peers that do implement it.
+            peer_name, serves_identity = _optional_peer_name(stub, name)
+            if not serves_identity:
+                self.logger.debug(
+                    f"Federation v2 peer '{name}' does not serve optional getIdentity"
+                )
             self.logger.info(
-                f"Federation v2 link established with '{name}' (peer: {identity.name})"
+                f"Federation v2 link established with '{name}' (peer: {peer_name})"
             )
             self.directory.record_state(config["id"], connected=True)
 
@@ -309,7 +390,24 @@ class GrpcClient:
 
             # Receive the peer's events on this thread
             subscription = fig_pb2.Subscription(identity=self._identity_message())
-            for fed_event in stub.ClientEventStream(subscription):
+            event_stream = stub.ClientEventStream(subscription)
+            health = threading.Thread(
+                target=_health_check_loop,
+                args=(
+                    stub,
+                    self._stop,
+                    self.config.get(
+                        "OTS_FEDERATION_V2_HEALTH_CHECK_INTERVAL_SECONDS",
+                        DEFAULT_HEALTH_CHECK_INTERVAL_SECONDS,
+                    ),
+                    self.logger,
+                    name,
+                ),
+                name=f"fedv2c-health-{name}",
+                daemon=True,
+            )
+            health.start()
+            for fed_event in event_stream:
                 if self._stop.is_set():
                     break
                 current = self.directory.federate_config(config["id"]) or config
@@ -317,9 +415,7 @@ class GrpcClient:
                     fed_event, current, self.directory, bridge, self.logger, remote_contacts
                 )
         except grpc.RpcError as e:
-            self.logger.warning(
-                f"Federation v2 dial to '{name}' failed: {e.code()} {e.details()}"
-            )
+            self.logger.warning(f"Federation v2 dial to '{name}' failed: {e.code()} {e.details()}")
             self.directory.record_state(config["id"], connected=False, error=str(e.code()))
         except Exception as e:  # noqa: BLE001
             self.logger.error(f"Federation v2 client error for '{name}': {e}")

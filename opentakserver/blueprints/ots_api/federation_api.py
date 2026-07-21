@@ -11,6 +11,7 @@ from flask_security import roles_required
 from opentakserver.blueprints.ots_api.api import paginate, search
 from opentakserver.extensions import db, logger
 from opentakserver.federation import truststore
+from opentakserver.federation.engine import parse_protocol_version
 from opentakserver.models.Federation import Federation
 
 federation_api_blueprint = Blueprint("federation_api_blueprint", __name__)
@@ -40,7 +41,7 @@ def get_federation():
 def add_federation():
     """Create or update a federate.
 
-    Body: name (required), address, port, outbound, enabled,
+    Body: name (required), address, port, protocol_version, outbound, enabled,
     reconnect_interval, inbound_groups, outbound_groups.
 
     A federate exchanges no data until inbound_groups/outbound_groups are set.
@@ -50,9 +51,7 @@ def add_federation():
 
     name = bleach.clean(request.json.get("name"))
 
-    federation = db.session.execute(
-        db.session.query(Federation).filter_by(name=name)
-    ).first()
+    federation = db.session.execute(db.session.query(Federation).filter_by(name=name)).first()
     if federation:
         federation = federation[0]
     else:
@@ -68,6 +67,18 @@ def add_federation():
             federation.port = int(request.json.get("port"))
         except (TypeError, ValueError):
             return jsonify({"success": False, "error": gettext("Invalid port")}), 400
+        if not 1 <= federation.port <= 65535:
+            return jsonify({"success": False, "error": gettext("Invalid port")}), 400
+    if "protocol_version" in request.json:
+        try:
+            federation.protocol_version = parse_protocol_version(
+                request.json.get("protocol_version")
+            )
+        except ValueError:
+            return (
+                jsonify({"success": False, "error": gettext("Invalid protocol_version")}),
+                400,
+            )
     if "outbound" in request.json:
         federation.outbound = bool(request.json.get("outbound"))
     if "enabled" in request.json:
@@ -86,18 +97,14 @@ def add_federation():
             groups = request.json.get(field) or []
             if not isinstance(groups, list) or not all(isinstance(g, str) for g in groups):
                 return (
-                    jsonify(
-                        {"success": False, "error": gettext("Groups must be a list of names")}
-                    ),
+                    jsonify({"success": False, "error": gettext("Groups must be a list of names")}),
                     400,
                 )
             setattr(federation, field, [bleach.clean(g) for g in groups])
 
     if federation.outbound and not federation.address:
         return (
-            jsonify(
-                {"success": False, "error": gettext("Outbound federates require an address")}
-            ),
+            jsonify({"success": False, "error": gettext("Outbound federates require an address")}),
             400,
         )
 
@@ -167,7 +174,9 @@ def add_federation_ca():
         result = truststore.save_ca(app.config, filename, pem)
     except ValueError as e:
         return (
-            jsonify({"success": False, "error": gettext("Invalid certificate: %(error)s", error=str(e))}),
+            jsonify(
+                {"success": False, "error": gettext("Invalid certificate: %(error)s", error=str(e))}
+            ),
             400,
         )
 

@@ -65,6 +65,27 @@ GROUP_CACHE_SECONDS = 30
 # ---------------------------------------------------------------------------
 
 
+def parse_protocol_version(value) -> int:
+    """Return a supported federation transport version or raise ValueError."""
+    if isinstance(value, int) and not isinstance(value, bool) and value in (1, 2):
+        return value
+    if isinstance(value, str) and value in ("1", "2"):
+        return int(value)
+    raise ValueError("protocol_version must be 1 or 2")
+
+
+def verify_peer_fingerprint(federate: dict, fingerprint: str | None) -> None:
+    """Reject a missing or changed peer leaf certificate."""
+    if not fingerprint:
+        raise ssl.SSLError(f"Federate '{federate['name']}' presented no certificate")
+    expected = federate.get("cert_fingerprint")
+    if expected and expected != fingerprint:
+        raise ssl.SSLError(
+            f"Federate '{federate['name']}' presented certificate {fingerprint[:12]} "
+            f"but {expected[:12]} is pinned"
+        )
+
+
 def build_outbound_event(envelope: dict, federate: dict, directory, node_id: str):
     """Convert a firehose envelope to a FederatedEvent to send, or None.
 
@@ -101,6 +122,14 @@ def apply_inbound_event(fed_event, federate: dict, directory, bridge, logger, re
     the peer's announced contacts, updated in place.
     """
     name = federate["name"]
+    inbound_groups = federate.get("inbound_groups") or []
+    if not inbound_groups:
+        # Revocations are safe control-plane messages and must still take
+        # effect after an administrator removes this federate's group access.
+        if fed_event.HasField("contact") and fed_event.contact.operation == fig_pb2.DELETE:
+            remote_contacts.pop(fed_event.contact.uid, None)
+            directory.remove_federated_eud(fed_event.contact.uid)
+        return False
 
     if fed_event.HasField("contact"):
         contact = fed_event.contact
@@ -108,18 +137,19 @@ def apply_inbound_event(fed_event, federate: dict, directory, bridge, logger, re
             remote_contacts.pop(contact.uid, None)
             directory.remove_federated_eud(contact.uid)
         else:
+            if not directory.ensure_federated_eud(contact.uid, contact.callsign, name):
+                logger.warning(
+                    f"Ignoring federated contact {contact.uid} from '{name}': "
+                    "uid belongs to a local EUD"
+                )
+                return False
             remote_contacts[contact.uid] = contact.callsign
-            directory.ensure_federated_eud(contact.uid, contact.callsign, name)
         logger.debug(
             f"Federate {name} contact "
             f"{fig_pb2.CRUD.Name(contact.operation)}: {contact.callsign} ({contact.uid})"
         )
 
     if not fed_event.HasField("event"):
-        return False
-
-    inbound_groups = federate.get("inbound_groups") or []
-    if not inbound_groups:
         return False
 
     cot = federated_event_to_cot(fed_event)
@@ -130,8 +160,11 @@ def apply_inbound_event(fed_event, federate: dict, directory, bridge, logger, re
     # locally so the cot table's foreign key is satisfied and the remote unit
     # shows up like a federated contact.
     sender_uid, callsign = sender_identity(fed_event)
-    if sender_uid:
-        directory.ensure_federated_eud(sender_uid, callsign, name)
+    if sender_uid and not directory.ensure_federated_eud(sender_uid, callsign, name):
+        logger.warning(
+            f"Ignoring federated event from '{name}': uid {sender_uid} belongs to a local EUD"
+        )
+        return False
 
     bridge.publish_inbound(
         {
@@ -163,15 +196,24 @@ class Directory:
         self.logger = logger
         self._group_cache = {}
 
-    def connected_contacts(self) -> dict[str, str]:
+    def connected_contacts(self, allowed_groups: list[str] | set[str]) -> dict[str, str]:
+        """Connected local contacts reachable through the outbound allowlist."""
         from opentakserver.extensions import db
         from opentakserver.models.EUD import EUD
+
+        allowed = set(allowed_groups or [])
+        if not allowed:
+            return {}
 
         with self.app.app_context():
             rows = db.session.execute(
                 db.session.query(EUD).filter_by(last_status="Connected")
             ).all()
-            return {row[0].uid: row[0].callsign or row[0].uid for row in rows}
+            contacts = {row[0].uid: row[0].callsign or row[0].uid for row in rows}
+
+        return {
+            uid: callsign for uid, callsign in contacts.items() if self.sender_groups(uid) & allowed
+        }
 
     def sender_groups(self, uid: str) -> set[str]:
         """Groups the EUD with this uid publishes into (its user's IN groups).
@@ -203,7 +245,7 @@ class Directory:
         self._group_cache[uid] = (time.monotonic(), groups)
         return groups
 
-    def ensure_federated_eud(self, uid: str, callsign: str | None, federate_name: str) -> None:
+    def ensure_federated_eud(self, uid: str, callsign: str | None, federate_name: str) -> bool:
         """Register a minimal EUD row for a federated entity.
 
         Federated tracks reference EUDs that live on the peer server, but the
@@ -220,15 +262,18 @@ class Directory:
             existing = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()
             now = datetime.now(timezone.utc)
             if existing:
+                if not (existing[0].last_status or "").startswith("Federated ("):
+                    return False
                 db.session.execute(
                     update(EUD)
                     .where(EUD.uid == uid)
                     .values(last_event_time=now, last_status=f"Federated ({federate_name})")
                 )
                 db.session.commit()
-                return
+                return True
 
-            for attempt_callsign in (callsign, None):
+            attempts = (callsign, None) if callsign else (None,)
+            for attempt_callsign in attempts:
                 eud = EUD()
                 eud.uid = uid
                 eud.callsign = attempt_callsign
@@ -237,9 +282,29 @@ class Directory:
                 try:
                     db.session.add(eud)
                     db.session.commit()
-                    return
+                    return True
                 except IntegrityError:
-                    db.session.rollback()  # callsign collision or race; retry bare
+                    db.session.rollback()
+                    # Contact and SA streams can register the same remote uid
+                    # concurrently. Reuse the winning federated row, but never
+                    # reinterpret a local EUD as federated.
+                    existing = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).first()
+                    if existing:
+                        if not (existing[0].last_status or "").startswith("Federated ("):
+                            return False
+                        db.session.execute(
+                            update(EUD)
+                            .where(EUD.uid == uid)
+                            .values(
+                                last_event_time=now,
+                                last_status=f"Federated ({federate_name})",
+                            )
+                        )
+                        db.session.commit()
+                        return True
+                    # A unique callsign collision has no uid row; retry without
+                    # the best-effort callsign.
+            return False
 
     def remove_federated_eud(self, uid: str) -> None:
         from opentakserver.extensions import db
@@ -247,7 +312,9 @@ class Directory:
 
         with self.app.app_context():
             db.session.execute(
-                update(EUD).where(EUD.uid == uid).values(last_status="Disconnected")
+                update(EUD)
+                .where(EUD.uid == uid, EUD.last_status.like("Federated (%"))
+                .values(last_status="Federated (disconnected)")
             )
             db.session.commit()
 
@@ -273,6 +340,9 @@ class Directory:
         from opentakserver.extensions import db
         from opentakserver.models.Federation import Federation
 
+        if not fingerprint:
+            raise ssl.SSLError("federation peer did not present a certificate")
+
         with self.app.app_context():
             row = db.session.execute(
                 db.session.query(Federation).filter_by(cert_fingerprint=fingerprint)
@@ -281,7 +351,8 @@ class Directory:
                 return row[0].serialize()
 
             row = Federation()
-            row.name = common_name or f"federate-{fingerprint[:12]}"
+            base_name = (common_name or "federate")[:242]
+            row.name = f"{base_name}-{fingerprint[:12]}"
             row.address = address
             row.outbound = False
             row.enabled = True
@@ -290,7 +361,18 @@ class Directory:
             row.inbound_groups = []
             row.outbound_groups = []
             db.session.add(row)
-            db.session.commit()
+            try:
+                db.session.commit()
+            except IntegrityError:
+                # The two v2 streams can race their first lookup. The winner
+                # creates the row; the loser reuses it after rolling back.
+                db.session.rollback()
+                existing = db.session.execute(
+                    db.session.query(Federation).filter_by(cert_fingerprint=fingerprint)
+                ).first()
+                if existing:
+                    return existing[0].serialize()
+                raise
             self.logger.info(
                 f"Registered new inbound federate '{row.name}' ({fingerprint[:12]}) with no "
                 "groups - assign groups to start the flow of data"
@@ -421,7 +503,7 @@ class FederationConnection:
 
     def announce_contacts(self):
         """Send ContactListEntry create/delete for local EUD presence changes."""
-        current = self.directory.connected_contacts()
+        current = self.directory.connected_contacts(self.federate.get("outbound_groups") or [])
         for uid, callsign, operation in contact_announcements(current, self._sent_contacts):
             self._send(contact_event(uid, callsign, operation))
         self._sent_contacts = current
@@ -460,9 +542,7 @@ class FederationConnection:
         self.logger.info(f"Federation link established with '{name}'")
         self.directory.record_state(self.federate["id"], connected=True)
 
-        consumer = threading.Thread(
-            target=self._consume, name=f"fed-out-{name}", daemon=True
-        )
+        consumer = threading.Thread(target=self._consume, name=f"fed-out-{name}", daemon=True)
         consumer.start()
 
         contact_thread = threading.Thread(
@@ -652,12 +732,11 @@ class FederationManager:
             sock.settimeout(None)
 
             fingerprint, common_name = truststore.peer_identity(sock)
-            if config.get("cert_fingerprint") and config["cert_fingerprint"] != fingerprint:
+            try:
+                verify_peer_fingerprint(config, fingerprint)
+            except ssl.SSLError:
                 sock.close()
-                raise ssl.SSLError(
-                    f"Federate '{config['name']}' presented certificate {fingerprint[:12]} "
-                    f"but {config['cert_fingerprint'][:12]} is pinned"
-                )
+                raise
             self.directory.pin_fingerprint(config["id"], fingerprint, common_name)
 
             self._run_connection(sock, config)
@@ -680,7 +759,9 @@ class FederationManager:
             try:
                 for federate in self.directory.outbound_federates():
                     with self._lock:
-                        already = federate["id"] in self._dialing or federate["id"] in self.connections
+                        already = (
+                            federate["id"] in self._dialing or federate["id"] in self.connections
+                        )
                         if not already:
                             self._dialing.add(federate["id"])
                         else:

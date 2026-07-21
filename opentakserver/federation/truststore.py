@@ -16,6 +16,7 @@ import hashlib
 import logging
 import os
 import re
+import socket
 import ssl
 
 from cryptography import x509
@@ -135,6 +136,32 @@ def peer_identity(ssl_socket: ssl.SSLSocket) -> tuple[str | None, str | None]:
     except ValueError:
         logger.warning("Could not parse federation peer certificate for its common name")
 
+    return fingerprint, common_name
+
+
+def probe_grpc_peer_identity(
+    config, address: str, port: int, authority: str, timeout: float = 15
+) -> tuple[str, str | None]:
+    """Verify and identify the certificate used by a federation v2 endpoint.
+
+    Python's synchronous gRPC client does not expose the peer certificate. Do
+    a short mutual-TLS/HTTP2 handshake first, using the same CA, client
+    identity, and target authority as the gRPC channel, so the caller can
+    enforce the per-federate leaf-certificate pin before opening the streams.
+    """
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.check_hostname = True
+    context.set_alpn_protocols(["h2"])
+    _load_common(context, config)
+
+    with socket.create_connection((address, port), timeout=timeout) as raw_socket:
+        with context.wrap_socket(raw_socket, server_hostname=authority) as tls_socket:
+            if tls_socket.selected_alpn_protocol() != "h2":
+                raise ssl.SSLError("federation v2 peer did not negotiate HTTP/2")
+            fingerprint, common_name = peer_identity(tls_socket)
+
+    if not fingerprint:
+        raise ssl.SSLError("federation v2 peer did not present a certificate")
     return fingerprint, common_name
 
 
