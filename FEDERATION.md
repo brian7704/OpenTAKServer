@@ -196,6 +196,26 @@ stacks with separate RabbitMQ, Postgres, and CA instances and exercises either
 transport end to end. Each run retains logs plus a `result.json` artifact under
 its printed `/tmp/fed-live-*` workspace.
 
+Because this branch changes the EUD concurrency model from per-connection
+forks to threads (so duplicate-UID ownership can be shared safely), the
+HeartBeat repository also provides `tools/eud_threading_soak_test.py`. It uses
+real EUD handler and CoT parser processes with disposable RabbitMQ/Postgres,
+parallel first-SA connections, repeated same-UID replacements, broadcast and
+addressed-message checks, thread/RSS sampling, log scanning, and stalled TLS
+handshakes:
+
+```bash
+cd heartbeat
+python3 tools/eud_threading_soak_test.py
+```
+
+On 2026-07-21 the default gate passed all 43 checks with 24 simultaneous EUDs,
+five rounds replacing 23 UIDs in parallel (115 replacement sessions), and 12
+stalled TLS clients. TCP threads stayed at 80 in every active round and
+returned from 80 to the 32-thread process baseline; SSL threads rose from 32
+to 56 and returned to 32. No SQLAlchemy, RabbitMQ-thread, or Flask application
+context failures were logged.
+
 `tools/fed_official_live_test.py` performs the official interoperability gate.
 It copies an installed official TAK payload into `/tmp`, uses disposable
 databases and containers, exchanges federation CAs, and validates mTLS/pinning,
