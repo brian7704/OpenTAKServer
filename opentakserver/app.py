@@ -47,6 +47,7 @@ from opentakserver.models.WebAuthn import WebAuthn
 from opentakserver.PasswordValidator import PasswordValidator
 from opentakserver.plugins.Plugin import Plugin
 from opentakserver.plugins.PluginManager import PluginManager
+from opentakserver.rabbitmq import ensure_socketio_exchange
 from opentakserver.sql_jobstore import SQLJobStore
 from opentakserver.UsernameValidator import UsernameValidator
 
@@ -170,7 +171,7 @@ def init_extensions(app):
     channel.exchange_declare(
         "firehose", durable=True, exchange_type="fanout"
     )  # A firehose of all CoT data
-    channel.exchange_declare("flask-socketio", durable=False, exchange_type="fanout")
+    channel = ensure_socketio_exchange(rabbit_connection, channel, logger)
     channel.close()
     rabbit_connection.close()
 
