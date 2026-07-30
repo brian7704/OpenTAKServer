@@ -576,6 +576,8 @@ def put_mission(mission_name: str):
             )
             channel = rabbit_connection.channel()
 
+            channel.queue_bind(queue=mission.creator_uid, exchange="missions", routing_key=f"missions.{mission_name}")
+
             groups = db.session.execute(
                 db.session.query(GroupUser).filter_by(user_id=user.id, enabled=True)
             ).scalars()
