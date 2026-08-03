@@ -74,6 +74,11 @@ class CoTController:
 
         self.exchanges = []
 
+        # Last team colour seen per EUD uid, so update_team_from_cot only
+        # touches the database when it actually changed rather than on every
+        # position update.
+        self.last_team = {}
+
         self.rabbit_connection: pika.BlockingConnection = None
         self.rabbit_channel = None
 
@@ -256,6 +261,8 @@ class CoTController:
                 # to the UI's map
                 if event.find("takv") or event.find("__video"):
                     self.socketio.emit("point", p.to_json(), namespace="/socket.io")
+
+                self.update_team_from_cot(event, uid)
 
                 if self.context.app.config.get("OTS_ENABLE_MESHTASTIC"):
                     try:
@@ -878,6 +885,75 @@ class CoTController:
 
                     rb_line.point = start_point
                     self.socketio.emit("rb_line", rb_line.to_json(), namespace="/socket.io")
+
+    def update_team_from_cot(self, event, uid):
+        """Keep an EUD's team colour current for the whole connection.
+
+        EudHandler.parse_device_info is the only other writer of eud.team_id,
+        and it runs behind `if event and not self.uid` - once, on the first CoT
+        of a TCP connection. An operator who changes team colour mid-connection
+        therefore keeps their old colour in the database and on the web UI map
+        until they reconnect, however many SA updates arrive in between.
+
+        That matters because team colour is how some deployments carry live
+        state (for example marking a player out of the game), and the map is
+        the thing people watch. Peers are unaffected either way - EudHandler
+        relays the original CoT verbatim, so other clients parse __group
+        themselves and always see the current colour.
+
+        Called per position update, so it compares against self.last_team and
+        only touches the database when the colour actually changed. On a change
+        it also emits the 'eud' socketio event, which is what makes an already
+        open map recolour without a reload.
+        """
+        __group = event.find("__group")
+        if not __group or "name" not in __group.attrs:
+            return
+
+        team_name = bleach.clean(__group.attrs["name"])
+        if not team_name or self.last_team.get(uid) == team_name:
+            return
+
+        try:
+            team = self.db.session.execute(
+                select(Team).filter(Team.name == team_name)
+            ).first()
+            if team:
+                team = team[0]
+            else:
+                team = Team()
+                team.name = team_name
+                try:
+                    self.db.session.add(team)
+                    self.db.session.commit()
+                except sqlalchemy.exc.IntegrityError:
+                    # Another cot_parser process created it first.
+                    self.db.session.rollback()
+                    team = self.db.session.execute(
+                        select(Team).filter(Team.name == team_name)
+                    ).first()[0]
+
+            eud = self.db.session.execute(select(EUD).filter_by(uid=uid)).first()
+            if not eud:
+                return
+            eud = eud[0]
+
+            if eud.team_id != team.id:
+                eud.team_id = team.id
+                if "role" in __group.attrs:
+                    eud.team_role = bleach.clean(__group.attrs["role"])
+                self.db.session.add(eud)
+                self.db.session.commit()
+                self.logger.debug(f"{uid} team is now {team_name}")
+                self.socketio.emit("eud", eud.to_json(), namespace="/socket.io")
+
+            # Only cache after a successful update, so a failure retries on the
+            # next position update instead of being swallowed until reconnect.
+            self.last_team[uid] = team_name
+        except BaseException as e:
+            self.db.session.rollback()
+            self.logger.error(f"Failed to update team for {uid}: {e}")
+            self.logger.debug(traceback.format_exc())
 
     def parse_stats(self, event, uid):
         stats = event.find("stats")
