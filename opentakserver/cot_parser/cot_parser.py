@@ -252,9 +252,10 @@ class CoTController:
                 ).first()[0]
 
                 # This CoT is a position update for an EUD. Send it to socketio clients so it can be seen on the UI map
-                # OpenTAK ICU position updates don't include the <takv> tag, but we still want to send the updated position
-                # to the UI's map
-                if event.find("takv") or event.find("__video"):
+                # Not every EUD sends <takv>: OpenTAK ICU omits it, and so do non-ATAK clients that connect directly
+                # to the server (e.g. Somewear's direct server connection) and CoT bridges/gateways. Those positions
+                # reach ATAK/iTAK fine but never reached the UI's map. <contact> is what every EUD position carries.
+                if event.find("takv") or event.find("__video") or event.find("contact") is not None:
                     self.socketio.emit("point", p.to_json(), namespace="/socket.io")
 
                 if self.context.app.config.get("OTS_ENABLE_MESHTASTIC"):
