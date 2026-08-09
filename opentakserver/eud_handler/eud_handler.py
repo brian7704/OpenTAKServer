@@ -28,7 +28,7 @@ from opentakserver.extensions import logger, db, ldap_manager
 def args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--ssl", help="Enable SSL", default=False, action=argparse.BooleanOptionalAction
+        "--ssl", help=gettext("Enable SSL"), default=False, action=argparse.BooleanOptionalAction
     )
     parser.add_argument(
         "--udp", help=gettext("UDP Server"), default=False, action=argparse.BooleanOptionalAction
