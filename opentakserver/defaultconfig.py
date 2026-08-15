@@ -47,6 +47,38 @@ class DefaultConfig:
     OTS_STREAMING_INTERFACE = os.getenv("OTS_STREAMING_INTERFACE", "0.0.0.0")
     OTS_BACKUP_COUNT = int(os.getenv("OTS_BACKUP_COUNT", 7))
     OTS_ENABLE_CHANNELS = os.getenv("OTS_ENABLE_CHANNELS", "True").lower() in ["true", "1", "yes"]
+    OTS_ENABLE_FEDERATION = os.getenv("OTS_ENABLE_FEDERATION", "False").lower() in [
+        "true",
+        "1",
+        "yes",
+    ]
+    OTS_FEDERATION_V1_PORT = int(os.getenv("OTS_FEDERATION_V1_PORT", 9000))
+    OTS_FEDERATION_ENABLE_V2 = os.getenv("OTS_FEDERATION_ENABLE_V2", "True").lower() in [
+        "true",
+        "1",
+        "yes",
+    ]
+    OTS_FEDERATION_V2_PORT = int(os.getenv("OTS_FEDERATION_V2_PORT", 9001))
+    OTS_FEDERATION_V2_WORKERS = int(os.getenv("OTS_FEDERATION_V2_WORKERS", 16))
+    OTS_FEDERATION_V2_HEALTH_CHECK_INTERVAL_SECONDS = float(
+        os.getenv("OTS_FEDERATION_V2_HEALTH_CHECK_INTERVAL_SECONDS", 5)
+    )
+    # gRPC verifies the peer's certificate CN against this authority (TAK
+    # federation trusts by CA, and OTS server certs use CN "opentakserver")
+    OTS_FEDERATION_V2_AUTHORITY = os.getenv("OTS_FEDERATION_V2_AUTHORITY", "opentakserver")
+    OTS_FEDERATION_INTERFACE = os.getenv("OTS_FEDERATION_INTERFACE", "0.0.0.0")
+    OTS_FEDERATION_RECONNECT_SECONDS = int(os.getenv("OTS_FEDERATION_RECONNECT_SECONDS", 30))
+    OTS_FEDERATION_CONTACT_INTERVAL_SECONDS = int(
+        os.getenv("OTS_FEDERATION_CONTACT_INTERVAL_SECONDS", 30)
+    )
+    OTS_FEDERATION_MAX_FRAME_BYTES = int(
+        os.getenv("OTS_FEDERATION_MAX_FRAME_BYTES", 16 * 1024 * 1024)
+    )
+    OTS_FEDERATION_VERIFY_HOSTNAME = os.getenv(
+        "OTS_FEDERATION_VERIFY_HOSTNAME", "False"
+    ).lower() in ["true", "1", "yes"]
+    # Defaults to <OTS_CA_FOLDER>/federation when unset
+    OTS_FEDERATION_TRUSTSTORE_FOLDER = os.getenv("OTS_FEDERATION_TRUSTSTORE_FOLDER", "")
 
     # RabbitMQ Settings
     OTS_RABBITMQ_SERVER_ADDRESS = os.getenv("OTS_RABBITMQ_SERVER_ADDRESS", "127.0.0.1")

@@ -34,9 +34,12 @@ Join us on our [Discord server](https://discord.gg/6uaVHjtfXN)
 - Mission API
   - Data Sync plugin
   - Fire Area Survey plugin
+- Federation v1 and v2 situational awareness (OTS-to-OTS, official TAK Server
+  5.5, and official Federation Hub 5.7 validated over framed TLS and gRPC; see
+  [FEDERATION.md](FEDERATION.md))
 
 ## Planned Features
-- Federation
+- Mission/Data Sync federation (ROL)
 
 ## Requirements
 - RabbitMQ
