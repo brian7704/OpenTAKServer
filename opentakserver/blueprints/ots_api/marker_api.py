@@ -11,7 +11,6 @@ from flask import current_app as app
 from flask import jsonify, request
 from flask_babel import gettext
 from flask_security import auth_required, current_user
-from poetry.console.commands import self
 from sqlalchemy import insert, update
 from sqlalchemy.exc import IntegrityError
 
