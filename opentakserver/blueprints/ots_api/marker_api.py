@@ -137,6 +137,7 @@ def add_marker():
         point.hae = float(request.json["hae"]) if "hae" in request.json.keys() else 9999999.0
         point.le = float(request.json["le"]) if "le" in request.json.keys() else 9999999.0
         point.timestamp = datetime.now(timezone.utc)
+        point.point = f"POINT({float(request.json["longitude"])} {float(request.json["latitude"])})"
 
         with app.app_context():
             event = ET.Element("event")

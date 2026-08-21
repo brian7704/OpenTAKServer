@@ -3,7 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from geoalchemy2 import Geometry
+from geoalchemy2.types import Geography
 
 from opentakserver.extensions import db
 from opentakserver.forms.point_form import PointForm
@@ -31,7 +31,7 @@ class Point(db.Model):
     azimuth: Mapped[float] = mapped_column(Float, nullable=True)
     # Camera field of view from TAK ICU and OpenTAK ICU
     fov: Mapped[float] = mapped_column(Float, nullable=True)
-    point = Mapped[Geometry] = mapped_column(Geometry("POINT"))
+    point: Mapped[Geography] = mapped_column(Geography(geometry_type="POINT", srid=4326), nullable=True)
     cot_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("cot.id", ondelete="CASCADE"), nullable=True
     )
@@ -59,6 +59,7 @@ class Point(db.Model):
         self.timestamp = form.timestamp.data
         self.azimuth = form.azimuth.data
         self.fov = form.fov.data
+        self.point = f"POINT({form.longitude.data} {form.latitude.data})"
 
     def serialize(self):
         return {

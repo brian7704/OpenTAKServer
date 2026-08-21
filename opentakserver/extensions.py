@@ -15,7 +15,7 @@ mail = Mail()
 
 apscheduler = APScheduler()
 
-db = SQLAlchemy(model_class=Base)
+db = SQLAlchemy(model_class=Base, engine_options={'plugins': ["geoalchemy2"]})
 
 socketio = SocketIO(async_mode="gevent")
 

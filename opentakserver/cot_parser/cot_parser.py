@@ -148,6 +148,7 @@ class CoTController:
             p.longitude = float(point.attrs["lon"])
             p.timestamp = datetime_from_iso8601_string(event.attrs["time"])
             p.cot_id = cot_id
+            p.point = f"POINT({float(point.attrs['lon'])} {float(point.attrs['lat'])})"
 
             # We only really care about the rest of the data if there's a valid lat/lon
             if p.latitude == 0 and p.longitude == 0:
@@ -205,6 +206,7 @@ class CoTController:
                         battery=p.battery,
                         fov=p.fov,
                         azimuth=p.azimuth,
+                        point=p.point,
                     )
                 )
 
@@ -987,7 +989,7 @@ class CoTController:
                             ),
                         )
 
-                        self.rabbit_channel.queue_bind(
+                        self.rabbit_channel.queue_unbind(
                             queue=uid,
                             exchange="groups",
                             routing_key=f"{group.group.name}.{group.direction}",
