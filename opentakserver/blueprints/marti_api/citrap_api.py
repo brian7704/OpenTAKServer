@@ -1,11 +1,15 @@
 import hashlib
 import os
+import traceback
 import uuid
 import bleach
 import zipfile
 from io import BytesIO
+
+import sqlalchemy
 from bs4 import BeautifulSoup
 from flask_babel import gettext
+from sqlalchemy import insert, update
 from werkzeug.utils import secure_filename
 
 from flask import Blueprint
@@ -13,8 +17,9 @@ from flask import current_app as app
 from flask import jsonify, request
 
 from opentakserver.functions import datetime_from_iso8601_string
-from opentakserver.extensions import logger
+from opentakserver.extensions import logger, db
 from opentakserver.models.CITrap import CITrap
+from opentakserver.models.Point import Point
 
 citrap_api_blueprint = Blueprint("citrap_api_blueprint", __name__)
 
@@ -38,6 +43,7 @@ def search_citrap():
     return jsonify([])
 
 
+# noinspection bad-assignment
 @citrap_api_blueprint.route("/Marti/api/citrap", methods=["POST"])
 def add_citrap():
     client_uid = request.args.get("clientUid")
@@ -71,7 +77,7 @@ def add_citrap():
     if not report:
         return jsonify({"success": False, "error": gettext("Invalid report file")}), 400
 
-    filename = f"{secure_filename(str(report.attrs.get('title')))}.zip"
+    filename = f"{secure_filename(str(report.attrs.get('title') or uuid.uuid4()))}.zip"
 
     f = open(os.path.join(app.config.get("OTS_DATA_FOLDER"), "reports", filename), "wb")
     f.write(request.data)
@@ -79,6 +85,26 @@ def add_citrap():
 
     sha256 = hashlib.sha256()
     sha256.update(request.data)
+
+    point = Point()
+    point.uid = report.attrs.get("id") or str(uuid.uuid4())
+    point.device_uid = client_uid
+
+    point_wkt = report.attrs.get("location")
+    latitude = 0
+    longitude = 0
+    if point_wkt:
+        longitude = str(point_wkt).replace("POINT (", "").split(" ")[0]
+        latitude = str(point_wkt).replace("POINT (", "").split(" ")[1].replace(")", "")
+        point.point = point_wkt
+
+    point.latitude = latitude
+    point.longitude = longitude
+    point.timestamp = datetime_from_iso8601_string(report.attrs.get("dateTime"))
+
+    point_result = db.session.execute(insert(Point).values(**point.serialize()))
+    db.session.commit()
+    point_pk = point_result.inserted_primary_key[0]
 
     citrap = CITrap()
     citrap.id = report.attrs.get("id")
@@ -90,7 +116,7 @@ def add_citrap():
     citrap.user_description = report.attrs.get("userDescription")
     citrap.date_time = datetime_from_iso8601_string(report.attrs.get("dateTime"))
     citrap.date_time_description = report.attrs.get("dateTimeDescription")
-
+    citrap.point_id = point_pk
     citrap.location_description = report.attrs.get("locationDescription")
     citrap.tags = report.attrs.get("tags")
     citrap.event_scale = report.attrs.get("eventScale")
@@ -100,7 +126,23 @@ def add_citrap():
     citrap.file_name = filename
     citrap.hash = sha256.hexdigest()
 
-    return jsonify({"id": citrap.id})
+    try:
+        db.session.add(citrap)
+        db.session.commit()
+
+    except sqlalchemy.exc.IntegrityError:
+        db.session.rollback()
+        db.session.execute(
+            update(CITrap).where(CITrap.id == citrap.id).values(**citrap.serialize())
+        )
+        db.session.commit()
+
+    except Exception as e:
+        logger.error(f"Failed to add citrap: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({"success": False, "error": gettext("Failed to add report")}), 500
+
+    return jsonify({"id": citrap.id}), 201
 
 
 @citrap_api_blueprint.route("/Marti/api/citrap/<id>", methods=["GET"])

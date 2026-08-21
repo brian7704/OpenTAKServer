@@ -44,6 +44,7 @@ from opentakserver.models.Group import Group, GroupTypeEnum
 from opentakserver.models.Icon import Icon
 from opentakserver.models.role import Role
 from opentakserver.models.WebAuthn import WebAuthn
+from opentakserver.models.CITrap import CITrap
 from opentakserver.PasswordValidator import PasswordValidator
 from opentakserver.plugins.Plugin import Plugin
 from opentakserver.plugins.PluginManager import PluginManager
