@@ -443,6 +443,7 @@ def put_mission(mission_name: str):
     """Used by the Data Sync plugin to create or change a mission"""
     cert = verify_client_cert()
     if not cert:
+        logger.debug("Failed to verify client cert")
         return (
             jsonify(
                 {
@@ -458,7 +459,10 @@ def put_mission(mission_name: str):
 
     new_mission = True
 
-    if not mission_name or not request.args.get("creatorUid"):
+    creator_uid = request.args.get("creatorUid") or request.args.get("uid")
+
+    if not mission_name or not creator_uid:
+        logger.debug("No creatorUid provided")
         return (
             jsonify(
                 {"success": False, "error": gettext("Please provide a mission name and creatorUid")}
@@ -467,16 +471,17 @@ def put_mission(mission_name: str):
         )
 
     eud = db.session.execute(
-        db.session.query(EUD).filter_by(uid=request.args.get("creatorUid"))
+        db.session.query(EUD).filter_by(uid=creator_uid)
     ).first()
     if not eud:
+        logger.debug("No EUD provided")
         return (
             jsonify(
                 {
                     "success": False,
                     "error": gettext(
                         "Invalid creatorUid: %(creator_uid)s",
-                        creator_uid=request.args.get("creatorUid"),
+                        creator_uid=creator_uid,
                     ),
                 }
             ),
@@ -1357,7 +1362,7 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
     else:
         mission = None
 
-    if not mission and mission_name:
+    if not mission and mission_name and mission_name != "citrap":
         return (
             jsonify(
                 {
@@ -1369,6 +1374,11 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
             ),
             404,
         )
+
+    if not mission and mission_name and mission_name == "citrap":
+        # Create the citrap mission for the Reports plugin
+        return put_mission(mission_name)
+
     if not mission and mission_guid:
         return (
             jsonify(
