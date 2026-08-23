@@ -24,9 +24,9 @@ def set_language(lang_code):
         session["language"] = "en"
 
     else:
-        lang_codes = []
-        for translation in babel.list_translations():
-            lang_codes.append(str(translation))
+            mapping = {'zh_Hans': 'zh_CN', 'zh_HK': 'zh_Hant', 'zh_TW': 'zh_Hant'}
+            lang_code = mapping.get(lang_code, lang_code)
+            lang_codes = [str(t) for t in babel.list_translations()]
 
         if lang_code in lang_codes:
             session["language"] = lang_code
