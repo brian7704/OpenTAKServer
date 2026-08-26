@@ -133,6 +133,13 @@ class MeshtasticPositionIntegrityTest(unittest.TestCase):
         mapped_eud = types.SimpleNamespace(uid=mapped_uid)
         scenarios = (
             ("raw", None, {}, {}, raw_uid),
+            (
+                "restart-mapped",
+                None,
+                {},
+                {int(raw_uid, 16): mapped_eud},
+                mapped_uid,
+            ),
             ("mapped-existing", mapped_uid, {mapped_uid: mapped_eud}, {}, mapped_uid),
             (
                 "raw-existing",
@@ -167,6 +174,7 @@ class MeshtasticPositionIntegrityTest(unittest.TestCase):
                     event = controller.position(self.protobuf(), raw_uid, "all", "POSITION_APP")
 
                 self.assertEqual(event.attrib["uid"], canonical_uid)
+                self.assertEqual(controller.meshtastic_devices[raw_uid]["uid"], canonical_uid)
                 self.assertEqual(eud_updates[0][:3], (canonical_uid, raw_uid, False))
                 self.assertIsInstance(eud_updates[0][3], datetime.datetime)
                 self.assertEqual(eud_updates[0][3].tzinfo, datetime.timezone.utc)

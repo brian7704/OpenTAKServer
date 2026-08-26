@@ -362,22 +362,25 @@ class MeshtasticController(RabbitMQClient):
                     db.session.commit()
 
     def resolve_position_uid(self, from_id: str) -> str:
-        mapped_uid = self.meshtastic_devices[from_id]["uid"]
-        if not mapped_uid:
+        device = self.meshtastic_devices[from_id]
+        mapped_uid = device["uid"]
+        if mapped_uid == from_id:
             return from_id
 
+        requested_uid = mapped_uid or from_id
         with self.context:
-            eud = db.session.execute(db.session.query(EUD).filter_by(uid=mapped_uid)).scalar()
+            eud = db.session.execute(db.session.query(EUD).filter_by(uid=requested_uid)).scalar()
             if not eud:
                 try:
                     meshtastic_id = int(from_id, 16)
                 except ValueError:
-                    return mapped_uid
+                    return requested_uid
                 eud = db.session.execute(
                     db.session.query(EUD).filter_by(meshtastic_id=meshtastic_id)
                 ).scalar()
 
-        return eud.uid if eud else mapped_uid
+        device["uid"] = eud.uid if eud else requested_uid
+        return device["uid"]
 
     def position(self, pb, from_id, to_id, portnum):
         try:
