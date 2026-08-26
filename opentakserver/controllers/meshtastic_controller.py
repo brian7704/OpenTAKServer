@@ -361,8 +361,27 @@ class MeshtasticController(RabbitMQClient):
                     )
                     db.session.commit()
 
+    def resolve_position_uid(self, from_id: str) -> str:
+        mapped_uid = self.meshtastic_devices[from_id]["uid"]
+        if not mapped_uid:
+            return from_id
+
+        with self.context:
+            eud = db.session.execute(db.session.query(EUD).filter_by(uid=mapped_uid)).scalar()
+            if not eud:
+                try:
+                    meshtastic_id = int(from_id, 16)
+                except ValueError:
+                    return mapped_uid
+                eud = db.session.execute(
+                    db.session.query(EUD).filter_by(meshtastic_id=meshtastic_id)
+                ).scalar()
+
+        return eud.uid if eud else mapped_uid
+
     def position(self, pb, from_id, to_id, portnum):
         try:
+            device_uid = self.resolve_position_uid(from_id)
             if (
                 portnum == "MAP_REPORT_APP"
                 and pb.firmware_version != self.meshtastic_devices[from_id]["firmware_version"]
@@ -370,7 +389,7 @@ class MeshtasticController(RabbitMQClient):
                 try:
                     with self.context:
                         eud = self.db.session.execute(
-                            self.db.session.query(EUD).filter_by(uid=from_id)
+                            self.db.session.query(EUD).filter_by(uid=device_uid)
                         ).first()[0]
                         eud.version = pb.firmware_version
                         eud.device = pb.hw_model
@@ -424,17 +443,18 @@ class MeshtasticController(RabbitMQClient):
                     pb.ground_speed if pb.ground_speed else "0.0"
                 )
 
-            event = self.cot(pb, from_id, to_id, portnum)
+            event = self.cot(pb, from_id, to_id, portnum, uid=device_uid)
+            device_uid = event.attrib["uid"]
             event_time = datetime_from_iso8601_string(event.attrib["time"])
             stale_time = datetime_from_iso8601_string(event.attrib["stale"])
 
-            self.insert_or_update_eud(from_id, from_id, False, last_event_time=event_time)
+            self.insert_or_update_eud(device_uid, from_id, False, last_event_time=event_time)
 
             cot = CoT()
             cot.how = event.attrib["how"]
             cot.type = event.attrib["type"]
             cot.uid = event.attrib["uid"]
-            cot.sender_uid = from_id
+            cot.sender_uid = device_uid
             cot.timestamp = event_time
             cot.start = event_time
             cot.stale = stale_time
@@ -442,7 +462,7 @@ class MeshtasticController(RabbitMQClient):
 
             point = Point()
             point.uid = event.attrib["uid"]
-            point.device_uid = from_id
+            point.device_uid = device_uid
             point.latitude = self.meshtastic_devices[from_id]["last_lat"]
             point.longitude = self.meshtastic_devices[from_id]["last_lon"]
             point.hae = self.meshtastic_devices[from_id]["last_alt"]
@@ -463,6 +483,8 @@ class MeshtasticController(RabbitMQClient):
 
             return event
         except BaseException as e:
+            with self.context:
+                db.session.rollback()
             self.logger.error("Failed to create CoT: {}".format(str(e)))
             self.logger.error(traceback.format_exc())
             return
