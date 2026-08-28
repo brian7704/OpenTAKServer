@@ -2244,22 +2244,27 @@ mfa = ["cryptography (>=42.0.4)", "phonenumberslite (>=8.13.11)", "qrcode (>=7.4
 
 [[package]]
 name = "flask-socketio"
-version = "5.5.1"
+version = "5.6.1"
 description = "Socket.IO integration for Flask applications"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "Flask_SocketIO-5.5.1-py3-none-any.whl", hash = "sha256:35a50166db44d055f68021d6ec32cb96f1f925cd82de4504314be79139ea846f"},
-    {file = "flask_socketio-5.5.1.tar.gz", hash = "sha256:d946c944a1074ccad8e99485a6f5c79bc5789e3ea4df0bb9c864939586c51ec4"},
+    {file = "flask_socketio-5.6.1-py3-none-any.whl", hash = "sha256:51a3f71b28b4476c650829607e3a993e076034db6c3cc31f718f0a4b45939d42"},
+    {file = "flask_socketio-5.6.1.tar.gz", hash = "sha256:fe5bd995c3ed4da9a98f335d0d830fa1a19d84a64789f6265642a671fdacaeac"},
 ]
 
 [package.dependencies]
-Flask = ">=0.9"
+blinker = "*"
+click = "*"
+flask = ">=2.1.0"
+jinja2 = "*"
 python-socketio = ">=5.12.0"
+werkzeug = "*"
 
 [package.extras]
-docs = ["sphinx"]
+dev = ["flask-login", "flask-session", "pytest", "pytest-cov", "redis", "tox"]
+docs = ["furo", "sphinx"]
 
 [[package]]
 name = "flask-sqlalchemy"
@@ -7426,4 +7431,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.15"
-content-hash = "df3807fb98ce3d9b8d51d901d3dd44ac6f29cef4c583d117bd2d7be962664491"
+content-hash = "8d0be878940f2ffdc80269c5ae24fa32d752bd4a44ab552617090009273ce2b3"
