@@ -5232,24 +5232,24 @@ six = ">=1.5"
 
 [[package]]
 name = "python-engineio"
-version = "4.13.0"
+version = "4.13.5"
 description = "Engine.IO server and client for Python"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "python_engineio-4.13.0-py3-none-any.whl", hash = "sha256:57b94eac094fa07b050c6da59f48b12250ab1cd920765f4849963e3d89ad9de3"},
-    {file = "python_engineio-4.13.0.tar.gz", hash = "sha256:f9c51a8754d2742ba832c24b46ed425fdd3064356914edd5a1e8ffde76ab7709"},
+    {file = "python_engineio-4.13.5-py3-none-any.whl", hash = "sha256:05c9f4951d242ad33d613b4245299562e5f64e4199f00e5390f9888505831704"},
+    {file = "python_engineio-4.13.5.tar.gz", hash = "sha256:b5764d62243e3ffbc4c76dda3d7897c329dc52294c80c27105f9faa054e76897"},
 ]
 
 [package.dependencies]
 simple-websocket = ">=0.10.0"
 
 [package.extras]
-asyncio-client = ["aiohttp (>=3.4)"]
+asyncio-client = ["aiohttp (>=3.11)"]
 client = ["requests (>=2.21.0)", "websocket-client (>=0.54.0)"]
 dev = ["tox"]
-docs = ["sphinx"]
+docs = ["furo", "sphinx"]
 
 [[package]]
 name = "python-ffmpeg"
@@ -5269,20 +5269,20 @@ typing-extensions = "*"
 
 [[package]]
 name = "python-socketio"
-version = "5.14.3"
+version = "5.16.4"
 description = "Socket.IO server and client for Python"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "python_socketio-5.14.3-py3-none-any.whl", hash = "sha256:a5208c1bbf45a8d6328d01ed67e3fa52ec8b186fd3ea44cfcfcbd120f0c71fbe"},
-    {file = "python_socketio-5.14.3.tar.gz", hash = "sha256:cd8da5e0666e741b4be19e07882e880f57a4751d1645f92c2bc746c95f23b1eb"},
+    {file = "python_socketio-5.16.4-py3-none-any.whl", hash = "sha256:0eb9c7687e7fbf59e60d714fd62afba77dfaf8ef8a06a0bff05a86c351accc2f"},
+    {file = "python_socketio-5.16.4.tar.gz", hash = "sha256:f7fa4a43cc8e687930b5c6e44d6e2efc2071eca4bef49b8bb3dc0827f7f92235"},
 ]
 
 [package.dependencies]
 aiohttp = {version = ">=3.4", optional = true, markers = "extra == \"asyncio-client\""}
 bidict = ">=0.21.0"
-python-engineio = ">=4.11.0"
+python-engineio = ">=4.13.2"
 requests = {version = ">=2.21.0", optional = true, markers = "extra == \"client\""}
 websocket-client = {version = ">=0.54.0", optional = true, markers = "extra == \"client\""}
 
@@ -5290,7 +5290,7 @@ websocket-client = {version = ">=0.54.0", optional = true, markers = "extra == \
 asyncio-client = ["aiohttp (>=3.4)"]
 client = ["requests (>=2.21.0)", "websocket-client (>=0.54.0)"]
 dev = ["tox"]
-docs = ["sphinx"]
+docs = ["furo", "sphinx"]
 
 [[package]]
 name = "pytokens"
@@ -7126,4 +7126,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.15"
-content-hash = "0d434130a05d42077bae6b38f863e9cf2c57229d7b76cb1b5a230b99c21c11bd"
+content-hash = "1fd509497b4f986fdf046ef78c11338ea398a58cf7b7cafa89da1306d759398d"
