@@ -3155,14 +3155,14 @@ zookeeper = ["kazoo (>=2.8.0)"]
 
 [[package]]
 name = "lastversion"
-version = "3.6.7"
+version = "3.6.17"
 description = "A CLI tool to find the latest stable version of an arbitrary project"
 optional = false
 python-versions = ">=3.6"
 groups = ["main"]
 files = [
-    {file = "lastversion-3.6.7-py3-none-any.whl", hash = "sha256:a7ec9319c04ea920df958fec92c5c035196fee3bab072859ead3a10183f0ec84"},
-    {file = "lastversion-3.6.7.tar.gz", hash = "sha256:d9b19314fc7c16f56f093678d834634aac7dc18b6ee026364c239d4f880b1945"},
+    {file = "lastversion-3.6.17-py3-none-any.whl", hash = "sha256:73917d489360d1b3d475c8d92708023168e4db0171be247d1fed0711c4ac53c2"},
+    {file = "lastversion-3.6.17.tar.gz", hash = "sha256:d74f9d0995768d4fb31e3d2dcb7b45eb63cf3efdc25d37bdaf1a1a295f0b3d07"},
 ]
 
 [package.dependencies]
@@ -3176,13 +3176,14 @@ python-dateutil = "*"
 PyYAML = "*"
 requests = ">=2.16.0"
 tqdm = "*"
+urllib3 = {version = ">=2.5.0", markers = "python_version >= \"3.9\""}
 
 [package.extras]
 7z = ["py7zr"]
-build = ["PyYAML", "appdirs", "beautifulsoup4", "cachecontrol[filecache] (>=0.12.6,<0.14) ; python_version < \"3.10\"", "cachecontrol[filecache] (>=0.14.0) ; python_version >= \"3.10\"", "distro", "feedparser", "flake8", "flake8-bugbear", "markdown-include", "mkdocs (==1.5.3)", "mkdocs-material (==9.5.3)", "mkdocstrings[python]", "packaging", "pytest (>=4.4.0)", "pytest-cov", "pytest-xdist", "python-dateutil", "requests (>=2.16.0)", "tqdm", "urllib3 (<2) ; python_version < \"3.9\""]
+build = ["PyYAML", "appdirs", "beautifulsoup4", "cachecontrol[filecache] (>=0.12.6,<0.14) ; python_version < \"3.10\"", "cachecontrol[filecache] (>=0.14.0) ; python_version >= \"3.10\"", "distro", "feedparser", "flake8", "flake8-bugbear", "markdown-include", "mkdocs (==1.5.3)", "mkdocs-material (==9.5.3)", "mkdocstrings[python]", "packaging", "pytest (>=4.4.0)", "pytest-cov", "pytest-xdist", "python-dateutil", "requests (>=2.16.0)", "tqdm", "urllib3 (<2) ; python_version < \"3.9\"", "urllib3 (>=2.5.0) ; python_version >= \"3.9\""]
 docs = ["markdown-include", "mkdocs (==1.5.3)", "mkdocs-material (==9.5.3)", "mkdocstrings[python]"]
 redis = ["redis (>=3.0.0)"]
-tests = ["PyYAML", "appdirs", "beautifulsoup4", "cachecontrol[filecache] (>=0.12.6,<0.14) ; python_version < \"3.10\"", "cachecontrol[filecache] (>=0.14.0) ; python_version >= \"3.10\"", "distro", "feedparser", "flake8", "flake8-bugbear", "packaging", "pytest (>=4.4.0)", "pytest-cov", "pytest-xdist", "python-dateutil", "requests (>=2.16.0)", "tqdm", "urllib3 (<2) ; python_version < \"3.9\""]
+tests = ["PyYAML", "appdirs", "beautifulsoup4", "cachecontrol[filecache] (>=0.12.6,<0.14) ; python_version < \"3.10\"", "cachecontrol[filecache] (>=0.14.0) ; python_version >= \"3.10\"", "distro", "feedparser", "flake8", "flake8-bugbear", "packaging", "pytest (>=4.4.0)", "pytest-cov", "pytest-xdist", "python-dateutil", "requests (>=2.16.0)", "tqdm", "urllib3 (<2) ; python_version < \"3.9\"", "urllib3 (>=2.5.0) ; python_version >= \"3.9\""]
 truststore = ["truststore"]
 
 [[package]]
