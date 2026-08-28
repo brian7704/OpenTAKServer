@@ -12,7 +12,7 @@ include = [{path = "opentakserver/translations/**/*", format = ["sdist", "wheel"
 [tool.poetry.dependencies]
 adsbxcot = "6.0.4"
 androguard = "4.1.3"
-aiscot = "7.0.10"
+aiscot = "7.1.4"
 beautifulsoup4 = "4.14.2"
 colorlog = "6.10.1"
 datetime = "5.5"

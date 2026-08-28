@@ -208,14 +208,14 @@ test = ["black", "flake8", "pylint", "pytest (>=6.0)", "pytest-cov"]
 
 [[package]]
 name = "aiscot"
-version = "7.0.10"
+version = "7.1.4"
 description = "Software for monitoring and analyzing AIS in TAK."
 optional = false
 python-versions = "<4,>=3.6"
 groups = ["main"]
 files = [
-    {file = "aiscot-7.0.10-py3-none-any.whl", hash = "sha256:91fbdfe8502ae98cb677c5e80190eccf359a665037e92f91af8a7bfd88380e28"},
-    {file = "aiscot-7.0.10.tar.gz", hash = "sha256:10700957fa55266fb5e00d4e299c2ff8779725b8eb3cfb858e7dbfb8bb0ebc4f"},
+    {file = "aiscot-7.1.4-py3-none-any.whl", hash = "sha256:1c0b9724c50307f9c77ecc01de3bce1b23b57efa829207285f48e417558ffe7d"},
+    {file = "aiscot-7.1.4.tar.gz", hash = "sha256:529e93df93f61902420e955d2abc2abe6e98cdf5af1a27584a9aa7523b05207c"},
 ]
 
 [package.dependencies]
@@ -7126,4 +7126,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.15"
-content-hash = "2f9cac814eaf67fcda84f57281e72277c10a1991dbb705f793caf773c5eddffe"
+content-hash = "0d434130a05d42077bae6b38f863e9cf2c57229d7b76cb1b5a230b99c21c11bd"
