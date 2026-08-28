@@ -4,6 +4,10 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+  schedule:
+    # Weekly Sunday 04:00 UTC — rebuild :master with fresh base image to pick up
+    # security fixes in python:3.13 / debian-bookworm without waiting for a new release.
+    - cron: '0 4 * * 0'
 
 env:
   REGISTRY: ghcr.io
