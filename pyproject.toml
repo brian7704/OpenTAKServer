@@ -7,13 +7,14 @@ readme = "README.md"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/brian7704/OpenTAKServer"
 documentation = "https://docs.opentakserver.io"
-include = [{path = "opentakserver/translations/**/*", format = ["sdist", "wheel"]}]
+include = [{ path = "opentakserver/translations/**/*", format = ["sdist", "wheel"] }]
 
 [tool.poetry.dependencies]
 adsbxcot = "6.0.4"
 androguard = "4.1.3"
 aiscot = "7.1.4"
 beautifulsoup4 = "4.14.2"
+bleach = "*"
 colorlog = "6.10.1"
 datetime = "5.5"
 # Keep dulwich at 0.24.1 or run into dependency hell with lastversion
@@ -26,19 +27,19 @@ flask-cors = "6.0.1"
 flask-ldap3-login = "1.0.2"
 flask-mailman = "1.1.1"
 flask-migrate = "4.1.0"
-Flask-Security-Too = {version="5.7.1", extras=["common", "mfa"]}
-flask-socketio = "5.5.1"
+Flask-Security-Too = { version = "5.7.1", extras = ["common", "mfa"] }
+flask-socketio = "5.6.1"
 flask-sqlalchemy = "3.1.1"
 GeoAlchemy2 = "0.20.0"
 gevent = "26.8.0"
-httpx = {version = "0.28.1", extras = ["http2"]}
+httpx = { version = "0.28.1", extras = ["http2"] }
 kombu = "5.6.2"
 lastversion = "*"
 lxml = "6.0.2"
 meshtastic = "2.7.6"
 pika = "1.3.2"
 poetry = "2.2.1"
-poetry-dynamic-versioning = {version = "1.9.1", extras = ["plugin"]}
+poetry-dynamic-versioning = { version = "1.10.0", extras = ["plugin"] }
 protobuf = "6.33.1"
 psutil = "7.1.3"
 psycopg = "3.2.12"
@@ -48,7 +49,7 @@ PyJWT = "2.10.0"
 pytak = "7.0.2"
 python = ">=3.10, <3.15"
 python-ffmpeg = "2.0.12"
-python-socketio = {extras = ["client", "websocket_client", "asyncio_client"], version = "5.16.4"}
+python-socketio = { extras = ["client", "websocket_client", "asyncio_client"], version = "5.16.4" }
 pyOpenSSL = "26.4.0"
 pyotp = "2.9.0"
 PyYAML = "6.0.3"
@@ -115,11 +116,11 @@ skip = [".git", "venv"]
 [tool.flake8]
 max-line-length = 100
 extend-ignore = [
-    "E203",  # whitespace before ':'
-    "E266",  # too many leading '#' for block comment
-    "E501",  # line too long (handled by black)
-    "W503",  # line break before binary operator
-    "W504",  # line break after binary operator
+    "E203", # whitespace before ':'
+    "E266", # too many leading '#' for block comment
+    "E501", # line too long (handled by black)
+    "W503", # line break before binary operator
+    "W504", # line break after binary operator
 ]
 
 [tool.pytest.ini_options]
