@@ -41,7 +41,7 @@ pika = "1.3.2"
 poetry = "2.4.1"
 poetry-dynamic-versioning = { version = "1.10.0", extras = ["plugin"] }
 protobuf = "*"
-psutil = "7.1.3"
+psutil = "7.2.2"
 psycopg = "3.2.12"
 pyfiglet = "1.0.2"
 pygc = "2.0.0"
