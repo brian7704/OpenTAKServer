@@ -471,6 +471,7 @@ def main(app):
             db.session.add(citrap_mission)
             db.session.commit()
         except BaseException as e:
+            db.session.rollback()
             logger.debug("citrap mission already exits")
 
         excheck_mission = Mission()
@@ -485,6 +486,7 @@ def main(app):
             db.session.add(excheck_mission)
             db.session.commit()
         except BaseException as e:
+            db.session.rollback()
             logger.debug("ExCheck mission already exits")
 
         app.security.datastore.find_or_create_role(
