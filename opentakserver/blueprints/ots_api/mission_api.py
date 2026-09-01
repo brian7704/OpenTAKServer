@@ -50,10 +50,9 @@ data_sync_api = Blueprint("data_sync_api", __name__)
 @data_sync_api.route("/api/missions")
 @auth_required()
 def get_missions():
-    query: db.Query = db.session.query(Mission)
+    query: db.Query = db.session.query(Mission).where(Mission.tool == "public")
     query = search(query, Mission, "name")
     query = search(query, Mission, "guid")
-    query = search(query, Mission, "tool")
 
     # Only show users missions that belong to the same groups they belong to
     if not current_user.has_role("administrator"):

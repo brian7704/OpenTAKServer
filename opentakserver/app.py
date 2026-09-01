@@ -1,4 +1,9 @@
+import uuid
+
 from gevent import monkey
+
+from opentakserver.models.Mission import Mission
+from opentakserver.models.MissionRole import MissionRole
 
 monkey.patch_all()
 
@@ -453,6 +458,34 @@ def main(app):
             logger.debug("Starting in debug mode")
         else:
             logger.info("Starting in production mode")
+
+        citrap_mission = Mission()
+        citrap_mission.name = "citrap"
+        citrap_mission.tool = "citrap"
+        citrap_mission.default_role = MissionRole.MISSION_SUBSCRIBER
+        citrap_mission.create_time = datetime.now(tz=timezone.utc)
+        citrap_mission.guid = str(uuid.uuid4())
+        citrap_mission.password_protected = False
+
+        try:
+            db.session.add(citrap_mission)
+            db.session.commit()
+        except BaseException as e:
+            logger.debug("citrap mission already exits")
+
+        excheck_mission = Mission()
+        excheck_mission.name = "exchecktemplates"
+        excheck_mission.tool = "ExCheck"
+        citrap_mission.default_role = MissionRole.MISSION_SUBSCRIBER
+        citrap_mission.create_time = datetime.now(tz=timezone.utc)
+        citrap_mission.guid = str(uuid.uuid4())
+        citrap_mission.password_protected = False
+
+        try:
+            db.session.add(excheck_mission)
+            db.session.commit()
+        except BaseException as e:
+            logger.debug("ExCheck mission already exits")
 
         app.security.datastore.find_or_create_role(
             name="user", permissions={"user-read", "user-write"}

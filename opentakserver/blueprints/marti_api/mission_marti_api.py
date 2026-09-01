@@ -78,7 +78,7 @@ def verify_token() -> dict | bool:
 # iTAK sucks and doesn't send a token for some reason...
 def verify_itak_certificate(
     mission_name: str = None, mission_guid: str = None
-) -> MissionRole | flask.Response:
+) -> MissionRole | tuple:
     # Get the username from the client cert forwarded by nginx
     cert = verify_client_cert()
     username = cert.get_subject().commonName
@@ -369,7 +369,7 @@ def get_missions():
     }
 
     try:
-        query = db.session.query(Mission)
+        query = db.session.query(Mission).filter_by(tool="public")
 
         # Let admins see all missions
         if not user.has_role("administrator"):
@@ -470,9 +470,7 @@ def put_mission(mission_name: str):
             400,
         )
 
-    eud = db.session.execute(
-        db.session.query(EUD).filter_by(uid=creator_uid)
-    ).first()
+    eud = db.session.execute(db.session.query(EUD).filter_by(uid=creator_uid)).first()
     if not eud:
         logger.debug("No EUD provided")
         return (
@@ -581,7 +579,11 @@ def put_mission(mission_name: str):
             )
             channel = rabbit_connection.channel()
 
-            channel.queue_bind(queue=mission.creator_uid, exchange="missions", routing_key=f"missions.{mission_name}")
+            channel.queue_bind(
+                queue=mission.creator_uid,
+                exchange="missions",
+                routing_key=f"missions.{mission_name}",
+            )
 
             groups = db.session.execute(
                 db.session.query(GroupUser).filter_by(user_id=user.id, enabled=True)
