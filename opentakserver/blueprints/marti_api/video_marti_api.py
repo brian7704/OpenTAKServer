@@ -5,19 +5,16 @@ from xml.etree.ElementTree import Element, fromstring, tostring
 
 import sqlalchemy
 from bs4 import BeautifulSoup
+from cryptography.hazmat._oid import NameOID
 from flask import Blueprint
 from flask import current_app as app
 from flask import jsonify, request
 from flask_babel import gettext
-from OpenSSL import crypto
 from werkzeug.datastructures import ImmutableMultiDict
 
-from opentakserver import __version__ as version
 from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
 from opentakserver.extensions import db, logger
 from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
-from opentakserver.functions import iso8601_string_from_datetime
-from opentakserver.models.EUD import EUD
 from opentakserver.models.user import User
 from opentakserver.models.VideoStream import VideoStream
 
@@ -144,11 +141,7 @@ def get_videos():
     if not cert:
         # Shouldn't ever get here since nginx already verifies the cert
         return jsonify({"success": False, "error": gettext("Invalid Certificate")}), 400
-    username = None
-    for a in cert.get_subject().get_components():
-        if a[0].decode("UTF-8") == "CN":
-            username = a[1].decode("UTF-8")
-            break
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
 
     user = app.security.datastore.find_user(username=username)
     videos = db.session.execute(db.select(VideoStream)).scalars()
@@ -163,11 +156,7 @@ def get_videos():
 @video_marti_api.route("/Marti/api/video", methods=["POST"])
 def add_video():
     cert = verify_client_cert()
-    username = None
-    for a in cert.get_subject().get_components():
-        if a[0].decode("UTF-8") == "CN":
-            username = a[1].decode("UTF-8")
-            break
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
 
     videos = request.json
 
@@ -198,11 +187,7 @@ def add_video():
 @video_marti_api.route("/Marti/api/video/<uid>")
 def get_video(uid):
     cert = verify_client_cert()
-    username = None
-    for a in cert.get_subject().get_components():
-        if a[0].decode("UTF-8") == "CN":
-            username = a[1].decode("UTF-8")
-            break
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
 
     video = db.session.query(VideoStream).filter_by(uid=uid).scalar()
     if not video:

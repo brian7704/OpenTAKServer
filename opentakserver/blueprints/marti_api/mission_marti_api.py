@@ -14,11 +14,12 @@ import jwt
 import pika
 import sqlalchemy.exc
 from bs4 import BeautifulSoup
+from cryptography.hazmat._oid import NameOID
 from flask import Blueprint, Response
 from flask import current_app as app
 from flask import jsonify, request
 from flask_babel import gettext
-from flask_security import current_user, hash_password, verify_password
+from flask_security import hash_password, verify_password
 from sqlalchemy import insert, or_, update
 from werkzeug.utils import secure_filename
 
@@ -81,7 +82,7 @@ def verify_itak_certificate(
 ) -> MissionRole | tuple:
     # Get the username from the client cert forwarded by nginx
     cert = verify_client_cert()
-    username = cert.get_subject().commonName
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
 
     # Check that the user exists
     user = db.session.execute(db.session.query(User).filter_by(username=username)).first()
@@ -348,7 +349,7 @@ def get_missions():
     if not cert:
         return "", 401
 
-    username = cert.get_subject().commonName
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
     user = app.security.datastore.find_user(username=username)
 
     password_protected = request.args.get("passwordProtected", False)
@@ -428,8 +429,6 @@ def all_invitations(mission_name: str | None = None, mission_guid: str | None = 
     elif mission_guid:
         query = query.join(Mission).where(Mission.guid == mission_guid)
 
-    logger.info(query)
-
     invitations = db.session.execute(query).all()
 
     for invitation in invitations:
@@ -454,7 +453,7 @@ def put_mission(mission_name: str):
             400,
         )
 
-    username = cert.get_subject().commonName
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
     user = app.security.datastore.find_user(username=username)
 
     new_mission = True
@@ -1354,7 +1353,7 @@ def put_mission_keywords(mission_name):
 def mission_subscribe(mission_name: str = None, mission_guid: str = None):
     """Used by the Data Sync plugin to subscribe to a feed"""
     cert = verify_client_cert()
-    username = cert.get_subject().commonName
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
     user = app.security.datastore.find_user(username=username)
 
     if mission_name:
@@ -1707,7 +1706,7 @@ def upload_content():
     if not cert:
         return jsonify({"success": False, "error": gettext("Missing or invalid certificate")}), 400
 
-    username = cert.get_subject().commonName
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
 
     file_name = bleach.clean(request.args.get("name")) if "name" in request.args else None
     keywords = request.args.getlist("keywords")
