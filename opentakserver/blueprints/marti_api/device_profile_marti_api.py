@@ -8,6 +8,7 @@ import zipfile
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element, SubElement, tostring
 
+from cryptography.hazmat._oid import NameOID
 from flask import Blueprint, Response
 from flask import current_app as app
 from flask import request
@@ -31,7 +32,7 @@ def get_ldap_attributes(prefs: Element):
         if not cert:
             return
 
-        username = cert.get_subject().commonName
+        username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
         user_info = ldap_manager.get_user_info_for_username(username)
 
         for field in user_info:

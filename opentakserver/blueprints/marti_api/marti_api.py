@@ -1,14 +1,16 @@
-import glob
 import os
 import traceback
 from urllib.parse import unquote, urlparse
 
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
 from flask import Blueprint
 from flask import current_app as app
 from flask import jsonify, request, send_from_directory
 from flask_babel import gettext
-from OpenSSL import crypto
-from OpenSSL.crypto import X509
+from cryptography import x509
+from cryptography.x509 import UnsupportedGeneralNameType
+from cryptography.x509.verification import VerificationError
 from simplekml import Document, GxMultiTrack, GxTrack, Icon, IconStyle, Kml, Style
 
 from opentakserver import __version__ as version
@@ -21,26 +23,39 @@ marti_api = Blueprint("marti_api", __name__)
 
 
 # Verifies the client cert forwarded by nginx in the X-Ssl-Cert header
-# Returns the parsed cert if valid, otherwise returns False
-def verify_client_cert() -> X509 | bool:
+# Returns the parsed cert if valid, otherwise returns None
+def verify_client_cert() -> x509.Certificate | None:
     cert_header = app.config.get("OTS_SSL_CERT_HEADER")
     if cert_header not in request.headers:
-        return False
+        return None
 
-    cert = unquote(request.headers.get(cert_header))
-    cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert)
+    cert = request.headers.get(cert_header)
+    if not cert:
+        return None
+
+    cert = unquote(cert).encode("utf8")
+    cert = x509.load_pem_x509_certificate(cert)
+    ca_cert = None
     with open(os.path.join(app.config.get("OTS_CA_FOLDER"), "ca.pem"), "rb") as f:
-        ca_cert = crypto.load_certificate(crypto.FILETYPE_PEM, f.read())
-
-    store = crypto.X509Store()
-    store.add_cert(ca_cert)
-    ctx = crypto.X509StoreContext(store, cert)
+        ca_cert = x509.load_pem_x509_certificate(f.read())
 
     try:
-        ctx.verify_certificate()
+        ca_cert.public_key().verify(
+            signature=cert.signature,
+            data=cert.tbs_certificate_bytes,
+            algorithm=hashes.SHA256(),
+            padding=padding.PKCS1v15(),
+        )
+
+        """
+            Note to future self, get the common name (which is the username) like this
+            cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+        """
+
         return cert
-    except crypto.X509StoreContextError:
-        return False
+    except VerificationError | UnsupportedGeneralNameType as e:
+        logger.error(f"Failed to verify certificate: {e}")
+        return None
 
 
 @marti_api.route("/Marti/api/clientEndPoints", methods=["GET"])

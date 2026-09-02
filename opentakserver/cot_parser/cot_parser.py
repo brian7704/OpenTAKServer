@@ -61,6 +61,7 @@ from opentakserver.models.VideoRecording import VideoRecording
 from opentakserver.models.VideoStream import VideoStream
 from opentakserver.models.WebAuthn import WebAuthn
 from opentakserver.models.ZMIST import ZMIST
+from opentakserver.models.CITrap import CITrap
 from opentakserver.proto import atak_pb2
 
 

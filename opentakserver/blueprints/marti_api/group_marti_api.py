@@ -3,16 +3,15 @@ import traceback
 
 import bleach
 import pika
+from cryptography.hazmat._oid import NameOID
 from flask import Blueprint
 from flask import current_app as app
 from flask import jsonify, request
 from flask_babel import gettext
 from flask_security import current_user
-from OpenSSL.crypto import X509
 
 from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
 from opentakserver.extensions import db, ldap_manager, logger
-from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.models.Group import Group
 from opentakserver.models.GroupUser import GroupUser
 
@@ -49,7 +48,7 @@ def get_all_groups():
         "data": [],
     }
 
-    username = cert.get_subject().commonName
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
 
     if not app.config.get("OTS_ENABLE_LDAP"):
         user = app.security.datastore.find_user(username=username)
@@ -239,7 +238,7 @@ def put_active_bits():
 @group_api.route("/Marti/api/groups/active", methods=["PUT"])
 def put_active_groups():
     cert = verify_client_cert()
-    username = cert.get_subject().commonName
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
     user = app.security.datastore.find_user(username=username)
 
     uids = []

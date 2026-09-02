@@ -16,6 +16,7 @@ aiscot = "7.1.4"
 beautifulsoup4 = "4.14.2"
 bleach = "*"
 colorlog = "6.10.1"
+cryptography = "50.0.1"
 datetime = "5.5"
 # Keep dulwich at 0.24.1 or run into dependency hell with lastversion
 dulwich = "<2"
@@ -30,7 +31,7 @@ flask-migrate = "4.1.0"
 Flask-Security-Too = { version = "5.7.1", extras = ["common", "mfa"] }
 flask-socketio = "5.6.1"
 flask-sqlalchemy = "3.1.1"
-GeoAlchemy2 = "0.20.0"
+GeoAlchemy2 = { version = "0.20.0", extras = ["shapely"] }
 gevent = "26.8.0"
 httpx = { version = "0.28.1", extras = ["http2"] }
 kombu = "5.6.2"
@@ -50,7 +51,6 @@ pytak = "7.0.2"
 python = ">=3.10, <3.15"
 python-ffmpeg = "2.0.12"
 python-socketio = { extras = ["client", "websocket_client", "asyncio_client"], version = "5.16.4" }
-pyOpenSSL = "26.4.0"
 pyotp = "2.9.0"
 PyYAML = "6.0.3"
 semver = "3.0.4"

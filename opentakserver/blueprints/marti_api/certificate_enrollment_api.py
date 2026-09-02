@@ -7,12 +7,13 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 
 import bleach
 import sqlalchemy
+from cryptography.hazmat._oid import NameOID
 from flask import Blueprint
 from flask import current_app as app
 from flask import jsonify, request
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import verify_password
-from OpenSSL import crypto
+from cryptography import x509
 
 from opentakserver.certificate_authority import CertificateAuthority
 from opentakserver.extensions import db, ldap_manager, logger
@@ -106,9 +107,9 @@ def sign_csr_v2():
 
         csr = csr + "-----END CERTIFICATE REQUEST-----"
 
-        x509 = crypto.load_certificate_request(crypto.FILETYPE_PEM, csr.encode())
+        x509_cert = x509.load_pem_x509_csr(csr.encode())
 
-        common_name = x509.get_subject().CN
+        common_name = x509_cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
         logger.debug("Attempting to sign CSR for {}".format(common_name))
 
         cert_authority = CertificateAuthority(logger, app)
