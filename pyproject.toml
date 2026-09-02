@@ -7,64 +7,68 @@ readme = "README.md"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/brian7704/OpenTAKServer"
 documentation = "https://docs.opentakserver.io"
-include = [{path = "opentakserver/translations/**/*", format = ["sdist", "wheel"]}]
+include = [{ path = "opentakserver/translations/**/*", format = ["sdist", "wheel"] }]
 
 [tool.poetry.dependencies]
 adsbxcot = "6.0.4"
-androguard = "4.1.3"
-aiscot = "7.0.10"
-beautifulsoup4 = "4.14.2"
-colorlog = "6.10.1"
-datetime = "5.5"
+androguard = "4.1.4"
+aiscot = "7.3.1"
+beautifulsoup4 = "4.15.0"
+bleach = "*"
+colorlog = "6.12.0"
+cryptography = "50.0.1"
+datetime = "6.0"
 # Keep dulwich at 0.24.1 or run into dependency hell with lastversion
-dulwich = "0.24.1"
-eventlet = "0.40.3"
-flask = "3.1.2"
+dulwich = "<2"
+flask = "3.1.3"
 flask-apscheduler = "1.13.1"
 flask-babel = "4.0.0"
-flask-cors = "6.0.1"
+flask-cors = "6.0.5"
 flask-ldap3-login = "1.0.2"
 flask-mailman = "1.1.1"
 flask-migrate = "4.1.0"
-Flask-Security-Too = {version="5.7.1", extras=["common", "mfa"]}
-flask-socketio = "5.5.1"
+Flask-Security-Too = { version = "5.8.2", extras = ["common", "mfa"] }
+flask-socketio = "5.6.1"
 flask-sqlalchemy = "3.1.1"
 gevent = "25.5.1"
 grpcio = "1.78.1"
 httpx = {version = "0.28.1", extras = ["http2"]}
 kombu = "5.6.0"
+GeoAlchemy2 = { version = "0.20.0", extras = ["shapely"] }
+gevent = "26.8.0"
+httpx = { version = "0.28.1", extras = ["http2"] }
+kombu = "5.6.2"
 lastversion = "*"
-lxml = "6.0.2"
-meshtastic = "2.7.6"
-pika = "1.3.2"
-poetry = "2.2.1"
-poetry-dynamic-versioning = {version = "1.9.1", extras = ["plugin"]}
-protobuf = "6.33.1"
-psutil = "7.1.3"
-psycopg = "3.2.12"
+lxml = "6.1.2"
+meshtastic = "2.7.11"
+pika = "1.4.4"
+poetry = "2.4.2"
+poetry-dynamic-versioning = { version = "1.10.0", extras = ["plugin"] }
+protobuf = "*"
+psutil = "7.2.2"
+psycopg = "3.3.4"
 pyfiglet = "1.0.2"
 pygc = "2.0.0"
-PyJWT = "2.10.0"
-pytak = "7.0.2"
+PyJWT = "2.13.0"
+pytak = "7.6.1"
 python = ">=3.10, <3.15"
 python-ffmpeg = "2.0.12"
-python-socketio = {extras = ["client", "websocket_client", "asyncio_client"], version = "5.14.3"}
-pyOpenSSL = "25.3.0"
-pyotp = "2.9.0"
+python-socketio = { extras = ["client", "websocket_client", "asyncio_client"], version = "5.16.4" }
+pyotp = "2.10.0"
 PyYAML = "6.0.3"
 semver = "3.0.4"
-sqlalchemy = "2.0.44"
+sqlalchemy = "2.0.52"
 simplekml = "1.3.6"
-sqlalchemy-utils = "0.42.0"
-tldextract = "5.3.0"
+sqlalchemy-utils = "0.42.1"
+tldextract = "5.3.2"
 unishox2-py3 = "1.0.0"
 yt-dlp = "*"
 # Keep zope-event at 5.1.1, DO NOT UPGRADE
-zope-event = "5.1.1"
-zope-interface = "8.1.1"
+zope-event = "*"
+zope-interface = "*"
 
 [tool.poetry.group.dev.dependencies]
-isort = "^7.0.0"
+isort = "^9.0.0"
 black = "^26.0.0"
 flake8 = "^7.3.0"
 flake8-pyproject = "^1.2.4"
@@ -117,11 +121,11 @@ skip = [".git", "venv"]
 [tool.flake8]
 max-line-length = 100
 extend-ignore = [
-    "E203",  # whitespace before ':'
-    "E266",  # too many leading '#' for block comment
-    "E501",  # line too long (handled by black)
-    "W503",  # line break before binary operator
-    "W504",  # line break after binary operator
+    "E203", # whitespace before ':'
+    "E266", # too many leading '#' for block comment
+    "E501", # line too long (handled by black)
+    "W503", # line break before binary operator
+    "W504", # line break after binary operator
 ]
 
 [tool.pytest.ini_options]

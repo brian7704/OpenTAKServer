@@ -28,6 +28,7 @@ class DefaultConfig:
         "CN": {"name": "简化字", "language_code": "zh_Hans"},
         "SE": {"name": "Svenska", "language_code": "sv"},
         "TH": {"name": "ภาษาไทย", "language_code": "th"},
+        "HU": {"name": "Magyar", "language_code": "hu"},
     }
 
     OTS_DATA_FOLDER = os.getenv("OTS_DATA_FOLDER", os.path.join(Path.home(), "ots"))

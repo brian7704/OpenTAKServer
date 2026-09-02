@@ -92,7 +92,7 @@ def new_atak_qr_string():
     :param nbf: Not Before, the token will not be valid until this date in unix epoch seconds.
     :param max: The maximum number of uses for this token.
 
-    :return: String in the format of tak://com.atakmap.app/enroll?host=server_address.com&username=your_username&token=jwt_token
+    :return: String in the format of tak://com.atakmap.app/enroll?host=server_address.com:PORT&username=your_username&token=jwt_token
     """
     try:
         username = request.json.get("username") or current_user.username
@@ -148,7 +148,9 @@ def new_atak_qr_string():
             response["success"] = True
             response["disabled"] = token.disabled
             response["qr_string"] = (
-                f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={username}&token={token.generate_token()}"
+                f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}"
+                f":{app.config.get('OTS_SSL_STREAMING_PORT')}"
+                f"&username={username}&token={token.generate_token()}"
             )
             return jsonify(response)
 
@@ -164,7 +166,7 @@ def get_atak_qr_strings():
     """
     Returns an existing ATAK QR string
 
-    :return: String in the format of tak://com.atakmap.app/enroll?host=server_address.com&username=your_username&token=jwt_token
+    :return: String in the format of tak://com.atakmap.app/enroll?host=server_address.com:PORT&username=your_username&token=jwt_token
     """
 
     query = db.session.query(Token)
@@ -183,7 +185,9 @@ def get_atak_qr_strings():
         response["disabled"] = token[0].disabled
         response["total_uses"] = token[0].total_uses
         response["qr_string"] = (
-            f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}&username={token[0].username}&token={token[0].generate_token()}"
+            f"tak://com.atakmap.app/enroll?host={urlparse(request.url_root).hostname}"
+            f":{app.config.get('OTS_SSL_STREAMING_PORT')}"
+            f"&username={token[0].username}&token={token[0].generate_token()}"
         )
         return jsonify(response)
     else:

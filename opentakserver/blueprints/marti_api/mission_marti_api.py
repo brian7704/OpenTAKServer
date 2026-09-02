@@ -14,11 +14,12 @@ import jwt
 import pika
 import sqlalchemy.exc
 from bs4 import BeautifulSoup
+from cryptography.hazmat._oid import NameOID
 from flask import Blueprint, Response
 from flask import current_app as app
 from flask import jsonify, request
 from flask_babel import gettext
-from flask_security import current_user, hash_password, verify_password
+from flask_security import hash_password, verify_password
 from sqlalchemy import insert, or_, update
 from werkzeug.utils import secure_filename
 
@@ -78,10 +79,10 @@ def verify_token() -> dict | bool:
 # iTAK sucks and doesn't send a token for some reason...
 def verify_itak_certificate(
     mission_name: str = None, mission_guid: str = None
-) -> MissionRole | flask.Response:
+) -> MissionRole | tuple:
     # Get the username from the client cert forwarded by nginx
     cert = verify_client_cert()
-    username = cert.get_subject().commonName
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
 
     # Check that the user exists
     user = db.session.execute(db.session.query(User).filter_by(username=username)).first()
@@ -348,7 +349,7 @@ def get_missions():
     if not cert:
         return "", 401
 
-    username = cert.get_subject().commonName
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
     user = app.security.datastore.find_user(username=username)
 
     password_protected = request.args.get("passwordProtected", False)
@@ -369,7 +370,7 @@ def get_missions():
     }
 
     try:
-        query = db.session.query(Mission)
+        query = db.session.query(Mission).filter_by(tool=tool)
 
         # Let admins see all missions
         if not user.has_role("administrator"):
@@ -389,7 +390,7 @@ def get_missions():
         for mission in missions:
             if not password_protected and mission.password_protected:
                 continue
-            if tool and tool.lower() != "public" and mission.tool != tool:
+            if mission.tool != tool:
                 continue
             response["data"].append(mission.to_marti_json())
 
@@ -428,8 +429,6 @@ def all_invitations(mission_name: str | None = None, mission_guid: str | None = 
     elif mission_guid:
         query = query.join(Mission).where(Mission.guid == mission_guid)
 
-    logger.info(query)
-
     invitations = db.session.execute(query).all()
 
     for invitation in invitations:
@@ -443,6 +442,7 @@ def put_mission(mission_name: str):
     """Used by the Data Sync plugin to create or change a mission"""
     cert = verify_client_cert()
     if not cert:
+        logger.debug("Failed to verify client cert")
         return (
             jsonify(
                 {
@@ -453,12 +453,15 @@ def put_mission(mission_name: str):
             400,
         )
 
-    username = cert.get_subject().commonName
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
     user = app.security.datastore.find_user(username=username)
 
     new_mission = True
 
-    if not mission_name or not request.args.get("creatorUid"):
+    creator_uid = request.args.get("creatorUid") or request.args.get("uid")
+
+    if not mission_name or not creator_uid:
+        logger.debug("No creatorUid provided")
         return (
             jsonify(
                 {"success": False, "error": gettext("Please provide a mission name and creatorUid")}
@@ -466,17 +469,16 @@ def put_mission(mission_name: str):
             400,
         )
 
-    eud = db.session.execute(
-        db.session.query(EUD).filter_by(uid=request.args.get("creatorUid"))
-    ).first()
+    eud = db.session.execute(db.session.query(EUD).filter_by(uid=creator_uid)).first()
     if not eud:
+        logger.debug("No EUD provided")
         return (
             jsonify(
                 {
                     "success": False,
                     "error": gettext(
                         "Invalid creatorUid: %(creator_uid)s",
-                        creator_uid=request.args.get("creatorUid"),
+                        creator_uid=creator_uid,
                     ),
                 }
             ),
@@ -575,6 +577,12 @@ def put_mission(mission_name: str):
                 pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
             )
             channel = rabbit_connection.channel()
+
+            channel.queue_bind(
+                queue=mission.creator_uid,
+                exchange="missions",
+                routing_key=f"missions.{mission_name}",
+            )
 
             groups = db.session.execute(
                 db.session.query(GroupUser).filter_by(user_id=user.id, enabled=True)
@@ -1345,7 +1353,7 @@ def put_mission_keywords(mission_name):
 def mission_subscribe(mission_name: str = None, mission_guid: str = None):
     """Used by the Data Sync plugin to subscribe to a feed"""
     cert = verify_client_cert()
-    username = cert.get_subject().commonName
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
     user = app.security.datastore.find_user(username=username)
 
     if mission_name:
@@ -1355,7 +1363,7 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
     else:
         mission = None
 
-    if not mission and mission_name:
+    if not mission and mission_name and mission_name != "citrap":
         return (
             jsonify(
                 {
@@ -1367,6 +1375,11 @@ def mission_subscribe(mission_name: str = None, mission_guid: str = None):
             ),
             404,
         )
+
+    if not mission and mission_name and mission_name == "citrap":
+        # Create the citrap mission for the Reports plugin
+        return put_mission(mission_name)
+
     if not mission and mission_guid:
         return (
             jsonify(
@@ -1693,7 +1706,7 @@ def upload_content():
     if not cert:
         return jsonify({"success": False, "error": gettext("Missing or invalid certificate")}), 400
 
-    username = cert.get_subject().commonName
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
 
     file_name = bleach.clean(request.args.get("name")) if "name" in request.args else None
     keywords = request.args.getlist("keywords")

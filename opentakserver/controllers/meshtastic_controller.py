@@ -417,6 +417,7 @@ class MeshtasticController(RabbitMQClient):
             point.course = self.meshtastic_devices[from_id]["course"]
             point.speed = self.meshtastic_devices[from_id]["speed"]
             point.timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
+            point.point = f"POINT({self.meshtastic_devices[from_id]["last_lon"]} {self.meshtastic_devices[from_id]["last_lat"]})"
 
             with self.context:
                 db.session.add(point)
