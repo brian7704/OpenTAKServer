@@ -1,7 +1,8 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, TEXT, DateTime, ForeignKey, Integer, String, Boolean
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from geoalchemy2.shape import to_shape
 
 from opentakserver.extensions import db
 from opentakserver.functions import iso8601_string_from_datetime
@@ -73,4 +74,20 @@ class CITrap(db.Model):
             "file_name": self.file_name,
             "hash": self.hash,
             "point": self.point.to_json() if self.point else None,
+        }
+
+    def to_marti_json(self):
+        return {
+            "dateTime": iso8601_string_from_datetime(self.date_time),
+            "userDescription": self.user_description,
+            "importance": self.importance,
+            "locationDescription": self.location_description,
+            "userCallsign": self.user_callsign,
+            "location": to_shape(self.point.point).wkt,
+            "id": self.id,
+            "eventScale": self.event_scale,
+            "type": self.type,
+            "title": self.title,
+            "dateTimeDescription": self.date_time_description,
+            "status": self.status,
         }

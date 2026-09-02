@@ -1,13 +1,14 @@
+import datetime
 import hashlib
 import os
 import traceback
 import uuid
-import bleach
 import zipfile
 from io import BytesIO
 
 import sqlalchemy
 from bs4 import BeautifulSoup
+from cryptography.hazmat._oid import NameOID
 from flask_babel import gettext
 from sqlalchemy import insert, update
 from werkzeug.utils import secure_filename
@@ -16,9 +17,18 @@ from flask import Blueprint
 from flask import current_app as app
 from flask import jsonify, request
 
+from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
+from opentakserver.blueprints.ots_api.api import search
 from opentakserver.functions import datetime_from_iso8601_string
 from opentakserver.extensions import logger, db
 from opentakserver.models.CITrap import CITrap
+from opentakserver.models.Group import Group
+from opentakserver.models.GroupCITrap import GroupCITrap
+from opentakserver.models.GroupMission import GroupMission
+from opentakserver.models.GroupUser import GroupUser
+from opentakserver.models.Mission import Mission
+from opentakserver.models.MissionChange import MissionChange
+from opentakserver.models.MissionRole import MissionRole
 from opentakserver.models.Point import Point
 
 citrap_api_blueprint = Blueprint("citrap_api_blueprint", __name__)
@@ -36,11 +46,19 @@ def search_citrap():
     subscribe = request.args.get("subscribe")
     client_uid = request.args.get("clientUid")
 
-    logger.debug(request.args)
-    logger.debug(request.data)
-    logger.debug(request.headers)
+    query = db.session.query(CITrap)
+    search(query, CITrap, "keywords")
+    search(query, CITrap, "bbox")
+    search(query, CITrap, "type")
+    search(query, CITrap, "callsign")
+    search(query, CITrap, "clientUid")
 
-    return jsonify([])
+    reports = db.session.execute(query).scalars()
+    retval = []
+    for report in reports:
+        retval.append(report.to_marti_json())
+
+    return jsonify(retval)
 
 
 # noinspection bad-assignment
@@ -142,6 +160,65 @@ def add_citrap():
         logger.debug(traceback.format_exc())
         return jsonify({"success": False, "error": gettext("Failed to add report")}), 500
 
+    cert = verify_client_cert()
+    if not cert:
+        return jsonify({"success": False, "error": gettext("Failed to verify certificate")}), 400
+
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+
+    try:
+        mission = Mission()
+        mission.name = citrap.id
+        mission.creator_uid = client_uid
+        mission.tool = "citrap"
+        mission.create_time = datetime.datetime.now(datetime.timezone.utc)
+        mission.guid = str(uuid.uuid4())
+        db.session.add(mission)
+        db.session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        # TODO: Should anything be updated?
+        db.session.rollback()
+        logger.warn(f"Mission {citrap.id} already exists")
+        return jsonify({"id": citrap.id}), 201
+
+    role = MissionRole()
+    role.clientUid = client_uid
+    role.username = username
+    role.createTime = mission.create_time
+    role.role_type = MissionRole.MISSION_OWNER
+    role.mission_name = mission.name
+    db.session.add(role)
+
+    change = MissionChange()
+    change.isFederatedChange = False
+    change.change_type = MissionChange.CREATE_MISSION
+    change.mission_name = mission.name
+    change.timestamp = mission.create_time
+    change.server_time = mission.create_time
+    change.creator_uid = client_uid
+    db.session.add(change)
+
+    user = app.security.datastore.find_user(username=username)
+    if not user:
+        return jsonify({"success": False, "error": gettext(f"User not found: {username}")}), 400
+
+    groups = (
+        db.session.query(GroupUser)
+        .filter(GroupUser.user_id == user.id)
+        .filter(GroupUser.direction == Group.IN)
+    )
+    for group in groups:
+        group_mission = GroupMission()
+        group_mission.mission_name = mission.name
+        group_mission.group_id = group.group_id
+        db.session.add(group_mission)
+
+        group_citrap = GroupCITrap()
+        group_citrap.citrap_id = citrap.id
+        group_citrap.group_id = group.group_id
+        db.session.add(group_citrap)
+
+    db.session.commit()
     return jsonify({"id": citrap.id}), 201
 
 
@@ -151,6 +228,7 @@ def get_citrap(id):
     logger.debug(request.args)
     logger.debug(request.data)
     logger.debug(request.headers)
+    # downloads the zip
     return ""
 
 
