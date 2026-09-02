@@ -17,7 +17,7 @@ beautifulsoup4 = "4.15.0"
 bleach = "*"
 colorlog = "6.10.1"
 cryptography = "50.0.1"
-datetime = "5.5"
+datetime = "6.0"
 # Keep dulwich at 0.24.1 or run into dependency hell with lastversion
 dulwich = "<2"
 eventlet = "0.41.2"

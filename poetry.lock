@@ -1561,14 +1561,14 @@ dev = ["build", "cryptography", "mypy", "psycopg2-binary", "pymysql", "pytest", 
 
 [[package]]
 name = "datetime"
-version = "5.5"
+version = "6.0"
 description = "This package provides a DateTime data type, as known from Zope. Unless you need to communicate with Zope APIs, you're probably better off using Python's built-in datetime module."
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "DateTime-5.5-py3-none-any.whl", hash = "sha256:0abf6c51cb4ba7cee775ca46ccc727f3afdde463be28dbbe8803631fefd4a120"},
-    {file = "DateTime-5.5.tar.gz", hash = "sha256:21ec6331f87a7fcb57bd7c59e8a68bfffe6fcbf5acdbbc7b356d6a9a020191d3"},
+    {file = "datetime-6.0-py3-none-any.whl", hash = "sha256:d19988f0657a4e72c9438344157254a8dcad6aea8cd5ae70a5d1b5a75e5dc930"},
+    {file = "datetime-6.0.tar.gz", hash = "sha256:c1514936d2f901e10c8e08d83bf04e6c9dbd7ca4f244da94fec980980a3bc4d5"},
 ]
 
 [package.dependencies]
@@ -6867,4 +6867,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.15"
-content-hash = "460a48b0435ba56c53c797953cd0a73533c4c94c453019c26a16f016ad169731"
+content-hash = "d2737076fb6cb67f2aa4df12ec7f7dfc321a8d8e6baa30bfdf86e82b3c493c42"
