@@ -3,6 +3,7 @@ import traceback
 
 import bleach
 import pika
+from cryptography.hazmat._oid import NameOID
 from flask import Blueprint
 from flask import current_app as app
 from flask import jsonify, request
@@ -47,7 +48,7 @@ def get_all_groups():
         "data": [],
     }
 
-    username = cert.get_subject().commonName
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
 
     if not app.config.get("OTS_ENABLE_LDAP"):
         user = app.security.datastore.find_user(username=username)
@@ -237,7 +238,7 @@ def put_active_bits():
 @group_api.route("/Marti/api/groups/active", methods=["PUT"])
 def put_active_groups():
     cert = verify_client_cert()
-    username = cert.get_subject().commonName
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
     user = app.security.datastore.find_user(username=username)
 
     uids = []

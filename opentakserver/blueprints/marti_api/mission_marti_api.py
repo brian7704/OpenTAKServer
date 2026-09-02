@@ -370,7 +370,7 @@ def get_missions():
     }
 
     try:
-        query = db.session.query(Mission).filter_by(tool="public")
+        query = db.session.query(Mission).filter_by(tool=tool)
 
         # Let admins see all missions
         if not user.has_role("administrator"):
@@ -390,7 +390,7 @@ def get_missions():
         for mission in missions:
             if not password_protected and mission.password_protected:
                 continue
-            if tool and tool.lower() != "public" and mission.tool != tool:
+            if mission.tool != tool:
                 continue
             response["data"].append(mission.to_marti_json())
 

@@ -1,6 +1,5 @@
 import datetime
 import json
-import traceback
 import uuid
 from xml.etree.ElementTree import tostring
 
@@ -50,7 +49,9 @@ data_sync_api = Blueprint("data_sync_api", __name__)
 @data_sync_api.route("/api/missions")
 @auth_required()
 def get_missions():
-    query: db.Query = db.session.query(Mission).where(Mission.tool == "public")
+    query: db.Query = db.session.query(Mission).filter(
+        or_(Mission.tool == "public", Mission.tool == "")
+    )
     query = search(query, Mission, "name")
     query = search(query, Mission, "guid")
 
@@ -163,6 +164,11 @@ def create_edit_mission():
                     ),
                     400,
                 )
+
+        tool = request.json.get("tool", "public")
+        if not tool:
+            tool = "public"
+        mission.tool = bleach.clean(tool)
 
         mission.password_protected = mission.password != "" and mission.password is not None
 
