@@ -3,7 +3,6 @@ import logging
 import os
 import sys
 import uuid
-from argparse import gettext
 from logging.handlers import TimedRotatingFileHandler
 
 from pika.channel import Channel
@@ -41,6 +40,7 @@ from opentakserver.models.MissionContentMission import MissionContentMission
 from opentakserver.models.MissionChange import MissionChange
 from opentakserver.models.MissionInvitation import MissionInvitation
 from opentakserver.models.GroupMission import GroupMission
+from opentakserver.models.CITrap import CITrap
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.extensions import logger, db
 from opentakserver.models.FederationConnection import FederationConnection
@@ -62,8 +62,6 @@ class FedDaemon(RabbitMQClient):
         logger.warning(connection[0].to_json())
 
         self.connection = connection[0]
-
-        logger.warning("SHIT BALLS")
 
         self.channel_creds = grpc.ssl_channel_credentials(
             open(
@@ -88,20 +86,17 @@ class FedDaemon(RabbitMQClient):
                 os.path.join(
                     self.context.app.config.get("OTS_DATA_FOLDER"),
                     "federation",
-                    f"{connection[0].federate.certificate_file}",
+                    f"{connection[0].federate.serial_number}.pem",
                 ),
                 "rb",
             ).read(),
         )
-
-        logger.info("WTF")
 
         self.federation_connect()
 
         # https://github.com/grpc/grpc/blob/master/examples/python/hellostreamingworld/async_greeter_client.py
 
     def federation_connect(self):
-        logger.warning("SHITTTTTTT")
         with grpc.secure_channel(
             f"{self.connection.address}:{self.connection.port}",
             self.channel_creds,
@@ -224,7 +219,7 @@ def create_app():
 app = create_app()
 
 
-async def main():
+def main():
     with app.app_context():
         connections = db.session.execute(db.session.query(FederationConnection)).scalars().all()
         db.session.close()

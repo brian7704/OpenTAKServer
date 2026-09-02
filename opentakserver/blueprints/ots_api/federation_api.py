@@ -2,6 +2,7 @@ import datetime
 import os
 import pathlib
 import traceback
+from urllib.parse import urlparse
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -220,7 +221,11 @@ def get_federation_certificate():
     """
 
     fed_cert = pathlib.Path(app.config.get("OTS_FEDERATION_CERTIFICATE"))
-    send_from_directory(fed_cert.parent, fed_cert.name)
+    return send_from_directory(
+        fed_cert.parent,
+        fed_cert.name,
+        download_name=f"federation_cert_{urlparse(request.url_root).hostname}.pem",
+    )
 
 
 @roles_required("administrator")
@@ -325,7 +330,7 @@ def add_federate():
             )
         if not os.path.exists(
             os.path.join(
-                app.config.get("OTS_DATA_FOLDER"), "federation", str(federate.certificate_file)
+                app.config.get("OTS_DATA_FOLDER"), "federation", f"{federate.serial_number}.pem"
             )
         ):
             return (
