@@ -1312,14 +1312,14 @@ markers = {dev = "sys_platform == \"win32\""}
 
 [[package]]
 name = "colorlog"
-version = "6.10.1"
+version = "6.12.0"
 description = "Add colours to the output of Python's logging module."
 optional = false
 python-versions = ">=3.6"
 groups = ["main"]
 files = [
-    {file = "colorlog-6.10.1-py3-none-any.whl", hash = "sha256:2d7e8348291948af66122cff006c9f8da6255d224e7cf8e37d8de2df3bad8c9c"},
-    {file = "colorlog-6.10.1.tar.gz", hash = "sha256:eb4ae5cb65fe7fec7773c2306061a8e63e02efc2c72eba9d27b0fa23c94f1321"},
+    {file = "colorlog-6.12.0-py3-none-any.whl", hash = "sha256:30d392604e9110045a2c2aeefc27d7a017abbab63f3a8aee594eac0801df784e"},
+    {file = "colorlog-6.12.0.tar.gz", hash = "sha256:2a7924c1dadf18b22a0eb8b06d1c7b01d5341707ec1641eb6fcc4fde0c3e8e5f"},
 ]
 
 [package.dependencies]
@@ -6867,4 +6867,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.15"
-content-hash = "460a48b0435ba56c53c797953cd0a73533c4c94c453019c26a16f016ad169731"
+content-hash = "dae68f09db5bb13f296cb74676bd757d83e4f0c9587a2fb47efbd78f1af3af33"
