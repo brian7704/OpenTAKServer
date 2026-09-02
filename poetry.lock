@@ -208,19 +208,19 @@ test = ["black", "flake8", "pylint", "pytest (>=6.0)", "pytest-cov"]
 
 [[package]]
 name = "aiscot"
-version = "7.1.4"
+version = "7.3.1"
 description = "Software for monitoring and analyzing AIS in TAK."
 optional = false
 python-versions = "<4,>=3.6"
 groups = ["main"]
 files = [
-    {file = "aiscot-7.1.4-py3-none-any.whl", hash = "sha256:1c0b9724c50307f9c77ecc01de3bce1b23b57efa829207285f48e417558ffe7d"},
-    {file = "aiscot-7.1.4.tar.gz", hash = "sha256:529e93df93f61902420e955d2abc2abe6e98cdf5af1a27584a9aa7523b05207c"},
+    {file = "aiscot-7.3.1-py3-none-any.whl", hash = "sha256:5fd72b73f76c03b0d0db426239a956a28038b463d0e6e8d8c07e122eedb57513"},
+    {file = "aiscot-7.3.1.tar.gz", hash = "sha256:e8f951783298f58a37fdc4a12d627613e8e0408ae0c82b49a79a3f7d0edec15a"},
 ]
 
 [package.dependencies]
 aiohttp = "<4.0.0"
-pytak = ">=5.4.0"
+pytak = ">=7.3.12"
 
 [package.extras]
 test = ["black", "flake8", "pylint", "pytak", "pytest-asyncio", "pytest-cov"]
@@ -6867,4 +6867,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.15"
-content-hash = "460a48b0435ba56c53c797953cd0a73533c4c94c453019c26a16f016ad169731"
+content-hash = "905b01a8ff8d282eb75417e0c69dbfc8f14aece7d7baa46008fa73ee9e0e9c10"
