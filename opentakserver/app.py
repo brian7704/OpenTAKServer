@@ -1,12 +1,11 @@
-import uuid
-
 from gevent import monkey
+
+monkey.patch_all()
 
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionRole import MissionRole
 
-monkey.patch_all()
-
+import uuid
 import logging
 import os
 import platform
