@@ -30,7 +30,6 @@ flask-migrate = "4.1.0"
 Flask-Security-Too = { version = "5.8.2", extras = ["common", "mfa"] }
 flask-socketio = "5.6.1"
 flask-sqlalchemy = "3.1.1"
-gevent = "25.5.1"
 grpcio = "1.78.1"
 GeoAlchemy2 = { version = "0.20.0", extras = ["shapely"] }
 gevent = "26.8.0"
