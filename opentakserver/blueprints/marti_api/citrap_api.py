@@ -13,7 +13,7 @@ from flask_babel import gettext
 from sqlalchemy import insert, update
 from werkzeug.utils import secure_filename
 
-from flask import Blueprint
+from flask import Blueprint, send_from_directory
 from flask import current_app as app
 from flask import jsonify, request
 
@@ -199,50 +199,117 @@ def add_citrap():
     db.session.add(change)
 
     user = app.security.datastore.find_user(username=username)
-    if not user:
-        return jsonify({"success": False, "error": gettext(f"User not found: {username}")}), 400
+    if not user or not user.active:
+        logger.warn(f"User {username} not found or is inactive")
+        return (
+            jsonify(
+                {"success": False, "error": gettext(f"User {username} not found or is inactive")}
+            ),
+            403,
+        )
 
     groups = (
         db.session.query(GroupUser)
         .filter(GroupUser.user_id == user.id)
         .filter(GroupUser.direction == Group.IN)
     )
-    for group in groups:
+
+    if not groups:
+        anon_group = db.session.execute(
+            db.session.query(Group).filter_by(Group.name == "__ANON__").scalar()
+        )
+
         group_mission = GroupMission()
         group_mission.mission_name = mission.name
-        group_mission.group_id = group.group_id
+        group_mission.group_id = anon_group.id
         db.session.add(group_mission)
 
         group_citrap = GroupCITrap()
         group_citrap.citrap_id = citrap.id
-        group_citrap.group_id = group.group_id
+        group_citrap.group_id = anon_group.id
         db.session.add(group_citrap)
+
+    else:
+        for group in groups:
+            group_mission = GroupMission()
+            group_mission.mission_name = mission.name
+            group_mission.group_id = group.group_id
+            db.session.add(group_mission)
+
+            group_citrap = GroupCITrap()
+            group_citrap.citrap_id = citrap.id
+            group_citrap.group_id = group.group_id
+            db.session.add(group_citrap)
 
     db.session.commit()
     return jsonify({"id": citrap.id}), 201
 
 
-@citrap_api_blueprint.route("/Marti/api/citrap/<id>", methods=["GET"])
-def get_citrap(id):
+@citrap_api_blueprint.route("/Marti/api/citrap/<citrap_id>", methods=["GET"])
+def get_citrap(citrap_id: str):
+    client_uid = request.args.get("clientUid")
+
+    cert = verify_client_cert()
+    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+    user = app.security.datastore.find_user(username=username)
+    if not user or not user.active:
+        logger.warn(f"User {username} not found or is inactive")
+        return (
+            jsonify(
+                {"success": False, "error": gettext(f"User {username} not found or is inactive")}
+            ),
+            403,
+        )
+
+    groups = (
+        db.session.execute(
+            db.session.query(GroupUser)
+            .filter(GroupUser.user_id == user.id)
+            .filter(GroupUser.direction == Group.IN)
+        )
+    ).scalars()
+
+    citraps = db.session.execute(
+        db.session.query(GroupCITrap).filter(GroupCITrap.citrap_id == citrap_id)
+    ).scalars()
+
+    group_match = False
+    filename = ""
+
+    # User belongs to no groups, see if the CITrap belongs to the __ANON__ group
+    if not groups:
+        for citrap in citraps:
+            if citrap.group.name == "__ANON__":
+                group_match = True
+                filename = citrap.citrap.file_name
+                break
+
+    else:
+        for group in groups:
+            for citrap in citraps:
+                if citrap.group_id == group.group_id:
+                    group_match = True
+                    filename = citrap.citrap.file_name
+                    break
+
+    if not group_match or not filename:
+        return jsonify({"success": False, "error": gettext("Forbidden")}), 403
+
+    logger.warn(f"Sending {filename}")
+    return send_from_directory(os.path.join(app.config.get("OTS_DATA_FOLDER"), "reports"), filename)
+
+
+@citrap_api_blueprint.route("/Marti/api/citrap/<citrap_id>", methods=["PUT"])
+def put_citrap(citrap_id: str):
     client_uid = request.args.get("clientUid")
     logger.debug(request.args)
     logger.debug(request.data)
     logger.debug(request.headers)
-    # downloads the zip
     return ""
 
 
-@citrap_api_blueprint.route("/Marti/api/citrap/<id>", methods=["PUT"])
-def put_citrap(id):
-    client_uid = request.args.get("clientUid")
-    logger.debug(request.args)
-    logger.debug(request.data)
-    logger.debug(request.headers)
-    return ""
-
-
-@citrap_api_blueprint.route("/Marti/api/citrap/<id>", methods=["DELETE"])
-def delete_citrap(id):
+@citrap_api_blueprint.route("/Marti/api/citrap/<citrap_id>", methods=["DELETE"])
+def delete_citrap(citrap_id: str):
     client_uid = request.args.get("clientUid")
     logger.debug(request.args)
     logger.debug(request.data)
