@@ -65,7 +65,7 @@ zope-event = "*"
 zope-interface = "*"
 
 [tool.poetry.group.dev.dependencies]
-isort = "^7.0.0"
+isort = ">=7,<10"
 black = "^26.0.0"
 flake8 = "^7.3.0"
 flake8-pyproject = "^1.2.4"
