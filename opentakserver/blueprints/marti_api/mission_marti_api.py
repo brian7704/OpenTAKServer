@@ -7,6 +7,7 @@ import traceback
 import uuid
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element, SubElement, fromstring, tostring
+from pathlib import Path
 
 import bleach
 import flask
@@ -1708,7 +1709,11 @@ def upload_content():
 
     username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
 
-    file_name = bleach.clean(request.args.get("name")) if "name" in request.args else None
+    if not request.args.get("name"):
+        return jsonify({"success": False, "error": gettext("File name cannot be blank")}), 400
+
+    file_name = Path(request.args.get("name")).name
+    file_name = secure_filename(file_name) if "name" in request.args else None
     keywords = request.args.getlist("keywords")
 
     if "creatorUid" in request.args:
@@ -1718,9 +1723,6 @@ def upload_content():
         creator_uid = request.args.get("CreatorUid")
     else:
         creator_uid = None
-
-    if not file_name:
-        return jsonify({"success": False, "error": gettext("File name cannot be blank")}), 400
 
     # When uploading data packages, iTAK doesn't include an extension. If the user agent is iTAK and
     # the content type is zip, assume that iTAK is uploading a data package
