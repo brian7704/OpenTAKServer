@@ -359,18 +359,18 @@ class CertificateAuthority:
                         <entry key="description0" class="class java.lang.String">OpenTAKServer_{{ server }}</entry>
                         <entry key="enabled0" class="class java.lang.Boolean">true</entry>
                         <entry key="connectString0" class="class java.lang.String">{{ server }}:{{ ssl_port }}:ssl</entry>
+                        <entry key="caLocation0" class="class java.lang.String">cert/{{ server_filename }}</entry>
+                        <entry key="caPassword0" class="class java.lang.String">{{ cert_password }}</entry>
+                        <entry key="clientPassword0" class="class java.lang.String">{{ cert_password }}</entry>
+                        <entry key="certificateLocation0" class="class java.lang.String">cert/{{ user_filename }}</entry>
                     </preference>
                     <preference version="1" name="com.atakmap.app_preferences">
                         <entry key="deviceProfileEnableOnConnect" class="class java.lang.Boolean">true</entry>
                         <entry key="displayServerConnectionWidget" class="class java.lang.Boolean">true</entry>
-                        <entry key="caLocation" class="class java.lang.String">/storage/emulated/0/atak/cert/{{ server_filename }}</entry>
-                        <entry key="caPassword" class="class java.lang.String">{{ cert_password }}</entry>
-                        <entry key="clientPassword" class="class java.lang.String">{{ cert_password }}</entry>
-                        <entry key="certificateLocation" class="class java.lang.String">/storage/emulated/0/atak/cert/{{ user_filename }}</entry>
                         <entry key="appMgmtEnableUpdateServer" class="class java.lang.Boolean">true</entry>
                         <entry key="atakUpdateServerUrl" class="class java.lang.String">https://{{ server }}:{{ marti_port }}/api/packages</entry>
                         <entry key="repoStartupSync" class="class java.lang.Boolean">true</entry>
-                        <entry key="updateServerCaLocation" class="class java.lang.String">/storage/emulated/0/atak/cert/{{ server_filename }}</entry>
+                        <entry key="updateServerCaLocation" class="class java.lang.String">cert/{{ server_filename }}</entry>
                         <entry key="updateServerCaPassword" class="class java.lang.String">{{ cert_password }}</entry>
                     </preference>
                 </preferences>
