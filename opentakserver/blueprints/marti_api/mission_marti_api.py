@@ -354,7 +354,7 @@ def get_missions():
 
     password_protected = request.args.get("passwordProtected", False)
 
-    tool = request.args.get("tool")
+    tool = request.args.get("tool", "public")
     if tool:
         tool = bleach.clean(tool)
 
