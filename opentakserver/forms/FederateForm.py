@@ -26,5 +26,6 @@ class FederateForm(FlaskForm):
     certificate_file = FileField(validators=[DataRequired()])
     issuer = StringField(validators=[DataRequired()])
     subject = StringField(validators=[DataRequired()])
+    common_name = StringField(validators=[DataRequired()])
     serial_number = StringField(validators=[DataRequired()])
     enabled = BooleanField(validators=[Optional()])

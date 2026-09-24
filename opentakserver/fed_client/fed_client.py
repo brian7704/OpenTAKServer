@@ -15,6 +15,8 @@ import yaml
 from flask import Flask, jsonify
 from flask_security import SQLAlchemyUserDatastore
 from flask_security.models import fsqla
+
+import opentakserver
 from opentakserver.rabbitmq_client import RabbitMQClient
 
 from opentakserver.models.CoT import CoT
@@ -49,27 +51,40 @@ from opentakserver.proto import fig_pb2_grpc, fig_pb2
 
 
 class FedDaemon(RabbitMQClient):
-    def __init__(self, context, connection_id: int):
-        super().__init__(context)
-        self.connection_id = connection_id
+    fed_connection = None
 
-        logger.info("Initializing federation connection")
+    def __init__(self, context, connection_id: int):
+        self.connection_id = connection_id
+        self.connection = None
+        self.receive_queue = asyncio.Queue()
+        self.federated_groups_queue = asyncio.Queue()
+        self.server_rol_queue = asyncio.Queue()
+        self.client_groups_queue = asyncio.Queue()
+        self.send_queue = asyncio.Queue()
+        self.background_tasks = set()
+        self.client_event_stream_connected = False
+        self.server_event_stream_connected = False
+
+        self.rabbitmq_channel = None
+
+        logger.debug("Initializing federation connection")
 
         connection = db.session.execute(
             db.session.query(FederationConnection).where(FederationConnection.id == connection_id)
         ).first()
 
-        logger.warning(connection[0].to_json())
+        self.fed_connection = connection[0]
 
-        self.connection = connection[0]
+        logger.warn(self.fed_connection.to_json())
+
+        super().__init__(context)
 
         self.channel_creds = grpc.ssl_channel_credentials(
             open(
                 os.path.join(
-                    self.context.app.config.get("OTS_CA_FOLDER"),
-                    "certs",
-                    "opentakserver",
-                    "opentakserver.pem",
+                    self.context.app.config.get("OTS_DATA_FOLDER"),
+                    "federation",
+                    f"{connection[0].federate.serial_number}.pem",
                 ),
                 "rb",
             ).read(),
@@ -84,43 +99,140 @@ class FedDaemon(RabbitMQClient):
             ).read(),
             open(
                 os.path.join(
-                    self.context.app.config.get("OTS_DATA_FOLDER"),
-                    "federation",
-                    f"{connection[0].federate.serial_number}.pem",
+                    self.context.app.config.get("OTS_CA_FOLDER"),
+                    "certs",
+                    "opentakserver",
+                    "opentakserver.pem",
                 ),
                 "rb",
             ).read(),
         )
 
-        self.federation_connect()
-
-        # https://github.com/grpc/grpc/blob/master/examples/python/hellostreamingworld/async_greeter_client.py
-
-    def federation_connect(self):
-        with grpc.secure_channel(
-            f"{self.connection.address}:{self.connection.port}",
+    async def federation_connect(self):
+        async with grpc.aio.secure_channel(
+            f"{self.fed_connection.address}:{self.fed_connection.port}",
             self.channel_creds,
+            options=(("grpc.ssl_target_name_override", self.fed_connection.federate.common_name),),
             compression=grpc.Compression.Gzip,
         ) as channel:
             stub = fig_pb2_grpc.FederatedChannelStub(channel)
             identity = fig_pb2.Identity()
-            identity.name = self.connection.display_name
+            identity.name = self.fed_connection.display_name
             identity.uid = str(uuid.uuid4())
-            identity.description = self.connection.description
+            identity.description = str(self.fed_connection.description)
             identity.type = 3
-            identity.serverId = self.connection.uid
+            identity.serverId = self.fed_connection.uid
+
             subscription = fig_pb2.Subscription()
             subscription.identity.CopyFrom(identity)
 
-            for response in stub.ClientEventStream(subscription):
-                self.logger.warning(f"ClientEventStream response {response}")
+            async with asyncio.TaskGroup() as tg:
+                task = tg.create_task(self.server_fed_groups_stream(stub, subscription))
+                self.background_tasks.add(task)
+                task.add_done_callback(self.background_tasks.discard)
+
+                client_task = tg.create_task(self.client_event_stream(stub, subscription))
+                self.background_tasks.add(client_task)
+                client_task.add_done_callback(self.background_tasks.discard)
+
+                server_rol_task = tg.create_task(self.server_rol(stub))
+                self.background_tasks.add(server_rol_task)
+                server_rol_task.add_done_callback(self.background_tasks.discard)
+
+                client_fed_group = tg.create_task(self.client_fed_group_stream(stub))
+                self.background_tasks.add(client_fed_group)
+                client_fed_group.add_done_callback(self.background_tasks.discard)
+
+                server_event_stream = tg.create_task(self.server_event_stream(stub))
+                self.background_tasks.add(server_event_stream)
+                server_event_stream.add_done_callback(self.background_tasks.discard)
+
+                client_health = fig_pb2.ClientHealth()
+                client_health.status = fig_pb2.ClientHealth.ServingStatus.SERVING
+                health_task = tg.create_task(self.check_health(stub))
+                self.background_tasks.add(health_task)
+                health_task.add_done_callback(self.background_tasks.discard)
+
+    async def server_fed_groups_stream(self, stub, subscription):
+        server_fed_groups = stub.ServerFederateGroupsStream(subscription)
+        async for group in server_fed_groups:
+            self.federated_groups_queue.put_nowait(group)
+            logger.debug(group)
+
+    async def client_event_stream(self, stub, subscription):
+        ts_version = fig_pb2.TakServerVersion()
+        ts_version.major = opentakserver.__version_tuple__[0]
+        ts_version.minor = opentakserver.__version_tuple__[1]
+        ts_version.patch = opentakserver.__version_tuple__[2]
+        branch = ""
+        for b in opentakserver.__version_tuple__[3:]:
+            branch = branch + " " + str(b)
+        ts_version.branch = branch.strip()
+        ts_version.variant = "OpenTAKServer"
+
+        subscription.version.CopyFrom(ts_version)
+
+        logger.debug(subscription)
+
+        client_stream = stub.ClientEventStream(subscription)
+        self.client_event_stream_connected = True
+
+        try:
+            async for a in client_stream:
+                self.receive_queue.put_nowait(a)
+                logger.debug(a)
+        except BaseException as e:
+            logger.error(e)
+            await self.client_event_stream(stub, subscription)
+
+    async def server_rol(self, stub):
+        logger.error("server_rol")
+        server_rol = stub.ServerROLStream(self.server_rol_queue)
+
+        # while True:
+        #    server_rol = await self.server_rol_queue.get()
+        #    logger.info(f"Received a server rol message: {server_rol}")
+
+    async def client_fed_group_stream(self, stub):
+        logger.error("client_fed_group_stream")
+
+        fed_group = fig_pb2.FederateGroups()
+        fed_group.federateGroups.append("__ANON__")
+
+        fed_hops = fig_pb2.FederateHops()
+        fed_hops.maxHops = -1
+        fed_hops.currentHops = 1
+        fed_hops.CopyFrom(fed_hops)
+
+        self.client_groups_queue.put_nowait(fed_group)
+
+        stub.ClientFederateGroupsStream(self.client_groups_queue)
+        # while True:
+        #    a = await self.client_groups_queue.get()
+        #    logger.error(f"Received a client_fed_group_stream message: {a}")
+
+    async def server_event_stream(self, stub):
+        server_event = stub.ServerEventStream(self.send_queue)
+        self.server_event_stream_connected = True
+
+    async def check_health(self, stub):
+        client_health = fig_pb2.ClientHealth()
+        client_health.status = fig_pb2.ClientHealth.ServingStatus.SERVING
+
+        # TODO: Have a proper exit condition
+        while True:
+            await asyncio.sleep(5)
+            health = await stub.HealthCheck(client_health)
+
+    def event_deserializer(self, data: bytes):
+        logger.warn(f"Got some bytes: {data.hex()}")
 
     def on_channel_open(self, channel):
         self.rabbitmq_channel = channel
         self.rabbitmq_channel.queue_bind(
             queue="fed_daemon",
             exchange="fed_daemon",
-            routing_key=f"fed_daemon.{self.connection.display_name}.#",
+            routing_key=f"fed_daemon.{self.fed_connection.display_name}.#",
         )
         self.rabbitmq_channel.basic_consume(
             queue="fed_daemon", on_message_callback=self.on_message, auto_ack=True
@@ -221,15 +333,14 @@ app = create_app()
 
 def main():
     with app.app_context():
-        connections = db.session.execute(db.session.query(FederationConnection)).scalars().all()
-        db.session.close()
+        connections = db.session.execute(db.session.query(FederationConnection)).scalars()
 
         for connection in connections:
             connection_id = connection.id
-            if os.fork() == 0:
-                logger.info(f"Launching connection {connection.display_name}")
-                daemon = FedDaemon(app.app_context(), connection_id)
-                daemon.federation_connect()
+            # if os.fork() == 0:
+            logger.info(f"Launching connection {connection.display_name}")
+            daemon = FedDaemon(app.app_context(), connection_id)
+            asyncio.run(daemon.federation_connect(), debug=app.config.get("DEBUG"))
 
 
 if __name__ == "__main__":

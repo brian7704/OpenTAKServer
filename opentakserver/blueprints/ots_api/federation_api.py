@@ -4,10 +4,12 @@ import pathlib
 import traceback
 from urllib.parse import urlparse
 
+import cryptography
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 
 import jwt
+from cryptography.hazmat.primitives import serialization
 from flask import Blueprint, request, jsonify, current_app as app, send_from_directory
 from flask_login import current_user
 from flask_security import roles_required
@@ -407,15 +409,33 @@ def upload_federation_certificate():
 
     try:
         cert = x509.load_pem_x509_certificate(cert_bytes, default_backend())
+        # get_attributes_for_oid() returns a list of all common names in the cert, which should be only one in most cases
+        cn = cert.subject.get_attributes_for_oid(cryptography.x509.oid.NameOID().COMMON_NAME)
+        if not cn:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": gettext("Invalid certificate: No common name found"),
+                    }
+                ),
+                400,
+            )
+
+        cn = cn[0].value
 
         # Use the cert's serial number as the file name to avoid file naming conflicts since most certs will be named ca.pem
-        cert_file.save(
+        with open(
             os.path.join(
                 app.config.get("OTS_DATA_FOLDER"), "federation", f"{cert.serial_number}.pem"
-            )
-        )
+            ),
+            "wb",
+        ) as f:
+            f.write(cert.public_bytes(serialization.Encoding.PEM))
+
     except BaseException as e:
         logger.error(f"Failed to load certificate: {e}")
+        logger.debug(traceback.format_exc())
         return jsonify({"success": False, "error": str(e)}), 400
 
     return (
@@ -426,6 +446,7 @@ def upload_federation_certificate():
                 "issuer": cert.issuer.rfc4514_string(),
                 "subject": cert.subject.rfc4514_string(),
                 "serial_number": str(cert.serial_number),
+                "common_name": cn,
             }
         ),
         200,

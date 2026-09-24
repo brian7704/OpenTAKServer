@@ -33,6 +33,7 @@ class Federate(db.Model):
     issuer: Mapped[str] = mapped_column(String(255))
     subject: Mapped[str] = mapped_column(String(255))
     serial_number: Mapped[str] = mapped_column(String(255), unique=True)
+    common_name: Mapped[str] = mapped_column(String(255), nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     federation_connections = relationship("FederationConnection", back_populates="federate")
 
@@ -49,6 +50,7 @@ class Federate(db.Model):
         self.certificate_file = form.certificate_file.data
         self.issuer = form.issuer.data
         self.subject = form.subject.data
+        self.common_name = form.common_name.data
         self.serial_number = form.serial_number.data
         self.enabled = form.enabled.data
 
@@ -66,6 +68,7 @@ class Federate(db.Model):
             "certificate_file": self.certificate_file,
             "issuer": self.issuer,
             "subject": self.subject,
+            "common_name": self.common_name,
             "serial_number": self.serial_number,
             "enabled": self.enabled,
         }

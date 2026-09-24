@@ -3,9 +3,9 @@
 import grpc
 import warnings
 
-from opentakserver.proto import fig_pb2 as opentakserver_dot_proto_dot_fig__pb2
+from opentakserver.proto import fig_pb2 as fig__pb2
 
-GRPC_GENERATED_VERSION = '1.78.0'
+GRPC_GENERATED_VERSION = '1.83.1'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -18,14 +18,14 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in opentakserver/proto/fig_pb2_grpc.py depends on'
+        + ' but the generated code in fig_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
     )
 
 
-class FederatedChannelStub(object):
+class FederatedChannelStub:
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -36,62 +36,72 @@ class FederatedChannelStub(object):
         """
         self.SendOneEvent = channel.unary_unary(
                 '/com.atakmap.FederatedChannel/SendOneEvent',
-                request_serializer=opentakserver_dot_proto_dot_fig__pb2.FederatedEvent.SerializeToString,
-                response_deserializer=opentakserver_dot_proto_dot_fig__pb2.Empty.FromString,
+                request_serializer=fig__pb2.FederatedEvent.SerializeToString,
+                response_deserializer=fig__pb2.Empty.FromString,
                 _registered_method=True)
         self.BinaryMessageStream = channel.stream_unary(
                 '/com.atakmap.FederatedChannel/BinaryMessageStream',
-                request_serializer=opentakserver_dot_proto_dot_fig__pb2.BinaryBlob.SerializeToString,
-                response_deserializer=opentakserver_dot_proto_dot_fig__pb2.Empty.FromString,
+                request_serializer=fig__pb2.BinaryBlob.SerializeToString,
+                response_deserializer=fig__pb2.Empty.FromString,
                 _registered_method=True)
         self.SendOneBlob = channel.unary_unary(
                 '/com.atakmap.FederatedChannel/SendOneBlob',
-                request_serializer=opentakserver_dot_proto_dot_fig__pb2.BinaryBlob.SerializeToString,
-                response_deserializer=opentakserver_dot_proto_dot_fig__pb2.Empty.FromString,
+                request_serializer=fig__pb2.BinaryBlob.SerializeToString,
+                response_deserializer=fig__pb2.Empty.FromString,
                 _registered_method=True)
         self.getIdentity = channel.unary_unary(
                 '/com.atakmap.FederatedChannel/getIdentity',
-                request_serializer=opentakserver_dot_proto_dot_fig__pb2.Empty.SerializeToString,
-                response_deserializer=opentakserver_dot_proto_dot_fig__pb2.Identity.FromString,
+                request_serializer=fig__pb2.Empty.SerializeToString,
+                response_deserializer=fig__pb2.Identity.FromString,
                 _registered_method=True)
         self.ClientEventStream = channel.unary_stream(
                 '/com.atakmap.FederatedChannel/ClientEventStream',
-                request_serializer=opentakserver_dot_proto_dot_fig__pb2.Subscription.SerializeToString,
-                response_deserializer=opentakserver_dot_proto_dot_fig__pb2.FederatedEvent.FromString,
+                request_serializer=fig__pb2.Subscription.SerializeToString,
+                response_deserializer=fig__pb2.FederatedEvent.FromString,
                 _registered_method=True)
         self.ServerEventStream = channel.stream_unary(
                 '/com.atakmap.FederatedChannel/ServerEventStream',
-                request_serializer=opentakserver_dot_proto_dot_fig__pb2.FederatedEvent.SerializeToString,
-                response_deserializer=opentakserver_dot_proto_dot_fig__pb2.Subscription.FromString,
+                request_serializer=fig__pb2.FederatedEvent.SerializeToString,
+                response_deserializer=fig__pb2.Subscription.FromString,
                 _registered_method=True)
         self.HealthCheck = channel.unary_unary(
                 '/com.atakmap.FederatedChannel/HealthCheck',
-                request_serializer=opentakserver_dot_proto_dot_fig__pb2.ClientHealth.SerializeToString,
-                response_deserializer=opentakserver_dot_proto_dot_fig__pb2.ServerHealth.FromString,
+                request_serializer=fig__pb2.ClientHealth.SerializeToString,
+                response_deserializer=fig__pb2.ServerHealth.FromString,
                 _registered_method=True)
         self.ClientROLStream = channel.unary_stream(
                 '/com.atakmap.FederatedChannel/ClientROLStream',
-                request_serializer=opentakserver_dot_proto_dot_fig__pb2.Subscription.SerializeToString,
-                response_deserializer=opentakserver_dot_proto_dot_fig__pb2.ROL.FromString,
+                request_serializer=fig__pb2.Subscription.SerializeToString,
+                response_deserializer=fig__pb2.ROL.FromString,
                 _registered_method=True)
         self.ServerROLStream = channel.stream_unary(
                 '/com.atakmap.FederatedChannel/ServerROLStream',
-                request_serializer=opentakserver_dot_proto_dot_fig__pb2.ROL.SerializeToString,
-                response_deserializer=opentakserver_dot_proto_dot_fig__pb2.Subscription.FromString,
+                request_serializer=fig__pb2.ROL.SerializeToString,
+                response_deserializer=fig__pb2.Subscription.FromString,
                 _registered_method=True)
         self.ServerFederateGroupsStream = channel.unary_stream(
                 '/com.atakmap.FederatedChannel/ServerFederateGroupsStream',
-                request_serializer=opentakserver_dot_proto_dot_fig__pb2.Subscription.SerializeToString,
-                response_deserializer=opentakserver_dot_proto_dot_fig__pb2.FederateGroups.FromString,
+                request_serializer=fig__pb2.Subscription.SerializeToString,
+                response_deserializer=fig__pb2.FederateGroups.FromString,
                 _registered_method=True)
         self.ClientFederateGroupsStream = channel.stream_unary(
                 '/com.atakmap.FederatedChannel/ClientFederateGroupsStream',
-                request_serializer=opentakserver_dot_proto_dot_fig__pb2.FederateGroups.SerializeToString,
-                response_deserializer=opentakserver_dot_proto_dot_fig__pb2.Subscription.FromString,
+                request_serializer=fig__pb2.FederateGroups.SerializeToString,
+                response_deserializer=fig__pb2.Subscription.FromString,
+                _registered_method=True)
+        self.GetAuthTokenByX509 = channel.unary_unary(
+                '/com.atakmap.FederatedChannel/GetAuthTokenByX509',
+                request_serializer=fig__pb2.BinaryBlob.SerializeToString,
+                response_deserializer=fig__pb2.FederateTokenResponse.FromString,
+                _registered_method=True)
+        self.Getx509Identity = channel.unary_unary(
+                '/com.atakmap.FederatedChannel/Getx509Identity',
+                request_serializer=fig__pb2.Empty.SerializeToString,
+                response_deserializer=fig__pb2.BinaryBlob.FromString,
                 _registered_method=True)
 
 
-class FederatedChannelServicer(object):
+class FederatedChannelServicer:
     """Missing associated documentation comment in .proto file."""
 
     def SendOneEvent(self, request, context):
@@ -162,63 +172,85 @@ class FederatedChannelServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetAuthTokenByX509(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Getx509Identity(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_FederatedChannelServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'SendOneEvent': grpc.unary_unary_rpc_method_handler(
                     servicer.SendOneEvent,
-                    request_deserializer=opentakserver_dot_proto_dot_fig__pb2.FederatedEvent.FromString,
-                    response_serializer=opentakserver_dot_proto_dot_fig__pb2.Empty.SerializeToString,
+                    request_deserializer=fig__pb2.FederatedEvent.FromString,
+                    response_serializer=fig__pb2.Empty.SerializeToString,
             ),
             'BinaryMessageStream': grpc.stream_unary_rpc_method_handler(
                     servicer.BinaryMessageStream,
-                    request_deserializer=opentakserver_dot_proto_dot_fig__pb2.BinaryBlob.FromString,
-                    response_serializer=opentakserver_dot_proto_dot_fig__pb2.Empty.SerializeToString,
+                    request_deserializer=fig__pb2.BinaryBlob.FromString,
+                    response_serializer=fig__pb2.Empty.SerializeToString,
             ),
             'SendOneBlob': grpc.unary_unary_rpc_method_handler(
                     servicer.SendOneBlob,
-                    request_deserializer=opentakserver_dot_proto_dot_fig__pb2.BinaryBlob.FromString,
-                    response_serializer=opentakserver_dot_proto_dot_fig__pb2.Empty.SerializeToString,
+                    request_deserializer=fig__pb2.BinaryBlob.FromString,
+                    response_serializer=fig__pb2.Empty.SerializeToString,
             ),
             'getIdentity': grpc.unary_unary_rpc_method_handler(
                     servicer.getIdentity,
-                    request_deserializer=opentakserver_dot_proto_dot_fig__pb2.Empty.FromString,
-                    response_serializer=opentakserver_dot_proto_dot_fig__pb2.Identity.SerializeToString,
+                    request_deserializer=fig__pb2.Empty.FromString,
+                    response_serializer=fig__pb2.Identity.SerializeToString,
             ),
             'ClientEventStream': grpc.unary_stream_rpc_method_handler(
                     servicer.ClientEventStream,
-                    request_deserializer=opentakserver_dot_proto_dot_fig__pb2.Subscription.FromString,
-                    response_serializer=opentakserver_dot_proto_dot_fig__pb2.FederatedEvent.SerializeToString,
+                    request_deserializer=fig__pb2.Subscription.FromString,
+                    response_serializer=fig__pb2.FederatedEvent.SerializeToString,
             ),
             'ServerEventStream': grpc.stream_unary_rpc_method_handler(
                     servicer.ServerEventStream,
-                    request_deserializer=opentakserver_dot_proto_dot_fig__pb2.FederatedEvent.FromString,
-                    response_serializer=opentakserver_dot_proto_dot_fig__pb2.Subscription.SerializeToString,
+                    request_deserializer=fig__pb2.FederatedEvent.FromString,
+                    response_serializer=fig__pb2.Subscription.SerializeToString,
             ),
             'HealthCheck': grpc.unary_unary_rpc_method_handler(
                     servicer.HealthCheck,
-                    request_deserializer=opentakserver_dot_proto_dot_fig__pb2.ClientHealth.FromString,
-                    response_serializer=opentakserver_dot_proto_dot_fig__pb2.ServerHealth.SerializeToString,
+                    request_deserializer=fig__pb2.ClientHealth.FromString,
+                    response_serializer=fig__pb2.ServerHealth.SerializeToString,
             ),
             'ClientROLStream': grpc.unary_stream_rpc_method_handler(
                     servicer.ClientROLStream,
-                    request_deserializer=opentakserver_dot_proto_dot_fig__pb2.Subscription.FromString,
-                    response_serializer=opentakserver_dot_proto_dot_fig__pb2.ROL.SerializeToString,
+                    request_deserializer=fig__pb2.Subscription.FromString,
+                    response_serializer=fig__pb2.ROL.SerializeToString,
             ),
             'ServerROLStream': grpc.stream_unary_rpc_method_handler(
                     servicer.ServerROLStream,
-                    request_deserializer=opentakserver_dot_proto_dot_fig__pb2.ROL.FromString,
-                    response_serializer=opentakserver_dot_proto_dot_fig__pb2.Subscription.SerializeToString,
+                    request_deserializer=fig__pb2.ROL.FromString,
+                    response_serializer=fig__pb2.Subscription.SerializeToString,
             ),
             'ServerFederateGroupsStream': grpc.unary_stream_rpc_method_handler(
                     servicer.ServerFederateGroupsStream,
-                    request_deserializer=opentakserver_dot_proto_dot_fig__pb2.Subscription.FromString,
-                    response_serializer=opentakserver_dot_proto_dot_fig__pb2.FederateGroups.SerializeToString,
+                    request_deserializer=fig__pb2.Subscription.FromString,
+                    response_serializer=fig__pb2.FederateGroups.SerializeToString,
             ),
             'ClientFederateGroupsStream': grpc.stream_unary_rpc_method_handler(
                     servicer.ClientFederateGroupsStream,
-                    request_deserializer=opentakserver_dot_proto_dot_fig__pb2.FederateGroups.FromString,
-                    response_serializer=opentakserver_dot_proto_dot_fig__pb2.Subscription.SerializeToString,
+                    request_deserializer=fig__pb2.FederateGroups.FromString,
+                    response_serializer=fig__pb2.Subscription.SerializeToString,
+            ),
+            'GetAuthTokenByX509': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAuthTokenByX509,
+                    request_deserializer=fig__pb2.BinaryBlob.FromString,
+                    response_serializer=fig__pb2.FederateTokenResponse.SerializeToString,
+            ),
+            'Getx509Identity': grpc.unary_unary_rpc_method_handler(
+                    servicer.Getx509Identity,
+                    request_deserializer=fig__pb2.Empty.FromString,
+                    response_serializer=fig__pb2.BinaryBlob.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -228,7 +260,7 @@ def add_FederatedChannelServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class FederatedChannel(object):
+class FederatedChannel:
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
@@ -246,8 +278,8 @@ class FederatedChannel(object):
             request,
             target,
             '/com.atakmap.FederatedChannel/SendOneEvent',
-            opentakserver_dot_proto_dot_fig__pb2.FederatedEvent.SerializeToString,
-            opentakserver_dot_proto_dot_fig__pb2.Empty.FromString,
+            fig__pb2.FederatedEvent.SerializeToString,
+            fig__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -273,8 +305,8 @@ class FederatedChannel(object):
             request_iterator,
             target,
             '/com.atakmap.FederatedChannel/BinaryMessageStream',
-            opentakserver_dot_proto_dot_fig__pb2.BinaryBlob.SerializeToString,
-            opentakserver_dot_proto_dot_fig__pb2.Empty.FromString,
+            fig__pb2.BinaryBlob.SerializeToString,
+            fig__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -300,8 +332,8 @@ class FederatedChannel(object):
             request,
             target,
             '/com.atakmap.FederatedChannel/SendOneBlob',
-            opentakserver_dot_proto_dot_fig__pb2.BinaryBlob.SerializeToString,
-            opentakserver_dot_proto_dot_fig__pb2.Empty.FromString,
+            fig__pb2.BinaryBlob.SerializeToString,
+            fig__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -327,8 +359,8 @@ class FederatedChannel(object):
             request,
             target,
             '/com.atakmap.FederatedChannel/getIdentity',
-            opentakserver_dot_proto_dot_fig__pb2.Empty.SerializeToString,
-            opentakserver_dot_proto_dot_fig__pb2.Identity.FromString,
+            fig__pb2.Empty.SerializeToString,
+            fig__pb2.Identity.FromString,
             options,
             channel_credentials,
             insecure,
@@ -354,8 +386,8 @@ class FederatedChannel(object):
             request,
             target,
             '/com.atakmap.FederatedChannel/ClientEventStream',
-            opentakserver_dot_proto_dot_fig__pb2.Subscription.SerializeToString,
-            opentakserver_dot_proto_dot_fig__pb2.FederatedEvent.FromString,
+            fig__pb2.Subscription.SerializeToString,
+            fig__pb2.FederatedEvent.FromString,
             options,
             channel_credentials,
             insecure,
@@ -381,8 +413,8 @@ class FederatedChannel(object):
             request_iterator,
             target,
             '/com.atakmap.FederatedChannel/ServerEventStream',
-            opentakserver_dot_proto_dot_fig__pb2.FederatedEvent.SerializeToString,
-            opentakserver_dot_proto_dot_fig__pb2.Subscription.FromString,
+            fig__pb2.FederatedEvent.SerializeToString,
+            fig__pb2.Subscription.FromString,
             options,
             channel_credentials,
             insecure,
@@ -408,8 +440,8 @@ class FederatedChannel(object):
             request,
             target,
             '/com.atakmap.FederatedChannel/HealthCheck',
-            opentakserver_dot_proto_dot_fig__pb2.ClientHealth.SerializeToString,
-            opentakserver_dot_proto_dot_fig__pb2.ServerHealth.FromString,
+            fig__pb2.ClientHealth.SerializeToString,
+            fig__pb2.ServerHealth.FromString,
             options,
             channel_credentials,
             insecure,
@@ -435,8 +467,8 @@ class FederatedChannel(object):
             request,
             target,
             '/com.atakmap.FederatedChannel/ClientROLStream',
-            opentakserver_dot_proto_dot_fig__pb2.Subscription.SerializeToString,
-            opentakserver_dot_proto_dot_fig__pb2.ROL.FromString,
+            fig__pb2.Subscription.SerializeToString,
+            fig__pb2.ROL.FromString,
             options,
             channel_credentials,
             insecure,
@@ -462,8 +494,8 @@ class FederatedChannel(object):
             request_iterator,
             target,
             '/com.atakmap.FederatedChannel/ServerROLStream',
-            opentakserver_dot_proto_dot_fig__pb2.ROL.SerializeToString,
-            opentakserver_dot_proto_dot_fig__pb2.Subscription.FromString,
+            fig__pb2.ROL.SerializeToString,
+            fig__pb2.Subscription.FromString,
             options,
             channel_credentials,
             insecure,
@@ -489,8 +521,8 @@ class FederatedChannel(object):
             request,
             target,
             '/com.atakmap.FederatedChannel/ServerFederateGroupsStream',
-            opentakserver_dot_proto_dot_fig__pb2.Subscription.SerializeToString,
-            opentakserver_dot_proto_dot_fig__pb2.FederateGroups.FromString,
+            fig__pb2.Subscription.SerializeToString,
+            fig__pb2.FederateGroups.FromString,
             options,
             channel_credentials,
             insecure,
@@ -516,8 +548,62 @@ class FederatedChannel(object):
             request_iterator,
             target,
             '/com.atakmap.FederatedChannel/ClientFederateGroupsStream',
-            opentakserver_dot_proto_dot_fig__pb2.FederateGroups.SerializeToString,
-            opentakserver_dot_proto_dot_fig__pb2.Subscription.FromString,
+            fig__pb2.FederateGroups.SerializeToString,
+            fig__pb2.Subscription.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetAuthTokenByX509(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/com.atakmap.FederatedChannel/GetAuthTokenByX509',
+            fig__pb2.BinaryBlob.SerializeToString,
+            fig__pb2.FederateTokenResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Getx509Identity(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/com.atakmap.FederatedChannel/Getx509Identity',
+            fig__pb2.Empty.SerializeToString,
+            fig__pb2.BinaryBlob.FromString,
             options,
             channel_credentials,
             insecure,
