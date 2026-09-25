@@ -2,6 +2,8 @@ import asyncio
 import logging
 import os
 import sys
+import signal
+import traceback
 import uuid
 from logging.handlers import TimedRotatingFileHandler
 
@@ -54,6 +56,8 @@ class FedDaemon(RabbitMQClient):
     fed_connection = None
 
     def __init__(self, context, connection_id: int):
+        signal.signal(signal.SIGINT, self.sig_handler)
+        self.shutdown = False
         self.connection_id = connection_id
         self.connection = None
         self.receive_queue = asyncio.Queue()
@@ -108,6 +112,12 @@ class FedDaemon(RabbitMQClient):
             ).read(),
         )
 
+    def sig_handler(self, sig, frame):
+        logger.warning(f"Caught CTRL+C, shutting down...")
+        self.shutdown = True
+        for background_task in self.background_tasks:
+            background_task.cancel()
+
     async def federation_connect(self):
         async with grpc.aio.secure_channel(
             f"{self.fed_connection.address}:{self.fed_connection.port}",
@@ -158,6 +168,8 @@ class FedDaemon(RabbitMQClient):
         async for group in server_fed_groups:
             self.federated_groups_queue.put_nowait(group)
             logger.debug(group)
+            if self.shutdown:
+                break
 
     async def client_event_stream(self, stub, subscription):
         ts_version = fig_pb2.TakServerVersion()
@@ -181,21 +193,22 @@ class FedDaemon(RabbitMQClient):
             async for a in client_stream:
                 self.receive_queue.put_nowait(a)
                 logger.debug(a)
+                if self.shutdown:
+                    logger.warning("Breaking client event stream")
+                    break
+        except asyncio.CancelledError:
+            logger.debug("Client event stream is cancelled")
         except BaseException as e:
-            logger.error(e)
+            logger.error(f"Client Event Stream Error: {e}")
+            logger.debug(traceback.format_exc())
+            logger.info("Attempting to close the client event stream")
+            await asyncio.sleep(5)
             await self.client_event_stream(stub, subscription)
 
     async def server_rol(self, stub):
-        logger.error("server_rol")
         server_rol = stub.ServerROLStream(self.server_rol_queue)
 
-        # while True:
-        #    server_rol = await self.server_rol_queue.get()
-        #    logger.info(f"Received a server rol message: {server_rol}")
-
     async def client_fed_group_stream(self, stub):
-        logger.error("client_fed_group_stream")
-
         fed_group = fig_pb2.FederateGroups()
         fed_group.federateGroups.append("__ANON__")
 
@@ -207,9 +220,6 @@ class FedDaemon(RabbitMQClient):
         self.client_groups_queue.put_nowait(fed_group)
 
         stub.ClientFederateGroupsStream(self.client_groups_queue)
-        # while True:
-        #    a = await self.client_groups_queue.get()
-        #    logger.error(f"Received a client_fed_group_stream message: {a}")
 
     async def server_event_stream(self, stub):
         server_event = stub.ServerEventStream(self.send_queue)
@@ -219,8 +229,7 @@ class FedDaemon(RabbitMQClient):
         client_health = fig_pb2.ClientHealth()
         client_health.status = fig_pb2.ClientHealth.ServingStatus.SERVING
 
-        # TODO: Have a proper exit condition
-        while True:
+        while not self.shutdown:
             await asyncio.sleep(5)
             health = await stub.HealthCheck(client_health)
 
