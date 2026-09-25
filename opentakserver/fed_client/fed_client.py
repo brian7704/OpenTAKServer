@@ -215,7 +215,7 @@ class FedDaemon(RabbitMQClient):
         fed_hops = fig_pb2.FederateHops()
         fed_hops.maxHops = -1
         fed_hops.currentHops = 1
-        fed_hops.CopyFrom(fed_hops)
+        fed_group.federateHops.CopyFrom(fed_hops)
 
         self.client_groups_queue.put_nowait(fed_group)
 

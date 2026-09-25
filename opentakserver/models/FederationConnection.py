@@ -39,6 +39,13 @@ class FederationConnection(db.Model):
     description: Mapped[str] = mapped_column(String(1024), nullable=True)
     uid: Mapped[str] = mapped_column(String(255), nullable=True)
     federate = relationship("Federate", back_populates="federation_connections", uselist=False)
+    groups = relationship(
+        "Group",
+        back_populates="federation_connections",
+        secondary="federation_groups",
+        viewonly=True,
+        cascade="all, delete",
+    )
 
     def from_wtforms(self, form: FederationConnectionForm):
         self.display_name = form.display_name.data

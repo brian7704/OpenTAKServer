@@ -1186,6 +1186,7 @@ class CoTController:
             )
             return
 
+        # TODO: LDAP
         if not destinations:
             with self.context:
                 group_memberships = db.session.execute(

@@ -4,6 +4,7 @@ import pathlib
 import traceback
 from urllib.parse import urlparse
 
+import bleach
 import cryptography
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -14,7 +15,8 @@ from flask import Blueprint, request, jsonify, current_app as app, send_from_dir
 from flask_login import current_user
 from flask_security import roles_required
 from flask_babel import gettext
-from sqlalchemy import update
+from sqlalchemy import update, delete
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from werkzeug.datastructures import ImmutableMultiDict
 
@@ -26,6 +28,8 @@ from opentakserver.forms.FedTokenForm import FedTokenForm
 from opentakserver.forms.FederationConnectionForm import FederationConnectionForm
 from opentakserver.models.FederateToken import FederateToken
 from opentakserver.models.FederationConnection import FederationConnection
+from opentakserver.models.FederationGroups import FederationGroups
+from opentakserver.models.Group import Group
 from opentakserver.certificate_authority import CertificateAuthority
 
 federation_blueprint = Blueprint("federation_blueprint", __name__)
@@ -451,3 +455,126 @@ def upload_federation_certificate():
         ),
         200,
     )
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/groups", methods=["GET"])
+def get_federation_groups():
+    """Returns a list of groups that the federation connection will forward data for
+    :parameter: federation_id
+
+    :return: List of groups
+    """
+
+    # TODO: Figure out LDAP. I think takserver queries the LDAP server
+    federation_id = request.args.get("federation_id")
+    if not federation_id or not federation_id.isnumeric():
+        return jsonify({"success": False, "error": gettext("Invalid federation_id")}), 400
+
+    try:
+        federation_id = int(bleach.clean(federation_id))
+    except ValueError:
+        return jsonify({"success": False, "error": gettext("Invalid federation_id")}), 400
+
+    query = db.session.query(FederationGroups).filter_by(federation_id=federation_id)
+    federation_groups = db.session.execute(query).scalars().all()
+
+    groups = []
+    for federation_group in federation_groups:
+        groups.append(federation_group.to_json())
+
+    return jsonify({"success": True, "groups": groups})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/groups", methods=["PUT"])
+def add_federation_to_groups():
+    # TODO: LDAP
+    groups = request.json.get("groups")
+    federation_id = request.json.get("federation_id")
+    direction = request.json.get("direction")
+
+    if not groups or not federation_id or not direction:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext(
+                        "Please provide a list of groups, a federation_id, and a direction"
+                    ),
+                }
+            ),
+            400,
+        )
+
+    if direction != Group.IN and direction != Group.OUT:
+        return jsonify({"success": False, "error": gettext("Direction must be IN or OUT")}), 400
+
+    for group_name in groups:
+        group: Group = db.session.execute(
+            db.session.query(Group).filter_by(name=bleach.clean(group_name))
+        ).scalar()
+        if not group:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": gettext(
+                            "Group %(group_name)s doesn't exist", group_name=group_name
+                        ),
+                    }
+                ),
+                400,
+            )
+
+        db.session.execute(
+            insert(FederationGroups)
+            .values(federation_id=federation_id, group_id=group.id, direction=direction)
+            .on_conflict_do_nothing()
+        )
+
+    db.session.commit()
+
+    return jsonify({"success": True})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/groups", methods=["DELETE"])
+def remove_federation_groups():
+    federation_id = request.args.get("federation_id")
+    group_id = request.args.get("group_id")
+    direction = request.args.get("direction")
+
+    if not federation_id or not group_id or not direction:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("Missing federation_id, group_id, or direction"),
+                }
+            ),
+            400,
+        )
+
+    try:
+        federation_id = int(bleach.clean(federation_id))
+        group_id = int(bleach.clean(group_id))
+    except BaseException as e:
+        return (
+            jsonify({"success": False, "error": gettext("Invalid federation_id or group_id")}),
+            400,
+        )
+
+    if direction != Group.IN and direction != Group.OUT:
+        return jsonify({"success": False, "error": gettext("Direction must be IN or OUT")}), 400
+
+    delete_query = delete(FederationGroups).where(
+        FederationGroups.federation_id == federation_id,
+        FederationGroups.group_id == group_id,
+        FederationGroups.direction == direction,
+    )
+
+    db.session.execute(delete_query)
+    db.session.commit()
+
+    return jsonify({"success": True})

@@ -57,6 +57,13 @@ class Group(db.Model):
         back_populates="groups",
         cascade="all, delete",
     )
+    federation_connections = relationship(
+        "FederationConnection",
+        back_populates="groups",
+        viewonly=True,
+        cascade="all, delete",
+        secondary="federation_groups",
+    )
 
     def get_next_bitpos(self) -> int:
         # the __ANON__ group is always 2 so default to 3 here
