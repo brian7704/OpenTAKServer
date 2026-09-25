@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-02-26 10:44-0500\n"
-"PO-Revision-Date: 2026-02-26 15:51+0000\n"
+"PO-Revision-Date: 2026-09-25 04:47+0000\n"
 "Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
 "Language-Team: Japanese <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/ja/>\n"
@@ -499,53 +499,54 @@ msgid "Failed to parse lat/lon: %(e)s"
 msgstr "緯度/経度の解析に失敗しました: %(e)s"
 
 #: blueprints/ots_api/marker_api.py:88
+#, fuzzy
 msgid "Please provide a name"
-msgstr ""
+msgstr "名前を入力してください"
 
 #: blueprints/ots_api/marker_api.py:96
 msgid "Invalid UID. UIDs need to be in UUID4 format"
-msgstr ""
+msgstr "無効なUIDです。UIDはUUID4形式である必要があります"
 
 #: blueprints/ots_api/marker_api.py:112
 #, python-format
 msgid "Invalid type: %(cot_type)s"
-msgstr ""
+msgstr "無効な型: %(cot_type)s"
 
 #: blueprints/ots_api/marker_api.py:269
 #, python-format
 msgid "Failed to parse data: %(e)s"
-msgstr ""
+msgstr "データの解析に失敗しました: %(e)s"
 
 #: blueprints/ots_api/marker_api.py:283
 msgid "Please provide the UID of the marker to delete"
-msgstr ""
+msgstr "削除するマーカーのUIDを入力してください"
 
 #: blueprints/ots_api/marker_api.py:294
 msgid "Unknown UID"
-msgstr ""
+msgstr "不明なUID"
 
 #: blueprints/ots_api/mediamtx_api.py:305
 #: blueprints/ots_api/mediamtx_api.py:404
 msgid "Please specify a path name"
-msgstr ""
+msgstr "パス名を指定してください"
 
 #: blueprints/ots_api/mediamtx_api.py:309
 msgid "Path cannot begin with a slash"
-msgstr ""
+msgstr "パスはスラッシュで始めることはできません"
 
 #: blueprints/ots_api/mediamtx_api.py:327
 #: blueprints/ots_api/mediamtx_api.py:413
 #, python-format
 msgid "Path %(path)s not found"
-msgstr ""
+msgstr "パス%(path)sが見つかりません"
 
 #: blueprints/ots_api/mediamtx_api.py:421
 msgid "MediaMTX is not running"
-msgstr ""
+msgstr "MediaMTXは実行されていません"
 
 #: blueprints/ots_api/meshtastic_api.py:167
 msgid "Please provide the URL of the channel to delete"
-msgstr ""
+msgstr "削除するチャンネルのURLを入力してください"
 
 #: blueprints/ots_api/mission_api.py:163 blueprints/ots_api/mission_api.py:281
 #, python-format
@@ -625,11 +626,12 @@ msgstr "ユーザーの削除に失敗しました: %(e)s"
 
 #: blueprints/ots_api/user_api.py:155
 msgid "LDAP is enabled, please use your LDAP server to reset passwords"
-msgstr ""
+msgstr "LDAPが有効になっています。LDAPサーバーを使用してパスワードをリセットしてくだ"
+"さい"
 
 #: blueprints/ots_api/user_api.py:169
 msgid "Please specify a username and new password"
-msgstr ""
+msgstr "ユーザー名と新しいパスワードを指定してください"
 
 #: blueprints/ots_api/user_api.py:181
 #, python-format
