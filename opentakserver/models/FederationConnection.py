@@ -48,6 +48,7 @@ class FederationConnection(db.Model):
     )
 
     def from_wtforms(self, form: FederationConnectionForm):
+        self.id = form.id.data
         self.display_name = form.display_name.data
         self.address = form.address.data
         self.port = form.port.data
@@ -65,8 +66,8 @@ class FederationConnection(db.Model):
         self.description = form.description.data
         self.uid = str(uuid.uuid4())
 
-    def serialize(self):
-        return {
+    def serialize(self, with_id=False):
+        federation_connection = {
             "display_name": self.display_name,
             "address": self.address,
             "port": self.port,
@@ -85,9 +86,15 @@ class FederationConnection(db.Model):
             "uid": self.uid,
         }
 
+        if with_id:
+            federation_connection["id"] = self.id
+
+        return federation_connection
+
     def to_json(self):
         return_value = self.serialize()
         return_value["id"] = self.id
         return_value["auth_token_type"] = self.auth_token_type.value
         return_value["federate"] = self.federate.to_json()
+        return_value["fallback_connection"] = ""
         return return_value

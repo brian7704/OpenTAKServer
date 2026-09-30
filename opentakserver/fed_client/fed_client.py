@@ -48,17 +48,15 @@ from opentakserver.models.CITrap import CITrap
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.extensions import logger, db
 from opentakserver.models.FederationConnection import FederationConnection
+from opentakserver.models.FederationGroups import FederationGroups
 from opentakserver.models.WebAuthn import WebAuthn
 from opentakserver.proto import fig_pb2_grpc, fig_pb2
 
 
 class FedDaemon(RabbitMQClient):
-    fed_connection = None
-
     def __init__(self, context, connection_id: int):
         signal.signal(signal.SIGINT, self.sig_handler)
         self.shutdown = False
-        self.connection_id = connection_id
         self.connection = None
         self.receive_queue = asyncio.Queue()
         self.federated_groups_queue = asyncio.Queue()
@@ -68,27 +66,30 @@ class FedDaemon(RabbitMQClient):
         self.background_tasks = set()
         self.client_event_stream_connected = False
         self.server_event_stream_connected = False
+        self.queue_bound = False
+        self.fed_connection: FederationConnection | None = None
 
         self.rabbitmq_channel = None
 
         logger.debug("Initializing federation connection")
 
-        connection = db.session.execute(
-            db.session.query(FederationConnection).where(FederationConnection.id == connection_id)
-        ).first()
-
-        self.fed_connection = connection[0]
-
-        logger.warn(self.fed_connection.to_json())
-
         super().__init__(context)
+
+        query = self.db.session.query(FederationConnection).filter_by(id=connection_id)
+        connection = self.db.session.execute(query).scalar()
+        self.fed_connection = connection
+        if not self.fed_connection.enabled:
+            logger.warning(f"Federation connection {self.fed_connection.display_name} is disabled")
+            return
+
+        self.bind_queue()
 
         self.channel_creds = grpc.ssl_channel_credentials(
             open(
                 os.path.join(
                     self.context.app.config.get("OTS_DATA_FOLDER"),
                     "federation",
-                    f"{connection[0].federate.serial_number}.pem",
+                    f"{self.fed_connection.federate.serial_number}.pem",
                 ),
                 "rb",
             ).read(),
@@ -119,6 +120,7 @@ class FedDaemon(RabbitMQClient):
             background_task.cancel()
 
     async def federation_connect(self):
+        logger.warning("connecting")
         async with grpc.aio.secure_channel(
             f"{self.fed_connection.address}:{self.fed_connection.port}",
             self.channel_creds,
@@ -238,14 +240,26 @@ class FedDaemon(RabbitMQClient):
 
     def on_channel_open(self, channel):
         self.rabbitmq_channel = channel
-        self.rabbitmq_channel.queue_bind(
-            queue="fed_daemon",
-            exchange="fed_daemon",
-            routing_key=f"fed_daemon.{self.fed_connection.display_name}.#",
-        )
-        self.rabbitmq_channel.basic_consume(
-            queue="fed_daemon", on_message_callback=self.on_message, auto_ack=True
-        )
+        self.bind_queue()
+
+    def bind_queue(self):
+        if (
+            self.fed_connection is not None
+            and self.rabbitmq_channel is not None
+            and not self.queue_bound
+        ):
+            logger.warning(f"binding queue {self.fed_connection}")
+            self.rabbitmq_channel.queue_bind(
+                queue="fed_daemon",
+                exchange="fed_daemon",
+                routing_key=f"fed_daemon.{self.fed_connection.display_name}.#",
+            )
+            self.rabbitmq_channel.basic_consume(
+                queue="fed_daemon", on_message_callback=self.on_message, auto_ack=True
+            )
+            self.queue_bound = True
+        else:
+            logger.error("nope")
 
     def on_message(
         self,
@@ -342,14 +356,15 @@ app = create_app()
 
 def main():
     with app.app_context():
-        connections = db.session.execute(db.session.query(FederationConnection)).scalars()
-
-        for connection in connections:
-            connection_id = connection.id
-            # if os.fork() == 0:
-            logger.info(f"Launching connection {connection.display_name}")
-            daemon = FedDaemon(app.app_context(), connection_id)
-            asyncio.run(daemon.federation_connect(), debug=app.config.get("DEBUG"))
+        child_processes = []
+        connection_ids = app.config.get("OTS_FEDERATION_IDS", [])
+        for connection_id in connection_ids:
+            pid = os.fork()
+            if pid == 0:
+                daemon = FedDaemon(app.app_context(), connection_id)
+                asyncio.run(daemon.federation_connect(), debug=app.config.get("DEBUG"))
+            else:
+                child_processes.append(pid)
 
 
 if __name__ == "__main__":

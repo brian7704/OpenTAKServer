@@ -6,6 +6,7 @@ from opentakserver.functions import false_values
 
 
 class FederationConnectionForm(FlaskForm):
+    id = IntegerField(validators=[Optional()])
     display_name = StringField(validators=[DataRequired()])
     address = StringField(validators=[DataRequired()])
     port = IntegerRangeField(

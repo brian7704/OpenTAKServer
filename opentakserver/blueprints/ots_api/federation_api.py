@@ -164,8 +164,12 @@ def create_federation():
     try:
         fed_connection = FederationConnection()
         fed_connection.from_wtforms(form)
-        db.session.add(fed_connection)
+        res = db.session.execute(insert(FederationConnection).values(**fed_connection.serialize()))
         db.session.commit()
+
+        federation_ids: list = app.config.get("OTS_FEDERATION_IDS", [])
+        federation_ids.append(res.inserted_primary_key[0])
+        change_config_setting("OTS_FEDERATION_IDS", federation_ids)
     except BaseException as e:
         logger.error(f"Failed to create connection: {e}")
         logger.debug(traceback.format_exc())
@@ -198,6 +202,7 @@ def delete_federation():
         return jsonify({"success": False, "error": gettext("Missing connection ID")}), 400
 
     try:
+        FederationGroups.query.filter_by(federation_id=(int(connection_id))).delete()
         FederationConnection.query.filter_by(id=int(connection_id)).delete()
         db.session.commit()
         return jsonify({"success": True}), 200
@@ -209,12 +214,38 @@ def delete_federation():
 
 @roles_required("administrator")
 @federation_blueprint.route("/api/federation", methods=["PATCH"])
-def toggle_federation():
+def edit_federation():
     """
-    Enable or disable a federation connection
+    Edits a federation connection
 
     :return:
     """
+
+    form = FederationConnectionForm(formdata=ImmutableMultiDict(request.json))
+    if not form.validate():
+        return jsonify({"success": False, "error": form.errors}), 400
+
+    if not form.id.data:
+        return jsonify({"success": False, "error": gettext("Missing federation ID")}), 400
+
+    try:
+        updated_connection = FederationConnection()
+        updated_connection.from_wtforms(form)
+
+        existing_connection: FederationConnection = db.session.execute(db.session.query(FederationConnection).filter_by(id=form.id.data)).scalar()
+        if existing_connection.enabled != updated_connection.enabled:
+            logger.debug("ENABLE OR DISABLE THE CONNECTION HERE")
+
+        db.session.execute(update(FederationConnection).filter_by(id=form.id.data).values(**updated_connection.serialize()))
+        db.session.commit()
+        return jsonify({"success": True})
+    except BaseException as e:
+        logger.error(f"Failed to update federation connection: {e}")
+        logger.debug(traceback.format_exc())
+        return (
+            jsonify({"success": False, "error": f"Failed to update federation connection: {e}"}),
+            500,
+        )
 
 
 @roles_required("administrator")
