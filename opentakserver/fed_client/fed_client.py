@@ -68,6 +68,7 @@ class FedDaemon(RabbitMQClient):
         self.server_event_stream_connected = False
         self.queue_bound = False
         self.fed_connection: FederationConnection | None = None
+        self.enabled = False
 
         self.rabbitmq_channel = None
 
@@ -81,6 +82,9 @@ class FedDaemon(RabbitMQClient):
         if not self.fed_connection.enabled:
             logger.warning(f"Federation connection {self.fed_connection.display_name} is disabled")
             return
+        else:
+            self.enabled = True
+            logger.info(f"{self.fed_connection.display_name} {self.fed_connection.address}")
 
         self.bind_queue()
 
@@ -120,7 +124,6 @@ class FedDaemon(RabbitMQClient):
             background_task.cancel()
 
     async def federation_connect(self):
-        logger.warning("connecting")
         async with grpc.aio.secure_channel(
             f"{self.fed_connection.address}:{self.fed_connection.port}",
             self.channel_creds,
@@ -248,7 +251,7 @@ class FedDaemon(RabbitMQClient):
             and self.rabbitmq_channel is not None
             and not self.queue_bound
         ):
-            logger.warning(f"binding queue {self.fed_connection}")
+            logger.debug(f"binding queue {self.fed_connection}")
             self.rabbitmq_channel.queue_bind(
                 queue="fed_daemon",
                 exchange="fed_daemon",
@@ -258,8 +261,6 @@ class FedDaemon(RabbitMQClient):
                 queue="fed_daemon", on_message_callback=self.on_message, auto_ack=True
             )
             self.queue_bound = True
-        else:
-            logger.error("nope")
 
     def on_message(
         self,
@@ -362,7 +363,8 @@ def main():
             pid = os.fork()
             if pid == 0:
                 daemon = FedDaemon(app.app_context(), connection_id)
-                asyncio.run(daemon.federation_connect(), debug=app.config.get("DEBUG"))
+                if daemon.enabled:
+                    asyncio.run(daemon.federation_connect(), debug=app.config.get("DEBUG"))
             else:
                 child_processes.append(pid)
 

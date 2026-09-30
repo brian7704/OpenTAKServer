@@ -205,6 +205,12 @@ def delete_federation():
         FederationGroups.query.filter_by(federation_id=(int(connection_id))).delete()
         FederationConnection.query.filter_by(id=int(connection_id)).delete()
         db.session.commit()
+        try:
+            federation_ids: list = app.config.get("OTS_FEDERATION_IDS", [])
+            federation_ids.pop(federation_ids.index(int(connection_id)))
+            change_config_setting("OTS_FEDERATION_IDS", federation_ids)
+        except BaseException as e:
+            logger.error(f"Failed to remove federation ID from config: {e}")
         return jsonify({"success": True}), 200
     except BaseException as e:
         logger.error(f"Failed to delete connection: {e}")
@@ -232,11 +238,17 @@ def edit_federation():
         updated_connection = FederationConnection()
         updated_connection.from_wtforms(form)
 
-        existing_connection: FederationConnection = db.session.execute(db.session.query(FederationConnection).filter_by(id=form.id.data)).scalar()
+        existing_connection: FederationConnection = db.session.execute(
+            db.session.query(FederationConnection).filter_by(id=form.id.data)
+        ).scalar()
         if existing_connection.enabled != updated_connection.enabled:
             logger.debug("ENABLE OR DISABLE THE CONNECTION HERE")
 
-        db.session.execute(update(FederationConnection).filter_by(id=form.id.data).values(**updated_connection.serialize()))
+        db.session.execute(
+            update(FederationConnection)
+            .filter_by(id=form.id.data)
+            .values(**updated_connection.serialize())
+        )
         db.session.commit()
         return jsonify({"success": True})
     except BaseException as e:
