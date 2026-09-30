@@ -7,6 +7,7 @@ import traceback
 import uuid
 from logging.handlers import TimedRotatingFileHandler
 
+import pika
 from pika.channel import Channel
 from pika.spec import Basic, BasicProperties
 
@@ -69,8 +70,9 @@ class FedDaemon(RabbitMQClient):
         self.queue_bound = False
         self.fed_connection: FederationConnection | None = None
         self.enabled = False
-
-        self.rabbitmq_channel = None
+        self.connected = False
+        self.rabbitmq_channel: pika.channel.Channel | None = None
+        self.streams = []
 
         logger.debug("Initializing federation connection")
 
@@ -117,11 +119,15 @@ class FedDaemon(RabbitMQClient):
             ).read(),
         )
 
+    def stop(self):
+        self.shutdown = True
+        for stream in self.streams:
+            logger.debug(f"Canceling stream {stream}")
+            stream.cancel()
+
     def sig_handler(self, sig, frame):
         logger.warning(f"Caught CTRL+C, shutting down...")
-        self.shutdown = True
-        for background_task in self.background_tasks:
-            background_task.cancel()
+        self.stop()
 
     async def federation_connect(self):
         async with grpc.aio.secure_channel(
@@ -135,7 +141,7 @@ class FedDaemon(RabbitMQClient):
             identity.name = self.fed_connection.display_name
             identity.uid = str(uuid.uuid4())
             identity.description = str(self.fed_connection.description)
-            identity.type = 3
+            identity.type = fig_pb2.Identity.FEDERATION_TAK_CLIENT
             identity.serverId = self.fed_connection.uid
 
             subscription = fig_pb2.Subscription()
@@ -168,13 +174,23 @@ class FedDaemon(RabbitMQClient):
                 self.background_tasks.add(health_task)
                 health_task.add_done_callback(self.background_tasks.discard)
 
+                self.connected = True
+
     async def server_fed_groups_stream(self, stub, subscription):
         server_fed_groups = stub.ServerFederateGroupsStream(subscription)
-        async for group in server_fed_groups:
-            self.federated_groups_queue.put_nowait(group)
-            logger.debug(group)
-            if self.shutdown:
-                break
+        self.streams.append(server_fed_groups)
+
+        try:
+            async for group in server_fed_groups:
+                self.federated_groups_queue.put_nowait(group)
+                logger.debug(group)
+        except asyncio.CancelledError:
+            logger.debug("Server group stream is cancelled")
+        except BaseException as e:
+            logger.error(f"Server Group Stream Error: {e}")
+            logger.debug(traceback.format_exc())
+            await asyncio.sleep(self.fed_connection.reconnect_interval)
+            await self.client_event_stream(stub, subscription)
 
     async def client_event_stream(self, stub, subscription):
         ts_version = fig_pb2.TakServerVersion()
@@ -192,22 +208,19 @@ class FedDaemon(RabbitMQClient):
         logger.debug(subscription)
 
         client_stream = stub.ClientEventStream(subscription)
+        self.streams.append(client_stream)
         self.client_event_stream_connected = True
 
         try:
             async for a in client_stream:
                 self.receive_queue.put_nowait(a)
                 logger.debug(a)
-                if self.shutdown:
-                    logger.warning("Breaking client event stream")
-                    break
         except asyncio.CancelledError:
             logger.debug("Client event stream is cancelled")
         except BaseException as e:
             logger.error(f"Client Event Stream Error: {e}")
             logger.debug(traceback.format_exc())
-            logger.info("Attempting to close the client event stream")
-            await asyncio.sleep(5)
+            await asyncio.sleep(self.fed_connection.reconnect_interval)
             await self.client_event_stream(stub, subscription)
 
     async def server_rol(self, stub):
@@ -252,10 +265,11 @@ class FedDaemon(RabbitMQClient):
             and not self.queue_bound
         ):
             logger.debug(f"binding queue {self.fed_connection}")
+            self.rabbitmq_channel.queue_declare(queue="fed_daemon")
             self.rabbitmq_channel.queue_bind(
                 queue="fed_daemon",
                 exchange="fed_daemon",
-                routing_key=f"fed_daemon.{self.fed_connection.display_name}.#",
+                routing_key=f"{self.fed_connection.display_name}.#",
             )
             self.rabbitmq_channel.basic_consume(
                 queue="fed_daemon", on_message_callback=self.on_message, auto_ack=True
@@ -278,7 +292,7 @@ class FedDaemon(RabbitMQClient):
         if topic == "enable":
             print(topic)
         elif topic == "disable":
-            print(topic)
+            self.stop()
         elif topic == "new_connection":
             print(topic)
 

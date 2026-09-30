@@ -22,7 +22,12 @@ from werkzeug.datastructures import ImmutableMultiDict
 
 from opentakserver.forms.FederateForm import FederateForm
 from opentakserver.models.Federate import Federate
-from opentakserver.blueprints.ots_api.api import paginate, search, change_config_setting
+from opentakserver.blueprints.ots_api.api import (
+    paginate,
+    search,
+    change_config_setting,
+    get_blocking_rabbitmq_channel,
+)
 from opentakserver.extensions import db, logger
 from opentakserver.forms.FedTokenForm import FedTokenForm
 from opentakserver.forms.FederationConnectionForm import FederationConnectionForm
@@ -241,8 +246,17 @@ def edit_federation():
         existing_connection: FederationConnection = db.session.execute(
             db.session.query(FederationConnection).filter_by(id=form.id.data)
         ).scalar()
+
         if existing_connection.enabled != updated_connection.enabled:
-            logger.debug("ENABLE OR DISABLE THE CONNECTION HERE")
+            if not updated_connection.enabled:
+                rabbit_connection, channel = get_blocking_rabbitmq_channel()
+                channel.basic_publish(
+                    exchange="fed_daemon",
+                    routing_key=f"{updated_connection.display_name}.disable",
+                    body="",
+                )
+                channel.close()
+                rabbit_connection.close()
 
         db.session.execute(
             update(FederationConnection)
