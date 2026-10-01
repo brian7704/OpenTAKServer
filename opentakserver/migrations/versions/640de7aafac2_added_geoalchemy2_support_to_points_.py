@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 import geoalchemy2
 
 from opentakserver.models.Point import Point
+from opentakserver.extensions import logger
 
 # revision identifiers, used by Alembic.
 revision = "640de7aafac2"
@@ -40,19 +41,20 @@ def upgrade():
     session = Session(bind=op.get_bind())
     points = session.query(Point).all()
 
-    commit = 0
+    index = 1
     for point in points:
         latitude = point.latitude if point.latitude is not None else 0
         longitude = point.longitude if point.longitude is not None else 0
         point.point = f"POINT({longitude} {latitude})"
         session.add(point)
         # Run commit after every 100 points to avoid problems with tables with lots of rows
-        if commit >= 100:
+        if not index % 100:
             session.commit()
-            commit = 0
-        commit += 1
+            logger.info(f"{(index/len(points)) * 100}% complete...")
+        index += 1
     # Commit the last couple of rows
     session.commit()
+    logger.info("100% complete")
 
     # ### end Alembic commands ###
 
