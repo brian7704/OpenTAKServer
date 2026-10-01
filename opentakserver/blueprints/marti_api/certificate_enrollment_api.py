@@ -11,6 +11,7 @@ from cryptography.hazmat._oid import NameOID
 from flask import Blueprint
 from flask import current_app as app
 from flask import jsonify, request
+from flask_babel import gettext
 from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import verify_password
 from cryptography import x509
@@ -24,18 +25,21 @@ from opentakserver.models.Token import Token
 certificate_authority_api_blueprint = Blueprint("certificate_authority_api_blueprint", __name__)
 
 
+def decode_authorization_header(header):
+    username, password = (
+        base64.b64decode(header.split(" ", 1)[-1].encode("utf-8")).decode("utf-8").split(":", 1)
+    )
+    username = bleach.clean(username)
+    password = bleach.clean(password)
+
+    return username, password
+
+
 # flask-security's http_auth_required() decorator will deny access because ATAK doesn't do CSRF,
 # so we handle basic auth ourselves
 def basic_auth(credentials):
     try:
-        username, password = (
-            base64.b64decode(credentials.split(" ", 1)[-1].encode("utf-8"))
-            .decode("utf-8")
-            .split(":", 1)
-        )
-        username = bleach.clean(username)
-        password = bleach.clean(password)
-
+        username, password = decode_authorization_header(credentials)
         if app.config.get("OTS_ENABLE_LDAP"):
             result = ldap_manager.authenticate(username, password)
 
@@ -110,6 +114,15 @@ def sign_csr_v2():
         x509_cert = x509.load_pem_x509_csr(csr.encode())
 
         common_name = x509_cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+
+        username, _ = decode_authorization_header(request.headers.get("Authorization", ""))
+        if common_name != username:
+            logger.warning(f"Invalid common name. Username: {username}, common_name: {common_name}")
+            return (
+                jsonify({"success": False, "error": gettext("Invalid Certificate Common Name")}),
+                400,
+            )
+
         logger.debug("Attempting to sign CSR for {}".format(common_name))
 
         cert_authority = CertificateAuthority(logger, app)
