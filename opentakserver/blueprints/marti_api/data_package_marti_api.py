@@ -1,6 +1,7 @@
 import hashlib
 import io
 import os
+import re
 import traceback
 import uuid
 import zipfile
@@ -208,6 +209,11 @@ def data_package_share():
         if extension != "zip":
             file_hash = create_data_package_zip(file)
         else:
+            sha256_regex = re.compile("[A-Fa-f0-9]{64}")
+            if request.args.get("hash") and not sha256_regex.match(request.args.get("hash", "")):
+                logger.warning(f"Invalid file hash: {request.args.get('hash')}")
+                return jsonify({"success": False, "error": gettext("Invalid file hash")}), 400
+
             file_hash = save_data_package_file(file)
 
         url = urlparse(request.url_root)
