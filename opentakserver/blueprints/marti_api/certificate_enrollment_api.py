@@ -58,7 +58,7 @@ def basic_auth(credentials):
         elif verify_password(password, user.password):
             return True
         else:
-            return Token.verify_token(password)
+            return Token.verify_token(username, password)
 
     except BaseException as e:
         logger.error("Failed to verify credentials: {}".format(e))
@@ -116,6 +116,7 @@ def sign_csr_v2():
         common_name = x509_cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
 
         username, _ = decode_authorization_header(request.headers.get("Authorization", ""))
+        logger.info(f"Username: {username}, common_name: {common_name}")
         if common_name != username:
             logger.warning(f"Invalid common name. Username: {username}, common_name: {common_name}")
             return (
