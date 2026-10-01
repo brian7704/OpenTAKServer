@@ -1,6 +1,8 @@
 import datetime
 import os
 import pathlib
+import subprocess
+import sys
 import traceback
 from urllib.parse import urlparse
 
@@ -247,16 +249,7 @@ def edit_federation():
             db.session.query(FederationConnection).filter_by(id=form.id.data)
         ).scalar()
 
-        if existing_connection.enabled != updated_connection.enabled:
-            if not updated_connection.enabled:
-                rabbit_connection, channel = get_blocking_rabbitmq_channel()
-                channel.basic_publish(
-                    exchange="fed_daemon",
-                    routing_key=f"{updated_connection.display_name}.disable",
-                    body="",
-                )
-                channel.close()
-                rabbit_connection.close()
+        toggled = existing_connection.enabled != updated_connection.enabled
 
         db.session.execute(
             update(FederationConnection)
@@ -264,6 +257,29 @@ def edit_federation():
             .values(**updated_connection.serialize())
         )
         db.session.commit()
+
+        if toggled:
+            rabbit_connection, channel = get_blocking_rabbitmq_channel()
+
+            if not updated_connection.enabled:
+                channel.basic_publish(
+                    exchange="federation",
+                    routing_key=f"{updated_connection.display_name}.disable",
+                    body="",
+                )
+            else:
+                path = os.path.dirname(sys.executable)
+                subprocess.Popen(
+                    f"{os.path.join(path, 'fed_daemon')} --connection-id {updated_connection.id}",
+                    shell=True,
+                    stdin=None,
+                    stdout=None,
+                    stderr=None,
+                )
+
+            channel.close()
+            rabbit_connection.close()
+
         return jsonify({"success": True})
     except BaseException as e:
         logger.error(f"Failed to update federation connection: {e}")

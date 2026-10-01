@@ -95,7 +95,7 @@ build-backend = "poetry_dynamic_versioning.backend"
 opentakserver = "opentakserver.app:start"
 eud_handler = "opentakserver.eud_handler.eud_handler:main"
 cot_parser = "opentakserver.cot_parser.cot_parser:main"
-fed_client = "opentakserver.fed_client.fed_client:main"
+fed_client = "opentakserver.fed_client.fed_daemon:main"
 
 [tool.black]
 line_length = 100

@@ -175,7 +175,7 @@ def init_extensions(app):
         "firehose", durable=True, exchange_type="fanout"
     )  # A firehose of all CoT data
     channel.exchange_declare("flask-socketio", durable=False, exchange_type="fanout")
-    channel.exchange_declare("fed_daemon", exchange_type="topic")
+    channel.exchange_declare("federation", exchange_type="topic")
     channel.close()
     rabbit_connection.close()
 
