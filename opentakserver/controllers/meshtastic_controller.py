@@ -17,6 +17,8 @@ from pika.spec import Basic, BasicProperties, Channel
 
 from opentakserver.controllers.rabbitmq_client import RabbitMQClient
 from opentakserver.extensions import db, logger, socketio
+from opentakserver.functions import datetime_from_iso8601_string
+from opentakserver.models.CoT import CoT
 from opentakserver.models.EUD import EUD
 from opentakserver.models.Meshtastic import MeshtasticChannel
 from opentakserver.models.Point import Point
@@ -310,7 +312,13 @@ class MeshtasticController(RabbitMQClient):
 
         return event
 
-    def insert_or_update_eud(self, uid: str, from_id: str, update_if_exists: bool = True):
+    def insert_or_update_eud(
+        self,
+        uid: str,
+        from_id: str,
+        update_if_exists: bool = True,
+        last_event_time: datetime.datetime | None = None,
+    ):
         eud = EUD()
         eud.uid = uid
         eud.callsign = self.meshtastic_devices[from_id]["long_name"]
@@ -321,6 +329,9 @@ class MeshtasticController(RabbitMQClient):
         eud.team_role = self.meshtastic_devices[from_id]["role"]
         eud.meshtastic_id = int(self.meshtastic_devices[from_id]["meshtastic_id"], 16)
         eud.meshtastic_macaddr = self.meshtastic_devices[from_id]["macaddr"]
+        if last_event_time:
+            eud.last_event_time = last_event_time
+            eud.last_status = "Connected"
 
         with self.context:
             socketio.emit("eud", eud.to_json(), namespace="/socket.io")
@@ -342,9 +353,38 @@ class MeshtasticController(RabbitMQClient):
                         sqlalchemy.update(EUD).where(EUD.uid == uid).values(**eud.serialize())
                     )
                     db.session.commit()
+                elif last_event_time:
+                    db.session.execute(
+                        sqlalchemy.update(EUD)
+                        .where(EUD.uid == uid)
+                        .values(last_event_time=last_event_time, last_status="Connected")
+                    )
+                    db.session.commit()
+
+    def resolve_position_uid(self, from_id: str) -> str:
+        device = self.meshtastic_devices[from_id]
+        mapped_uid = device["uid"]
+        if mapped_uid == from_id:
+            return from_id
+
+        requested_uid = mapped_uid or from_id
+        with self.context:
+            eud = db.session.execute(db.session.query(EUD).filter_by(uid=requested_uid)).scalar()
+            if not eud:
+                try:
+                    meshtastic_id = int(from_id, 16)
+                except ValueError:
+                    return requested_uid
+                eud = db.session.execute(
+                    db.session.query(EUD).filter_by(meshtastic_id=meshtastic_id)
+                ).scalar()
+
+        device["uid"] = eud.uid if eud else requested_uid
+        return device["uid"]
 
     def position(self, pb, from_id, to_id, portnum):
         try:
+            device_uid = self.resolve_position_uid(from_id)
             if (
                 portnum == "MAP_REPORT_APP"
                 and pb.firmware_version != self.meshtastic_devices[from_id]["firmware_version"]
@@ -352,7 +392,7 @@ class MeshtasticController(RabbitMQClient):
                 try:
                     with self.context:
                         eud = self.db.session.execute(
-                            self.db.session.query(EUD).filter_by(uid=from_id)
+                            self.db.session.query(EUD).filter_by(uid=device_uid)
                         ).first()[0]
                         eud.version = pb.firmware_version
                         eud.device = pb.hw_model
@@ -406,27 +446,48 @@ class MeshtasticController(RabbitMQClient):
                     pb.ground_speed if pb.ground_speed else "0.0"
                 )
 
-            self.insert_or_update_eud(from_id, from_id, False)
+            event = self.cot(pb, from_id, to_id, portnum, uid=device_uid)
+            device_uid = event.attrib["uid"]
+            event_time = datetime_from_iso8601_string(event.attrib["time"])
+            stale_time = datetime_from_iso8601_string(event.attrib["stale"])
+
+            self.insert_or_update_eud(device_uid, from_id, False, last_event_time=event_time)
+
+            cot = CoT()
+            cot.how = event.attrib["how"]
+            cot.type = event.attrib["type"]
+            cot.uid = event.attrib["uid"]
+            cot.sender_uid = device_uid
+            cot.timestamp = event_time
+            cot.start = event_time
+            cot.stale = stale_time
+            cot.xml = tostring(event).decode("utf-8")
 
             point = Point()
-            point.uid = str(uuid.uuid4())
-            point.device_uid = from_id
+            point.uid = event.attrib["uid"]
+            point.device_uid = device_uid
             point.latitude = self.meshtastic_devices[from_id]["last_lat"]
             point.longitude = self.meshtastic_devices[from_id]["last_lon"]
             point.hae = self.meshtastic_devices[from_id]["last_alt"]
             point.course = self.meshtastic_devices[from_id]["course"]
             point.speed = self.meshtastic_devices[from_id]["speed"]
-            point.timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
+            point.timestamp = event_time
             point.point = f"POINT({self.meshtastic_devices[from_id]["last_lon"]} {self.meshtastic_devices[from_id]["last_lat"]})"
 
             with self.context:
+                db.session.add(cot)
+                db.session.flush()
+                point.cot_id = cot.id
+                point.cot = cot
                 db.session.add(point)
                 db.session.commit()
 
                 socketio.emit("point", point.to_json(), namespace="/socket.io")
 
-            return self.cot(pb, from_id, to_id, portnum)
+            return event
         except BaseException as e:
+            with self.context:
+                db.session.rollback()
             self.logger.error("Failed to create CoT: {}".format(str(e)))
             self.logger.error(traceback.format_exc())
             return
