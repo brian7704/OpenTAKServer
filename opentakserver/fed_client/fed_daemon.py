@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import json
 import logging
 import os
 import signal
@@ -20,6 +21,7 @@ from sqlalchemy import select
 from collections.abc import AsyncIterable
 
 import opentakserver
+from opentakserver.fed_client.data_converter import federated_event2cot
 from opentakserver.models.Group import Group
 from opentakserver.models.GroupUser import GroupUser
 from opentakserver.models.WebAuthn import WebAuthn
@@ -231,33 +233,36 @@ class FedDaemon(RabbitMQClient):
 
         try:
             async for federated_event in client_stream:
+                logger.debug(federated_event)
                 if (
                     federated_event.HasField("federateHops")
+                    and self.fed_connection.federate.max_hops > 0
                     and federated_event.federateHops.currentHops
                     > self.fed_connection.federate.max_hops
                 ):
                     continue
 
-                """if self.fed_connection.federate.automatic_group_matching:
+                if not federated_event.HasField("event"):
+                    continue
+
+                if self.fed_connection.federate.automatic_group_matching:
                     for fed_group in federated_event.federateGroups:
                         for local_group in self.local_groups:
-                            if fed_group == local_group.name:
+                            if fed_group == local_group:
                                 self.rabbitmq_channel.basic_publish(
-                                    exchange="cot_parser",
+                                    exchange="groups",
+                                    routing_key=f"{local_group}.OUT",
                                     body=json.dumps(
                                         {
-                                            "uid": federated_event.uid,
-                                            "cot": None,
-                                            "user_id": self.user.id if self.user else None,
+                                            "cot": federated_event2cot(federated_event),
+                                            "uid": federated_event.event.uid,
                                         }
                                     ),
-                                    routing_key="cot_parser",
                                     properties=pika.BasicProperties(
                                         expiration=self.app.config.get("OTS_RABBITMQ_TTL")
                                     ),
-                                )"""
+                                )
 
-                logger.debug(federated_event)
         except asyncio.CancelledError:
             logger.debug("Client event stream is cancelled")
         except BaseException as e:

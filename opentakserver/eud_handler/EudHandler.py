@@ -64,6 +64,10 @@ from opentakserver.models.VideoStream import VideoStream
 from opentakserver.models.WebAuthn import WebAuthn
 from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.CITrap import CITrap
+from opentakserver.models.FederationGroups import FederationGroups
+from opentakserver.models.FederationConnection import FederationConnection
+from opentakserver.models.Federate import Federate
+from opentakserver.models.FederateToken import FederateToken
 
 
 class EudHandler(socketserver.BaseRequestHandler):

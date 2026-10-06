@@ -154,6 +154,14 @@ def iso8601_string_from_datetime_no_ms(datetime_object):
         return None
 
 
+# Requires timestamp in seconds
+def iso8601_string_from_unix_timestamp(timestamp: int):
+    return (
+        datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-2]
+        + "Z"
+    )
+
+
 def generate_delete_cot(uid: str, cot_type: str) -> Element:
     now = datetime.now(timezone.utc)
 
