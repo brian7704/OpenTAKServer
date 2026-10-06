@@ -2,9 +2,7 @@ import json
 import math
 import re
 from datetime import datetime, timezone
-from xml.etree.ElementTree import Element, SubElement, tostring
-
-import pika.channel
+from xml.etree.ElementTree import Element, SubElement
 from flask import current_app as app
 
 ISO8601_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
@@ -179,7 +177,7 @@ def generate_delete_cot(uid: str, cot_type: str) -> Element:
     SubElement(
         detail,
         "_flow-tags_",
-        {"TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0": iso8601_string_from_datetime(now)},
+        {f"TAK-Server-{app.config.get('OTS_NODE_ID')}": iso8601_string_from_datetime(now)},
     )
 
     return event

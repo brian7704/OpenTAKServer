@@ -969,7 +969,7 @@ class CoTController:
             flow_tags = SubElement(
                 detail,
                 "_flow-tags_",
-                {"TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0": iso8601_string_from_datetime(now)},
+                {f"TAK-Server-{app.config.get('OTS_NODE_ID')}": iso8601_string_from_datetime(now)},
             )
 
             message = json.dumps({"uid": uid, "cot": tostring(event).decode("utf-8")})

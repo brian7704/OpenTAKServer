@@ -5,7 +5,6 @@ import os
 import signal
 import sys
 import traceback
-import uuid
 from logging.handlers import TimedRotatingFileHandler
 
 import colorlog
@@ -14,16 +13,21 @@ import pika
 import sqlalchemy
 import yaml
 from flask import Flask
+from flask_login import current_user
 from flask_security import SQLAlchemyUserDatastore
 from flask_security.models import fsqla
 from sqlalchemy import select
+from collections.abc import AsyncIterable
 
 import opentakserver
+from opentakserver.models.Group import Group
+from opentakserver.models.GroupUser import GroupUser
 from opentakserver.models.WebAuthn import WebAuthn
 
 from opentakserver.defaultconfig import DefaultConfig
 
 from opentakserver.proto import fig_pb2_grpc, fig_pb2
+from opentakserver.proto.fig_pb2 import FederatedEvent
 from pika.channel import Channel
 from pika.spec import Basic, BasicProperties
 
@@ -55,7 +59,7 @@ from opentakserver.models.GroupMission import GroupMission
 from opentakserver.models.FederationGroups import FederationGroups
 from opentakserver.models.CITrap import CITrap
 from opentakserver.rabbitmq_client import RabbitMQClient
-from opentakserver.extensions import db, logger
+from opentakserver.extensions import db, logger, ldap_manager
 
 
 class FedDaemon(RabbitMQClient):
@@ -63,8 +67,8 @@ class FedDaemon(RabbitMQClient):
         signal.signal(signal.SIGINT, self.sig_handler)
         self.shutdown = False
         self.connection = None
+        self.federated_groups = []
         self.receive_queue = asyncio.Queue()
-        self.federated_groups_queue = asyncio.Queue()
         self.server_rol_queue = asyncio.Queue()
         self.client_groups_queue = asyncio.Queue()
         self.send_queue = asyncio.Queue()
@@ -97,6 +101,8 @@ class FedDaemon(RabbitMQClient):
             else:
                 self.enabled = True
                 logger.info(f"{self.fed_connection.display_name} {self.fed_connection.address}")
+
+            self.local_groups = self.get_federated_groups()
 
             self.channel_creds = grpc.ssl_channel_credentials(
                 open(
@@ -151,10 +157,10 @@ class FedDaemon(RabbitMQClient):
             stub = fig_pb2_grpc.FederatedChannelStub(channel)
             identity = fig_pb2.Identity()
             identity.name = self.fed_connection.display_name
-            identity.uid = str(uuid.uuid4())
+            identity.uid = self.app.config.get("OTS_NODE_ID")
             identity.description = str(self.fed_connection.description)
             identity.type = fig_pb2.Identity.FEDERATION_TAK_CLIENT
-            identity.serverId = self.fed_connection.uid
+            identity.serverId = self.app.config.get("OTS_NODE_ID")
 
             subscription = fig_pb2.Subscription()
             subscription.identity.CopyFrom(identity)
@@ -194,7 +200,7 @@ class FedDaemon(RabbitMQClient):
 
         try:
             async for group in server_fed_groups:
-                self.federated_groups_queue.put_nowait(group)
+                self.federated_groups.append(group)
                 logger.debug(group)
         except asyncio.CancelledError:
             logger.debug("Server group stream is cancelled")
@@ -224,9 +230,34 @@ class FedDaemon(RabbitMQClient):
         self.client_event_stream_connected = True
 
         try:
-            async for a in client_stream:
-                self.receive_queue.put_nowait(a)
-                logger.debug(a)
+            async for federated_event in client_stream:
+                if (
+                    federated_event.HasField("federateHops")
+                    and federated_event.federateHops.currentHops
+                    > self.fed_connection.federate.max_hops
+                ):
+                    continue
+
+                """if self.fed_connection.federate.automatic_group_matching:
+                    for fed_group in federated_event.federateGroups:
+                        for local_group in self.local_groups:
+                            if fed_group == local_group.name:
+                                self.rabbitmq_channel.basic_publish(
+                                    exchange="cot_parser",
+                                    body=json.dumps(
+                                        {
+                                            "uid": federated_event.uid,
+                                            "cot": None,
+                                            "user_id": self.user.id if self.user else None,
+                                        }
+                                    ),
+                                    routing_key="cot_parser",
+                                    properties=pika.BasicProperties(
+                                        expiration=self.app.config.get("OTS_RABBITMQ_TTL")
+                                    ),
+                                )"""
+
+                logger.debug(federated_event)
         except asyncio.CancelledError:
             logger.debug("Client event stream is cancelled")
         except BaseException as e:
@@ -239,17 +270,45 @@ class FedDaemon(RabbitMQClient):
         server_rol = stub.ServerROLStream(self.server_rol_queue)
 
     async def client_fed_group_stream(self, stub):
-        fed_group = fig_pb2.FederateGroups()
-        fed_group.federateGroups.append("__ANON__")
+        fed_groups = fig_pb2.FederateGroups()
+        nested_groups = fig_pb2.FederateGroups()
+
+        if not len(self.local_groups):
+            fed_groups.federateGroups.append("__ANON__")
+            nested_groups.federateGroups.append("__ANON__")
+        else:
+            for local_group in self.local_groups:
+                fed_groups.federateGroups.append(local_group)
+                nested_groups.federateGroups.append(local_group)
 
         fed_hops = fig_pb2.FederateHops()
-        fed_hops.maxHops = -1
+        fed_hops.maxHops = self.fed_connection.federate.max_hops
         fed_hops.currentHops = 1
-        fed_group.federateHops.CopyFrom(fed_hops)
+        nested_groups.federateHops.CopyFrom(fed_hops)
 
-        self.client_groups_queue.put_nowait(fed_group)
+        fed_provenance = fig_pb2.FederateProvenance()
+        fed_provenance.federationServerId = self.app.config.get("OTS_NODE_ID")
+        fed_provenance.federationServerName = self.app.config.get("OTS_NODE_ID")
+        nested_groups.federateProvenance.append(fed_provenance)
 
-        stub.ClientFederateGroupsStream(self.client_groups_queue)
+        server_health = fig_pb2.ServerHealth()
+        server_health.status = fig_pb2.ServerHealth.SERVING
+        fed_groups.streamUpdate.CopyFrom(server_health)
+
+        nested_groups.federateGroupHopLimits.CopyFrom(fig_pb2.FederateGroupHopLimits())
+
+        fed_groups.nestedGroups.append(nested_groups)
+
+        self.client_groups_queue.put_nowait(fed_groups)
+
+        async def request_iterator():
+            group = self.client_groups_queue.get_nowait()
+            yield group
+
+        groups = request_iterator()
+        sub = await stub.ClientFederateGroupsStream(groups)
+
+        logger.debug(f"{sub}")
 
     async def server_event_stream(self, stub):
         server_event = stub.ServerEventStream(self.send_queue)
@@ -301,7 +360,6 @@ class FedDaemon(RabbitMQClient):
         properties: BasicProperties,
         body,
     ):
-        logger.info(f"WTF {basic_deliver.routing_key}")
         try:
             topic = basic_deliver.routing_key.split(".")[-1]
         except IndexError:
@@ -311,12 +369,63 @@ class FedDaemon(RabbitMQClient):
         if topic == "enable":
             print(topic)
         elif topic == "disable":
-            self.stop()
+            # self.stop()
+            logger.info("GOT DISABLE")
         elif topic == "new_connection":
             print(topic)
 
-    def enable_fed_connection(self, federation_id: int):
-        print("")
+    def get_federated_groups(self):
+        groups = []
+
+        with self.app.app_context():
+            federated_groups = self.db.session.execute(
+                self.db.session.query(FederationGroups).filter_by(
+                    federation_id=self.fed_connection.id, direction="OUT"
+                )
+            ).scalars()
+
+            for group in federated_groups:
+                groups.append(group.group.name)
+
+        return groups
+
+    def get_all_groups(self) -> list:
+        if self.app.config.get("OTS_ENABLE_LDAP"):
+            groups = ldap_manager.get_user_groups(self.app.config.get("LDAP_BIND_USER_DN"))
+            for group in groups:
+                if group["cn"].lower().startswith(
+                    self.app.config.get("OTS_LDAP_GROUP_PREFIX").lower()
+                ) and not (
+                    group["cn"].lower().endswith("_read") or group["cn"].lower().endswith("_write")
+                ):
+
+                    g = Group()
+                    g.id = group["entryuuid"]
+                    g.name = group["cn"]
+                    g.distinguishedName = group["dn"]
+                    g.type = Group.LDAP
+
+                    groups.append(g.to_json())
+        else:
+            if not current_user.has_role("administrator"):
+                groups = self.db.session.execute(
+                    self.db.session.query(GroupUser).filter_by(user_id=current_user.id)
+                ).scalars()
+                # Make sure a group is only added once, not twice for both IN and OUT
+                group_names = []
+                for group in groups:
+                    if group.group.name not in group_names:
+                        group_names.append(group.group.name)
+                    else:
+                        continue
+                    groups.append(group.group.to_json())
+
+            else:
+                groups = self.db.session.execute(self.db.session.query(Group)).scalars()
+                for group in groups:
+                    groups.append(group.to_json())
+
+        return groups
 
     def setup_logging(self):
         level = logging.INFO
@@ -386,18 +495,6 @@ class FedDaemon(RabbitMQClient):
 
 def args():
     parser = argparse.ArgumentParser()
-    """parser.add_argument(
-        "--address",
-        help=gettext("TAK Server or Fed Hub address to connect to"),
-        default=None,
-        type=str,
-        required=True,
-    )
-    parser.add_argument("--port", type=int, default=9102)
-    parser.add_argument("--reconnect-interval", type=int, default=30)
-    parser.add_argument("--unlimited-retries", default=True, action=argparse.BooleanOptionalAction)
-    parser.add_argument("--max-retries", type=int, default=3)
-    parser.add_argument("--fed-cert", type=str, default=None, required=True)"""
     parser.add_argument("--connection-id", type=int, default=None, required=True)
     return parser.parse_args()
 
