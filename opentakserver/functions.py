@@ -149,17 +149,22 @@ def iso8601_string_from_datetime(datetime_object: datetime | None = None) -> str
 
 def iso8601_string_from_datetime_no_ms(datetime_object):
     if datetime_object:
-        return datetime_object.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return datetime_object.strftime(ISO8601_FORMAT_NO_MICROSECONDS)
     else:
         return None
 
 
 # Requires timestamp in seconds
-def iso8601_string_from_unix_timestamp(timestamp: int):
+def iso8601_string_from_unix_timestamp(timestamp: int) -> str:
     return (
         datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-2]
         + "Z"
     )
+
+
+def unix_timestamp_from_iso8601_string(iso8601_string: str) -> int:
+    dt = datetime_from_iso8601_string(iso8601_string)
+    return math.floor(dt.timestamp() * 1000)
 
 
 def generate_delete_cot(uid: str, cot_type: str) -> Element:

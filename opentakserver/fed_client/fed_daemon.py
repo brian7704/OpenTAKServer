@@ -21,7 +21,8 @@ from sqlalchemy import select
 from collections.abc import AsyncIterable
 
 import opentakserver
-from opentakserver.fed_client.data_converter import federated_event2cot
+from opentakserver.fed_client.RabbitMQAsyncClient import RabbitMQAsyncClient
+from opentakserver.fed_client.data_converter import federated_event2cot, cot2federated_event
 from opentakserver.models.Group import Group
 from opentakserver.models.GroupUser import GroupUser
 from opentakserver.models.WebAuthn import WebAuthn
@@ -64,7 +65,7 @@ from opentakserver.rabbitmq_client import RabbitMQClient
 from opentakserver.extensions import db, logger, ldap_manager
 
 
-class FedDaemon(RabbitMQClient):
+class FedDaemon(RabbitMQAsyncClient):
     def __init__(self, connection_id: int):
         signal.signal(signal.SIGINT, self.sig_handler)
         self.shutdown = False
@@ -84,12 +85,13 @@ class FedDaemon(RabbitMQClient):
         self.rabbitmq_channel: pika.channel.Channel | None = None
         self.streams = []
         self.app = None
+        self.stub = None
 
         self.create_app()
 
-        logger.debug("Initializing federation connection")
+        self.db = db
 
-        super().__init__(self.app.app_context())
+        logger.debug("Initializing federation connection")
 
         with self.app.app_context():
             query = select(FederationConnection).filter_by(id=connection_id)
@@ -135,6 +137,10 @@ class FedDaemon(RabbitMQClient):
                 ).read(),
             )
 
+        super().__init__(self.app.app_context())
+        asyncio.run(self.federation_connect())
+
+        logger.info("did super")
         self.bind_queue()
 
     def stop(self):
@@ -150,13 +156,16 @@ class FedDaemon(RabbitMQClient):
         self.stop()
 
     async def federation_connect(self):
+        logger.warning("federation_connection")
+        await self.connect()
+
         async with grpc.aio.secure_channel(
             f"{self.fed_connection.address}:{self.fed_connection.port}",
             self.channel_creds,
             options=(("grpc.ssl_target_name_override", self.fed_connection.federate.common_name),),
             compression=grpc.Compression.Gzip,
         ) as channel:
-            stub = fig_pb2_grpc.FederatedChannelStub(channel)
+            self.stub = fig_pb2_grpc.FederatedChannelStub(channel)
             identity = fig_pb2.Identity()
             identity.name = self.fed_connection.display_name
             identity.uid = self.app.config.get("OTS_NODE_ID")
@@ -168,29 +177,25 @@ class FedDaemon(RabbitMQClient):
             subscription.identity.CopyFrom(identity)
 
             async with asyncio.TaskGroup() as tg:
-                task = tg.create_task(self.server_fed_groups_stream(stub, subscription))
+                task = tg.create_task(self.server_fed_groups_stream(self.stub, subscription))
                 self.background_tasks.add(task)
                 task.add_done_callback(self.background_tasks.discard)
 
-                client_task = tg.create_task(self.client_event_stream(stub, subscription))
+                client_task = tg.create_task(self.client_event_stream(self.stub, subscription))
                 self.background_tasks.add(client_task)
                 client_task.add_done_callback(self.background_tasks.discard)
 
-                server_rol_task = tg.create_task(self.server_rol(stub))
+                server_rol_task = tg.create_task(self.server_rol(self.stub))
                 self.background_tasks.add(server_rol_task)
                 server_rol_task.add_done_callback(self.background_tasks.discard)
 
-                client_fed_group = tg.create_task(self.client_fed_group_stream(stub))
+                client_fed_group = tg.create_task(self.client_fed_group_stream(self.stub))
                 self.background_tasks.add(client_fed_group)
                 client_fed_group.add_done_callback(self.background_tasks.discard)
 
-                server_event_stream = tg.create_task(self.server_event_stream(stub))
-                self.background_tasks.add(server_event_stream)
-                server_event_stream.add_done_callback(self.background_tasks.discard)
-
                 client_health = fig_pb2.ClientHealth()
                 client_health.status = fig_pb2.ClientHealth.ServingStatus.SERVING
-                health_task = tg.create_task(self.check_health(stub))
+                health_task = tg.create_task(self.check_health(self.stub))
                 self.background_tasks.add(health_task)
                 health_task.add_done_callback(self.background_tasks.discard)
 
@@ -245,19 +250,35 @@ class FedDaemon(RabbitMQClient):
                 if not federated_event.HasField("event"):
                     continue
 
+                if not self.rabbitmq_channel:
+                    continue
+
                 if self.fed_connection.federate.automatic_group_matching:
                     for fed_group in federated_event.federateGroups:
                         for local_group in self.local_groups:
                             if fed_group == local_group:
+                                string_event = federated_event2cot(federated_event)
+
                                 self.rabbitmq_channel.basic_publish(
                                     exchange="groups",
                                     routing_key=f"{local_group}.OUT",
                                     body=json.dumps(
                                         {
-                                            "cot": federated_event2cot(federated_event),
+                                            "cot": string_event,
                                             "uid": federated_event.event.uid,
                                         }
                                     ),
+                                    properties=pika.BasicProperties(
+                                        expiration=self.app.config.get("OTS_RABBITMQ_TTL")
+                                    ),
+                                )
+
+                                self.rabbitmq_channel.basic_publish(
+                                    exchange="firehose",
+                                    body=json.dumps(
+                                        {"uid": federated_event.event.uid, "cot": string_event}
+                                    ),
+                                    routing_key="",
                                     properties=pika.BasicProperties(
                                         expiration=self.app.config.get("OTS_RABBITMQ_TTL")
                                     ),
@@ -315,8 +336,19 @@ class FedDaemon(RabbitMQClient):
 
         logger.debug(f"{sub}")
 
-    async def server_event_stream(self, stub):
-        server_event = stub.ServerEventStream(self.send_queue)
+    async def server_event_stream(self, stub, federated_event):
+        logger.info("server_event_stream")
+
+        self.send_queue.put_nowait(federated_event)
+
+        async def request_iterator():
+            message = self.send_queue.get_nowait()
+            yield message
+
+        messages = request_iterator()
+
+        server_event = await stub.ServerEventStream(messages)
+        logger.info(f"server_response {server_event}")
         self.server_event_stream_connected = True
 
     async def check_health(self, stub):
@@ -331,14 +363,19 @@ class FedDaemon(RabbitMQClient):
             health = await stub.HealthCheck(client_health)
             logger.debug(f"Server health is {health}")
 
+    async def send_event(self, event):
+        await self.stub.SendOneEvent(event)
+
     def event_deserializer(self, data: bytes):
         logger.warn(f"Got some bytes: {data.hex()}")
 
     def on_channel_open(self, channel):
+        logger.info("on_channel_open")
         self.rabbitmq_channel = channel
         self.bind_queue()
 
     def bind_queue(self):
+        logger.info("bind queue")
         if (
             self.fed_connection is not None
             and self.rabbitmq_channel is not None
@@ -351,12 +388,21 @@ class FedDaemon(RabbitMQClient):
                 exchange="federation",
                 routing_key=f"{self.fed_connection.display_name}.#",
             )
+            self.rabbitmq_channel.queue_bind(
+                queue=self.fed_connection.display_name,
+                exchange="federation",
+                routing_key="outgoing_messages",
+            )
             self.rabbitmq_channel.basic_consume(
                 queue=self.fed_connection.display_name,
                 on_message_callback=self.on_message,
                 auto_ack=True,
             )
             self.queue_bound = True
+        else:
+            logger.error(
+                f"fuck you {self.fed_connection} {self.rabbitmq_channel} {self.queue_bound}"
+            )
 
     def on_message(
         self,
@@ -365,6 +411,51 @@ class FedDaemon(RabbitMQClient):
         properties: BasicProperties,
         body,
     ):
+        logger.error(f"BODY: {body}")
+        if basic_deliver.routing_key == "outgoing_messages" and self.stub:
+            body = json.loads(body)
+            logger.info(f"OUTOING: {body}")
+            federated_event = cot2federated_event(body.get("cot"))
+            for group in self.local_groups:
+                federated_event.federateGroups.append(group)
+
+            federate_provenance = fig_pb2.FederateProvenance()
+            federate_provenance.federationServerId = self.app.config.get("OTS_NODE_ID")
+            federated_event.federateProvenance.append(federate_provenance)
+
+            federated_event.federateHops.maxHops = self.fed_connection.federate.max_hops
+            federated_event.federateHops.currentHops = 1
+
+            federated_event.federateGroupHopLimits.CopyFrom(fig_pb2.FederateGroupHopLimits())
+            logger.warning(f"PUTTINGGLDKFH {federated_event}")
+
+            # try:
+            #    loop = asyncio.get_event_loop()
+            # except RuntimeError:
+            #    loop = asyncio.new_event_loop()
+            #    asyncio.set_event_loop(loop)
+
+            # send = loop.call_soon(self.stub.SendOneEvent, federated_event)
+            # logger.warning(f"SENT {send}")
+            # self.send_queue.put_nowait(federated_event)
+            # asyncio.run_coroutine_threadsafe(self.send_queue.put(federated_event), loop)
+
+            # future = asyncio.run_coroutine_threadsafe(
+            #    self.send_queue.put_nowait(federated_event), loop
+            # )
+            # result = future.result()
+            server_event_stream = asyncio.create_task(
+                self.server_event_stream(self.stub, federated_event)
+            )
+            self.background_tasks.add(server_event_stream)
+            server_event_stream.add_done_callback(self.background_tasks.discard)
+
+            # self.stub.SendOneEvent(federated_event)
+
+            logger.info(f"PUT DSFDSDS")
+
+            return
+
         try:
             topic = basic_deliver.routing_key.split(".")[-1]
         except IndexError:
@@ -508,6 +599,7 @@ def main():
     options = args()
     daemon = FedDaemon(options.connection_id)
     if daemon.enabled:
+        logger.error("ABOUT TO CONNECT")
         asyncio.run(daemon.federation_connect(), debug=True)
 
 

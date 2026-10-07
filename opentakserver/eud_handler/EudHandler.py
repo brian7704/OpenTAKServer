@@ -477,6 +477,13 @@ class EudHandler(socketserver.BaseRequestHandler):
             properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
         )
 
+        self.rabbit_channel.basic_publish(
+            exchange="federation",
+            body=json.dumps({"uid": self.uid, "cot": str(event)}),
+            routing_key="outgoing_messages",
+            properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
+        )
+
         # Route all cots to the cot_parser direct exchange to be processed by a pool of cot_parser processes
         self.rabbit_channel.basic_publish(
             exchange="cot_parser",
