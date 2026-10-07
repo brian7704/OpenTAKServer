@@ -67,7 +67,7 @@ class RabbitMQAsyncClient:
             logger.info("Sending a Basic.Cancel RPC command to RabbitMQ")
             self.rabbitmq_channel.close()
 
-    def stop(self):
+    def stop(self, error: str | None):
         """
         Cleanly shutdown the connection to RabbitMQ by stopping the consumer with RabbitMQ.
 

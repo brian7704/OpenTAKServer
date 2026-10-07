@@ -63,6 +63,7 @@ def upgrade():
         sa.Column("max_retries", sa.Integer(), nullable=False),
         sa.Column("federate_id", sa.Integer(), nullable=True),
         sa.Column("fallback_connection", sa.Integer(), nullable=True),
+        sa.Column("connected", sa.Boolean(), nullable=True),
         sa.Column("use_token_auth", sa.Boolean(), nullable=False),
         sa.Column(
             "auth_token_type",

@@ -7,6 +7,8 @@ import os
 import signal
 import sys
 import traceback
+import uuid
+from gettext import gettext
 from logging.handlers import TimedRotatingFileHandler
 
 import colorlog
@@ -18,7 +20,7 @@ from flask import Flask
 from flask_login import current_user
 from flask_security import SQLAlchemyUserDatastore
 from flask_security.models import fsqla
-from sqlalchemy import select
+from sqlalchemy import select, update
 from collections.abc import AsyncIterable
 
 import opentakserver
@@ -144,9 +146,10 @@ class FedDaemon(RabbitMQAsyncClient):
 
         self.bind_queue()
 
-    def stop(self):
+    def stop(self, error: str | None):
         self.shutdown = True
-        super().stop()
+        self.update_connection_status(False, error)
+        super().stop(error)
         logger.warning(
             f"Federation connection {self.fed_connection.display_name} is shutting down..."
         )
@@ -158,9 +161,40 @@ class FedDaemon(RabbitMQAsyncClient):
 
         asyncio.get_event_loop().call_soon(self.grpc_channel.close)
 
+    def update_connection_status(self, connected: bool, error: str | None):
+        with self.app.app_context():
+            self.fed_connection.connected = connected
+            if error:
+                self.fed_connection.last_error = error
+            self.db.session.execute(
+                update(FederationConnection)
+                .filter_by(id=self.fed_connection.id)
+                .values(**self.fed_connection.serialize())
+            )
+            self.db.session.commit()
+
+        if self.rabbitmq_channel is not None and self.rabbitmq_channel.is_open:
+            message = {
+                "method": "emit",
+                "event": "federation",
+                "data": self.fed_connection.to_json(),
+                "namespace": "/socket.io",
+                "room": None,
+                "skip_sid": [],
+                "callback": None,
+                "binary": False,
+                "host_id": uuid.uuid4().hex,
+            }
+            self.rabbitmq_channel.basic_publish(
+                "flask-socketio",
+                "",
+                json.dumps(message),
+                properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
+            )
+
     def sig_handler(self, sig, frame):
         logger.warning(f"Caught CTRL+C, shutting down...")
-        self.stop()
+        self.stop(None)
 
     async def federation_connect(self):
         asyncio.get_event_loop().add_signal_handler(
@@ -211,6 +245,7 @@ class FedDaemon(RabbitMQAsyncClient):
                 health_task.add_done_callback(self.background_tasks.discard)
 
                 self.connected = True
+                self.update_connection_status(True, None)
 
     async def server_fed_groups_stream(self, stub, subscription):
         server_fed_groups = stub.ServerFederateGroupsStream(subscription)
@@ -343,9 +378,14 @@ class FedDaemon(RabbitMQAsyncClient):
             yield group
 
         groups = request_iterator()
-        sub = await stub.ClientFederateGroupsStream(groups)
 
-        logger.debug(f"{sub}")
+        try:
+            sub = await stub.ClientFederateGroupsStream(groups)
+            logger.debug(f"{sub}")
+        except BaseException as e:
+            logger.error(f"Failed to establish client group stream: {e}")
+            logger.debug(traceback.format_exc())
+            self.stop(str(e))
 
     async def server_event_stream(self, stub, federated_event):
         self.send_queue.put_nowait(federated_event)
@@ -407,6 +447,7 @@ class FedDaemon(RabbitMQAsyncClient):
             )
             self.queue_bound = True
             self._consuming = True
+            self.update_connection_status(True, None)
 
     def on_message(
         self,
@@ -417,7 +458,9 @@ class FedDaemon(RabbitMQAsyncClient):
     ):
         if basic_deliver.routing_key == "outgoing_messages" and self.stub:
             body = json.loads(body)
-            federated_event = cot2federated_event(body.get("cot"), self.app.config.get("OTS_NODE_ID"))
+            federated_event = cot2federated_event(
+                body.get("cot"), self.app.config.get("OTS_NODE_ID")
+            )
 
             if not federated_event:
                 return
@@ -452,7 +495,8 @@ class FedDaemon(RabbitMQAsyncClient):
             print(topic)
         elif topic == "disable":
             if self._consuming and self.stub:
-                self.stop()
+                self.fed_connection.enabled = False
+                self.stop(None)
         elif topic == "new_connection":
             print(topic)
 

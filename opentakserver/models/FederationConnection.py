@@ -38,6 +38,7 @@ class FederationConnection(db.Model):
     last_error: Mapped[str] = mapped_column(String(1024), nullable=True)
     description: Mapped[str] = mapped_column(String(1024), nullable=True)
     uid: Mapped[str] = mapped_column(String(255), nullable=True)
+    connected: Mapped[bool] = mapped_column(Boolean, nullable=True)
     federate = relationship("Federate", back_populates="federation_connections", uselist=False)
     groups = relationship(
         "Group",
@@ -84,6 +85,7 @@ class FederationConnection(db.Model):
             "last_error": self.last_error,
             "description": self.description,
             "uid": self.uid,
+            "connected": self.connected,
         }
 
         if with_id:
