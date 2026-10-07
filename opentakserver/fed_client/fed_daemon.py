@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import functools
 import json
 import logging
 import os
@@ -86,6 +87,7 @@ class FedDaemon(RabbitMQAsyncClient):
         self.streams = []
         self.app = None
         self.stub = None
+        self.grpc_channel = None
 
         self.create_app()
 
@@ -97,6 +99,7 @@ class FedDaemon(RabbitMQAsyncClient):
             query = select(FederationConnection).filter_by(id=connection_id)
             connection = self.db.session.execute(query).scalar()
             self.fed_connection = connection
+
             if not self.fed_connection.enabled:
                 logger.warning(
                     f"Federation connection {self.fed_connection.display_name} is disabled"
@@ -104,7 +107,6 @@ class FedDaemon(RabbitMQAsyncClient):
                 return
             else:
                 self.enabled = True
-                logger.info(f"{self.fed_connection.display_name} {self.fed_connection.address}")
 
             self.local_groups = self.get_federated_groups()
 
@@ -140,23 +142,31 @@ class FedDaemon(RabbitMQAsyncClient):
         super().__init__(self.app.app_context())
         asyncio.run(self.federation_connect())
 
-        logger.info("did super")
         self.bind_queue()
 
     def stop(self):
         self.shutdown = True
+        super().stop()
         logger.warning(
             f"Federation connection {self.fed_connection.display_name} is shutting down..."
         )
         for stream in self.streams:
             stream.cancel()
 
+        for task in self.background_tasks:
+            task.cancel()
+
+        asyncio.get_event_loop().call_soon(self.grpc_channel.close)
+
     def sig_handler(self, sig, frame):
         logger.warning(f"Caught CTRL+C, shutting down...")
         self.stop()
 
     async def federation_connect(self):
-        logger.warning("federation_connection")
+        asyncio.get_event_loop().add_signal_handler(
+            signal.SIGINT, functools.partial(self.sig_handler, sig=signal.SIGINT, frame=None)
+        )
+
         await self.connect()
 
         async with grpc.aio.secure_channel(
@@ -166,6 +176,7 @@ class FedDaemon(RabbitMQAsyncClient):
             compression=grpc.Compression.Gzip,
         ) as channel:
             self.stub = fig_pb2_grpc.FederatedChannelStub(channel)
+            self.grpc_channel = channel
             identity = fig_pb2.Identity()
             identity.name = self.fed_connection.display_name
             identity.uid = self.app.config.get("OTS_NODE_ID")
@@ -337,8 +348,6 @@ class FedDaemon(RabbitMQAsyncClient):
         logger.debug(f"{sub}")
 
     async def server_event_stream(self, stub, federated_event):
-        logger.info("server_event_stream")
-
         self.send_queue.put_nowait(federated_event)
 
         async def request_iterator():
@@ -348,7 +357,7 @@ class FedDaemon(RabbitMQAsyncClient):
         messages = request_iterator()
 
         server_event = await stub.ServerEventStream(messages)
-        logger.info(f"server_response {server_event}")
+        logger.debug(f"server_response {server_event}")
         self.server_event_stream_connected = True
 
     async def check_health(self, stub):
@@ -370,12 +379,10 @@ class FedDaemon(RabbitMQAsyncClient):
         logger.warn(f"Got some bytes: {data.hex()}")
 
     def on_channel_open(self, channel):
-        logger.info("on_channel_open")
         self.rabbitmq_channel = channel
         self.bind_queue()
 
     def bind_queue(self):
-        logger.info("bind queue")
         if (
             self.fed_connection is not None
             and self.rabbitmq_channel is not None
@@ -399,10 +406,7 @@ class FedDaemon(RabbitMQAsyncClient):
                 auto_ack=True,
             )
             self.queue_bound = True
-        else:
-            logger.error(
-                f"fuck you {self.fed_connection} {self.rabbitmq_channel} {self.queue_bound}"
-            )
+            self._consuming = True
 
     def on_message(
         self,
@@ -411,10 +415,8 @@ class FedDaemon(RabbitMQAsyncClient):
         properties: BasicProperties,
         body,
     ):
-        logger.error(f"BODY: {body}")
         if basic_deliver.routing_key == "outgoing_messages" and self.stub:
             body = json.loads(body)
-            logger.info(f"OUTOING: {body}")
             federated_event = cot2federated_event(body.get("cot"))
             for group in self.local_groups:
                 federated_event.federateGroups.append(group)
@@ -427,32 +429,12 @@ class FedDaemon(RabbitMQAsyncClient):
             federated_event.federateHops.currentHops = 1
 
             federated_event.federateGroupHopLimits.CopyFrom(fig_pb2.FederateGroupHopLimits())
-            logger.warning(f"PUTTINGGLDKFH {federated_event}")
 
-            # try:
-            #    loop = asyncio.get_event_loop()
-            # except RuntimeError:
-            #    loop = asyncio.new_event_loop()
-            #    asyncio.set_event_loop(loop)
-
-            # send = loop.call_soon(self.stub.SendOneEvent, federated_event)
-            # logger.warning(f"SENT {send}")
-            # self.send_queue.put_nowait(federated_event)
-            # asyncio.run_coroutine_threadsafe(self.send_queue.put(federated_event), loop)
-
-            # future = asyncio.run_coroutine_threadsafe(
-            #    self.send_queue.put_nowait(federated_event), loop
-            # )
-            # result = future.result()
             server_event_stream = asyncio.create_task(
                 self.server_event_stream(self.stub, federated_event)
             )
             self.background_tasks.add(server_event_stream)
             server_event_stream.add_done_callback(self.background_tasks.discard)
-
-            # self.stub.SendOneEvent(federated_event)
-
-            logger.info(f"PUT DSFDSDS")
 
             return
 
@@ -465,8 +447,8 @@ class FedDaemon(RabbitMQAsyncClient):
         if topic == "enable":
             print(topic)
         elif topic == "disable":
-            # self.stop()
-            logger.info("GOT DISABLE")
+            if self._consuming and self.stub:
+                self.stop()
         elif topic == "new_connection":
             print(topic)
 
@@ -597,10 +579,7 @@ def args():
 
 def main():
     options = args()
-    daemon = FedDaemon(options.connection_id)
-    if daemon.enabled:
-        logger.error("ABOUT TO CONNECT")
-        asyncio.run(daemon.federation_connect(), debug=True)
+    FedDaemon(options.connection_id)
 
 
 if __name__ == "__main__":

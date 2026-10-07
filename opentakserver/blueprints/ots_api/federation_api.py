@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 import bleach
 import cryptography
+import pika
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 
@@ -262,10 +263,14 @@ def edit_federation():
             rabbit_connection, channel = get_blocking_rabbitmq_channel()
 
             if not updated_connection.enabled:
+                # The TTL is 0 so the disable message will only be delivered if the consumer is actively consuming.
+                # Otherwise, as soon as the federation process starts up it would get an old disable message and immediately
+                # shut down
                 channel.basic_publish(
                     exchange="federation",
                     routing_key=f"{updated_connection.display_name}.disable",
                     body="",
+                    properties=pika.BasicProperties(expiration="0"),
                 )
             else:
                 path = os.path.dirname(sys.executable)

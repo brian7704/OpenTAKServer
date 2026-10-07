@@ -19,7 +19,8 @@ class RabbitMQAsyncClient:
         self.socketio = socketio
         self.rabbit_connection = None
         self.rabbitmq_channel: Channel = None
-        self.is_consuming = False
+        self._consuming = False
+        self._closing = False
 
     async def connect(self):
         try:
@@ -58,6 +59,14 @@ class RabbitMQAsyncClient:
     def on_message(self, unused_channel, basic_deliver, properties, body):
         raise NotImplemented
 
+    def stop_consuming(self):
+        """Tell RabbitMQ that you would like to stop consuming by sending the Basic.Cancel RPC
+        command.
+        """
+        if self.rabbitmq_channel:
+            logger.info("Sending a Basic.Cancel RPC command to RabbitMQ")
+            self.rabbitmq_channel.close()
+
     def stop(self):
         """
         Cleanly shutdown the connection to RabbitMQ by stopping the consumer with RabbitMQ.
@@ -72,8 +81,11 @@ class RabbitMQAsyncClient:
             self._closing = True
             logger.info("Stopping")
             if self._consuming:
+                logger.info("STOPPING CONSUMPTION")
                 self.stop_consuming()
-                self._connection.ioloop.run_forever()
+                if not self.rabbit_connection.ioloop.is_running():
+                    self.rabbit_connection.ioloop.run_forever()
             else:
-                self._connection.ioloop.stop()
+                logger.info("CLOSING LOOP")
+                self.rabbit_connection.ioloop.stop()
             logger.info("Stopped")
