@@ -81,11 +81,9 @@ class RabbitMQAsyncClient:
             self._closing = True
             logger.info("Stopping")
             if self._consuming:
-                logger.info("STOPPING CONSUMPTION")
                 self.stop_consuming()
                 if not self.rabbit_connection.ioloop.is_running():
                     self.rabbit_connection.ioloop.run_forever()
             else:
-                logger.info("CLOSING LOOP")
                 self.rabbit_connection.ioloop.stop()
             logger.info("Stopped")

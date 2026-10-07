@@ -52,7 +52,7 @@ def federated_event2cot(federated_event) -> str | None:
     return ElementTree.tostring(event).decode("utf-8")
 
 
-def cot2federated_event(cot: str):
+def cot2federated_event(cot: str, node_id: str):
     federated_event = FederatedEvent()
 
     soup = BeautifulSoup(cot, "lxml")
@@ -83,12 +83,18 @@ def cot2federated_event(cot: str):
     federated_event.event.ce = float(point.attrs.get("ce", 9999999))
     federated_event.event.le = float(point.attrs.get("le", 9999999))
 
+    detail = soup.find("detail")
+
+    # Add the <_flow_tags_> tag
+    flow_tag = soup.new_tag("_flow-tags_")
+    flow_tag.attrs[f"TAK-Server-{node_id}"] = iso8601_string_from_datetime()
+    detail.append(flow_tag)
+
     # BeautifulSoup does some wonky crap when parsing tags with underscores
-    federated_event.event.other = (
-        str(soup.find("detail"))
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("<!--__chat-->", "</__chat>")
+    detail = (
+        str(detail).replace("&lt;", "<").replace("&gt;", ">").replace("<!--__chat-->", "</__chat>")
     )
+
+    federated_event.event.other = detail
 
     return federated_event

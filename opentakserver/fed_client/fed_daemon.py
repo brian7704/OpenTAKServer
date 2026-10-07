@@ -417,7 +417,11 @@ class FedDaemon(RabbitMQAsyncClient):
     ):
         if basic_deliver.routing_key == "outgoing_messages" and self.stub:
             body = json.loads(body)
-            federated_event = cot2federated_event(body.get("cot"))
+            federated_event = cot2federated_event(body.get("cot"), self.app.config.get("OTS_NODE_ID"))
+
+            if not federated_event:
+                return
+
             for group in self.local_groups:
                 federated_event.federateGroups.append(group)
 
