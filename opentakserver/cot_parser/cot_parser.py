@@ -10,6 +10,7 @@ import time
 import traceback
 import uuid
 from logging.handlers import TimedRotatingFileHandler
+from xml.etree.ElementTree import tostring
 
 import bleach
 import colorlog

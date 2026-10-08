@@ -149,7 +149,9 @@ def get_federations():
 @roles_required("administrator")
 @federation_blueprint.route("/api/federation/all")
 def get_all_federations():
-    federation_connections = db.session.execute(db.session.query(FederationConnection)).scalars()
+    federation_connections = db.session.execute(
+        db.session.query(FederationConnection).order_by(FederationConnection.id.asc())
+    ).scalars()
     return_value = []
     for federation_connection in federation_connections:
         return_value.append(federation_connection.to_json())

@@ -162,10 +162,13 @@ class FedDaemon(RabbitMQAsyncClient):
         asyncio.get_event_loop().call_soon(self.grpc_channel.close)
 
     def update_connection_status(self, connected: bool, error: str | None):
+        self.fed_connection.connected = connected
+        if error:
+            self.fed_connection.last_error = error
+        elif connected and not error:
+            self.fed_connection.last_error = None
+
         with self.app.app_context():
-            self.fed_connection.connected = connected
-            if error:
-                self.fed_connection.last_error = error
             self.db.session.execute(
                 update(FederationConnection)
                 .filter_by(id=self.fed_connection.id)
@@ -244,8 +247,12 @@ class FedDaemon(RabbitMQAsyncClient):
                 self.background_tasks.add(health_task)
                 health_task.add_done_callback(self.background_tasks.discard)
 
-                self.connected = True
-                self.update_connection_status(True, None)
+                self.connected = (
+                    self.grpc_channel.get_state() == grpc.ChannelConnectivity.READY
+                    or self.grpc_channel.get_state() == grpc.ChannelConnectivity.CONNECTING
+                ) and self.queue_bound
+                logger.info(f"STATE {self.grpc_channel.get_state()} bound {self.queue_bound}")
+                self.update_connection_status(self.connected, None)
 
     async def server_fed_groups_stream(self, stub, subscription):
         server_fed_groups = stub.ServerFederateGroupsStream(subscription)
@@ -447,7 +454,12 @@ class FedDaemon(RabbitMQAsyncClient):
             )
             self.queue_bound = True
             self._consuming = True
-            self.update_connection_status(True, None)
+            self.connected = (
+                self.grpc_channel.get_state() == grpc.ChannelConnectivity.READY
+                or self.grpc_channel.get_state() == grpc.ChannelConnectivity.CONNECTING
+            ) and self.queue_bound
+            logger.info(f"STATE {self.grpc_channel.get_state()} bound {self.queue_bound}")
+            self.update_connection_status(self.connected, None)
 
     def on_message(
         self,
