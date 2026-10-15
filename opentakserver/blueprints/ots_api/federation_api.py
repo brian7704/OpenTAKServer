@@ -262,9 +262,8 @@ def edit_federation():
         db.session.commit()
 
         if toggled:
-            rabbit_connection, channel = get_blocking_rabbitmq_channel()
-
             if not updated_connection.enabled:
+                rabbit_connection, channel = get_blocking_rabbitmq_channel()
                 # The TTL is 0 so the disable message will only be delivered if the consumer is actively consuming.
                 # Otherwise, as soon as the federation process starts up it would get an old disable message and immediately
                 # shut down
@@ -274,6 +273,8 @@ def edit_federation():
                     body="",
                     properties=pika.BasicProperties(expiration="0"),
                 )
+                channel.close()
+                rabbit_connection.close()
             else:
                 path = os.path.dirname(sys.executable)
                 subprocess.Popen(
@@ -283,9 +284,6 @@ def edit_federation():
                     stdout=None,
                     stderr=None,
                 )
-
-            channel.close()
-            rabbit_connection.close()
 
         return jsonify({"success": True})
     except BaseException as e:
@@ -615,6 +613,21 @@ def add_federation_to_groups():
 
     db.session.commit()
 
+    federation_connection = db.session.execute(
+        db.session.query(FederationConnection).filter_by(id=federation_id)
+    ).first()
+    if federation_connection and direction == Group.OUT:
+        federation_connection = federation_connection[0]
+        rabbit_connection, channel = get_blocking_rabbitmq_channel()
+        channel.basic_publish(
+            exchange="federation",
+            routing_key=f"{federation_connection.display_name}.groups",
+            body="",
+            properties=pika.BasicProperties(expiration="0"),
+        )
+        channel.close()
+        rabbit_connection.close()
+
     return jsonify({"success": True})
 
 
@@ -656,5 +669,20 @@ def remove_federation_groups():
 
     db.session.execute(delete_query)
     db.session.commit()
+
+    federation_connection = db.session.execute(
+        db.session.query(FederationConnection).filter_by(id=federation_id)
+    ).first()
+    if federation_connection and direction == Group.OUT:
+        federation_connection = federation_connection[0]
+        rabbit_connection, channel = get_blocking_rabbitmq_channel()
+        channel.basic_publish(
+            exchange="federation",
+            routing_key=f"{federation_connection.display_name}.groups",
+            body="",
+            properties=pika.BasicProperties(expiration="0"),
+        )
+        channel.close()
+        rabbit_connection.close()
 
     return jsonify({"success": True})

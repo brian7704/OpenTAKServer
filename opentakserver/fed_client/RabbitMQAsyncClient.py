@@ -63,7 +63,12 @@ class RabbitMQAsyncClient:
         """Tell RabbitMQ that you would like to stop consuming by sending the Basic.Cancel RPC
         command.
         """
-        if self.rabbitmq_channel:
+        if (
+            self.rabbitmq_channel
+            and not self._closing
+            and not self.rabbitmq_channel.is_closing
+            and self.rabbitmq_channel.is_open
+        ):
             logger.info("Sending a Basic.Cancel RPC command to RabbitMQ")
             self.rabbitmq_channel.close()
 

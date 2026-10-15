@@ -199,6 +199,19 @@ class FedDaemon(RabbitMQAsyncClient):
         logger.warning(f"Caught CTRL+C, shutting down...")
         self.stop(None)
 
+    def generate_subscription(self):
+        identity = fig_pb2.Identity()
+        identity.name = self.fed_connection.display_name
+        identity.uid = self.app.config.get("OTS_NODE_ID")
+        identity.description = str(self.fed_connection.description)
+        identity.type = fig_pb2.Identity.FEDERATION_TAK_CLIENT
+        identity.serverId = self.app.config.get("OTS_NODE_ID")
+
+        subscription = fig_pb2.Subscription()
+        subscription.identity.CopyFrom(identity)
+
+        return subscription
+
     async def federation_connect(self):
         asyncio.get_event_loop().add_signal_handler(
             signal.SIGINT, functools.partial(self.sig_handler, sig=signal.SIGINT, frame=None)
@@ -214,15 +227,7 @@ class FedDaemon(RabbitMQAsyncClient):
         ) as channel:
             self.stub = fig_pb2_grpc.FederatedChannelStub(channel)
             self.grpc_channel = channel
-            identity = fig_pb2.Identity()
-            identity.name = self.fed_connection.display_name
-            identity.uid = self.app.config.get("OTS_NODE_ID")
-            identity.description = str(self.fed_connection.description)
-            identity.type = fig_pb2.Identity.FEDERATION_TAK_CLIENT
-            identity.serverId = self.app.config.get("OTS_NODE_ID")
-
-            subscription = fig_pb2.Subscription()
-            subscription.identity.CopyFrom(identity)
+            subscription = self.generate_subscription()
 
             async with asyncio.TaskGroup() as tg:
                 task = tg.create_task(self.server_fed_groups_stream(self.stub, subscription))
@@ -241,11 +246,10 @@ class FedDaemon(RabbitMQAsyncClient):
                 self.background_tasks.add(client_fed_group)
                 client_fed_group.add_done_callback(self.background_tasks.discard)
 
-                client_health = fig_pb2.ClientHealth()
-                client_health.status = fig_pb2.ClientHealth.ServingStatus.SERVING
-                health_task = tg.create_task(self.check_health(self.stub))
-                self.background_tasks.add(health_task)
-                health_task.add_done_callback(self.background_tasks.discard)
+                if self.app.config.get("OTS_FEDERATION_HEALTHCHECK", True):
+                    health_task = tg.create_task(self.check_health(self.stub))
+                    self.background_tasks.add(health_task)
+                    health_task.add_done_callback(self.background_tasks.discard)
 
                 self.connected = (
                     self.grpc_channel.get_state() == grpc.ChannelConnectivity.READY
@@ -268,7 +272,7 @@ class FedDaemon(RabbitMQAsyncClient):
             logger.error(f"Server Group Stream Error: {e}")
             logger.debug(traceback.format_exc())
             await asyncio.sleep(self.fed_connection.reconnect_interval)
-            await self.client_event_stream(stub, subscription)
+            # await self.client_event_stream(stub, subscription)
 
     async def client_event_stream(self, stub, subscription):
         ts_version = fig_pb2.TakServerVersion()
@@ -352,6 +356,8 @@ class FedDaemon(RabbitMQAsyncClient):
         fed_groups = fig_pb2.FederateGroups()
         nested_groups = fig_pb2.FederateGroups()
 
+        self.local_groups = self.get_federated_groups()
+
         if not len(self.local_groups):
             fed_groups.federateGroups.append("__ANON__")
             nested_groups.federateGroups.append("__ANON__")
@@ -415,7 +421,7 @@ class FedDaemon(RabbitMQAsyncClient):
             # Do not remove this line. For whatever magic asyncio reason that I hope to understand one day,
             # this loop doesn't work if `await asyncio.sleep(5)` is the first line in the loop.
             logger.debug("Pinging federate server")
-            await asyncio.sleep(5)
+            await asyncio.sleep(self.app.config.get("OTS_FEDERATION_HEALTHCHECK_INTERVAL", 5))
             health = await stub.HealthCheck(client_health)
             logger.debug(f"Server health is {health}")
 
@@ -427,6 +433,7 @@ class FedDaemon(RabbitMQAsyncClient):
 
     def on_channel_open(self, channel):
         self.rabbitmq_channel = channel
+        self.rabbitmq_channel.exchange_declare("federation", durable=True, exchange_type="topic")
         self.bind_queue()
 
     def bind_queue(self):
@@ -458,7 +465,7 @@ class FedDaemon(RabbitMQAsyncClient):
                 self.grpc_channel.get_state() == grpc.ChannelConnectivity.READY
                 or self.grpc_channel.get_state() == grpc.ChannelConnectivity.CONNECTING
             ) and self.queue_bound
-            logger.info(f"STATE {self.grpc_channel.get_state()} bound {self.queue_bound}")
+
             self.update_connection_status(self.connected, None)
 
     def on_message(
@@ -503,14 +510,15 @@ class FedDaemon(RabbitMQAsyncClient):
             self.logger.error(f"Failed to parse topic: {basic_deliver.routing_key}")
             return
 
-        if topic == "enable":
-            print(topic)
-        elif topic == "disable":
+        if topic == "disable":
             if self._consuming and self.stub:
                 self.fed_connection.enabled = False
                 self.stop(None)
-        elif topic == "new_connection":
-            print(topic)
+        elif topic == "groups":
+            if self.stub:
+                client_fed_group = asyncio.create_task(self.client_fed_group_stream(self.stub))
+                self.background_tasks.add(client_fed_group)
+                client_fed_group.add_done_callback(self.background_tasks.discard)
 
     def get_federated_groups(self):
         groups = []
