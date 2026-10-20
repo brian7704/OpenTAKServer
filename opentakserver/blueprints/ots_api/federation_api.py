@@ -37,7 +37,9 @@ from opentakserver.forms.FederationConnectionForm import FederationConnectionFor
 from opentakserver.models.FederateToken import FederateToken
 from opentakserver.models.FederationConnection import FederationConnection
 from opentakserver.models.FederationGroups import FederationGroups
-from opentakserver.models.Group import Group
+from opentakserver.models.Group import GroupDirectionEnum, Group
+from opentakserver.models.FederateGroups import FederateGroups
+from opentakserver.models.FederateGroupMapping import FederateGroupMapping
 from opentakserver.certificate_authority import CertificateAuthority
 
 federation_blueprint = Blueprint("federation_blueprint", __name__)
@@ -585,29 +587,13 @@ def add_federation_to_groups():
             400,
         )
 
-    if direction != Group.IN and direction != Group.OUT:
+    if direction != GroupDirectionEnum.IN and direction != GroupDirectionEnum.OUT:
         return jsonify({"success": False, "error": gettext("Direction must be IN or OUT")}), 400
 
-    for group_name in groups:
-        group: Group = db.session.execute(
-            db.session.query(Group).filter_by(name=bleach.clean(group_name))
-        ).scalar()
-        if not group:
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "error": gettext(
-                            "Group %(group_name)s doesn't exist", group_name=group_name
-                        ),
-                    }
-                ),
-                400,
-            )
-
+    for group_id in groups:
         db.session.execute(
             insert(FederationGroups)
-            .values(federation_id=federation_id, group_id=group.id, direction=direction)
+            .values(federation_id=federation_id, group_id=group_id, direction=direction)
             .on_conflict_do_nothing()
         )
 
@@ -616,7 +602,7 @@ def add_federation_to_groups():
     federation_connection = db.session.execute(
         db.session.query(FederationConnection).filter_by(id=federation_id)
     ).first()
-    if federation_connection and direction == Group.OUT:
+    if federation_connection and direction == GroupDirectionEnum.OUT:
         federation_connection = federation_connection[0]
         rabbit_connection, channel = get_blocking_rabbitmq_channel()
         channel.basic_publish(
@@ -658,7 +644,7 @@ def remove_federation_groups():
             400,
         )
 
-    if direction != Group.IN and direction != Group.OUT:
+    if direction != GroupDirectionEnum.IN and direction != GroupDirectionEnum.OUT:
         return jsonify({"success": False, "error": gettext("Direction must be IN or OUT")}), 400
 
     delete_query = delete(FederationGroups).where(
@@ -673,7 +659,7 @@ def remove_federation_groups():
     federation_connection = db.session.execute(
         db.session.query(FederationConnection).filter_by(id=federation_id)
     ).first()
-    if federation_connection and direction == Group.OUT:
+    if federation_connection and direction == GroupDirectionEnum.OUT:
         federation_connection = federation_connection[0]
         rabbit_connection, channel = get_blocking_rabbitmq_channel()
         channel.basic_publish(
@@ -684,5 +670,148 @@ def remove_federation_groups():
         )
         channel.close()
         rabbit_connection.close()
+
+    return jsonify({"success": True})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/federate_groups")
+def get_federate_groups():
+    federation_id = request.args.get("federation_id")
+
+    if not federation_id:
+        return jsonify({"success": False, "error": gettext("Missing federation_id")}), 400
+
+    try:
+        federation_id = int(federation_id)
+    except ValueError:
+        return jsonify({"success": False, "error": gettext("Invalid federation_id")}), 400
+
+    federate_groups = db.session.execute(
+        db.session.query(FederateGroups).filter_by(federation_id=federation_id)
+    ).scalars()
+
+    return_value = []
+    for federate_group in federate_groups:
+        return_value.append(federate_group.to_json())
+
+    return jsonify({"success": True, "results": return_value})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/group_mapping")
+def get_federate_group_mappings():
+    federation_id = request.args.get("federation_id")
+
+    if not federation_id:
+        return jsonify({"success": False, "error": gettext("Missing federation_id")}), 400
+
+    try:
+        federation_id = int(federation_id)
+    except ValueError:
+        return jsonify({"success": False, "error": gettext("Invalid federation_id")}), 400
+
+    mappings = db.session.execute(
+        db.session.query(FederateGroupMapping).filter_by(federation_id=federation_id)
+    ).scalars()
+
+    return_value = []
+    for mapping in mappings:
+        return_value.append(mapping.to_json())
+
+    return jsonify({"success": True, "results": return_value})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/group_mapping", methods=["POST"])
+def create_federate_group_mapping():
+    federate_group_id = request.json.get("federate_group_id")
+    group_id = request.json.get("group_id")
+    federation_id = request.json.get("federation_id")
+
+    if not federate_group_id or not group_id or not federation_id:
+        logger.info(f"{federate_group_id} {group_id} {federation_id}")
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("Missing federate_group_id, group_id, or federation_id"),
+                }
+            ),
+            400,
+        )
+
+    try:
+        federate_group_id = int(federate_group_id)
+        group_id = int(group_id)
+        federation_id = int(federation_id)
+    except ValueError:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("Invalid federate_group_id, group_id, or federation_id"),
+                }
+            ),
+            400,
+        )
+
+    mapping = FederateGroupMapping(
+        federate_group_id=federate_group_id,
+        group_id=group_id,
+        federation_id=federation_id,
+    )
+    db.session.add(mapping)
+
+    try:
+        db.session.commit()
+    except BaseException as e:
+        logger.error(f"Failed to add group mapping: {e}")
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    return jsonify({"success": True})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/group_mapping", methods=["DELETE"])
+def delete_federate_group_mapping():
+    federate_group_id = request.json.get("federate_group_id")
+    group_id = request.json.get("group_id")
+
+    if not federate_group_id or not group_id:
+        return jsonify(
+            {
+                "success": False,
+                "error": gettext("Missing federate_group_id, group_id"),
+            },
+            400,
+        )
+
+    try:
+        federate_group_id = int(federate_group_id)
+        group_id = int(group_id)
+    except ValueError:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("Invalid federate_group_id, group_id"),
+                }
+            ),
+            400,
+        )
+
+    db.session.execute(
+        delete(FederateGroupMapping).filter_by(
+            federate_group_id=federate_group_id, group_id=group_id
+        )
+    )
+
+    try:
+        db.session.commit()
+    except BaseException as e:
+        logger.error(f"Failed to delete group mapping: {e}")
+        return jsonify({"success": False, "error": str(e)}), 400
 
     return jsonify({"success": True})

@@ -29,6 +29,7 @@ class FederationGroups(db.Model):
             "federation_id": self.federation_id,
             "group_id": self.group_id,
             "direction": self.direction,
-            "group": self.group.to_json(),
-            "federation_connection": self.federation_connection.to_json()
+            "group_name": self.group.name,
+            #"group": self.group.to_json(),
+            #"federation_connection": self.federation_connection.to_json()
         }

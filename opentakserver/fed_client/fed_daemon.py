@@ -20,7 +20,7 @@ from flask import Flask
 from flask_login import current_user
 from flask_security import SQLAlchemyUserDatastore
 from flask_security.models import fsqla
-from sqlalchemy import select, update
+from sqlalchemy import select, update, delete, insert
 from collections.abc import AsyncIterable
 
 import opentakserver
@@ -65,6 +65,8 @@ from opentakserver.models.GroupMission import GroupMission
 from opentakserver.models.FederationGroups import FederationGroups
 from opentakserver.models.CITrap import CITrap
 from opentakserver.rabbitmq_client import RabbitMQClient
+from opentakserver.models.FederateGroups import FederateGroups
+from opentakserver.models.FederateGroupMapping import FederateGroupMapping
 from opentakserver.extensions import db, logger, ldap_manager
 
 
@@ -255,7 +257,6 @@ class FedDaemon(RabbitMQAsyncClient):
                     self.grpc_channel.get_state() == grpc.ChannelConnectivity.READY
                     or self.grpc_channel.get_state() == grpc.ChannelConnectivity.CONNECTING
                 ) and self.queue_bound
-                logger.info(f"STATE {self.grpc_channel.get_state()} bound {self.queue_bound}")
                 self.update_connection_status(self.connected, None)
 
     async def server_fed_groups_stream(self, stub, subscription):
@@ -263,9 +264,31 @@ class FedDaemon(RabbitMQAsyncClient):
         self.streams.append(server_fed_groups)
 
         try:
-            async for group in server_fed_groups:
-                self.federated_groups.append(group)
-                logger.debug(group)
+            with self.app.app_context():
+                async for group in server_fed_groups:
+                    logger.debug(group)
+                    delete_query = delete(FederateGroupMapping).where(
+                        FederateGroupMapping.federation_id == self.fed_connection.federate_id
+                    )
+
+                    self.db.session.execute(delete_query)
+
+                    self.db.session.execute(
+                        delete(FederateGroups).where(
+                            FederateGroups.federation_id == self.fed_connection.federate_id
+                        )
+                    )
+
+                    self.db.session.commit()
+
+                    for federated_group_name in group.federateGroups:
+                        federated_group = FederateGroups()
+                        federated_group.federation_id = self.fed_connection.federate_id
+                        federated_group.group_name = federated_group_name
+                        self.db.session.add(federated_group)
+
+                    self.db.session.commit()
+
         except asyncio.CancelledError:
             logger.debug("Server group stream is cancelled")
         except BaseException as e:
@@ -310,36 +333,24 @@ class FedDaemon(RabbitMQAsyncClient):
                 if not self.rabbitmq_channel:
                     continue
 
-                if self.fed_connection.federate.automatic_group_matching:
+                string_event = federated_event2cot(federated_event)
+                if not string_event:
+                    continue
+
+                if self.fed_connection.federate.automatic_group_mapping:
                     for fed_group in federated_event.federateGroups:
                         for local_group in self.local_groups:
                             if fed_group == local_group:
-                                string_event = federated_event2cot(federated_event)
 
-                                self.rabbitmq_channel.basic_publish(
-                                    exchange="groups",
-                                    routing_key=f"{local_group}.OUT",
-                                    body=json.dumps(
-                                        {
-                                            "cot": string_event,
-                                            "uid": federated_event.event.uid,
-                                        }
-                                    ),
-                                    properties=pika.BasicProperties(
-                                        expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                                    ),
-                                )
+                                if string_event:
+                                    self.publish_cot(local_group, string_event, federated_event.event.uid)
 
-                                self.rabbitmq_channel.basic_publish(
-                                    exchange="firehose",
-                                    body=json.dumps(
-                                        {"uid": federated_event.event.uid, "cot": string_event}
-                                    ),
-                                    routing_key="",
-                                    properties=pika.BasicProperties(
-                                        expiration=self.app.config.get("OTS_RABBITMQ_TTL")
-                                    ),
-                                )
+                if self.fed_connection.federate.federate_group_mapping:
+                    group_mappings = db.session.execute(db.session.query(FederateGroupMapping).filter_by(federation_id=self.fed_connection.id)).all()
+                    for fed_group in federated_event.federateGroups:
+                        for mapping in group_mappings:
+                            if fed_group == mapping.federate_group.group_name:
+                                self.publish_cot(mapping.group.name, string_event, federated_event.event.uid)
 
         except asyncio.CancelledError:
             logger.debug("Client event stream is cancelled")
@@ -348,6 +359,26 @@ class FedDaemon(RabbitMQAsyncClient):
             logger.debug(traceback.format_exc())
             await asyncio.sleep(self.fed_connection.reconnect_interval)
             await self.client_event_stream(stub, subscription)
+
+    def publish_cot(self, local_group: str, cot: str, uid: str):
+        self.rabbitmq_channel.basic_publish(
+            exchange="groups",
+            routing_key=f"{local_group}.OUT",
+            body=json.dumps(
+                {
+                    "cot": cot,
+                    "uid": uid,
+                }
+            ),
+            properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
+        )
+
+        self.rabbitmq_channel.basic_publish(
+            exchange="firehose",
+            body=json.dumps({"uid": uid, "cot": cot}),
+            routing_key="",
+            properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
+        )
 
     async def server_rol(self, stub):
         server_rol = stub.ServerROLStream(self.server_rol_queue)

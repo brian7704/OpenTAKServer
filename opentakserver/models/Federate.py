@@ -17,9 +17,9 @@ class Federate(db.Model):
     name: Mapped[str] = mapped_column(String(255))
     shared_alerts: Mapped[bool] = mapped_column(Boolean, default=True)
     archive: Mapped[bool] = mapped_column(Boolean, default=False)
-    federate_group_matching: Mapped[bool] = mapped_column(Boolean, default=True)
-    automatic_group_matching: Mapped[bool] = mapped_column(Boolean, default=True)
-    fallback_group_matching: Mapped[bool] = mapped_column(Boolean, default=False)
+    federate_group_mapping: Mapped[bool] = mapped_column(Boolean, default=True)
+    automatic_group_mapping: Mapped[bool] = mapped_column(Boolean, default=True)
+    fallback_group_mapping: Mapped[bool] = mapped_column(Boolean, default=False)
     # -1 is takserver's default for no limit
     max_hops: Mapped[int] = mapped_column(Integer, default=-1)
     # When enabled, group hop limiting will be used in place of max hops. Individual group hop limits can be configured on the 'edit groups' page
@@ -41,9 +41,9 @@ class Federate(db.Model):
         self.name = form.name.data
         self.shared_alerts = form.shared_alerts.data
         self.archive = form.archive.data
-        self.federate_group_matching = form.federate_group_matching.data
-        self.automatic_group_matching = form.automatic_group_matching.data
-        self.fallback_group_matching = form.fallback_group_matching.data
+        self.federate_group_mapping = form.federate_group_mapping.data
+        self.automatic_group_mapping = form.automatic_group_mapping.data
+        self.fallback_group_mapping = form.fallback_group_mapping.data
         self.max_hops = form.max_hops.data
         self.use_group_hop_limiting = form.use_group_hop_limiting.data
         self.notes = form.notes.data
@@ -59,9 +59,9 @@ class Federate(db.Model):
             "name": self.name,
             "shared_alerts": self.shared_alerts,
             "archive": self.archive,
-            "federate_group_matching": self.federate_group_matching,
-            "automatic_group_matching": self.automatic_group_matching,
-            "fallback_group_matching": self.fallback_group_matching,
+            "federate_group_mapping": self.federate_group_mapping,
+            "automatic_group_mapping": self.automatic_group_mapping,
+            "fallback_group_mapping": self.fallback_group_mapping,
             "max_hops": self.max_hops,
             "use_group_hop_limiting": self.use_group_hop_limiting,
             "notes": self.notes,

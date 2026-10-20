@@ -96,8 +96,8 @@ class Group(db.Model):
         return_value = self.serialize()
         return_value["id"] = self.id
         return_value["bitpos"] = "{0:b}".format(self.bitpos)
-        return_value["users"] = [user.serialize() for user in self.users]
-        return_value["missions"] = [mission.serialize() for mission in self.missions]
+        # return_value["users"] = [user.serialize() for user in self.users]
+        # return_value["missions"] = [mission.serialize() for mission in self.missions]
         return return_value
 
     def to_marti_json_in(self):

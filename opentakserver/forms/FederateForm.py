@@ -9,13 +9,13 @@ class FederateForm(FlaskForm):
     name = StringField(validators=[DataRequired()])
     shared_alerts = BooleanField(default=False, false_values=false_values, validators=[Optional()])
     archive = BooleanField(default=False, false_values=false_values, validators=[Optional()])
-    federate_group_matching = BooleanField(
+    federate_group_mapping = BooleanField(
         default=False, false_values=false_values, validators=[Optional()]
     )
-    automatic_group_matching = BooleanField(
+    automatic_group_mapping = BooleanField(
         default=False, false_values=false_values, validators=[Optional()]
     )
-    fallback_group_matching = BooleanField(
+    fallback_group_mapping = BooleanField(
         default=False, false_values=false_values, validators=[Optional()]
     )
     max_hops = IntegerField(default=-1, validators=[Optional()])
