@@ -195,28 +195,39 @@ class EudHandler(socketserver.BaseRequestHandler):
     def close_connection(self):
         self.logger.info("{} disconnected".format(self.client_address[0]))
 
-        self.rabbit_channel.basic_publish(
-            exchange="cot_parser",
-            body=json.dumps(
-                {
-                    "uid": self.uid,
-                    "cot": None,
-                    "disconnected": True,
-                    "user_id": self.user.id if self.user else None,
-                }
-            ),
-            routing_key="cot_parser",
-            properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
-        )
-
-        self.unbind_rabbitmq_queues()
-
         if (
             self.rabbit_channel
             and not self.rabbit_channel.is_closing
             and not self.rabbit_channel.is_closed
         ):
+
+            self.rabbit_channel.basic_publish(
+                exchange="cot_parser",
+                body=json.dumps(
+                    {
+                        "uid": self.uid,
+                        "cot": None,
+                        "disconnected": True,
+                        "user_id": self.user.id if self.user else None,
+                    }
+                ),
+                routing_key="cot_parser",
+                properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
+            )
+
+            self.unbind_rabbitmq_queues()
             self.rabbit_channel.close()
+
+        else:
+            with self.app.app_context():
+                db.session.execute(
+                    update(EUD)
+                    .filter(EUD.uid == self.uid)
+                    .values(
+                        last_status="Disconnected", last_event_time=iso8601_string_from_datetime()
+                    )
+                )
+                db.session.commit()
 
         if not self.shutdown:
             self.shutdown = True
