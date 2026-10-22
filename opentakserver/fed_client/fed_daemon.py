@@ -337,20 +337,33 @@ class FedDaemon(RabbitMQAsyncClient):
                 if not string_event:
                     continue
 
-                if self.fed_connection.federate.automatic_group_mapping:
+                if self.fed_connection.federate.federate_group_mapping:
+                    with self.app.app_context():
+                        group_mappings = db.session.execute(
+                            db.session.query(FederateGroupMapping).filter_by(
+                                federation_id=self.fed_connection.id
+                            )
+                        ).all()
+                        for fed_group in federated_event.federateGroups:
+                            for mapping in group_mappings:
+                                mapping = mapping[0]
+                                if fed_group == mapping.federate_group.group_name:
+                                    self.publish_cot(
+                                        mapping.group.name, string_event, federated_event.event.uid
+                                    )
+
+                if (
+                    self.fed_connection.federate.automatic_group_mapping
+                    or self.fed_connection.federate.fallback_group_mapping
+                ):
                     for fed_group in federated_event.federateGroups:
                         for local_group in self.local_groups:
                             if fed_group == local_group:
 
                                 if string_event:
-                                    self.publish_cot(local_group, string_event, federated_event.event.uid)
-
-                if self.fed_connection.federate.federate_group_mapping:
-                    group_mappings = db.session.execute(db.session.query(FederateGroupMapping).filter_by(federation_id=self.fed_connection.id)).all()
-                    for fed_group in federated_event.federateGroups:
-                        for mapping in group_mappings:
-                            if fed_group == mapping.federate_group.group_name:
-                                self.publish_cot(mapping.group.name, string_event, federated_event.event.uid)
+                                    self.publish_cot(
+                                        local_group, string_event, federated_event.event.uid
+                                    )
 
         except asyncio.CancelledError:
             logger.debug("Client event stream is cancelled")
@@ -426,6 +439,9 @@ class FedDaemon(RabbitMQAsyncClient):
         try:
             sub = await stub.ClientFederateGroupsStream(groups)
             logger.debug(f"{sub}")
+        except asyncio.exceptions.CancelledError:
+            # Don't show errors when the connection is manually shut down
+            pass
         except BaseException as e:
             logger.error(f"Failed to establish client group stream: {e}")
             logger.debug(traceback.format_exc())
@@ -464,7 +480,7 @@ class FedDaemon(RabbitMQAsyncClient):
 
     def on_channel_open(self, channel):
         self.rabbitmq_channel = channel
-        self.rabbitmq_channel.exchange_declare("federation", durable=True, exchange_type="topic")
+        self.rabbitmq_channel.exchange_declare("federation", durable=True, exchange_type="fanout")
         self.bind_queue()
 
     def bind_queue(self):
@@ -512,6 +528,8 @@ class FedDaemon(RabbitMQAsyncClient):
                 body.get("cot"), self.app.config.get("OTS_NODE_ID")
             )
 
+            logger.warning(f"Got a message {body}")
+
             if not federated_event:
                 return
 
@@ -536,16 +554,16 @@ class FedDaemon(RabbitMQAsyncClient):
             return
 
         try:
-            topic = basic_deliver.routing_key.split(".")[-1]
+            federation_connection_name, topic = basic_deliver.routing_key.split(".")
         except IndexError:
             self.logger.error(f"Failed to parse topic: {basic_deliver.routing_key}")
             return
 
-        if topic == "disable":
+        if federation_connection_name == self.fed_connection.display_name and topic == "disable":
             if self._consuming and self.stub:
                 self.fed_connection.enabled = False
                 self.stop(None)
-        elif topic == "groups":
+        elif federation_connection_name == self.fed_connection.display_name and topic == "groups":
             if self.stub:
                 client_fed_group = asyncio.create_task(self.client_fed_group_stream(self.stub))
                 self.background_tasks.add(client_fed_group)
