@@ -45,6 +45,12 @@ from opentakserver.models.ZMIST import ZMIST
 scheduler_blueprint = Blueprint("scheduler_blueprint", __name__)
 
 
+def get_adsb_data():
+    logger.warning(
+        "ADS-B support is temporarily unavailable to to dependency issues. It will be re-enabled as soon as possible in a future version of OTS"
+    )
+
+
 # def get_adsb_data():
 #    with apscheduler.app.app_context():
 #        try:
@@ -191,6 +197,12 @@ def purge_data():
     Team.query.delete()
     db.session.commit()
     logger.info("Purged all data")
+
+
+def get_aishub_data():
+    logger.warning(
+        "AISHub support is temporarily unavailable to to dependency issues. It will be re-enabled as soon as possible in a future version of OTS"
+    )
 
 
 # def get_aishub_data():
