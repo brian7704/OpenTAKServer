@@ -192,6 +192,7 @@ def purge_data():
     MissionContentMission.query.delete()
     MissionUID.query.delete()
     MissionChange.query.delete()
+    MissionInvitation.query.delete()
     Mission.query.delete()
     EUD.query.delete()
     Team.query.delete()
