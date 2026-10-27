@@ -6,13 +6,14 @@ import os
 import platform
 import random
 import re
+import socket as socketlib
 import socketserver
 import sys
 import traceback
 import uuid
 from logging.handlers import TimedRotatingFileHandler
 from socket import socket, SHUT_RDWR
-from threading import Thread
+from threading import Event, Thread, current_thread
 from xml.etree.ElementTree import Element, SubElement, tostring, fromstring, ParseError
 
 import bleach
@@ -87,6 +88,12 @@ class EudHandler(socketserver.BaseRequestHandler):
     bound_queues = []
     phone_number = None
     group_memberships = []
+    consumer_tags = []
+    queues_bound = False
+    cleanup_started = False
+    cleanup_done = None
+    pending_cancels = 0
+    user_id = None
 
     def __init__(self, request: socket, client_address, server):
         super().__init__(request, client_address, server)
@@ -159,7 +166,18 @@ class EudHandler(socketserver.BaseRequestHandler):
         return False
 
     def setup(self):
+        # Per-session state (instance attributes, not shared class-level lists)
+        self.bound_queues = []
+        self.cached_messages = []
+        self.group_memberships = []
+        self.consumer_tags = []
+        self.queues_bound = False
+        self.cleanup_started = False
+        self.cleanup_done = Event()
+        self.user_id = None
+
         self.create_app()
+        self.enable_dead_peer_detection()
 
         # RabbitMQ
         try:
@@ -185,12 +203,89 @@ class EudHandler(socketserver.BaseRequestHandler):
             self.logger.error("Failed to connect to rabbitmq: {}".format(e))
             return
 
+    def enable_dead_peer_detection(self):
+        # Clients often vanish without closing the connection (Wi-Fi/cellular handover, NAT timeout, out of
+        # coverage). Without this, the dead session stays open for minutes to days and keeps consuming from the
+        # device's queue after the device reconnects. OTS_EUD_DEAD_PEER_TIMEOUT = 0 disables it.
+        timeout = int(self.app.config.get("OTS_EUD_DEAD_PEER_TIMEOUT", 120))
+        if timeout <= 0:
+            return
+        options = [
+            (socketlib.SOL_SOCKET, getattr(socketlib, "SO_KEEPALIVE", None), 1),
+            (socketlib.IPPROTO_TCP, getattr(socketlib, "TCP_KEEPIDLE", None), max(1, timeout // 2)),
+            (
+                socketlib.IPPROTO_TCP,
+                getattr(socketlib, "TCP_KEEPINTVL", None),
+                max(1, timeout // 8),
+            ),
+            (socketlib.IPPROTO_TCP, getattr(socketlib, "TCP_KEEPCNT", None), 4),
+            # Give up when sent data stays unacknowledged for the whole timeout
+            (socketlib.IPPROTO_TCP, getattr(socketlib, "TCP_USER_TIMEOUT", None), timeout * 1000),
+        ]
+        for level, option, value in options:
+            if option is None:
+                continue
+            try:
+                self.request.setsockopt(level, option, value)
+            except OSError as e:
+                self.logger.debug(f"Could not set socket option {option}: {e}")
+
+    def get_user_id(self):
+        # Read the user's id once. Later the user object can be detached from its DB session and raise.
+        if self.user_id is None and self.user is not None:
+            try:
+                self.user_id = self.user.id
+            except BaseException as e:
+                self.logger.warning(f"Could not read the user id for {self.callsign}: {e}")
+        return self.user_id
+
     def finish(self):
         print("finish")
 
     def close_connection(self):
-        self.logger.info("{} disconnected".format(self.client_address[0]))
+        if not self.cleanup_started:
+            self.cleanup_started = True
+            self.logger.info("{} disconnected".format(self.client_address[0]))
 
+            self.shutdown = True
+            try:
+                self.request.shutdown(SHUT_RDWR)
+            except OSError:
+                pass
+            try:
+                self.request.close()
+            except OSError:
+                pass
+
+            if self.rabbit_connection and self.rabbit_connection.is_open:
+                # pika is not thread safe, so run the RabbitMQ cleanup on the connection's own I/O loop thread
+                self.rabbit_connection.ioloop.add_callback_threadsafe(self.cleanup_rabbitmq)
+            else:
+                self.cleanup_done.set()
+
+        # The forking server calls os._exit() as soon as handle() returns, which used to kill this process
+        # before the disconnect message and queue unbinds reached RabbitMQ. Wait for the cleanup to finish.
+        # Never block the I/O loop thread itself (close_connection() is also called from on_message()).
+        if current_thread() is not self.iothread and not self.cleanup_done.wait(timeout=10):
+            self.logger.warning(
+                f"Timed out cleaning up RabbitMQ for {self.callsign or self.client_address[0]}"
+            )
+
+    def rabbit_threadsafe(self, method, *args, **kwargs):
+        # pika is not thread safe. Channel operations made from the socket thread (publishing CoT, declaring
+        # and binding queues) race with the I/O loop thread that delivers messages, which can wedge the channel.
+        def call():
+            try:
+                method(*args, **kwargs)
+            except BaseException as e:
+                self.logger.error(f"RabbitMQ operation failed for {self.callsign}: {e}")
+
+        if current_thread() is self.iothread:
+            call()
+        elif self.rabbit_connection and self.rabbit_connection.is_open:
+            self.rabbit_connection.ioloop.add_callback_threadsafe(call)
+
+    def publish_disconnect(self):
         self.rabbit_channel.basic_publish(
             exchange="cot_parser",
             body=json.dumps(
@@ -198,27 +293,68 @@ class EudHandler(socketserver.BaseRequestHandler):
                     "uid": self.uid,
                     "cot": None,
                     "disconnected": True,
-                    "user_id": self.user.id if self.user else None,
+                    "user_id": self.get_user_id(),
                 }
             ),
             routing_key="cot_parser",
             properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
         )
 
-        self.unbind_rabbitmq_queues()
+    def cleanup_rabbitmq(self):
+        # Runs on the pika I/O loop thread
+        if not self.rabbit_channel or not self.rabbit_channel.is_open:
+            self.finish_rabbitmq_cleanup()
+            return
 
-        if (
-            self.rabbit_channel
-            and not self.rabbit_channel.is_closing
-            and not self.rabbit_channel.is_closed
-        ):
+        if not self.uid or not self.consumer_tags:
+            # This session never set up its queues, so there is nothing to unbind
+            self.publish_disconnect()
+            self.finish_rabbitmq_cleanup()
+            return
+
+        # The uid queue (and callsign queue) are shared by every session with the same uid. If the device has
+        # already reconnected, its new session consumes from the same queue and relies on the same bindings.
+        # Stop consuming first, then only clean up if no other session is still consuming.
+        self.pending_cancels = len(self.consumer_tags)
+        for consumer_tag in self.consumer_tags:
+            self.rabbit_channel.basic_cancel(consumer_tag, callback=self.on_consumer_cancelled)
+
+    def on_consumer_cancelled(self, frame):
+        self.pending_cancels -= 1
+        if self.pending_cancels > 0:
+            return
+        self.rabbit_channel.queue_declare(
+            queue=self.uid, passive=True, callback=self.on_uid_queue_checked
+        )
+
+    def on_uid_queue_checked(self, frame):
+        if frame.method.consumer_count > 0:
+            self.logger.info(
+                f"{self.callsign} ({self.uid}) has another active session, keeping its queue bindings "
+                f"and not sending a disconnect"
+            )
+            self.finish_rabbitmq_cleanup()
+            return
+
+        self.publish_disconnect()
+        self.rabbit_channel.queue_declare(
+            queue=self.callsign, passive=True, callback=self.on_callsign_queue_checked
+        )
+
+    def on_callsign_queue_checked(self, frame):
+        # Another device (or session) may be using the same callsign
+        self.unbind_rabbitmq_queues(keep_callsign_queue=frame.method.consumer_count > 0)
+        self.finish_rabbitmq_cleanup()
+
+    def finish_rabbitmq_cleanup(self):
+        # Closing the channel, then the connection, flushes everything above to RabbitMQ.
+        # on_close() sets cleanup_done once the connection is closed.
+        if self.rabbit_channel and self.rabbit_channel.is_open:
             self.rabbit_channel.close()
-
-        if not self.shutdown:
-            self.shutdown = True
-
-            self.request.shutdown(SHUT_RDWR)
-            self.request.close()
+        elif self.rabbit_connection and self.rabbit_connection.is_open:
+            self.rabbit_connection.close()
+        else:
+            self.cleanup_done.set()
 
     def create_app(self):
         app = Flask(__name__)
@@ -326,6 +462,8 @@ class EudHandler(socketserver.BaseRequestHandler):
         # Stop the ioloop using add_callback_threadsafe because ioloop.stop() isn't threadsafe
         connection.ioloop.add_callback_threadsafe(self.rabbit_connection.ioloop.stop)
         self.logger.info("Connection closed for {}: {}".format(self.client_address[0], error))
+        if self.cleanup_done:
+            self.cleanup_done.set()
 
     def on_message(self, unused_channel, basic_deliver, properties, body):
         try:
@@ -447,7 +585,11 @@ class EudHandler(socketserver.BaseRequestHandler):
         if self.pong(event):
             return
 
-        if event and not self.uid:
+        # Also retry on the device's next own event if the RabbitMQ channel wasn't open yet the first time,
+        # otherwise this session's queues are never declared or bound and it never receives anything
+        if event and (
+            not self.uid or (not self.queues_bound and event.attrs.get("uid") == self.uid)
+        ):
             self.parse_device_info(event)
             # Close the DB connection once the EUD is authenticated and identified
             with self.app.app_context():
@@ -466,7 +608,8 @@ class EudHandler(socketserver.BaseRequestHandler):
             return
 
         # Route all CoTs to the firehose exchange for plugins and users that connect directly to RabbitMQ
-        self.rabbit_channel.basic_publish(
+        self.rabbit_threadsafe(
+            self.rabbit_channel.basic_publish,
             exchange="firehose",
             body=json.dumps({"uid": self.uid, "cot": str(event)}),
             routing_key="",
@@ -474,11 +617,10 @@ class EudHandler(socketserver.BaseRequestHandler):
         )
 
         # Route all cots to the cot_parser direct exchange to be processed by a pool of cot_parser processes
-        self.rabbit_channel.basic_publish(
+        self.rabbit_threadsafe(
+            self.rabbit_channel.basic_publish,
             exchange="cot_parser",
-            body=json.dumps(
-                {"uid": self.uid, "cot": str(event), "user_id": self.user.id if self.user else None}
-            ),
+            body=json.dumps({"uid": self.uid, "cot": str(event), "user_id": self.get_user_id()}),
             routing_key="cot_parser",
             properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
         )
@@ -521,8 +663,8 @@ class EudHandler(socketserver.BaseRequestHandler):
                 ):
 
                     self.logger.debug(f"Declaring queue for {self.callsign} {self.uid}")
-                    self.rabbit_channel.queue_declare(queue=self.callsign)
-                    self.rabbit_channel.queue_declare(queue=self.uid)
+                    self.rabbit_threadsafe(self.rabbit_channel.queue_declare, queue=self.callsign)
+                    self.rabbit_threadsafe(self.rabbit_channel.queue_declare, queue=self.uid)
 
                     with self.app.app_context():
                         if self.is_ssl:
@@ -535,8 +677,11 @@ class EudHandler(socketserver.BaseRequestHandler):
                                 self.logger.debug(
                                     f"{self.callsign} doesn't belong to any groups, adding them to the __ANON__ group"
                                 )
-                                self.rabbit_channel.queue_bind(
-                                    exchange="groups", queue=self.uid, routing_key="__ANON__.OUT"
+                                self.rabbit_threadsafe(
+                                    self.rabbit_channel.queue_bind,
+                                    exchange="groups",
+                                    queue=self.uid,
+                                    routing_key="__ANON__.OUT",
                                 )
                                 if {
                                     "exchange": "groups",
@@ -557,7 +702,8 @@ class EudHandler(socketserver.BaseRequestHandler):
                                     self.group_memberships.append(membership)
 
                                     if membership.enabled:
-                                        self.rabbit_channel.queue_bind(
+                                        self.rabbit_threadsafe(
+                                            self.rabbit_channel.queue_bind,
                                             exchange="groups",
                                             queue=self.uid,
                                             routing_key=f"{membership.group.name}.OUT",
@@ -576,8 +722,11 @@ class EudHandler(socketserver.BaseRequestHandler):
                                             }
                                         )
 
-                        self.rabbit_channel.queue_bind(
-                            exchange="missions", routing_key="missions", queue=self.uid
+                        self.rabbit_threadsafe(
+                            self.rabbit_channel.queue_bind,
+                            exchange="missions",
+                            routing_key="missions",
+                            queue=self.uid,
                         )
                         if {
                             "exchange": "missions",
@@ -593,11 +742,17 @@ class EudHandler(socketserver.BaseRequestHandler):
                             )
 
                         # The DMs queue also binds by callsign since the <dest> tag in CoT messages can be by callsign instead of UID
-                        self.rabbit_channel.queue_bind(
-                            exchange="dms", queue=self.uid, routing_key=self.uid
+                        self.rabbit_threadsafe(
+                            self.rabbit_channel.queue_bind,
+                            exchange="dms",
+                            queue=self.uid,
+                            routing_key=self.uid,
                         )
-                        self.rabbit_channel.queue_bind(
-                            exchange="dms", queue=self.callsign, routing_key=self.callsign
+                        self.rabbit_threadsafe(
+                            self.rabbit_channel.queue_bind,
+                            exchange="dms",
+                            queue=self.callsign,
+                            routing_key=self.callsign,
                         )
 
                         if {
@@ -626,8 +781,11 @@ class EudHandler(socketserver.BaseRequestHandler):
                             self.logger.debug(
                                 f"{self.callsign} is connected via TCP, adding them to the __ANON__ group"
                             )
-                            self.rabbit_channel.queue_bind(
-                                exchange="groups", queue=self.uid, routing_key="__ANON__.OUT"
+                            self.rabbit_threadsafe(
+                                self.rabbit_channel.queue_bind,
+                                exchange="groups",
+                                queue=self.uid,
+                                routing_key="__ANON__.OUT",
                             )
                             self.bound_queues.append(
                                 {
@@ -637,12 +795,20 @@ class EudHandler(socketserver.BaseRequestHandler):
                                 }
                             )
 
-                        self.rabbit_channel.basic_consume(
-                            queue=self.callsign, on_message_callback=self.on_message, auto_ack=True
-                        )
-                        self.rabbit_channel.basic_consume(
-                            queue=self.uid, on_message_callback=self.on_message, auto_ack=True
-                        )
+                        # Keep the consumer tags so close_connection() can cancel exactly these consumers
+                        for queue in (self.callsign, self.uid):
+                            consumer_tag = f"{queue}.{uuid.uuid4().hex}"
+                            self.consumer_tags.append(consumer_tag)
+                            self.rabbit_threadsafe(
+                                self.rabbit_channel.basic_consume,
+                                queue=queue,
+                                on_message_callback=self.on_message,
+                                auto_ack=True,
+                                consumer_tag=consumer_tag,
+                            )
+
+            if self.rabbit_channel and self.rabbit_channel.is_open:
+                self.queues_bound = True
 
             if "phone" in contact.attrs and contact.attrs["phone"]:
                 self.phone_number = contact.attrs["phone"]
@@ -747,7 +913,8 @@ class EudHandler(socketserver.BaseRequestHandler):
                         "binary": False,
                         "host_id": uuid.uuid4().hex,
                     }
-                    self.rabbit_channel.basic_publish(
+                    self.rabbit_threadsafe(
+                        self.rabbit_channel.basic_publish,
                         exchange="flask-socketio",
                         routing_key="",
                         body=json.dumps(message).encode(),
@@ -756,7 +923,7 @@ class EudHandler(socketserver.BaseRequestHandler):
                         ),
                     )
 
-    def unbind_rabbitmq_queues(self):
+    def unbind_rabbitmq_queues(self, keep_callsign_queue=False):
         if (
             self.uid
             and self.rabbit_channel
@@ -769,6 +936,12 @@ class EudHandler(socketserver.BaseRequestHandler):
             self.rabbit_channel.queue_unbind(queue=self.uid, exchange="groups")
 
             for bind in self.bound_queues:
+                if (
+                    keep_callsign_queue
+                    and bind["queue"] == self.callsign
+                    and bind["queue"] != self.uid
+                ):
+                    continue
                 self.rabbit_channel.queue_unbind(
                     exchange=bind["exchange"], queue=bind["queue"], routing_key=bind["routing_key"]
                 )
