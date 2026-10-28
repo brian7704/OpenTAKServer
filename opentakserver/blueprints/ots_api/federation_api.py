@@ -766,8 +766,8 @@ def create_federate_group_mapping():
 @roles_required("administrator")
 @federation_blueprint.route("/api/federation/group_mapping", methods=["DELETE"])
 def delete_federate_group_mapping():
-    federate_group_id = request.json.get("federate_group_id")
-    group_id = request.json.get("group_id")
+    federate_group_id = request.args.get("federate_group_id")
+    group_id = request.args.get("group_id")
 
     if not federate_group_id or not group_id:
         return jsonify(
