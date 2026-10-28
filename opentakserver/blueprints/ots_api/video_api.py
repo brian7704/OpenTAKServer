@@ -86,15 +86,20 @@ def download_recording():
             filename = pathlib.Path(recording.segment_path)
             return send_from_directory(filename.parent, filename.name)
         elif request.method == "DELETE":
-            os.remove(recording.segment_path)
             db.session.delete(recording)
             db.session.commit()
+            os.remove(recording.segment_path)
             return jsonify({"success": True})
         elif request.method == "HEAD":
             return "", 200
-    except:
+    except FileNotFoundError:
+        return jsonify({"success": True})
+    except BaseException as e:
         logger.error(traceback.format_exc())
-        return jsonify({"success": False, "error": gettext("Recording not found")}), 404
+        return (
+            jsonify({"success": False, "error": gettext("Failed to delete recording: %(e)s", str(e))}),
+            404,
+        )
 
 
 @video_api_blueprint.route("/api/video_streams")

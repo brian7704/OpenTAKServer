@@ -34,7 +34,7 @@ class MissionUID(db.Model):
             "cot_type": self.cot_type,
             "callsign": self.callsign,
             "iconset_path": self.iconset_path,
-            "color": self.color,
+            "color": int(self.color) if self.color is not None else -1,
             "latitude": self.latitude,
             "longitude": self.longitude,
         }
@@ -48,7 +48,7 @@ class MissionUID(db.Model):
                 "type": self.cot_type,
                 "callsign": self.callsign,
                 "iconsetPath": self.iconset_path,
-                "color": self.color,
+                "color": int(self.color) if self.color is not None else -1,
                 "location": {"lat": self.latitude, "lon": self.longitude},
             },
         }
@@ -58,6 +58,6 @@ class MissionUID(db.Model):
             "type": self.cot_type,
             "callsign": self.callsign,
             "iconsetPath": self.iconset_path,
-            "color": self.color,
+            "color": int(self.color) if self.color is not None else -1,
             "location": {"lat": self.latitude, "lon": self.longitude},
         }

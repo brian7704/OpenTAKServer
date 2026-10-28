@@ -7,22 +7,56 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-06-08 21:20-0400\n"
+"POT-Creation-Date: 2026-10-23 07:41-0400\n"
 "PO-Revision-Date: 2026-06-09 23:59+0000\n"
 "Last-Translator: Visnitz Tamás <valami@adi.hu>\n"
-"Language-Team: Hungarian <https://weblate.opentakserver.io/projects/"
-"opentakserver/opentakserver/hu/>\n"
 "Language: hu\n"
+"Language-Team: Hungarian "
+"<https://weblate.opentakserver.io/projects/opentakserver/opentakserver/hu/>"
+"\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.13.3\n"
-"Generated-By: Babel 2.17.0\n"
+"Generated-By: Babel 2.18.0\n"
 
 #: PasswordValidator.py:13 blueprints/ots_api/user_api.py:195
 msgid "Passwords should not include @ or : characters"
 msgstr "A jelszavak nem tartalmazhatnak @ or : characters"
+
+#: blueprints/marti_api/certificate_enrollment_api.py:123
+#, fuzzy
+msgid "Invalid Certificate Common Name"
+msgstr "Érvénytelen tanúsítvány"
+
+#: blueprints/marti_api/citrap_api.py:70
+#, fuzzy
+msgid "client_uid not found"
+msgstr "A videó nem található"
+
+#: blueprints/marti_api/citrap_api.py:88
+#, fuzzy
+msgid "report.xml not found"
+msgstr "A felvétel nem található"
+
+#: blueprints/marti_api/citrap_api.py:96
+#, fuzzy
+msgid "Invalid report file"
+msgstr "Érvénytelen tanúsítvány"
+
+#: blueprints/marti_api/citrap_api.py:161
+#, fuzzy, python-format
+msgid "Failed to add report"
+msgstr "Sikertelen küldetés hozzáadás:%(e)s"
+
+#: blueprints/marti_api/citrap_api.py:165
+#, fuzzy
+msgid "Failed to verify certificate"
+msgstr "Érvénytelen tanúsítvány"
+
+#: blueprints/marti_api/citrap_api.py:296
+msgid "Forbidden"
+msgstr ""
 
 #: blueprints/marti_api/cot_marti_api.py:32
 #, python-format
@@ -36,318 +70,324 @@ msgstr ""
 msgid "Invalid secago value: %(sec_ago)s"
 msgstr "Érvénytelen idő érték: %(sec_ago)s"
 
-#: blueprints/marti_api/data_package_marti_api.py:92
+#: blueprints/marti_api/data_package_marti_api.py:93
 msgid "This data package has already been uploaded"
 msgstr "Ez az adatcsomag már fel van töltve"
 
-#: blueprints/marti_api/data_package_marti_api.py:181
+#: blueprints/marti_api/data_package_marti_api.py:182
 msgid "A file is required"
 msgstr "Egy fájl megadása szükséges"
 
-#: blueprints/marti_api/data_package_marti_api.py:201
+#: blueprints/marti_api/data_package_marti_api.py:202
 #, python-format
 msgid "Invalid file extension: %(extension)s"
 msgstr "Érvénytelen fájlkiterjesztés (%(extension)s)"
 
-#: blueprints/marti_api/data_package_marti_api.py:385
+#: blueprints/marti_api/data_package_marti_api.py:215
+#, fuzzy
+msgid "Invalid file hash"
+msgstr "Érvénytelen vagy ismeretlen ujjlenyomat (hash)"
+
+#: blueprints/marti_api/data_package_marti_api.py:391
 #, python-format
 msgid "File not found: %(filename)s}"
 msgstr "%(filename)s fájl nem található"
 
-#: blueprints/marti_api/group_marti_api.py:40
+#: blueprints/marti_api/group_marti_api.py:39
 msgid "Groups are only supported on SSL connections"
 msgstr "A csoportok kizárólag SSL-kapcsolattal támogatottak %(filename)s"
 
-#: blueprints/marti_api/group_marti_api.py:109
-#: blueprints/marti_api/group_marti_api.py:167
+#: blueprints/marti_api/group_marti_api.py:108
+#: blueprints/marti_api/group_marti_api.py:166
 msgid "Please specify a groupNameFilter"
 msgstr "Kérjük, adjon meg egy csoportnév-szűrőt"
 
-#: blueprints/marti_api/group_marti_api.py:121
-#: blueprints/marti_api/group_marti_api.py:179
+#: blueprints/marti_api/group_marti_api.py:120
+#: blueprints/marti_api/group_marti_api.py:178
 #, python-format
 msgid "Please specify a groupNameFilter that starts with %(prefix)s"
 msgstr "Kérjük, adjon meg egy %(prefix)s előtaggal kezdődő Csoportnév szűrőt"
 
-#: blueprints/marti_api/group_marti_api.py:134
-#: blueprints/marti_api/group_marti_api.py:192
+#: blueprints/marti_api/group_marti_api.py:133
+#: blueprints/marti_api/group_marti_api.py:191
 msgid "groupNameFilter must end with either _READ or _WRITE"
 msgstr ""
-"A Csoportnév szűrő karakterláncnak _READ vagy _WRITE karakterlánccal kell "
-"végződnie"
+"A Csoportnév szűrő karakterláncnak _READ vagy _WRITE karakterlánccal kell"
+" végződnie"
 
-#: blueprints/marti_api/group_marti_api.py:294
+#: blueprints/marti_api/group_marti_api.py:293
 #: blueprints/ots_api/group_api.py:365 blueprints/ots_api/user_api.py:587
 msgid "Direction must be IN or OUT"
 msgstr "Az iránynak BE vagy KI-nek kell lennie"
 
-#: blueprints/marti_api/group_marti_api.py:303
+#: blueprints/marti_api/group_marti_api.py:302
 msgid "The active attribute must be true or false"
 msgstr "Az active attribútumnak igaznak vagy hamisnak kell lennie"
 
-#: blueprints/marti_api/group_marti_api.py:312
+#: blueprints/marti_api/group_marti_api.py:311
 msgid "Group name is required"
 msgstr "Csoportnév megadása kötelező"
 
-#: blueprints/marti_api/group_marti_api.py:355
+#: blueprints/marti_api/group_marti_api.py:354
 #, python-format
 msgid "%(username)s is not in the %(group_name)s group"
 msgstr "%(username)s nincs a(z) %(group_name)s csoportban"
 
-#: blueprints/marti_api/group_marti_api.py:377
+#: blueprints/marti_api/group_marti_api.py:376
 #, python-format
 msgid "Failed to update group subscriptions for %(username)s: %(e)s"
 msgstr "Nem sikerült frissíteni a(z) %(username)s csoporttagságait: %(e)s"
 
-#: blueprints/marti_api/group_marti_api.py:406
+#: blueprints/marti_api/group_marti_api.py:405
 msgid "Please provide a group name and direction"
 msgstr "Kérjük, adja meg a csoport nevét és a kommunikációs irányt"
 
-#: blueprints/marti_api/group_marti_api.py:428
+#: blueprints/marti_api/group_marti_api.py:427
 #, python-format
 msgid "No group found: %(group_name)s, %(direction)s"
 msgstr "Nem található csoport: %(group_name)s, %(direction)s"
 
-#: blueprints/marti_api/marti_api.py:107
+#: blueprints/marti_api/marti_api.py:122
 #, python-format
 msgid "No such UID: %(uid)s"
 msgstr "Nincs egyező azonosító (UID): %(uid)s"
 
-#: blueprints/marti_api/mission_marti_api.py:324
-#: blueprints/marti_api/mission_marti_api.py:1268
+#: blueprints/marti_api/mission_marti_api.py:326
+#: blueprints/marti_api/mission_marti_api.py:1277
 #, python-format
 msgid "No mission found with guid: %(mission_guid)s"
 msgstr "Nem találhatók küldetések a következő leírással: %(mission_guid)s"
 
-#: blueprints/marti_api/mission_marti_api.py:333
-#: blueprints/marti_api/mission_marti_api.py:1467
-#: blueprints/ots_api/mission_api.py:415
+#: blueprints/marti_api/mission_marti_api.py:335
+#: blueprints/marti_api/mission_marti_api.py:1481
+#: blueprints/ots_api/mission_api.py:420
 msgid "Invalid password"
 msgstr "Hibás jelszó"
 
-#: blueprints/marti_api/mission_marti_api.py:450
+#: blueprints/marti_api/mission_marti_api.py:451
 msgid "Missions are only supported on SSL connections"
 msgstr "A küldetések csak SSL-kapcsolattal támogatottak"
 
-#: blueprints/marti_api/mission_marti_api.py:464
+#: blueprints/marti_api/mission_marti_api.py:468
 msgid "Please provide a mission name and creatorUid"
 msgstr "Kérjük, adjon meg egy küldetésnevet és egy készítői azonosítót (Uid))"
 
-#: blueprints/marti_api/mission_marti_api.py:478
+#: blueprints/marti_api/mission_marti_api.py:481
 #, python-format
 msgid "Invalid creatorUid: %(creator_uid)s"
 msgstr "Érvénytelen készítői azonosító (creatorUid): %(creator_uid)s"
 
-#: blueprints/marti_api/mission_marti_api.py:529
+#: blueprints/marti_api/mission_marti_api.py:532
 #, python-format
 msgid "Group not found: %(group_name)s"
 msgstr "Nem található csoport: %(group_name)s"
 
-#: blueprints/marti_api/mission_marti_api.py:615
-#: blueprints/ots_api/mission_api.py:197
+#: blueprints/marti_api/mission_marti_api.py:624
+#: blueprints/ots_api/mission_api.py:202
 #, python-format
 msgid "Failed to add mission: %(e)s"
 msgstr "Sikertelen küldetés hozzáadás:%(e)s"
 
-#: blueprints/marti_api/mission_marti_api.py:643
+#: blueprints/marti_api/mission_marti_api.py:652
 msgid "Invalid mission name"
 msgstr "Érvénytelen küldetésnév"
 
-#: blueprints/marti_api/mission_marti_api.py:655
-#: blueprints/marti_api/mission_marti_api.py:746
-#: blueprints/marti_api/mission_marti_api.py:823
-#: blueprints/marti_api/mission_marti_api.py:952
-#: blueprints/marti_api/mission_marti_api.py:1662
-#: blueprints/marti_api/mission_marti_api.py:2075
-#: blueprints/ots_api/mission_api.py:311
+#: blueprints/marti_api/mission_marti_api.py:664
+#: blueprints/marti_api/mission_marti_api.py:755
+#: blueprints/marti_api/mission_marti_api.py:832
+#: blueprints/marti_api/mission_marti_api.py:961
+#: blueprints/marti_api/mission_marti_api.py:1676
+#: blueprints/marti_api/mission_marti_api.py:2090
+#: blueprints/ots_api/mission_api.py:316
 #, python-format
 msgid "Mission %(mission_name)s not found"
 msgstr "A %(mission_name)s küldetés nem található"
 
-#: blueprints/marti_api/mission_marti_api.py:686
-#: blueprints/marti_api/mission_marti_api.py:760
-#: blueprints/marti_api/mission_marti_api.py:1129
-#: blueprints/marti_api/mission_marti_api.py:1526
-#: blueprints/marti_api/mission_marti_api.py:2050
-#: blueprints/marti_api/mission_marti_api.py:2212
+#: blueprints/marti_api/mission_marti_api.py:695
+#: blueprints/marti_api/mission_marti_api.py:769
+#: blueprints/marti_api/mission_marti_api.py:1138
+#: blueprints/marti_api/mission_marti_api.py:1540
+#: blueprints/marti_api/mission_marti_api.py:2065
+#: blueprints/marti_api/mission_marti_api.py:2227
 msgid "Missing or invalid token"
 msgstr "Érvénytelen vagy hiányzó token"
 
-#: blueprints/marti_api/mission_marti_api.py:710
+#: blueprints/marti_api/mission_marti_api.py:719
 msgid "Only mission owners can delete missions"
 msgstr "Csak a küldetés tulajdonosai törölhetnek küldetéseket"
 
-#: blueprints/marti_api/mission_marti_api.py:770
+#: blueprints/marti_api/mission_marti_api.py:779
 msgid "Please provide the password"
 msgstr "Kérjük, adja meg a jelszavát"
 
-#: blueprints/marti_api/mission_marti_api.py:781
+#: blueprints/marti_api/mission_marti_api.py:790
 msgid "You do not have permission to change this mission's password"
 msgstr "Ennél a küldetésnél nem módosíthatod a jelszót"
 
-#: blueprints/marti_api/mission_marti_api.py:842
+#: blueprints/marti_api/mission_marti_api.py:851
 #, python-format
 msgid "No EUD found with UID %(invitee)s"
 msgstr ""
-"Nem található végberendezés (EUD) a megadott azonosítóval (UID)%(invitee)s "
-"azonosítóval"
+"Nem található végberendezés (EUD) a megadott azonosítóval "
+"(UID)%(invitee)s azonosítóval"
 
-#: blueprints/marti_api/mission_marti_api.py:857
+#: blueprints/marti_api/mission_marti_api.py:866
 #, python-format
 msgid "No EUD found with callsign %(invitee)s"
 msgstr "Nem található végberendezés (EUD) a %(invitee)s hívójellel"
 
-#: blueprints/marti_api/mission_marti_api.py:873
+#: blueprints/marti_api/mission_marti_api.py:882
 #, python-format
 msgid "No user found with username %(invitee)s"
 msgstr "Nem található felhasználó ezzel a felhasználónévvel: %(invitee)s"
 
-#: blueprints/marti_api/mission_marti_api.py:889
+#: blueprints/marti_api/mission_marti_api.py:898
 #, python-format
 msgid "No group found: %(invitee)s"
 msgstr "Nem található csoport: %(invitee)s"
 
-#: blueprints/marti_api/mission_marti_api.py:904
+#: blueprints/marti_api/mission_marti_api.py:913
 #, python-format
 msgid "Team not found: %(invitee)s"
 msgstr "Nem található csapat: %(invitee)s"
 
-#: blueprints/marti_api/mission_marti_api.py:967
+#: blueprints/marti_api/mission_marti_api.py:976
 #, python-format
 msgid "Invalid invitation type: %(invitation_type)s"
 msgstr "Érvénytelen meghívótípus: %(invitation_type)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1015
-#: blueprints/marti_api/mission_marti_api.py:1603
-#: blueprints/ots_api/mission_api.py:391
+#: blueprints/marti_api/mission_marti_api.py:1024
+#: blueprints/marti_api/mission_marti_api.py:1617
+#: blueprints/ots_api/mission_api.py:396
 #, python-format
 msgid "Mission not found: %(mission_name)s"
 msgstr "Küldetés nem található: %(mission_name)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1053
+#: blueprints/marti_api/mission_marti_api.py:1062
 #, python-format
 msgid "Invalid invitation type: %(invitation)s"
 msgstr "Érvénytelen meghívótípus: %(invitation)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1145
+#: blueprints/marti_api/mission_marti_api.py:1154
 #, python-format
 msgid "No such mission found: %(mission_name)s"
 msgstr "Nem található küldetés: %(mission_name)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1161
+#: blueprints/marti_api/mission_marti_api.py:1170
 msgid "Only mission owners can change EUD roles"
 msgstr ""
-"Csak a küldetés tulajdonosai módosíthatják végfelhasználói (EUD) szerepköreit"
+"Csak a küldetés tulajdonosai módosíthatják végfelhasználói (EUD) "
+"szerepköreit"
 
-#: blueprints/marti_api/mission_marti_api.py:1168
+#: blueprints/marti_api/mission_marti_api.py:1177
 #: blueprints/ots_api/marker_api.py:86
 msgid "Please provide a UID"
 msgstr "Kérjük, adjon meg egy egyedi végfelhasználói azonosítót (UID)"
 
-#: blueprints/marti_api/mission_marti_api.py:1176
+#: blueprints/marti_api/mission_marti_api.py:1185
 #, python-format
 msgid "Invalid UID: %(client_uid)s"
 msgstr "Érvénytelen azonosító (UID): %(client_uid)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1190
+#: blueprints/marti_api/mission_marti_api.py:1199
 #, python-format
 msgid "Invalid role: %(new_role)s"
 msgstr "Érvénytelen szerepkör: %(new_role)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1321
-#: blueprints/marti_api/mission_marti_api.py:1364
+#: blueprints/marti_api/mission_marti_api.py:1330
+#: blueprints/marti_api/mission_marti_api.py:1373
 #, python-format
 msgid "Cannot find mission %(mission_name)s"
 msgstr "Nem található a(z) %(mission_name)s küldetés"
 
-#: blueprints/marti_api/mission_marti_api.py:1376
+#: blueprints/marti_api/mission_marti_api.py:1390
 #, python-format
 msgid "Cannot find mission %(mission_guid)s"
 msgstr "Nem található a(z) %(mission_guid)s küldetés"
 
-#: blueprints/marti_api/mission_marti_api.py:1402
+#: blueprints/marti_api/mission_marti_api.py:1416
 #, python-format
 msgid "%(username)s and mission %(mission_name)s are not in the same group"
 msgstr ""
-"A %(username)s és a %(mission_name)s küldetés nem ugyanabban a csoportban "
-"található"
+"A %(username)s és a %(mission_name)s küldetés nem ugyanabban a csoportban"
+" található"
 
-#: blueprints/marti_api/mission_marti_api.py:1421
+#: blueprints/marti_api/mission_marti_api.py:1435
 #: blueprints/ots_api/mediamtx_api.py:58
 msgid "Invalid token"
 msgstr "Érvénytelen token"
 
-#: blueprints/marti_api/mission_marti_api.py:1454
+#: blueprints/marti_api/mission_marti_api.py:1468
 msgid "Missing UID"
 msgstr "Hiányzó azonosító (UID)"
 
-#: blueprints/marti_api/mission_marti_api.py:1460
+#: blueprints/marti_api/mission_marti_api.py:1474
 #, python-format
 msgid "Invalid UID: %(uid)s"
 msgstr "Érvénytelen azonosító (UID): %(uid)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1694
+#: blueprints/marti_api/mission_marti_api.py:1708
 msgid "Missing or invalid certificate"
 msgstr "Hiányzó vagy érvénytelen tanúsítvány"
 
-#: blueprints/marti_api/mission_marti_api.py:1710
+#: blueprints/marti_api/mission_marti_api.py:1713
 msgid "File name cannot be blank"
 msgstr "A fájlnév nem lehet üres"
 
-#: blueprints/marti_api/mission_marti_api.py:1744
+#: blueprints/marti_api/mission_marti_api.py:1759
 #, python-format
 msgid "%(extension)s is not an allowed file extension"
 msgstr "A(z) %(extension)s nem engedélyezett fájlkiterjesztés"
 
-#: blueprints/marti_api/mission_marti_api.py:1820
+#: blueprints/marti_api/mission_marti_api.py:1835
 #, python-format
 msgid "No content found with hash: %(content_hash)s"
 msgstr ""
 "Nem található tartalom a következő ujjlenyomattal (hash) értékkel: "
 "%(content_hash)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1865
+#: blueprints/marti_api/mission_marti_api.py:1880
 #, python-format
 msgid "No such mission: %(mission_name)s"
 msgstr "Nincs ilyen küldetés: %(mission_name)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1887
+#: blueprints/marti_api/mission_marti_api.py:1902
 #, python-format
 msgid "No such file with hash %(content_hash)s"
 msgstr "Nincsenek %(content_hash)s ujjlenyomattal (hash)-sel rendelkező fájlok"
 
-#: blueprints/marti_api/mission_marti_api.py:2103
+#: blueprints/marti_api/mission_marti_api.py:2118
 #, python-format
 msgid "UID %(uid)s not found"
 msgstr "Az %(uid)s egyedi azonosító (UID) nem található"
 
-#: blueprints/marti_api/mission_marti_api.py:2133
+#: blueprints/marti_api/mission_marti_api.py:2148
 #, python-format
 msgid "No content found with hash %(hash)s"
 msgstr "Nem található tartalom a következő ujjlenyomattal (hash): %(hash)s"
 
-#: blueprints/marti_api/mission_marti_api.py:2160
+#: blueprints/marti_api/mission_marti_api.py:2175
 #, python-format
 msgid "Failed to delete content with hash %(hash)s: %(e)s"
 msgstr ""
 "Nem sikerült törölni a %(hash)s: %(e)s ujjlenyomattal (hash) rendelkező "
 "tartalmat"
 
-#: blueprints/marti_api/video_marti_api.py:146
+#: blueprints/marti_api/video_marti_api.py:143
 msgid "Invalid Certificate"
 msgstr "Érvénytelen tanúsítvány"
 
-#: blueprints/marti_api/video_marti_api.py:209
+#: blueprints/marti_api/video_marti_api.py:194
 msgid "Video not found"
 msgstr "A videó nem található"
 
-#: blueprints/marti_api/video_marti_api.py:216
+#: blueprints/marti_api/video_marti_api.py:201
 #: blueprints/ots_api/group_api.py:209 blueprints/ots_api/user_api.py:521
 #, python-format
 msgid "User %(username)s not found"
 msgstr "A(z) %(username)s felhasználó nem található"
 
-#: blueprints/marti_api/video_marti_api.py:233
+#: blueprints/marti_api/video_marti_api.py:218
 #, python-format
 msgid "Video stream with uid %(uid)s not found"
 msgstr "Nem található a(z) %(uid)s azonosítójú (UID) videofolyam"
@@ -415,8 +455,7 @@ msgstr ""
 
 #: blueprints/ots_api/group_api.py:182
 msgid "Please provide the username, group name, and direction"
-msgstr ""
-"Kérjük, add meg a felhasználónevet, csoportnevet és a kommunikáció irányát"
+msgstr "Kérjük, add meg a felhasználónevet, csoportnevet és a kommunikáció irányát"
 
 #: blueprints/ots_api/group_api.py:197
 #, python-format
@@ -432,8 +471,8 @@ msgstr "A(z) %(group_name)s csoport nem található"
 #, python-format
 msgid "Failed to remove %(username)s from %(group_name)s: %(e)s"
 msgstr ""
-"Nem sikerült eltávolítani a(z) %(username)s felhasználót a(z) %(group_name)s "
-"csoportból: %(e)s"
+"Nem sikerült eltávolítani a(z) %(username)s felhasználót a(z) "
+"%(group_name)s csoportból: %(e)s"
 
 #: blueprints/ots_api/group_api.py:274
 msgid "LDAP is enabled, please use your LDAP server to add groups"
@@ -464,7 +503,8 @@ msgstr ""
 #: blueprints/ots_api/group_api.py:358
 msgid "Please provide a list of users, group name, and direction"
 msgstr ""
-"Kérjük, add meg a felhasználók listáját, a csoport nevét és az adatok irányát"
+"Kérjük, add meg a felhasználók listáját, a csoport nevét és az adatok "
+"irányát"
 
 #: blueprints/ots_api/group_api.py:374 blueprints/ots_api/user_api.py:249
 #: blueprints/ots_api/user_api.py:299 blueprints/ots_api/user_api.py:365
@@ -481,7 +521,8 @@ msgstr "A(z) %(group_name)s csoport nem létezik"
 #: blueprints/ots_api/group_api.py:417
 msgid "LDAP is enabled, please use your LDAP server to delete groups"
 msgstr ""
-"Az LDAP engedélyezve van, csoportok törléséhez használd az LDAP-kiszolgálót"
+"Az LDAP engedélyezve van, csoportok törléséhez használd az LDAP-"
+"kiszolgálót"
 
 #: blueprints/ots_api/group_api.py:425
 msgid "Missing group name"
@@ -531,24 +572,24 @@ msgstr "Kérjük, adj meg egy nevet"
 #: blueprints/ots_api/marker_api.py:96
 msgid "Invalid UID. UIDs need to be in UUID4 format"
 msgstr ""
-"Érvénytelen az UID. Az egyedi azonosítóknak UUID4 formátumúaknak kell lenniük"
+"Érvénytelen az UID. Az egyedi azonosítóknak UUID4 formátumúaknak kell "
+"lenniük"
 
 #: blueprints/ots_api/marker_api.py:112
 #, python-format
 msgid "Invalid type: %(cot_type)s"
 msgstr "Érvénytelen típus: %(cot_type)s"
 
-#: blueprints/ots_api/marker_api.py:269
+#: blueprints/ots_api/marker_api.py:270
 #, python-format
 msgid "Failed to parse data: %(e)s"
 msgstr "Nem sikerült elemezni az adatokat: %(e)s"
 
-#: blueprints/ots_api/marker_api.py:283
+#: blueprints/ots_api/marker_api.py:284
 msgid "Please provide the UID of the marker to delete"
-msgstr ""
-"Kérjük, add meg a törölni kívánt jelölő (marker) egyedi azonosítóját (UID)"
+msgstr "Kérjük, add meg a törölni kívánt jelölő (marker) egyedi azonosítóját (UID)"
 
-#: blueprints/ots_api/marker_api.py:294
+#: blueprints/ots_api/marker_api.py:295
 msgid "Unknown UID"
 msgstr "Ismeretlen azonosító (UID)"
 
@@ -575,22 +616,22 @@ msgstr "A MediaMTX (szerver) nem fut"
 msgid "Please provide the URL of the channel to delete"
 msgstr "Kérjük, add meg a törlendő csatorna URL-címét"
 
-#: blueprints/ots_api/mission_api.py:163 blueprints/ots_api/mission_api.py:283
+#: blueprints/ots_api/mission_api.py:163 blueprints/ots_api/mission_api.py:288
 #, python-format
 msgid "Invalid property: %(key)s"
 msgstr "Érvénytelen tulajdonság: %(key)s"
 
-#: blueprints/ots_api/mission_api.py:255
+#: blueprints/ots_api/mission_api.py:260
 msgid "Only an admin or the mission creator can change this mission"
 msgstr ""
 "Csak egy adminisztrátor vagy a küldetés létrehozója szerkesztheti ezt a "
 "küldetést"
 
-#: blueprints/ots_api/mission_api.py:300
+#: blueprints/ots_api/mission_api.py:305
 msgid "Please specify a mission name"
 msgstr "Kérjük, add meg a küldetés nevét"
 
-#: blueprints/ots_api/mission_api.py:406
+#: blueprints/ots_api/mission_api.py:411
 msgid "Please provide the mission password"
 msgstr "Kérlek, add meg a küldetés jelszavát"
 
@@ -610,12 +651,12 @@ msgstr "A bővítmények le vannak tiltva"
 msgid "Plugin %(plugin_name)s not found"
 msgstr "A(z) %(plugin_name)s bővítmény nem található"
 
-#: blueprints/ots_api/token_api.py:194
+#: blueprints/ots_api/token_api.py:198
 #, python-format
 msgid "No token found for %(username)s"
 msgstr "Nem található token a következőhöz: %(username)s"
 
-#: blueprints/ots_api/token_api.py:225
+#: blueprints/ots_api/token_api.py:229
 #, python-format
 msgid "Failed to delete token: %(e)s"
 msgstr "Nem sikerült törölni a(z) %(e)s tokent"
@@ -682,8 +723,8 @@ msgstr "Nem található a(z) %(username)s felhasználó"
 #: blueprints/ots_api/user_api.py:227
 msgid "LDAP is enabled, please use your LDAP server to deactivate users"
 msgstr ""
-"Az LDAP engedélyezve van, kérjük, az LDAP-kiszolgáló segítségével tiltsd le "
-"a felhasználókat"
+"Az LDAP engedélyezve van, kérjük, az LDAP-kiszolgáló segítségével tiltsd "
+"le a felhasználókat"
 
 #: blueprints/ots_api/user_api.py:238
 msgid "Please specify the username to deactivate"
@@ -748,8 +789,8 @@ msgstr "Kérjük, adj meg egy felhasználónevet"
 #: blueprints/ots_api/user_api.py:579
 msgid "Please provide a list of groups, a username, and a direction"
 msgstr ""
-"Kérjük, add meg a csoportok listáját, a felhasználónevet és az kommunikációs "
-"irányt"
+"Kérjük, add meg a csoportok listáját, a felhasználónevet és az "
+"kommunikációs irányt"
 
 #: blueprints/ots_api/user_api.py:595
 #, python-format
@@ -774,6 +815,11 @@ msgstr "Érvénytelen felvételazonosító: %(recording_id)s"
 msgid "Recording not found"
 msgstr "A felvétel nem található"
 
+#: eud_handler/eud_handler.py:31
+msgid "Enable SSL"
+msgstr ""
+
 #: eud_handler/eud_handler.py:34
 msgid "UDP Server"
 msgstr "UDP-kiszolgáló"
+

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-02-26 10:44-0500\n"
+"POT-Creation-Date: 2026-10-23 07:41-0400\n"
 "PO-Revision-Date: 2026-03-24 12:00+0100\n"
 "Last-Translator: Jonas Engström <jonas@signalist.se>\n"
 "Language: sv\n"
@@ -16,7 +16,45 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.15.0\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: PasswordValidator.py:13 blueprints/ots_api/user_api.py:195
+msgid "Passwords should not include @ or : characters"
+msgstr ""
+
+#: blueprints/marti_api/certificate_enrollment_api.py:123
+#, fuzzy
+msgid "Invalid Certificate Common Name"
+msgstr "Ogiltigt certifikat"
+
+#: blueprints/marti_api/citrap_api.py:70
+#, fuzzy
+msgid "client_uid not found"
+msgstr "Videon hittades inte"
+
+#: blueprints/marti_api/citrap_api.py:88
+#, fuzzy
+msgid "report.xml not found"
+msgstr "Inspelningen hittades inte"
+
+#: blueprints/marti_api/citrap_api.py:96
+#, fuzzy
+msgid "Invalid report file"
+msgstr "Ogiltigt certifikat"
+
+#: blueprints/marti_api/citrap_api.py:161
+#, fuzzy, python-format
+msgid "Failed to add report"
+msgstr "Misslyckades med att lägga till uppdrag: %(e)s"
+
+#: blueprints/marti_api/citrap_api.py:165
+#, fuzzy
+msgid "Failed to verify certificate"
+msgstr "Ogiltigt certifikat"
+
+#: blueprints/marti_api/citrap_api.py:296
+msgid "Forbidden"
+msgstr ""
 
 #: blueprints/marti_api/cot_marti_api.py:32
 #, python-format
@@ -28,340 +66,341 @@ msgstr "Ingen CoT hittades för UID %(uid)s"
 msgid "Invalid secago value: %(sec_ago)s"
 msgstr "Ogiltigt secago-värde: %(sec_ago)s"
 
-#: blueprints/marti_api/data_package_marti_api.py:92
+#: blueprints/marti_api/data_package_marti_api.py:93
 msgid "This data package has already been uploaded"
 msgstr "Detta datapaket har redan laddats upp"
 
-#: blueprints/marti_api/data_package_marti_api.py:181
+#: blueprints/marti_api/data_package_marti_api.py:182
 msgid "A file is required"
 msgstr "En fil krävs"
 
-#: blueprints/marti_api/data_package_marti_api.py:200
+#: blueprints/marti_api/data_package_marti_api.py:202
 #, python-format
 msgid "Invalid file extension: %(extension)s"
 msgstr "Ogiltig filändelse: %(extension)s"
 
-#: blueprints/marti_api/data_package_marti_api.py:385
+#: blueprints/marti_api/data_package_marti_api.py:215
+#, fuzzy
+msgid "Invalid file hash"
+msgstr "Ogiltig/okänd hash"
+
+#: blueprints/marti_api/data_package_marti_api.py:391
 #, python-format
 msgid "File not found: %(filename)s}"
 msgstr "Filen hittades inte: %(filename)s}"
 
-#: blueprints/marti_api/group_marti_api.py:40
+#: blueprints/marti_api/group_marti_api.py:39
 msgid "Groups are only supported on SSL connections"
 msgstr "Grupper stöds bara på SSL-anslutningar"
 
-#: blueprints/marti_api/group_marti_api.py:109
-#: blueprints/marti_api/group_marti_api.py:167
+#: blueprints/marti_api/group_marti_api.py:108
+#: blueprints/marti_api/group_marti_api.py:166
 msgid "Please specify a groupNameFilter"
 msgstr "Ange ett groupNameFilter"
 
-#: blueprints/marti_api/group_marti_api.py:122
-#: blueprints/marti_api/group_marti_api.py:180
+#: blueprints/marti_api/group_marti_api.py:120
+#: blueprints/marti_api/group_marti_api.py:178
 #, python-format
 msgid "Please specify a groupNameFilter that starts with %(prefix)s"
 msgstr "Ange ett groupNameFilter som börjar med %(prefix)s"
 
-#: blueprints/marti_api/group_marti_api.py:134
-#: blueprints/marti_api/group_marti_api.py:192
+#: blueprints/marti_api/group_marti_api.py:133
+#: blueprints/marti_api/group_marti_api.py:191
 msgid "groupNameFilter must end with either _READ or _WRITE"
 msgstr "groupNameFilter måste sluta med antingen _READ eller _WRITE"
 
-#: blueprints/marti_api/group_marti_api.py:246
-msgid "clientUid required"
-msgstr "clientUid krävs"
-
-#: blueprints/marti_api/group_marti_api.py:274
-#: blueprints/ots_api/group_api.py:365 blueprints/ots_api/user_api.py:574
+#: blueprints/marti_api/group_marti_api.py:293
+#: blueprints/ots_api/group_api.py:365 blueprints/ots_api/user_api.py:587
 msgid "Direction must be IN or OUT"
 msgstr "Riktning måste vara IN eller OUT"
 
-#: blueprints/marti_api/group_marti_api.py:283
+#: blueprints/marti_api/group_marti_api.py:302
 msgid "The active attribute must be true or false"
 msgstr "Attributet active måste vara true eller false"
 
-#: blueprints/marti_api/group_marti_api.py:292
+#: blueprints/marti_api/group_marti_api.py:311
 msgid "Group name is required"
 msgstr "Gruppnamn krävs"
 
-#: blueprints/marti_api/group_marti_api.py:331
+#: blueprints/marti_api/group_marti_api.py:354
 #, python-format
 msgid "%(username)s is not in the %(group_name)s group"
 msgstr "%(username)s är inte med i gruppen %(group_name)s"
 
-#: blueprints/marti_api/group_marti_api.py:356
+#: blueprints/marti_api/group_marti_api.py:376
 #, python-format
 msgid "Failed to update group subscriptions for %(username)s: %(e)s"
 msgstr "Misslyckades med att uppdatera gruppabonnemang för %(username)s: %(e)s"
 
-#: blueprints/marti_api/group_marti_api.py:383
+#: blueprints/marti_api/group_marti_api.py:405
 msgid "Please provide a group name and direction"
 msgstr "Ange ett gruppnamn och en riktning"
 
-#: blueprints/marti_api/group_marti_api.py:404
+#: blueprints/marti_api/group_marti_api.py:427
 #, python-format
 msgid "No group found: %(group_name)s, %(direction)s"
 msgstr "Ingen grupp hittades: %(group_name)s, %(direction)s"
 
-#: blueprints/marti_api/marti_api.py:108
+#: blueprints/marti_api/marti_api.py:122
 #, python-format
 msgid "No such UID: %(uid)s"
 msgstr "Inget sådant UID: %(uid)s"
 
-#: blueprints/marti_api/mission_marti_api.py:323
-#: blueprints/marti_api/mission_marti_api.py:1256
+#: blueprints/marti_api/mission_marti_api.py:326
+#: blueprints/marti_api/mission_marti_api.py:1277
 #, python-format
 msgid "No mission found with guid: %(mission_guid)s"
 msgstr "Inget uppdrag hittades med guid: %(mission_guid)s"
 
-#: blueprints/marti_api/mission_marti_api.py:333
-#: blueprints/marti_api/mission_marti_api.py:1456
-#: blueprints/ots_api/mission_api.py:409
+#: blueprints/marti_api/mission_marti_api.py:335
+#: blueprints/marti_api/mission_marti_api.py:1481
+#: blueprints/ots_api/mission_api.py:420
 msgid "Invalid password"
 msgstr "Ogiltigt lösenord"
 
-#: blueprints/marti_api/mission_marti_api.py:439
+#: blueprints/marti_api/mission_marti_api.py:451
 msgid "Missions are only supported on SSL connections"
 msgstr "Uppdrag stöds bara på SSL-anslutningar"
 
-#: blueprints/marti_api/mission_marti_api.py:453
+#: blueprints/marti_api/mission_marti_api.py:468
 msgid "Please provide a mission name and creatorUid"
 msgstr "Ange ett uppdragsnamn och ett creatorUid"
 
-#: blueprints/marti_api/mission_marti_api.py:468
+#: blueprints/marti_api/mission_marti_api.py:481
 #, python-format
 msgid "Invalid creatorUid: %(creator_uid)s"
 msgstr "Ogiltigt creatorUid: %(creator_uid)s"
 
-#: blueprints/marti_api/mission_marti_api.py:517
+#: blueprints/marti_api/mission_marti_api.py:532
 #, python-format
 msgid "Group not found: %(group_name)s"
 msgstr "Gruppen hittades inte: %(group_name)s"
 
-#: blueprints/marti_api/mission_marti_api.py:604
-#: blueprints/ots_api/mission_api.py:197
+#: blueprints/marti_api/mission_marti_api.py:624
+#: blueprints/ots_api/mission_api.py:202
 #, python-format
 msgid "Failed to add mission: %(e)s"
 msgstr "Misslyckades med att lägga till uppdrag: %(e)s"
 
-#: blueprints/marti_api/mission_marti_api.py:632
+#: blueprints/marti_api/mission_marti_api.py:652
 msgid "Invalid mission name"
 msgstr "Ogiltigt uppdragsnamn"
 
-#: blueprints/marti_api/mission_marti_api.py:643
-#: blueprints/marti_api/mission_marti_api.py:734
-#: blueprints/marti_api/mission_marti_api.py:811
-#: blueprints/marti_api/mission_marti_api.py:940
-#: blueprints/marti_api/mission_marti_api.py:1650
-#: blueprints/marti_api/mission_marti_api.py:2046
-#: blueprints/ots_api/mission_api.py:308
+#: blueprints/marti_api/mission_marti_api.py:664
+#: blueprints/marti_api/mission_marti_api.py:755
+#: blueprints/marti_api/mission_marti_api.py:832
+#: blueprints/marti_api/mission_marti_api.py:961
+#: blueprints/marti_api/mission_marti_api.py:1676
+#: blueprints/marti_api/mission_marti_api.py:2090
+#: blueprints/ots_api/mission_api.py:316
 #, python-format
 msgid "Mission %(mission_name)s not found"
 msgstr "Uppdraget %(mission_name)s hittades inte"
 
-#: blueprints/marti_api/mission_marti_api.py:675
-#: blueprints/marti_api/mission_marti_api.py:749
-#: blueprints/marti_api/mission_marti_api.py:1118
-#: blueprints/marti_api/mission_marti_api.py:1515
-#: blueprints/marti_api/mission_marti_api.py:2031
-#: blueprints/marti_api/mission_marti_api.py:2183
+#: blueprints/marti_api/mission_marti_api.py:695
+#: blueprints/marti_api/mission_marti_api.py:769
+#: blueprints/marti_api/mission_marti_api.py:1138
+#: blueprints/marti_api/mission_marti_api.py:1540
+#: blueprints/marti_api/mission_marti_api.py:2065
+#: blueprints/marti_api/mission_marti_api.py:2227
 msgid "Missing or invalid token"
 msgstr "Token saknas eller är ogiltig"
 
-#: blueprints/marti_api/mission_marti_api.py:699
+#: blueprints/marti_api/mission_marti_api.py:719
 msgid "Only mission owners can delete missions"
 msgstr "Bara uppdragsägare kan ta bort uppdrag"
 
-#: blueprints/marti_api/mission_marti_api.py:759
+#: blueprints/marti_api/mission_marti_api.py:779
 msgid "Please provide the password"
 msgstr "Ange lösenordet"
 
-#: blueprints/marti_api/mission_marti_api.py:769
+#: blueprints/marti_api/mission_marti_api.py:790
 msgid "You do not have permission to change this mission's password"
 msgstr "Du har inte behörighet att ändra lösenordet för detta uppdrag"
 
-#: blueprints/marti_api/mission_marti_api.py:831
+#: blueprints/marti_api/mission_marti_api.py:851
 #, python-format
 msgid "No EUD found with UID %(invitee)s"
 msgstr "Ingen EUD hittades med UID %(invitee)s"
 
-#: blueprints/marti_api/mission_marti_api.py:846
+#: blueprints/marti_api/mission_marti_api.py:866
 #, python-format
 msgid "No EUD found with callsign %(invitee)s"
 msgstr "Ingen EUD hittades med anropssignal %(invitee)s"
 
-#: blueprints/marti_api/mission_marti_api.py:861
+#: blueprints/marti_api/mission_marti_api.py:882
 #, python-format
 msgid "No user found with username %(invitee)s"
 msgstr "Ingen användare hittades med användarnamnet %(invitee)s"
 
-#: blueprints/marti_api/mission_marti_api.py:878
+#: blueprints/marti_api/mission_marti_api.py:898
 #, python-format
 msgid "No group found: %(invitee)s"
 msgstr "Ingen grupp hittades: %(invitee)s"
 
-#: blueprints/marti_api/mission_marti_api.py:893
+#: blueprints/marti_api/mission_marti_api.py:913
 #, python-format
 msgid "Team not found: %(invitee)s"
 msgstr "Laget hittades inte: %(invitee)s"
 
-#: blueprints/marti_api/mission_marti_api.py:955
+#: blueprints/marti_api/mission_marti_api.py:976
 #, python-format
 msgid "Invalid invitation type: %(invitation_type)s"
 msgstr "Ogiltig inbjudningstyp: %(invitation_type)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1003
-#: blueprints/marti_api/mission_marti_api.py:1591
-#: blueprints/ots_api/mission_api.py:384
+#: blueprints/marti_api/mission_marti_api.py:1024
+#: blueprints/marti_api/mission_marti_api.py:1617
+#: blueprints/ots_api/mission_api.py:396
 #, python-format
 msgid "Mission not found: %(mission_name)s"
 msgstr "Uppdraget hittades inte: %(mission_name)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1041
+#: blueprints/marti_api/mission_marti_api.py:1062
 #, python-format
 msgid "Invalid invitation type: %(invitation)s"
 msgstr "Ogiltig inbjudningstyp: %(invitation)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1133
+#: blueprints/marti_api/mission_marti_api.py:1154
 #, python-format
 msgid "No such mission found: %(mission_name)s"
 msgstr "Inget sådant uppdrag hittades: %(mission_name)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1150
+#: blueprints/marti_api/mission_marti_api.py:1170
 msgid "Only mission owners can change EUD roles"
 msgstr "Bara uppdragsägare kan ändra EUD-roller"
 
-#: blueprints/marti_api/mission_marti_api.py:1157
+#: blueprints/marti_api/mission_marti_api.py:1177
 #: blueprints/ots_api/marker_api.py:86
 msgid "Please provide a UID"
 msgstr "Ange ett UID"
 
-#: blueprints/marti_api/mission_marti_api.py:1165
+#: blueprints/marti_api/mission_marti_api.py:1185
 #, python-format
 msgid "Invalid UID: %(client_uid)s"
 msgstr "Ogiltigt UID: %(client_uid)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1179
+#: blueprints/marti_api/mission_marti_api.py:1199
 #, python-format
 msgid "Invalid role: %(new_role)s"
 msgstr "Ogiltig roll: %(new_role)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1309
-#: blueprints/marti_api/mission_marti_api.py:1352
+#: blueprints/marti_api/mission_marti_api.py:1330
+#: blueprints/marti_api/mission_marti_api.py:1373
 #, python-format
 msgid "Cannot find mission %(mission_name)s"
 msgstr "Kan inte hitta uppdraget %(mission_name)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1364
+#: blueprints/marti_api/mission_marti_api.py:1390
 #, python-format
 msgid "Cannot find mission %(mission_guid)s"
 msgstr "Kan inte hitta uppdraget %(mission_guid)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1390
+#: blueprints/marti_api/mission_marti_api.py:1416
 #, python-format
 msgid "%(username)s and mission %(mission_name)s are not in the same group"
 msgstr "%(username)s och uppdraget %(mission_name)s är inte i samma grupp"
 
-#: blueprints/marti_api/mission_marti_api.py:1410
+#: blueprints/marti_api/mission_marti_api.py:1435
 #: blueprints/ots_api/mediamtx_api.py:58
 msgid "Invalid token"
 msgstr "Ogiltig token"
 
-#: blueprints/marti_api/mission_marti_api.py:1443
+#: blueprints/marti_api/mission_marti_api.py:1468
 msgid "Missing UID"
 msgstr "UID saknas"
 
-#: blueprints/marti_api/mission_marti_api.py:1449
+#: blueprints/marti_api/mission_marti_api.py:1474
 #, python-format
 msgid "Invalid UID: %(uid)s"
 msgstr "Ogiltigt UID: %(uid)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1683
+#: blueprints/marti_api/mission_marti_api.py:1708
 msgid "Missing or invalid certificate"
 msgstr "Certifikat saknas eller är ogiltigt"
 
-#: blueprints/marti_api/mission_marti_api.py:1699
+#: blueprints/marti_api/mission_marti_api.py:1713
 msgid "File name cannot be blank"
 msgstr "Filnamn får inte vara tomt"
 
-#: blueprints/marti_api/mission_marti_api.py:1732
+#: blueprints/marti_api/mission_marti_api.py:1759
 #, python-format
 msgid "%(extension)s is not an allowed file extension"
 msgstr "%(extension)s är inte en tillåten filändelse"
 
-#: blueprints/marti_api/mission_marti_api.py:1808
+#: blueprints/marti_api/mission_marti_api.py:1835
 #, python-format
 msgid "No content found with hash: %(content_hash)s"
 msgstr "Inget innehåll hittades med hash: %(content_hash)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1847
+#: blueprints/marti_api/mission_marti_api.py:1880
 #, python-format
 msgid "No such mission: %(mission_name)s"
 msgstr "Inget sådant uppdrag: %(mission_name)s"
 
-#: blueprints/marti_api/mission_marti_api.py:1868
+#: blueprints/marti_api/mission_marti_api.py:1902
 #, python-format
 msgid "No such file with hash %(content_hash)s"
 msgstr "Ingen sådan fil med hash %(content_hash)s"
 
-#: blueprints/marti_api/mission_marti_api.py:2074
+#: blueprints/marti_api/mission_marti_api.py:2118
 #, python-format
 msgid "UID %(uid)s not found"
 msgstr "UID %(uid)s hittades inte"
 
-#: blueprints/marti_api/mission_marti_api.py:2104
+#: blueprints/marti_api/mission_marti_api.py:2148
 #, python-format
 msgid "No content found with hash %(hash)s"
 msgstr "Inget innehåll hittades med hash %(hash)s"
 
-#: blueprints/marti_api/mission_marti_api.py:2133
+#: blueprints/marti_api/mission_marti_api.py:2175
 #, python-format
 msgid "Failed to delete content with hash %(hash)s: %(e)s"
 msgstr "Misslyckades med att ta bort innehåll med hash %(hash)s: %(e)s"
 
-#: blueprints/marti_api/video_marti_api.py:146
+#: blueprints/marti_api/video_marti_api.py:143
 msgid "Invalid Certificate"
 msgstr "Ogiltigt certifikat"
 
-#: blueprints/marti_api/video_marti_api.py:209
+#: blueprints/marti_api/video_marti_api.py:194
 msgid "Video not found"
 msgstr "Videon hittades inte"
 
-#: blueprints/marti_api/video_marti_api.py:216
-#: blueprints/ots_api/group_api.py:209 blueprints/ots_api/user_api.py:508
+#: blueprints/marti_api/video_marti_api.py:201
+#: blueprints/ots_api/group_api.py:209 blueprints/ots_api/user_api.py:521
 #, python-format
 msgid "User %(username)s not found"
 msgstr "Användaren %(username)s hittades inte"
 
-#: blueprints/marti_api/video_marti_api.py:233
+#: blueprints/marti_api/video_marti_api.py:218
 #, python-format
 msgid "Video stream with uid %(uid)s not found"
 msgstr "Videoström med uid %(uid)s hittades inte"
 
-#: blueprints/ots_api/api.py:82
+#: blueprints/ots_api/api.py:93
 #, python-format
 msgid "Invalid sort column: %(sort_by)s"
 msgstr "Ogiltig sorteringskolumn: %(sort_by)s"
 
-#: blueprints/ots_api/api.py:283
+#: blueprints/ots_api/api.py:294
 #, python-format
 msgid "Invalid username: %(username)s"
 msgstr "Ogiltigt användarnamn: %(username)s"
 
-#: blueprints/ots_api/api.py:324
+#: blueprints/ots_api/api.py:336
 #, python-format
 msgid "Certificate already exists for %(username)s"
 msgstr "Certifikat finns redan för %(username)s"
 
-#: blueprints/ots_api/api.py:360
+#: blueprints/ots_api/api.py:371
 msgid "Please specify a callsign"
 msgstr "Ange en anropssignal"
 
-#: blueprints/ots_api/casevac_api.py:148
+#: blueprints/ots_api/casevac_api.py:134
 #, python-format
 msgid "Unknown UID: %(uid)s"
 msgstr "Okänt UID: %(uid)s"
 
-#: blueprints/ots_api/data_package_api.py:47
+#: blueprints/ots_api/data_package_api.py:48
 msgid ""
 "Server connection data packages can't be installed on enrollment or "
 "connection"
@@ -382,17 +421,17 @@ msgstr "Ange en hash för datapaketet"
 msgid "Data package with hash '%(hash)s' not found"
 msgstr "Datapaket med hash '%(hash)s' hittades inte"
 
-#: blueprints/ots_api/device_profile_api.py:61
+#: blueprints/ots_api/device_profile_api.py:68
 msgid "Please specify the preference_key"
 msgstr "Ange preference_key"
 
-#: blueprints/ots_api/device_profile_api.py:74
+#: blueprints/ots_api/device_profile_api.py:82
 #, python-format
 msgid "Unknown preference_key: %(preference_key)s"
 msgstr "Okänd preference_key: %(preference_key)s"
 
-#: blueprints/ots_api/group_api.py:41 blueprints/ots_api/group_api.py:124
-#: blueprints/ots_api/group_api.py:165
+#: blueprints/ots_api/group_api.py:42 blueprints/ots_api/group_api.py:125
+#: blueprints/ots_api/group_api.py:166
 msgid "LDAP is enabled. Please view and edit groups on your LDAP server"
 msgstr "LDAP är aktiverat. Visa och redigera grupper på din LDAP-server"
 
@@ -410,7 +449,7 @@ msgstr "Ogiltig riktning: %(direction)s"
 msgid "Group %(group_name)s not found"
 msgstr "Gruppen %(group_name)s hittades inte"
 
-#: blueprints/ots_api/group_api.py:253
+#: blueprints/ots_api/group_api.py:250
 #, python-format
 msgid "Failed to remove %(username)s from %(group_name)s: %(e)s"
 msgstr "Misslyckades med att ta bort %(username)s från %(group_name)s: %(e)s"
@@ -433,27 +472,29 @@ msgstr "Gruppen %(name)s finns redan"
 msgid "Failed to add %(name)s group: %(e)s"
 msgstr "Misslyckades med att lägga till gruppen %(name)s: %(e)s"
 
-#: blueprints/ots_api/group_api.py:341 blueprints/ots_api/user_api.py:548
+#: blueprints/ots_api/group_api.py:342 blueprints/ots_api/user_api.py:562
 msgid "LDAP is enabled, please use your LDAP server to add users to groups"
-msgstr "LDAP är aktiverat, använd din LDAP-server för att lägga till användare i grupper"
+msgstr ""
+"LDAP är aktiverat, använd din LDAP-server för att lägga till användare i "
+"grupper"
 
 #: blueprints/ots_api/group_api.py:358
 msgid "Please provide a list of users, group name, and direction"
 msgstr "Ange en lista med användare, gruppnamn och riktning"
 
-#: blueprints/ots_api/group_api.py:374 blueprints/ots_api/user_api.py:236
-#: blueprints/ots_api/user_api.py:286 blueprints/ots_api/user_api.py:352
-#: blueprints/ots_api/user_api.py:390
+#: blueprints/ots_api/group_api.py:374 blueprints/ots_api/user_api.py:249
+#: blueprints/ots_api/user_api.py:299 blueprints/ots_api/user_api.py:365
+#: blueprints/ots_api/user_api.py:403
 #, python-format
 msgid "User %(username)s does not exist"
 msgstr "Användaren %(username)s finns inte"
 
-#: blueprints/ots_api/group_api.py:386
+#: blueprints/ots_api/group_api.py:387
 #, python-format
 msgid "Group %(group_name)s does not exist"
 msgstr "Gruppen %(group_name)s finns inte"
 
-#: blueprints/ots_api/group_api.py:416
+#: blueprints/ots_api/group_api.py:417
 msgid "LDAP is enabled, please use your LDAP server to delete groups"
 msgstr "LDAP är aktiverat, använd din LDAP-server för att ta bort grupper"
 
@@ -465,12 +506,12 @@ msgstr "Gruppnamn saknas"
 msgid "The __ANON__ group cannot be deleted"
 msgstr "Gruppen __ANON__ kan inte tas bort"
 
-#: blueprints/ots_api/group_api.py:443
+#: blueprints/ots_api/group_api.py:442
 #, python-format
 msgid "No such group: %(group_name)s"
 msgstr "Ingen sådan grupp: %(group_name)s"
 
-#: blueprints/ots_api/group_api.py:465
+#: blueprints/ots_api/group_api.py:463
 #, python-format
 msgid "Failed to delete %(group_name)s: %(e)s"
 msgstr "Misslyckades med att ta bort %(group_name)s: %(e)s"
@@ -483,12 +524,12 @@ msgstr "Detta är ett test"
 msgid "Please provide a latitude and longitude"
 msgstr "Ange latitud och longitud"
 
-#: blueprints/ots_api/marker_api.py:57
+#: blueprints/ots_api/marker_api.py:58
 #, python-format
 msgid "Invalid latitude: %(latitude)s"
 msgstr "Ogiltig latitud: %(latitude)s"
 
-#: blueprints/ots_api/marker_api.py:69
+#: blueprints/ots_api/marker_api.py:70
 #, python-format
 msgid "Invalid longitude: %(longitude)s"
 msgstr "Ogiltig longitud: %(longitude)s"
@@ -511,16 +552,16 @@ msgstr "Ogiltigt UID. UID:n måste vara i UUID4-format"
 msgid "Invalid type: %(cot_type)s"
 msgstr "Ogiltig typ: %(cot_type)s"
 
-#: blueprints/ots_api/marker_api.py:269
+#: blueprints/ots_api/marker_api.py:270
 #, python-format
 msgid "Failed to parse data: %(e)s"
 msgstr "Misslyckades med att tolka data: %(e)s"
 
-#: blueprints/ots_api/marker_api.py:283
+#: blueprints/ots_api/marker_api.py:284
 msgid "Please provide the UID of the marker to delete"
 msgstr "Ange UID för markören som ska tas bort"
 
-#: blueprints/ots_api/marker_api.py:294
+#: blueprints/ots_api/marker_api.py:295
 msgid "Unknown UID"
 msgstr "Okänt UID"
 
@@ -547,24 +588,24 @@ msgstr "MediaMTX körs inte"
 msgid "Please provide the URL of the channel to delete"
 msgstr "Ange URL:en för kanalen som ska tas bort"
 
-#: blueprints/ots_api/mission_api.py:163 blueprints/ots_api/mission_api.py:281
+#: blueprints/ots_api/mission_api.py:163 blueprints/ots_api/mission_api.py:288
 #, python-format
 msgid "Invalid property: %(key)s"
 msgstr "Ogiltig egenskap: %(key)s"
 
-#: blueprints/ots_api/mission_api.py:254
+#: blueprints/ots_api/mission_api.py:260
 msgid "Only an admin or the mission creator can change this mission"
 msgstr "Bara en administratör eller uppdragsskaparen kan ändra detta uppdrag"
 
-#: blueprints/ots_api/mission_api.py:298
+#: blueprints/ots_api/mission_api.py:305
 msgid "Please specify a mission name"
 msgstr "Ange ett uppdragsnamn"
 
-#: blueprints/ots_api/mission_api.py:400
+#: blueprints/ots_api/mission_api.py:411
 msgid "Please provide the mission password"
 msgstr "Ange uppdragslösenordet"
 
-#: blueprints/ots_api/plugin_api.py:50
+#: blueprints/ots_api/plugin_api.py:51
 msgid "Server plugins must be zip, whl, or tar.gz files"
 msgstr "Serverinsticksprogram måste vara zip-, whl- eller tar.gz-filer"
 
@@ -573,22 +614,22 @@ msgstr "Serverinsticksprogram måste vara zip-, whl- eller tar.gz-filer"
 msgid "Plugins are disabled"
 msgstr "Insticksprogram är inaktiverade"
 
-#: blueprints/ots_api/plugin_api.py:91
+#: blueprints/ots_api/plugin_api.py:92
 #, python-format
 msgid "Plugin %(plugin_name)s not found"
 msgstr "Insticksprogrammet %(plugin_name)s hittades inte"
 
-#: blueprints/ots_api/token_api.py:191
+#: blueprints/ots_api/token_api.py:198
 #, python-format
 msgid "No token found for %(username)s"
 msgstr "Ingen token hittades för %(username)s"
 
-#: blueprints/ots_api/token_api.py:222
+#: blueprints/ots_api/token_api.py:229
 #, python-format
 msgid "Failed to delete token: %(e)s"
 msgstr "Misslyckades med att ta bort token: %(e)s"
 
-#: blueprints/ots_api/user_api.py:36
+#: blueprints/ots_api/user_api.py:37
 msgid "LDAP is enabled, please use your LDAP server to create users"
 msgstr "LDAP är aktiverat, använd din LDAP-server för att skapa användare"
 
@@ -596,117 +637,117 @@ msgstr "LDAP är aktiverat, använd din LDAP-server för att skapa användare"
 msgid "Passwords do not match"
 msgstr "Lösenorden stämmer inte överens"
 
-#: blueprints/ots_api/user_api.py:65 blueprints/ots_api/user_api.py:338
+#: blueprints/ots_api/user_api.py:67 blueprints/ots_api/user_api.py:351
 #, python-format
 msgid "Role %(role)s does not exist"
 msgstr "Rollen %(role)s finns inte"
 
-#: blueprints/ots_api/user_api.py:75
+#: blueprints/ots_api/user_api.py:78
 msgid "Only administrators can add users to the administrators role"
 msgstr "Bara administratörer kan lägga till användare i administratörsrollen"
 
-#: blueprints/ots_api/user_api.py:99
+#: blueprints/ots_api/user_api.py:101
 #, python-format
 msgid "User %(username)s already exists"
 msgstr "Användaren %(username)s finns redan"
 
-#: blueprints/ots_api/user_api.py:114
+#: blueprints/ots_api/user_api.py:117
 msgid "LDAP is enabled, please use your LDAP server to delete users"
 msgstr "LDAP är aktiverat, använd din LDAP-server för att ta bort användare"
 
-#: blueprints/ots_api/user_api.py:126
+#: blueprints/ots_api/user_api.py:128
 msgid "You can't delete your own account"
 msgstr "Du kan inte ta bort ditt eget konto"
 
-#: blueprints/ots_api/user_api.py:139
+#: blueprints/ots_api/user_api.py:141
 #, python-format
 msgid "Failed to delete user: %(e)s"
 msgstr "Misslyckades med att ta bort användare: %(e)s"
 
-#: blueprints/ots_api/user_api.py:155
+#: blueprints/ots_api/user_api.py:158
 msgid "LDAP is enabled, please use your LDAP server to reset passwords"
 msgstr "LDAP är aktiverat, använd din LDAP-server för att återställa lösenord"
 
-#: blueprints/ots_api/user_api.py:169
+#: blueprints/ots_api/user_api.py:171
 msgid "Please specify a username and new password"
 msgstr "Ange ett användarnamn och ett nytt lösenord"
 
-#: blueprints/ots_api/user_api.py:181
+#: blueprints/ots_api/user_api.py:182
 #, python-format
 msgid "Your password must be at least %(characters)s characters long"
 msgstr "Ditt lösenord måste vara minst %(characters)s tecken långt"
 
-#: blueprints/ots_api/user_api.py:198
+#: blueprints/ots_api/user_api.py:211
 #, python-format
 msgid "Could not find user %(username)s"
 msgstr "Kunde inte hitta användaren %(username)s"
 
-#: blueprints/ots_api/user_api.py:213
+#: blueprints/ots_api/user_api.py:227
 msgid "LDAP is enabled, please use your LDAP server to deactivate users"
 msgstr "LDAP är aktiverat, använd din LDAP-server för att inaktivera användare"
 
-#: blueprints/ots_api/user_api.py:225
+#: blueprints/ots_api/user_api.py:238
 msgid "Please specify the username to deactivate"
 msgstr "Ange användarnamnet som ska inaktiveras"
 
-#: blueprints/ots_api/user_api.py:250
+#: blueprints/ots_api/user_api.py:263
 #, python-format
 msgid "%(username)s is already deactivated"
 msgstr "%(username)s är redan inaktiverad"
 
-#: blueprints/ots_api/user_api.py:263
+#: blueprints/ots_api/user_api.py:277
 msgid "LDAP is enabled, please use your LDAP server to activate users"
 msgstr "LDAP är aktiverat, använd din LDAP-server för att aktivera användare"
 
-#: blueprints/ots_api/user_api.py:275
+#: blueprints/ots_api/user_api.py:288
 msgid "Please specify the username to activate"
 msgstr "Ange användarnamnet som ska aktiveras"
 
-#: blueprints/ots_api/user_api.py:300
+#: blueprints/ots_api/user_api.py:313
 #, python-format
 msgid "%(username)s is already activated"
 msgstr "%(username)s är redan aktiverad"
 
-#: blueprints/ots_api/user_api.py:313
+#: blueprints/ots_api/user_api.py:327
 msgid "LDAP is enabled, please use your LDAP server to assign roles"
 msgstr "LDAP är aktiverat, använd din LDAP-server för att tilldela roller"
 
-#: blueprints/ots_api/user_api.py:327
+#: blueprints/ots_api/user_api.py:340
 msgid "Please specify a username and roles"
 msgstr "Ange ett användarnamn och roller"
 
-#: blueprints/ots_api/user_api.py:401
+#: blueprints/ots_api/user_api.py:414
 #, python-format
 msgid "EUD %(eud_uid)s not found"
 msgstr "EUD %(eud_uid)s hittades inte"
 
-#: blueprints/ots_api/user_api.py:414
+#: blueprints/ots_api/user_api.py:427
 #, python-format
 msgid "%(uid)s is already assigned to another user"
 msgstr "%(uid)s är redan tilldelad till en annan användare"
 
-#: blueprints/ots_api/user_api.py:435 blueprints/ots_api/user_api.py:457
+#: blueprints/ots_api/user_api.py:449 blueprints/ots_api/user_api.py:471
 msgid "LDAP is enabled, please use your LDAP server to manage users"
 msgstr "LDAP är aktiverat, använd din LDAP-server för att hantera användare"
 
-#: blueprints/ots_api/user_api.py:488
+#: blueprints/ots_api/user_api.py:502
 msgid "LDAP is enabled, please use your LDAP server to manage groups"
 msgstr "LDAP är aktiverat, använd din LDAP-server för att hantera grupper"
 
-#: blueprints/ots_api/user_api.py:498
+#: blueprints/ots_api/user_api.py:511
 msgid "Please provide a username"
 msgstr "Ange ett användarnamn"
 
-#: blueprints/ots_api/user_api.py:565
+#: blueprints/ots_api/user_api.py:579
 msgid "Please provide a list of groups, a username, and a direction"
 msgstr "Ange en lista med grupper, ett användarnamn och en riktning"
 
-#: blueprints/ots_api/user_api.py:582
+#: blueprints/ots_api/user_api.py:595
 #, python-format
 msgid "User %(username)s doesn't exist"
 msgstr "Användaren %(username)s finns inte"
 
-#: blueprints/ots_api/user_api.py:596
+#: blueprints/ots_api/user_api.py:610
 #, python-format
 msgid "Group %(group_name)s doesn't exist"
 msgstr "Gruppen %(group_name)s finns inte"
@@ -715,7 +756,7 @@ msgstr "Gruppen %(group_name)s finns inte"
 msgid "Please specify a valid path"
 msgstr "Ange en giltig sökväg"
 
-#: blueprints/ots_api/video_api.py:72
+#: blueprints/ots_api/video_api.py:73
 #, python-format
 msgid "Invalid recording_id: %(recording_id)s"
 msgstr "Ogiltigt recording_id: %(recording_id)s"
@@ -724,5 +765,17 @@ msgstr "Ogiltigt recording_id: %(recording_id)s"
 msgid "Recording not found"
 msgstr "Inspelningen hittades inte"
 
+#: eud_handler/eud_handler.py:31
+msgid "Enable SSL"
+msgstr ""
+
+#: eud_handler/eud_handler.py:34
+msgid "UDP Server"
+msgstr ""
+
 #~ msgid "No token found for %s(username)s"
 #~ msgstr "Inget token hittades för %s(username)s"
+
+#~ msgid "clientUid required"
+#~ msgstr "clientUid krävs"
+
