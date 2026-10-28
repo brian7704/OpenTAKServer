@@ -96,7 +96,7 @@ class Token(db.Model):
             return encoded_token
 
     @staticmethod
-    def verify_token(token: str) -> bool:
+    def verify_token(username, token: str) -> bool:
         with open(
             os.path.join(
                 app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.pub"
@@ -108,6 +108,10 @@ class Token(db.Model):
                 decoded_token: dict = jwt.decode(
                     token, key.read(), algorithms=["RS256"], audience="OpenTAKServer"
                 )
+
+                if decoded_token.get("sub") != username:
+                    logger.error(f"Username {username} does not match token {decoded_token.get('sub')}")
+                    return False
 
                 sha256 = hashlib.sha256()
                 sha256.update(json.dumps(decoded_token).encode())
