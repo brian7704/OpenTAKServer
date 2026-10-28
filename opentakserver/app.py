@@ -1,4 +1,5 @@
 from gevent import monkey
+from opentakserver.models.FederationConnection import FederationConnection
 
 monkey.patch_all()
 
@@ -12,6 +13,7 @@ import platform
 import sqlite3
 import sys
 import traceback
+import subprocess
 from datetime import datetime, timezone
 from logging.handlers import TimedRotatingFileHandler
 
@@ -416,6 +418,21 @@ def create_default_groups(app):
                 db.session.commit()
 
 
+def start_federation_connections(app):
+    with app.app_context():
+        fed_connections = db.session.execute(db.session.query(FederationConnection).filter_by(enabled=True)).scalars()
+        for fed_connection in fed_connections:
+
+            path = os.path.dirname(sys.executable)
+            subprocess.Popen(
+                f"{os.path.join(path, 'fed_daemon')} --connection-id {fed_connection.id}",
+                shell=True,
+                stdin=None,
+                stdout=None,
+                stderr=None,
+            )
+
+
 def main(app):
     with app.app_context():
         # Download the icon sets if they aren't already in the DB
@@ -539,6 +556,7 @@ def main(app):
     app.start_time = datetime.now(timezone.utc)
 
     create_default_groups(app)
+    start_federation_connections(app)
 
     try:
         socketio.run(

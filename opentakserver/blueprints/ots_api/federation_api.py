@@ -176,12 +176,8 @@ def create_federation():
     try:
         fed_connection = FederationConnection()
         fed_connection.from_wtforms(form)
-        res = db.session.execute(insert(FederationConnection).values(**fed_connection.serialize()))
+        db.session.execute(insert(FederationConnection).values(**fed_connection.serialize()))
         db.session.commit()
-
-        federation_ids: list = app.config.get("OTS_FEDERATION_IDS", [])
-        federation_ids.append(res.inserted_primary_key[0])
-        change_config_setting("OTS_FEDERATION_IDS", federation_ids)
     except BaseException as e:
         logger.error(f"Failed to create connection: {e}")
         logger.debug(traceback.format_exc())
@@ -217,12 +213,6 @@ def delete_federation():
         FederationGroups.query.filter_by(federation_id=(int(connection_id))).delete()
         FederationConnection.query.filter_by(id=int(connection_id)).delete()
         db.session.commit()
-        try:
-            federation_ids: list = app.config.get("OTS_FEDERATION_IDS", [])
-            federation_ids.pop(federation_ids.index(int(connection_id)))
-            change_config_setting("OTS_FEDERATION_IDS", federation_ids)
-        except BaseException as e:
-            logger.error(f"Failed to remove federation ID from config: {e}")
         return jsonify({"success": True}), 200
     except BaseException as e:
         logger.error(f"Failed to delete connection: {e}")
