@@ -30,6 +30,7 @@ flask-migrate = "4.1.0"
 Flask-Security-Too = { version = "5.8.2", extras = ["common", "mfa"] }
 flask-socketio = "5.6.1"
 flask-sqlalchemy = "3.1.1"
+grpcio = "1.84.0"
 GeoAlchemy2 = { version = "0.20.0", extras = ["shapely"] }
 gevent = "26.8.0"
 httpx = { version = "0.28.1", extras = ["http2"] }
@@ -45,7 +46,7 @@ psutil = "7.2.2"
 psycopg = "3.3.4"
 pyfiglet = "1.0.2"
 pygc = "2.0.0"
-PyJWT = "2.13.0"
+PyJWT = "2.15.1"
 pytak = "7.6.1"
 python = ">=3.10, <3.15"
 python-ffmpeg = "2.0.12"
@@ -94,11 +95,13 @@ build-backend = "poetry_dynamic_versioning.backend"
 opentakserver = "opentakserver.app:start"
 eud_handler = "opentakserver.eud_handler.eud_handler:main"
 cot_parser = "opentakserver.cot_parser.cot_parser:main"
+fed_client = "opentakserver.fed_client.fed_daemon:main"
 
 [tool.black]
 line_length = 100
 target-version = ["py311"]
 src = ["opentakserver/", "tests/"]
+extend-exclude = "opentakserver/proto/"
 
 [tool.isort]
 known_first_party = "opentakserver"

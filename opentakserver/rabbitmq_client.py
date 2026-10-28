@@ -46,7 +46,7 @@ class RabbitMQClient:
         raise NotImplemented
 
     def on_close(self, channel, error):
-        self.logger.error("cot_controller closing RabbitMQ connection: {}".format(error))
+        self.logger.error("Closing RabbitMQ connection: {}".format(error))
 
     def on_message(self, unused_channel, basic_deliver, properties, body):
         raise NotImplemented
