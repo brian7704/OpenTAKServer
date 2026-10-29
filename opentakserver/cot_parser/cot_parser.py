@@ -10,6 +10,7 @@ import time
 import traceback
 import uuid
 from logging.handlers import TimedRotatingFileHandler
+from xml.etree.ElementTree import tostring
 
 import bleach
 import colorlog
@@ -969,7 +970,7 @@ class CoTController:
             flow_tags = SubElement(
                 detail,
                 "_flow-tags_",
-                {"TAK-Server-f1a8159ef7804f7a8a32d8efc4b773d0": iso8601_string_from_datetime(now)},
+                {f"TAK-Server-{app.config.get('OTS_NODE_ID')}": iso8601_string_from_datetime(now)},
             )
 
             message = json.dumps({"uid": uid, "cot": tostring(event).decode("utf-8")})
@@ -999,11 +1000,7 @@ class CoTController:
                         self.logger.debug(
                             f"Unbound {uid} from {group.group.name}.{group.direction}"
                         )
-            elif (
-                self.rabbit_channel
-                and not self.rabbit_channel.is_closing
-                and not self.rabbit_channel.is_closed
-            ):
+            elif self.rabbit_channel and not self.rabbit_channel.is_closed:
                 self.rabbit_channel.basic_publish(
                     exchange="groups",
                     routing_key=f"__ANON__.{Group.OUT}",
@@ -1186,6 +1183,7 @@ class CoTController:
             )
             return
 
+        # TODO: LDAP
         if not destinations:
             with self.context:
                 group_memberships = db.session.execute(

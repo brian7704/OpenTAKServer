@@ -64,6 +64,10 @@ from opentakserver.models.VideoStream import VideoStream
 from opentakserver.models.WebAuthn import WebAuthn
 from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.CITrap import CITrap
+from opentakserver.models.FederationGroups import FederationGroups
+from opentakserver.models.FederationConnection import FederationConnection
+from opentakserver.models.Federate import Federate
+from opentakserver.models.FederateToken import FederateToken
 
 
 class EudHandler(socketserver.BaseRequestHandler):
@@ -191,28 +195,39 @@ class EudHandler(socketserver.BaseRequestHandler):
     def close_connection(self):
         self.logger.info("{} disconnected".format(self.client_address[0]))
 
-        self.rabbit_channel.basic_publish(
-            exchange="cot_parser",
-            body=json.dumps(
-                {
-                    "uid": self.uid,
-                    "cot": None,
-                    "disconnected": True,
-                    "user_id": self.user.id if self.user else None,
-                }
-            ),
-            routing_key="cot_parser",
-            properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
-        )
-
-        self.unbind_rabbitmq_queues()
-
         if (
             self.rabbit_channel
             and not self.rabbit_channel.is_closing
             and not self.rabbit_channel.is_closed
         ):
+
+            self.rabbit_channel.basic_publish(
+                exchange="cot_parser",
+                body=json.dumps(
+                    {
+                        "uid": self.uid,
+                        "cot": None,
+                        "disconnected": True,
+                        "user_id": self.user.id if self.user else None,
+                    }
+                ),
+                routing_key="cot_parser",
+                properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
+            )
+
+            self.unbind_rabbitmq_queues()
             self.rabbit_channel.close()
+
+        else:
+            with self.app.app_context():
+                db.session.execute(
+                    update(EUD)
+                    .filter(EUD.uid == self.uid)
+                    .values(
+                        last_status="Disconnected", last_event_time=iso8601_string_from_datetime()
+                    )
+                )
+                db.session.commit()
 
         if not self.shutdown:
             self.shutdown = True
@@ -471,6 +486,13 @@ class EudHandler(socketserver.BaseRequestHandler):
             body=json.dumps({"uid": self.uid, "cot": str(event)}),
             routing_key="",
             properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
+        )
+
+        self.rabbit_channel.basic_publish(
+            exchange="federation",
+            body=json.dumps({"uid": self.uid, "cot": str(event)}),
+            routing_key="outgoing_messages",
+            properties=pika.BasicProperties(expiration="0"),
         )
 
         # Route all cots to the cot_parser direct exchange to be processed by a pool of cot_parser processes

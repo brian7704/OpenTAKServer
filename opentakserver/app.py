@@ -1,18 +1,18 @@
-import uuid
-
 from gevent import monkey
+monkey.patch_all()
 
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionRole import MissionRole
+from opentakserver.models.FederationConnection import FederationConnection
 
-monkey.patch_all()
-
+import uuid
 import logging
 import os
 import platform
 import sqlite3
 import sys
 import traceback
+import subprocess
 from datetime import datetime, timezone
 from logging.handlers import TimedRotatingFileHandler
 
@@ -45,11 +45,37 @@ from opentakserver.controllers.meshtastic_controller import MeshtasticController
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.EmailValidator import EmailValidator
 from opentakserver.extensions import apscheduler, babel, db, ldap_manager, logger, mail, socketio
+from opentakserver.models.Alert import Alert
+from opentakserver.models.CasEvac import CasEvac
+from opentakserver.models.Certificate import Certificate
+from opentakserver.models.Chatrooms import Chatroom
+from opentakserver.models.ChatroomsUids import ChatroomsUids
+from opentakserver.models.CoT import CoT
+from opentakserver.models.DataPackage import DataPackage
+from opentakserver.models.DeviceProfiles import DeviceProfiles
+from opentakserver.models.EUD import EUD
+from opentakserver.models.EUDStats import EUDStats
+from opentakserver.models.GeoChat import GeoChat
 from opentakserver.models.Group import Group, GroupTypeEnum
+from opentakserver.models.GroupMission import GroupMission
 from opentakserver.models.Icon import Icon
-from opentakserver.models.role import Role
+from opentakserver.models.Marker import Marker
+from opentakserver.models.Meshtastic import MeshtasticChannel
+from opentakserver.models.Mission import Mission
+from opentakserver.models.MissionChange import MissionChange, generate_mission_change_cot
+from opentakserver.models.MissionContentMission import MissionContentMission
+from opentakserver.models.MissionInvitation import MissionInvitation
+from opentakserver.models.MissionLogEntry import MissionLogEntry
+from opentakserver.models.MissionUID import MissionUID
+from opentakserver.models.Point import Point
+from opentakserver.models.RBLine import RBLine
+from opentakserver.models.Team import Team
+from opentakserver.models.VideoRecording import VideoRecording
+from opentakserver.models.VideoStream import VideoStream
 from opentakserver.models.WebAuthn import WebAuthn
+from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.CITrap import CITrap
+from opentakserver.models.role import Role
 from opentakserver.PasswordValidator import PasswordValidator
 from opentakserver.plugins.Plugin import Plugin
 from opentakserver.plugins.PluginManager import PluginManager
@@ -76,6 +102,14 @@ def get_timezone():
 def init_extensions(app):
     db.init_app(app)
     Migrate(app, db)
+
+    try:
+        fsqla.FsModels.set_db_info(db)
+    except sqlalchemy.exc.InvalidRequestError:
+        pass
+
+    from opentakserver.models.role import Role
+    from opentakserver.models.user import User
 
     logger.info(f"OpenTAKServer {opentakserver.__version__}")
     logger.info("Loading the database...")
@@ -145,7 +179,6 @@ def init_extensions(app):
         },
         supports_credentials=True,
     )
-    flask_wtf.CSRFProtect(app)
 
     socketio_logger = False
     if app.config.get("DEBUG"):
@@ -177,20 +210,13 @@ def init_extensions(app):
         "firehose", durable=True, exchange_type="fanout"
     )  # A firehose of all CoT data
     channel.exchange_declare("flask-socketio", durable=False, exchange_type="fanout")
+    channel.exchange_declare("federation", durable=True, exchange_type="fanout")
     channel.close()
     rabbit_connection.close()
 
     if not apscheduler.running:
         apscheduler.init_app(app)
         apscheduler.start(paused=False)
-
-    try:
-        fsqla.FsModels.set_db_info(db)
-    except sqlalchemy.exc.InvalidRequestError:
-        pass
-
-    from opentakserver.models.role import Role
-    from opentakserver.models.user import User
 
     user_datastore = SQLAlchemyUserDatastore(db, User, Role, WebAuthn)
     app.security = Security(
@@ -325,8 +351,6 @@ def create_app(cli=True):
             db.init_app(app)
             Migrate(app, db)
 
-        flask_wtf.CSRFProtect(app)
-
         try:
             fsqla.FsModels.set_db_info(db)
         except sqlalchemy.exc.InvalidRequestError:
@@ -417,6 +441,21 @@ def create_default_groups(app):
                 meshtastic_group.bitpos = meshtastic_group.get_next_bitpos()
                 db.session.add(meshtastic_group)
                 db.session.commit()
+
+
+def start_federation_connections(app):
+    with app.app_context():
+        fed_connections = db.session.execute(db.session.query(FederationConnection).filter_by(enabled=True)).scalars()
+        for fed_connection in fed_connections:
+
+            path = os.path.dirname(sys.executable)
+            subprocess.Popen(
+                f"{os.path.join(path, 'fed_daemon')} --connection-id {fed_connection.id}",
+                shell=True,
+                stdin=None,
+                stdout=None,
+                stderr=None,
+            )
 
 
 def main(app):
@@ -542,6 +581,7 @@ def main(app):
     app.start_time = datetime.now(timezone.utc)
 
     create_default_groups(app)
+    start_federation_connections(app)
 
     try:
         socketio.run(
