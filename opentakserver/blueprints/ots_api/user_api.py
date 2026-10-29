@@ -14,8 +14,14 @@ from flask_security import (
     roles_accepted,
 )
 
-from opentakserver.blueprints.ots_api.api import paginate, search
+from opentakserver.blueprints.ots_api.api import (
+    disconnect_euds,
+    paginate,
+    revoke_certificates,
+    search,
+)
 from opentakserver.extensions import db, ldap_manager, logger
+from opentakserver.models.Certificate import Certificate
 from opentakserver.models.EUD import EUD
 from opentakserver.models.Group import Group
 from opentakserver.models.GroupUser import GroupUser
@@ -133,6 +139,21 @@ def delete_user():
 
     try:
         user = app.security.datastore.find_user(username=username)
+
+        # Revoke the user's certificates so they stay invalid if the username is used again
+        certificates = (
+            db.session.execute(
+                sqlalchemy.select(Certificate).where(
+                    (Certificate.username == username) | (Certificate.common_name == username)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if certificates:
+            revoke_certificates(certificates)
+        disconnect_euds(f"user:{user.username}", "user deleted")
+
         db.session.execute(sqlalchemy.delete(GroupUser).where(GroupUser.user_id == user.id))
         app.security.datastore.delete_user(user)
     except BaseException as e:
@@ -255,6 +276,7 @@ def deactivate_user():
     deactivated = app.security.datastore.deactivate_user(user)
     if deactivated:
         db.session.commit()
+        disconnect_euds(f"user:{user.username}", "user deactivated")
         return jsonify({"success": True})
     else:
         return jsonify(
