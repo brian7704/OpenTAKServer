@@ -91,6 +91,9 @@ class EudHandler(socketserver.BaseRequestHandler):
     bound_queues = []
     phone_number = None
     group_memberships = []
+    cert_serial = None
+    control_queue = None
+    control_bindings = None
 
     def __init__(self, request: socket, client_address, server):
         super().__init__(request, client_address, server)
@@ -163,6 +166,7 @@ class EudHandler(socketserver.BaseRequestHandler):
         return False
 
     def setup(self):
+        self.control_bindings = set()
         self.create_app()
 
         # RabbitMQ
@@ -232,7 +236,11 @@ class EudHandler(socketserver.BaseRequestHandler):
         if not self.shutdown:
             self.shutdown = True
 
-            self.request.shutdown(SHUT_RDWR)
+            try:
+                self.request.shutdown(SHUT_RDWR)
+            except OSError:
+                # Already shut down, by on_control_message or because the client went away
+                pass
             self.request.close()
 
     def create_app(self):
@@ -299,6 +307,12 @@ class EudHandler(socketserver.BaseRequestHandler):
             "flask-socketio", durable=False, exchange_type="fanout"
         )
 
+        # Private queue for control messages from the API, such as disconnecting a revoked certificate
+        self.rabbit_channel.exchange_declare("eud_control", durable=True, exchange_type="direct")
+        self.rabbit_channel.queue_declare(
+            "", exclusive=True, callback=self.on_control_queue_declared
+        )
+
         for message in self.cached_messages:
             self.publish_cot(message)
 
@@ -323,6 +337,60 @@ class EudHandler(socketserver.BaseRequestHandler):
                 json.dumps(message),
                 properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
             )
+
+    def on_control_queue_declared(self, frame):
+        self.control_queue = frame.method.queue
+        self.rabbit_channel.basic_consume(
+            queue=self.control_queue, on_message_callback=self.on_control_message, auto_ack=True
+        )
+        self.bind_control_queue()
+
+    def bind_control_queue(self):
+        # Runs on the ioloop thread. Binds the keys that are known so far, it's called again once
+        # the user or the EUD's uid is known.
+        if not self.control_queue or not self.rabbit_channel or not self.rabbit_channel.is_open:
+            return
+
+        keys = set()
+        if self.user:
+            keys.add(f"user:{self.user.username}")
+        if self.uid:
+            keys.add(f"uid:{self.uid}")
+
+        for key in keys - self.control_bindings:
+            self.rabbit_channel.queue_bind(
+                exchange="eud_control", queue=self.control_queue, routing_key=key
+            )
+            self.control_bindings.add(key)
+
+    def request_control_bindings(self):
+        if self.rabbit_connection and not self.rabbit_connection.is_closed:
+            self.rabbit_connection.ioloop.add_callback_threadsafe(self.bind_control_queue)
+
+    def on_control_message(self, unused_channel, basic_deliver, properties, body):
+        try:
+            body = json.loads(body)
+        except ValueError:
+            return
+
+        if body.get("action") != "disconnect":
+            return
+
+        # A user can have several devices, only drop the ones whose certificate was revoked
+        serial_numbers = body.get("serial_numbers")
+        if serial_numbers and self.cert_serial not in serial_numbers:
+            return
+
+        self.logger.warning(
+            "Disconnecting {} ({}): {}".format(
+                self.callsign or self.client_address[0], self.uid, body.get("reason")
+            )
+        )
+        # Shutting down the socket ends the recv() loop in handle(), which then cleans up as usual
+        try:
+            self.request.shutdown(SHUT_RDWR)
+        except OSError:
+            pass
 
     def on_channel_close(self, channel: Channel, error):
         self.logger.error(f"RabbitMQ channel closed for {self.callsign}, shut it down")
@@ -449,6 +517,8 @@ class EudHandler(socketserver.BaseRequestHandler):
                     self.close_connection()
                     return
 
+            self.request_control_bindings()
+
     def handle_cot(self, cot):
         self.logger.debug(cot)
         event = BeautifulSoup(cot, "xml").find("event")
@@ -523,6 +593,7 @@ class EudHandler(socketserver.BaseRequestHandler):
         # Only assume it's an EUD if it's got a <contact> tag
         if contact and uid and not uid.endswith("ping") and (self.user or not self.is_ssl):
             self.uid = uid
+            self.request_control_bindings()
             device = operating_system = platform = version = None
             if takv:
                 device = takv.attrs["device"] if "device" in takv.attrs else None

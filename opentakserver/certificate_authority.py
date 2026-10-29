@@ -1,9 +1,10 @@
+import datetime
 import io
 import os
-import random
 import re
 import shutil
 import subprocess
+import threading
 import traceback
 import uuid
 import zipfile
@@ -11,10 +12,45 @@ from pathlib import Path
 from shutil import copyfile, rmtree
 from urllib.parse import urlparse
 
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
 from flask import request
 from jinja2 import Template
 
+from opentakserver.extensions import db
+from opentakserver.models.RevokedCertificate import RevokedCertificate
+
 from .ca_config import ca_config, server_config
+
+# Serial numbers in ca.crl, reloaded when the file changes. Shared by all threads of a process.
+_crl_cache = {"version": None, "serials": frozenset()}
+
+# Serializes generate_crl() so a slower call can't overwrite the CRL with an older list of revocations
+_crl_lock = threading.Lock()
+
+
+def get_serial_number(cert_bytes: bytes) -> str:
+    """Returns the serial number of a PEM certificate as a lowercase hex string"""
+    return format(x509.load_pem_x509_certificate(cert_bytes).serial_number, "x")
+
+
+def is_revoked(cert: x509.Certificate, ca_folder: str) -> bool:
+    """Checks a client certificate against ca.crl. Returns False if there is no CRL."""
+    crl_path = os.path.join(ca_folder, "ca.crl")
+    try:
+        stat = os.stat(crl_path)
+    except FileNotFoundError:
+        return False
+
+    # generate_crl() replaces the file, so a new inode or mtime means a new CRL
+    version = (stat.st_ino, stat.st_mtime_ns)
+    if version != _crl_cache["version"]:
+        with open(crl_path, "rb") as f:
+            crl = x509.load_pem_x509_crl(f.read())
+        _crl_cache["serials"] = frozenset(revoked.serial_number for revoked in crl)
+        _crl_cache["version"] = version
+
+    return cert.serial_number in _crl_cache["serials"]
 
 
 class CertificateAuthority:
@@ -317,7 +353,7 @@ class CertificateAuthority:
             os.path.join(
                 self.app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".pem"
             ),
-            random.randint(10000, 100000),
+            x509.random_serial_number(),
             self.app.config.get("OTS_CA_PASSWORD"),
             extensions,
             config_file,
@@ -353,6 +389,45 @@ class CertificateAuthority:
         f.close()
 
         return cert_bytes
+
+    def generate_crl(self):
+        """Rebuilds ca.crl from the revoked_certificates table"""
+        with _crl_lock:
+            self._generate_crl()
+
+    def _generate_crl(self):
+        ca_folder = self.app.config.get("OTS_CA_FOLDER")
+        with open(os.path.join(ca_folder, "ca.pem"), "rb") as f:
+            ca_cert = x509.load_pem_x509_certificate(f.read())
+        with open(os.path.join(ca_folder, "ca-do-not-share.key"), "rb") as f:
+            ca_key = serialization.load_pem_private_key(
+                f.read(), self.app.config.get("OTS_CA_PASSWORD").encode()
+            )
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        builder = (
+            x509.CertificateRevocationListBuilder()
+            .issuer_name(ca_cert.subject)
+            .last_update(now)
+            .next_update(now + datetime.timedelta(days=730))
+        )
+
+        for revoked in db.session.execute(db.select(RevokedCertificate)).scalars():
+            builder = builder.add_revoked_certificate(
+                x509.RevokedCertificateBuilder()
+                .serial_number(int(revoked.serial_number, 16))
+                .revocation_date(revoked.revoked_at)
+                .build()
+            )
+
+        crl = builder.sign(ca_key, hashes.SHA256())
+
+        # Write to a temp file and rename it so other processes never read a partial CRL
+        crl_path = os.path.join(ca_folder, "ca.crl")
+        with open(crl_path + ".tmp", "wb") as f:
+            f.write(crl.public_bytes(serialization.Encoding.PEM))
+        os.replace(crl_path + ".tmp", crl_path)
+        self.logger.info("Generated CRL with {} revoked certificate(s)".format(len(crl)))
 
     def check_if_ca_exists(self):
         return os.path.exists(os.path.join(self.app.config.get("OTS_CA_FOLDER"), "ca.pem"))
