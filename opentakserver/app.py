@@ -13,6 +13,7 @@ import sqlite3
 import sys
 import traceback
 import subprocess
+from urllib.parse import unquote
 from datetime import datetime, timezone
 from logging.handlers import TimedRotatingFileHandler
 
@@ -23,7 +24,8 @@ import pytz
 import requests
 import sqlalchemy
 import yaml
-from flask import Flask, current_app, g, request, session
+from cryptography import x509
+from flask import Flask, current_app, g, jsonify, request, session
 from flask_cors import CORS
 from flask_migrate import Migrate, upgrade
 from flask_security import (
@@ -40,7 +42,7 @@ from sqlalchemy import insert
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import opentakserver
-from opentakserver.certificate_authority import CertificateAuthority
+from opentakserver.certificate_authority import CertificateAuthority, is_revoked
 from opentakserver.controllers.meshtastic_controller import MeshtasticController
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.EmailValidator import EmailValidator
@@ -211,6 +213,9 @@ def init_extensions(app):
     )  # A firehose of all CoT data
     channel.exchange_declare("flask-socketio", durable=False, exchange_type="fanout")
     channel.exchange_declare("federation", durable=True, exchange_type="fanout")
+    channel.exchange_declare(
+        "eud_control", durable=True, exchange_type="direct"
+    )  # Tells EUD handlers to drop connections
     channel.close()
     rabbit_connection.close()
 
@@ -337,6 +342,21 @@ def create_app(cli=True):
         app.register_blueprint(scheduler_blueprint)
 
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
+
+        @app.before_request
+        def reject_revoked_certificates():
+            # nginx verifies the client cert on 8443 but doesn't know about revocations
+            cert = request.headers.get(app.config.get("OTS_SSL_CERT_HEADER"))
+            if not cert:
+                return None
+
+            try:
+                cert = x509.load_pem_x509_certificate(unquote(cert).encode())
+            except ValueError:
+                return None
+
+            if is_revoked(cert, app.config.get("OTS_CA_FOLDER")):
+                return jsonify({"success": False, "error": "Certificate revoked"}), 403
 
     else:
         from opentakserver.blueprints.cli import ots, translate
