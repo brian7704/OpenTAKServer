@@ -31,6 +31,7 @@ from sqlalchemy import insert, update, select
 
 from opentakserver.EmailValidator import EmailValidator
 from opentakserver.PasswordValidator import PasswordValidator
+from opentakserver.controllers.meshtastic_team_filter import parse_callsign_and_team
 from opentakserver.defaultconfig import DefaultConfig
 from opentakserver.extensions import logger as ots_logger, db, ldap_manager
 from opentakserver.functions import iso8601_string_from_datetime, datetime_from_iso8601_string
@@ -451,7 +452,8 @@ class EudHandler(socketserver.BaseRequestHandler):
 
     def handle_cot(self, cot):
         self.logger.debug(cot)
-        event = BeautifulSoup(cot, "xml").find("event")
+        soup = BeautifulSoup(cot, "xml")
+        event = soup.find("event")
 
         # If this client is connected via ssl, make sure they're authenticated
         # before accepting any data from them
@@ -461,6 +463,33 @@ class EudHandler(socketserver.BaseRequestHandler):
 
         if self.pong(event):
             return
+
+        if event and self.app.config.get("OTS_MESHTASTIC_PARSE_TEAM_SUFFIX"):
+            takv = event.find("takv")
+            if takv and (
+                "meshtastic" in str(takv.attrs.get("platform", "")).lower()
+                or "meshtastic" in str(takv.attrs.get("os", "")).lower()
+            ):
+                contact = event.find("contact")
+                if contact and "callsign" in contact.attrs:
+                    clean_cs, suffix_team = parse_callsign_and_team(
+                        contact.attrs["callsign"], fallback_name=contact.attrs["callsign"]
+                    )
+                    contact.attrs["callsign"] = clean_cs
+                    uid_tag = event.find("uid")
+                    if uid_tag and "Droid" in uid_tag.attrs:
+                        uid_tag.attrs["Droid"] = clean_cs
+                    if suffix_team:
+                        group_tag = event.find("__group")
+                        if group_tag:
+                            group_tag.attrs["name"] = suffix_team
+                        else:
+                            detail = event.find("detail")
+                            if detail:
+                                new_group = soup.new_tag("__group")
+                                new_group.attrs["name"] = suffix_team
+                                new_group.attrs["role"] = "Team Member"
+                                detail.append(new_group)
 
         if event and not self.uid:
             self.parse_device_info(event)
