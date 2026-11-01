@@ -151,6 +151,8 @@ class DefaultConfig:
     OTS_MESHTASTIC_DOWNLINK_CHANNELS = []
     OTS_MESHTASTIC_NODEINFO_INTERVAL = 3
     OTS_MESHTASTIC_GROUP = "Meshtastic"
+    OTS_MESHTASTIC_STALE_MINUTES = int(os.getenv("OTS_MESHTASTIC_STALE_MINUTES", 30))
+    OTS_MESHTASTIC_STALE_CHECK_INTERVAL = int(os.getenv("OTS_MESHTASTIC_STALE_CHECK_INTERVAL", 60))
 
     # Email settings
     OTS_ENABLE_EMAIL = os.getenv("OTS_ENABLE_EMAIL", "False").lower() in ["true", "1", "yes"]
