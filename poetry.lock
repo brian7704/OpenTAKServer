@@ -2117,14 +2117,14 @@ Flask = "*"
 
 [[package]]
 name = "flask-security-too"
-version = "5.8.2"
+version = "5.8.3"
 description = "Quickly add security features to your Flask application."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "flask_security_too-5.8.2-py3-none-any.whl", hash = "sha256:fb4b97e6161660681ed264ba2fc10faba49580d2da4331d5156ab35004d66086"},
-    {file = "flask_security_too-5.8.2.tar.gz", hash = "sha256:b4ad7448a83679a9c255700bd28979c685e66f89dd7c2eca7de8f4a52e5bd89f"},
+    {file = "flask_security_too-5.8.3-py3-none-any.whl", hash = "sha256:3e65ddc367f9a6acf8477362f0b08fd2c1ee1aa481bd8a1a18b965a19158c5ab"},
+    {file = "flask_security_too-5.8.3.tar.gz", hash = "sha256:ebcd3cbf0e128bd7d0c533efc58b4aabf1804c0e3c28a8c2793f0e01d4bc5877"},
 ]
 
 [package.dependencies]
@@ -6185,7 +6185,7 @@ version = "2.8.0"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 optional = false
 python-versions = ">=3.10"
-groups = ["main", "dev"]
+groups = ["main"]
 files = [
     {file = "urllib3-2.8.0-py3-none-any.whl", hash = "sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3"},
     {file = "urllib3-2.8.0.tar.gz", hash = "sha256:63bf2ead4c879426ebf22ef2a781eeb4aa3b4ae798a0435506f8687fd5bb9b63"},
@@ -7019,4 +7019,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.15"
-content-hash = "650d2894e0c53d33ac51e3ae0907d1fea6326d260fadb236acbb01f407492ca2"
+content-hash = "ea60d6161f50899b043e9db82ec12deb9e5b292cbdec0a7ee4837f4b2aeb82eb"
