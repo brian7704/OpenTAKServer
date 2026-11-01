@@ -10,28 +10,52 @@ from flask import Blueprint
 from flask import current_app as app
 from flask import jsonify, request
 from flask_babel import gettext
+from flask_security import current_user
 from werkzeug.datastructures import ImmutableMultiDict
 
 from opentakserver.blueprints.marti_api.marti_api import verify_client_cert
 from opentakserver.extensions import db, logger
 from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
 from opentakserver.models.user import User
-from opentakserver.models.VideoStream import VideoStream
+from opentakserver.models.VideoStream import VideoStream, user_can_access_video_stream
 
 video_marti_api = Blueprint("video_marti_api", __name__)
+
+
+def _extract_cert_username(cert) -> str | None:
+    if not cert:
+        return None
+    if hasattr(cert, "subject"):
+        cn_attrs = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+        return cn_attrs[0].value if cn_attrs else None
+    if hasattr(cert, "get_subject"):
+        for component_name, component_val in cert.get_subject().get_components():
+            if component_name.decode("UTF-8") == "CN":
+                return component_val.decode("UTF-8")
+    return None
+
+
+def _get_request_user() -> User | None:
+    username = _extract_cert_username(verify_client_cert())
+    if username:
+        return app.security.datastore.find_user(username=username)
+    if current_user and current_user.is_authenticated:
+        return current_user
+    return None
 
 
 @video_marti_api.route("/Marti/vcm", methods=["GET", "POST"])
 def video():
     if request.method == "POST":
+        req_user = _get_request_user()
         soup = BeautifulSoup(request.data, "xml")
         video_connections = soup.find("videoConnections")
 
-        path = video_connections.find("path").text
-        if path.startswith("/"):
-            path = path[1:]
-
         if video_connections:
+            path = video_connections.find("path").text
+            if path.startswith("/"):
+                path = path[1:]
+
             v = VideoStream()
             v.protocol = video_connections.find("protocol").text
             v.alias = video_connections.find("alias").text
@@ -47,6 +71,8 @@ def video():
             v.buffer_time = video_connections.find("buffer").text
             v.network_timeout = video_connections.find("timeout").text
             v.rtsp_reliable = video_connections.find("rtspReliable").text
+            if req_user:
+                v.username = req_user.username
             path_config = MediaMTXPathConfig(None).serialize()
             path_config["sourceOnDemand"] = False
             v.mediamtx_settings = json.dumps(path_config)
@@ -63,11 +89,13 @@ def video():
                     db.session.add(v)
                     db.session.commit()
                     logger.debug("Inserted Video")
-                except sqlalchemy.exc.IntegrityError as e:
+                except sqlalchemy.exc.IntegrityError:
                     db.session.rollback()
                     v = db.session.execute(
-                        db.select(VideoStream).filter_by(path=v.path)
+                        db.select(VideoStream).filter_by(path=path)
                     ).scalar_one()
+                    if v.ready and not user_can_access_video_stream(req_user, v):
+                        return "", 403
                     v.protocol = video_connections.find("protocol").text
                     v.alias = video_connections.find("alias").text
                     v.uid = video_connections.find("uid").text
@@ -80,13 +108,16 @@ def video():
                     v.preferred_interface_address = video_connections.find(
                         "preferredInterfaceAddress"
                     ).text
-                    v.path = video_connections.find("path").text
+                    v.path = path
                     v.buffer_time = video_connections.find("buffer").text
                     v.network_timeout = video_connections.find("timeout").text
                     v.rtsp_reliable = video_connections.find("rtspReliable").text
+                    if req_user:
+                        v.username = req_user.username
+                        v.cot_id = None
                     feed = soup.find("feed")
                     address = feed.find("address").text
-                    feed.find("address").replace_with(address.split("@")[-1])
+                    feed.find("address").string.replace_with(address.split("@")[-1])
 
                     v.xml = str(feed)
 
@@ -98,10 +129,15 @@ def video():
     elif request.method == "GET":
         try:
             with app.app_context():
+                req_user = _get_request_user()
                 videos = db.session.execute(db.select(VideoStream)).scalars()
                 videoconnections = Element("videoConnections")
 
                 for video in videos:
+                    if not user_can_access_video_stream(req_user, video):
+                        continue
+                    if not video.xml:
+                        continue
                     # Make sure videos have the correct address based off of the Flask request and not 127.0.0.1
                     # This also forces all streams to bounce through MediaMTX
                     feed = BeautifulSoup(video.xml, "xml")
@@ -111,7 +147,11 @@ def video():
                     if not path.startswith("/"):
                         path = "/" + path
 
-                    if "iTAK" in request.user_agent.string:
+                    if (
+                        request.user_agent
+                        and request.user_agent.string
+                        and "iTAK" in request.user_agent.string
+                    ):
                         url = (
                             feed.find("protocol").text
                             + "://"
@@ -130,7 +170,7 @@ def video():
                     videoconnections.append(fromstring(str(feed)))
 
             return tostring(videoconnections), 200
-        except BaseException as e:
+        except BaseException:
             logger.error(traceback.format_exc())
             return "", 500
 
@@ -138,17 +178,28 @@ def video():
 @video_marti_api.route("/Marti/api/video")
 def get_videos():
     cert = verify_client_cert()
-    if not cert:
+    username = _extract_cert_username(cert)
+    if not username:
         # Shouldn't ever get here since nginx already verifies the cert
         return jsonify({"success": False, "error": gettext("Invalid Certificate")}), 400
-    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
 
     user = app.security.datastore.find_user(username=username)
+    if not user:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("User %(username)s not found", username=username),
+                }
+            ),
+            401,
+        )
     videos = db.session.execute(db.select(VideoStream)).scalars()
 
     video_connections = {"videoConnections": []}
     for video in videos:
-        video_connections["videoConnections"].append(video.to_marti_json(user))
+        if user_can_access_video_stream(user, video):
+            video_connections["videoConnections"].append(video.to_marti_json(user))
 
     return jsonify(video_connections)
 
@@ -156,7 +207,10 @@ def get_videos():
 @video_marti_api.route("/Marti/api/video", methods=["POST"])
 def add_video():
     cert = verify_client_cert()
-    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+    username = _extract_cert_username(cert)
+    if not username:
+        return jsonify({"success": False, "error": gettext("Invalid Certificate")}), 400
+    user = app.security.datastore.find_user(username=username)
 
     videos = request.json
 
@@ -164,11 +218,12 @@ def add_video():
         feeds = video.get("feeds")
 
         for feed in feeds:
-            data = ImmutableMultiDict({"path": feed["alias"], "source": feed["url"]})
+            feed_path = feed["alias"].lstrip("/")
+            data = ImmutableMultiDict({"path": feed_path, "source": feed["url"]})
             mediamtx_config = MediaMTXPathConfig(formdata=data, csrf_enabled=False)
 
             video_stream = VideoStream()
-            video_stream.path = feed["alias"]
+            video_stream.path = feed_path
             video_stream.uid = video["uuid"]
             video_stream.mediamtx_settings = json.dumps(mediamtx_config.serialize())
             video_stream.username = username
@@ -178,8 +233,31 @@ def add_video():
             video_stream.rtsp_reliable = 1
             video_stream.network_timeout = 10000
             video_stream.generate_xml(urlparse(request.url_root).hostname)
-            db.session.add(video_stream)
-            db.session.commit()
+            try:
+                db.session.add(video_stream)
+                db.session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                db.session.rollback()
+                existing = db.session.query(VideoStream).filter_by(path=feed_path).first()
+                if existing:
+                    if existing.ready and not user_can_access_video_stream(user, existing):
+                        return (
+                            jsonify(
+                                {
+                                    "success": False,
+                                    "error": gettext(
+                                        "You do not have permission to access this video stream"
+                                    ),
+                                }
+                            ),
+                            403,
+                        )
+                    existing.uid = video["uuid"]
+                    existing.mediamtx_settings = json.dumps(mediamtx_config.serialize())
+                    existing.username = username
+                    existing.cot_id = None
+                    existing.generate_xml(urlparse(request.url_root).hostname)
+                    db.session.commit()
 
     return "", 200
 
@@ -187,7 +265,9 @@ def add_video():
 @video_marti_api.route("/Marti/api/video/<uid>")
 def get_video(uid):
     cert = verify_client_cert()
-    username = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+    username = _extract_cert_username(cert)
+    if not username:
+        return jsonify({"success": False, "error": gettext("Invalid Certificate")}), 400
 
     video = db.session.query(VideoStream).filter_by(uid=uid).scalar()
     if not video:
@@ -204,12 +284,23 @@ def get_video(uid):
             401,
         )
     user = user[0]
+    if not user_can_access_video_stream(user, video):
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("You do not have permission to access this video stream"),
+                }
+            ),
+            403,
+        )
     return video.to_marti_json(user), 200
 
 
 @video_marti_api.route("/Marti/api/video/<uid>", methods=["DELETE"])
 def delete_video(uid):
-    video_stream = db.session.execute(db.session.query(VideoStream).filter_by(uid=uid))
+    req_user = _get_request_user()
+    video_stream = db.session.query(VideoStream).filter_by(uid=uid).first()
     if not video_stream:
         return (
             jsonify(
@@ -221,7 +312,16 @@ def delete_video(uid):
             404,
         )
 
-    video_stream = video_stream[0]
+    if not user_can_access_video_stream(req_user, video_stream):
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("You do not have permission to access this video stream"),
+                }
+            ),
+            403,
+        )
 
     db.session.delete(video_stream)
     db.session.commit()
