@@ -15,7 +15,7 @@ from google.protobuf.json_format import MessageToJson
 from meshtastic import BROADCAST_NUM, mesh_pb2, mqtt_pb2, portnums_pb2, protocols
 from pika.spec import Basic, BasicProperties, Channel
 
-from opentakserver.controllers.rabbitmq_client import RabbitMQClient
+from opentakserver.rabbitmq_client import RabbitMQClient
 from opentakserver.extensions import db, logger, socketio
 from opentakserver.models.EUD import EUD
 from opentakserver.models.Meshtastic import MeshtasticChannel

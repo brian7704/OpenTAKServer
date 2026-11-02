@@ -7,12 +7,13 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-23 07:41-0400\n"
-"PO-Revision-Date: 2025-11-29 10:53-0500\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"POT-Creation-Date: 2026-02-26 10:44-0500\n"
+"PO-Revision-Date: 2026-10-25 17:57+0000\n"
+"Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
 "Language: da\n"
-"Language-Team: da <LL@li.org>\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language-Team: Danish <https://weblate.opentakserver.io/projects/"
+"opentakserver/opentakserver/da/>\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -60,18 +61,20 @@ msgstr ""
 msgid "Invalid secago value: %(sec_ago)s"
 msgstr ""
 
-#: blueprints/marti_api/data_package_marti_api.py:93
+#: blueprints/marti_api/data_package_marti_api.py:92
+#, fuzzy
 msgid "This data package has already been uploaded"
-msgstr ""
+msgstr "Denne datapakke er allerede blevet uploadet"
 
-#: blueprints/marti_api/data_package_marti_api.py:182
+#: blueprints/marti_api/data_package_marti_api.py:181
+#, fuzzy
 msgid "A file is required"
-msgstr ""
+msgstr "En fil er påkrævet"
 
 #: blueprints/marti_api/data_package_marti_api.py:202
 #, python-format
 msgid "Invalid file extension: %(extension)s"
-msgstr ""
+msgstr "Ugyldig filtypenavn: %(extension)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:215
 msgid "Invalid file hash"
@@ -80,45 +83,49 @@ msgstr ""
 #: blueprints/marti_api/data_package_marti_api.py:391
 #, python-format
 msgid "File not found: %(filename)s}"
-msgstr ""
+msgstr "Fil ikke fundet: %(filename)s}"
 
 #: blueprints/marti_api/group_marti_api.py:39
 msgid "Groups are only supported on SSL connections"
-msgstr ""
+msgstr "Grupper understøttes kun på SSL-forbindelser"
 
 #: blueprints/marti_api/group_marti_api.py:108
 #: blueprints/marti_api/group_marti_api.py:166
 msgid "Please specify a groupNameFilter"
-msgstr ""
+msgstr "Angiv venligst et gruppenavnfilter"
 
 #: blueprints/marti_api/group_marti_api.py:120
 #: blueprints/marti_api/group_marti_api.py:178
 #, python-format
 msgid "Please specify a groupNameFilter that starts with %(prefix)s"
-msgstr ""
+msgstr "Angiv venligst et groupNameFilter, der starter med %(prefix)s"
 
 #: blueprints/marti_api/group_marti_api.py:133
 #: blueprints/marti_api/group_marti_api.py:191
 msgid "groupNameFilter must end with either _READ or _WRITE"
-msgstr ""
+msgstr "groupNameFilter skal slutte med enten _READ eller _WRITE"
 
-#: blueprints/marti_api/group_marti_api.py:293
-#: blueprints/ots_api/group_api.py:365 blueprints/ots_api/user_api.py:587
+#: blueprints/marti_api/group_marti_api.py:246
+msgid "clientUid required"
+msgstr "clientUid kræves"
+
+#: blueprints/marti_api/group_marti_api.py:274
+#: blueprints/ots_api/group_api.py:365 blueprints/ots_api/user_api.py:574
 msgid "Direction must be IN or OUT"
-msgstr ""
+msgstr "Retningen skal være IN eller OUT"
 
 #: blueprints/marti_api/group_marti_api.py:302
 msgid "The active attribute must be true or false"
-msgstr ""
+msgstr "Den aktive attribut skal være sand eller falsk"
 
 #: blueprints/marti_api/group_marti_api.py:311
 msgid "Group name is required"
-msgstr ""
+msgstr "Gruppenavn er påkrævet"
 
 #: blueprints/marti_api/group_marti_api.py:354
 #, python-format
 msgid "%(username)s is not in the %(group_name)s group"
-msgstr ""
+msgstr "%(username)s er ikke i gruppen %(group_name)s"
 
 #: blueprints/marti_api/group_marti_api.py:376
 #, python-format

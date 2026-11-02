@@ -74,9 +74,7 @@ def paginate(query: db.Query, model=None):
                 # to "Alice" instead of after every uppercase entry (Postgres
                 # default collation is byte-ordered: Z < a).
                 try:
-                    is_string_col = isinstance(
-                        column.type, (String, Text, Unicode, UnicodeText)
-                    )
+                    is_string_col = isinstance(column.type, (String, Text, Unicode, UnicodeText))
                 except AttributeError:
                     is_string_col = False
                 sort_expr = func.lower(column) if is_string_col else column
@@ -177,6 +175,17 @@ def route_cot(event: str, user: User):
         )
     channel.close()
     rabbit_connection.close()
+
+
+def get_blocking_rabbitmq_channel():
+    rabbit_credentials = pika.PlainCredentials(
+        app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD")
+    )
+    rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+    rabbit_connection = pika.BlockingConnection(
+        pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
+    )
+    return rabbit_connection, rabbit_connection.channel()
 
 
 @api_blueprint.route("/files/api/config")

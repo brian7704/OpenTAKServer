@@ -1,0 +1,807 @@
+import datetime
+import os
+import pathlib
+import subprocess
+import sys
+import traceback
+from urllib.parse import urlparse
+
+import bleach
+import cryptography
+import pika
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+
+import jwt
+from cryptography.hazmat.primitives import serialization
+from flask import Blueprint, request, jsonify, current_app as app, send_from_directory
+from flask_login import current_user
+from flask_security import roles_required
+from flask_babel import gettext
+from sqlalchemy import update, delete
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
+from werkzeug.datastructures import ImmutableMultiDict
+
+from opentakserver.forms.FederateForm import FederateForm
+from opentakserver.models.Federate import Federate
+from opentakserver.blueprints.ots_api.api import (
+    paginate,
+    search,
+    change_config_setting,
+    get_blocking_rabbitmq_channel,
+)
+from opentakserver.extensions import db, logger
+from opentakserver.forms.FedTokenForm import FedTokenForm
+from opentakserver.forms.FederationConnectionForm import FederationConnectionForm
+from opentakserver.models.FederateToken import FederateToken
+from opentakserver.models.FederationConnection import FederationConnection
+from opentakserver.models.FederationGroups import FederationGroups
+from opentakserver.models.Group import GroupDirectionEnum, Group
+from opentakserver.models.FederateGroups import FederateGroups
+from opentakserver.models.FederateGroupMapping import FederateGroupMapping
+from opentakserver.certificate_authority import CertificateAuthority
+
+federation_blueprint = Blueprint("federation_blueprint", __name__)
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/token")
+def get_tokens():
+    """
+    Get a list of tokens. All URL parameters are optional
+
+    :param name: Token name
+    :param expiration: Token expiration date
+    :param token: Token encoded in Base64
+    :param share_alerts: Boolean
+    :param archive: Boolean
+    :param notes: String
+
+    :return: Flask response object with ist of FederationTokens
+    """
+    query = db.session.query(FederateToken)
+    query = search(query, FederateToken, "name")
+    query = search(query, FederateToken, "expiration")
+    query = search(query, FederateToken, "token")
+    query = search(query, FederateToken, "share_alerts")
+    query = search(query, FederateToken, "archives")
+    query = search(query, FederateToken, "notes")
+
+    return paginate(query, FederateToken)
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/token", methods=["POST"])
+def create_token():
+    """
+    Creates a new federation token and saves it to the database.
+
+    :param name: Token name (Required)
+    :param expiration: Token expiration date
+    :param share_alerts: Boolean
+    :param archive: Boolean
+    :param notes: String
+
+    :return: New FederationToken
+    """
+    form = FedTokenForm(formdata=ImmutableMultiDict(request.json))
+    if not form.validate():
+        return jsonify({"success": False, "errors": form.errors}), 400
+
+    with open(
+        os.path.join(
+            app.config.get("OTS_CA_FOLDER"), "certs", "opentakserver", "opentakserver.nopass.key"
+        ),
+        "rb",
+    ) as key:
+        expiration_date = form.expiration.data or 0
+
+        jwt_token = jwt.encode(
+            {
+                "exp": expiration_date,
+                "nbf": datetime.datetime.now(datetime.timezone.utc),
+                "iss": "OpenTAKServer",
+                "aud": "OpenTAKServer",
+                "iat": datetime.datetime.now(datetime.timezone.utc),
+                "sub": current_user.username,
+            },
+            key.read(),
+            algorithm="RS256",
+        )
+
+        fed_token = FederateToken()
+        fed_token.name = form.name.data
+        fed_token.expiration = form.expiration.data
+        fed_token.token = jwt_token
+        fed_token.share_alerts = form.share_alerts.data
+        fed_token.archive = form.archive.data
+        fed_token.notes = form.notes.data
+
+        db.session.add(fed_token)
+        db.commit()
+
+        return jsonify({"success": True, "token": fed_token.to_json()})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation")
+def get_federations():
+    """
+    Gets a list of federation connections
+    :param display_name: Name of the connection
+    :param address: Federate server's address
+    :param port: Federate server's port
+    :param enabled:
+    :param protocol_version: Federation protocol version
+
+    :return: A list of federation connections
+    """
+
+    query = db.session.query(FederationConnection)
+    query = search(query, FederationConnection, "display_name")
+    query = search(query, FederationConnection, "address")
+    query = search(query, FederationConnection, "port")
+    query = search(query, FederationConnection, "enabled")
+    query = search(query, FederationConnection, "protocol_version")
+
+    return paginate(query, FederationConnection)
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/all")
+def get_all_federations():
+    federation_connections = db.session.execute(
+        db.session.query(FederationConnection).order_by(FederationConnection.id.asc())
+    ).scalars()
+    return_value = []
+    for federation_connection in federation_connections:
+        return_value.append(federation_connection.to_json())
+
+    return jsonify({"success": True, "results": return_value})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation", methods=["POST"])
+def create_federation():
+    """
+    Creates a new federation connection
+    :return:
+    """
+
+    form = FederationConnectionForm(formdata=ImmutableMultiDict(request.json))
+    if not form.validate():
+        return jsonify({"success": False, "error": form.errors}), 400
+
+    try:
+        fed_connection = FederationConnection()
+        fed_connection.from_wtforms(form)
+        db.session.execute(insert(FederationConnection).values(**fed_connection.serialize()))
+        db.session.commit()
+    except BaseException as e:
+        logger.error(f"Failed to create connection: {e}")
+        logger.debug(traceback.format_exc())
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("Failed to create connection: %(error)s", error=str(e)),
+                }
+            ),
+            500,
+        )
+
+    # TODO: Fork a fed client process here
+
+    return jsonify({"success": True}), 200
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation", methods=["DELETE"])
+def delete_federation():
+    """
+    Delete a federation connection
+
+    :return:
+    """
+
+    connection_id = request.args.get("id")
+    if not connection_id:
+        return jsonify({"success": False, "error": gettext("Missing connection ID")}), 400
+
+    try:
+        FederationGroups.query.filter_by(federation_id=(int(connection_id))).delete()
+        FederationConnection.query.filter_by(id=int(connection_id)).delete()
+        db.session.commit()
+        return jsonify({"success": True}), 200
+    except BaseException as e:
+        logger.error(f"Failed to delete connection: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation", methods=["PATCH"])
+def edit_federation():
+    """
+    Edits a federation connection
+
+    :return:
+    """
+
+    form = FederationConnectionForm(formdata=ImmutableMultiDict(request.json))
+    if not form.validate():
+        return jsonify({"success": False, "error": form.errors}), 400
+
+    if not form.id.data:
+        return jsonify({"success": False, "error": gettext("Missing federation ID")}), 400
+
+    try:
+        updated_connection = FederationConnection()
+        updated_connection.from_wtforms(form)
+
+        existing_connection: FederationConnection = db.session.execute(
+            db.session.query(FederationConnection).filter_by(id=form.id.data)
+        ).scalar()
+
+        toggled = existing_connection.enabled != updated_connection.enabled
+
+        db.session.execute(
+            update(FederationConnection)
+            .filter_by(id=form.id.data)
+            .values(**updated_connection.serialize())
+        )
+        db.session.commit()
+
+        if toggled:
+            if not updated_connection.enabled:
+                rabbit_connection, channel = get_blocking_rabbitmq_channel()
+                # The TTL is 0 so the disable message will only be delivered if the consumer is actively consuming.
+                # Otherwise, as soon as the federation process starts up it would get an old disable message and immediately
+                # shut down
+                channel.basic_publish(
+                    exchange="federation",
+                    routing_key=f"{updated_connection.display_name}.disable",
+                    body="",
+                    properties=pika.BasicProperties(expiration="0"),
+                )
+                channel.close()
+                rabbit_connection.close()
+            else:
+                path = os.path.dirname(sys.executable)
+                subprocess.Popen(
+                    f"{os.path.join(path, 'fed_daemon')} --connection-id {updated_connection.id}",
+                    shell=True,
+                    stdin=None,
+                    stdout=None,
+                    stderr=None,
+                )
+
+        return jsonify({"success": True})
+    except BaseException as e:
+        logger.error(f"Failed to update federation connection: {e}")
+        logger.debug(traceback.format_exc())
+        return (
+            jsonify({"success": False, "error": f"Failed to update federation connection: {e}"}),
+            500,
+        )
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/certificate")
+def get_federation_certificate():
+    """
+    Download the federation cert needed by the server you're federating to
+
+    :return: Federation certificate file
+    """
+
+    fed_cert = pathlib.Path(app.config.get("OTS_FEDERATION_CERTIFICATE"))
+    return send_from_directory(
+        fed_cert.parent,
+        fed_cert.name,
+        download_name=f"federation_cert_{urlparse(request.url_root).hostname}.pem",
+    )
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/certificate", methods=["PATCH"])
+def regenerate_federation_certificate():
+    """
+    Regenerates the federation certificate. <b>THIS WILL DELETE THE OLD FEDERATION CERTIFICATE!</b> You will need to re-upload
+    this certificate to any servers you're currently federated with.
+
+    Use this to change the common name of the certificate to something other than the default "federation" such as your FQDN.
+
+    :param: common_name - (Optional) The common name for the new certificate. Will default to "federation" if none is provided.
+
+    :return: 200 on success, 500 on error
+    """
+
+    common_name = request.json.get("common_name", "federation")
+
+    try:
+        certificate_authority = CertificateAuthority(logger, app)
+        certificate_authority.issue_certificate(common_name, True)
+        cert_file = os.path.join(
+            app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".pem"
+        )
+        change_config_setting("OTS_FEDERATION_CERTIFICATE", cert_file)
+
+        return jsonify({"success": True, "cert_file": cert_file})
+
+    except BaseException as e:
+        logger.error(f"Failed to generate federation certificate: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/federate")
+def get_federates():
+    query = db.session.query(Federate)
+    query = search(query, Federate, "name")
+    query = search(query, Federate, "issuer")
+    query = search(query, Federate, "subject")
+    query = search(query, Federate, "serial_number")
+
+    return paginate(query, Federate)
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/federate/all")
+def get_all_federates():
+    federates = db.session.execute(db.session.query(Federate)).scalars()
+    return_value = []
+
+    for federate in federates:
+        return_value.append(federate.to_json())
+
+    return jsonify({"success": True, "results": return_value})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/federate", methods=["DELETE"])
+def delete_federate():
+    federation_id = request.args.get("id", None)
+    if not federation_id:
+        return jsonify({"success": False, "error": gettext("Please provide a federation ID")}), 400
+
+    try:
+        Federate.query.filter_by(id=int(federation_id)).delete()
+        db.session.commit()
+        return jsonify({"success": True}), 200
+    except BaseException as e:
+        logger.error(f"Failed to delete federation {e}")
+        logger.debug(traceback.format_exc())
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext(
+                        "Cannot delete a federate that is associated with a federation connection"
+                    ),
+                }
+            ),
+            400,
+        )
+    except BaseException as e:
+        logger.error(f"Failed to delete federation {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/federate", methods=["POST"])
+def add_federate():
+    form = FederateForm(formdata=ImmutableMultiDict(request.json))
+    if form.validate():
+        federate = Federate()
+        federate.from_wtf(form)
+
+        if not federate.certificate_file:
+            return (
+                jsonify({"success": False, "error": gettext("Certificate file is required")}),
+                400,
+            )
+        if not os.path.exists(
+            os.path.join(
+                app.config.get("OTS_DATA_FOLDER"), "federation", f"{federate.serial_number}.pem"
+            )
+        ):
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": gettext(
+                            "Cannot find certificate file %(cert_file)s",
+                            cert_file=federate.certificate_file,
+                        ),
+                    }
+                ),
+                400,
+            )
+        if not federate.issuer or not federate.subject or not federate.serial_number:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": gettext("Serial number, subject, and issuer are required"),
+                    }
+                ),
+                400,
+            )
+
+        try:
+            db.session.add(federate)
+            db.session.commit()
+            return jsonify({"success": True, "federate": federate.to_json()}), 200
+        except IntegrityError:
+            db.session.rollback()
+            db.session.execute(
+                update(Federate)
+                .where(Federate.serial_number == federate.serial_number)
+                .values(**federate.serialize())
+            )
+            db.session.commit()
+            return jsonify({"success": True, "federate": federate.to_json()}), 200
+        except BaseException as e:
+            logger.error(f"Failed to add federation: {e}")
+            logger.debug(traceback.format_exc())
+            return jsonify({"success": False, "error": str(e)}), 500
+
+    else:
+        return jsonify({"success": False, "error": form.errors}), 400
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/certificate", methods=["POST"])
+def upload_federation_certificate():
+    """
+    Uploads a new federate certificate
+    """
+    # application/x-pem-file
+    cert_file = request.files.get("cert_file")
+    if not cert_file:
+        return jsonify({"success": False, "error": gettext("No file uploaded")}), 400
+
+    if (
+        cert_file.mimetype != "application/x-x509-ca-cert"
+        and cert_file.mimetype != "application/x-pem-file"
+    ):
+        return (
+            jsonify({"success": False, "error": gettext("Certificates must be in PEM format")}),
+            400,
+        )
+
+    pathlib.Path(os.path.join(app.config.get("OTS_DATA_FOLDER"), "federation")).mkdir(
+        parents=True, exist_ok=True
+    )
+
+    cert_file.stream.seek(0)
+    cert_bytes = cert_file.stream.read()
+
+    try:
+        cert = x509.load_pem_x509_certificate(cert_bytes, default_backend())
+        # get_attributes_for_oid() returns a list of all common names in the cert, which should be only one in most cases
+        cn = cert.subject.get_attributes_for_oid(cryptography.x509.oid.NameOID().COMMON_NAME)
+        if not cn:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": gettext("Invalid certificate: No common name found"),
+                    }
+                ),
+                400,
+            )
+
+        cn = cn[0].value
+
+        # Use the cert's serial number as the file name to avoid file naming conflicts since most certs will be named ca.pem
+        with open(
+            os.path.join(
+                app.config.get("OTS_DATA_FOLDER"), "federation", f"{cert.serial_number}.pem"
+            ),
+            "wb",
+        ) as f:
+            f.write(cert.public_bytes(serialization.Encoding.PEM))
+
+    except BaseException as e:
+        logger.error(f"Failed to load certificate: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    return (
+        jsonify(
+            {
+                "success": True,
+                "certificate_file": cert_file.filename,
+                "issuer": cert.issuer.rfc4514_string(),
+                "subject": cert.subject.rfc4514_string(),
+                "serial_number": str(cert.serial_number),
+                "common_name": cn,
+            }
+        ),
+        200,
+    )
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/groups", methods=["GET"])
+def get_federation_groups():
+    """Returns a list of groups that the federation connection will forward data for
+    :parameter: federation_id
+
+    :return: List of groups
+    """
+
+    # TODO: Figure out LDAP. I think takserver queries the LDAP server
+    federation_id = request.args.get("federation_id")
+    if not federation_id or not federation_id.isnumeric():
+        return jsonify({"success": False, "error": gettext("Invalid federation_id")}), 400
+
+    try:
+        federation_id = int(bleach.clean(federation_id))
+    except ValueError:
+        return jsonify({"success": False, "error": gettext("Invalid federation_id")}), 400
+
+    query = db.session.query(FederationGroups).filter_by(federation_id=federation_id)
+    federation_groups = db.session.execute(query).scalars().all()
+
+    groups = []
+    for federation_group in federation_groups:
+        groups.append(federation_group.to_json())
+
+    return jsonify({"success": True, "groups": groups})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/groups", methods=["PUT"])
+def add_federation_to_groups():
+    # TODO: LDAP
+    groups = request.json.get("groups")
+    federation_id = request.json.get("federation_id")
+    direction = request.json.get("direction")
+
+    if not groups or not federation_id or not direction:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext(
+                        "Please provide a list of groups, a federation_id, and a direction"
+                    ),
+                }
+            ),
+            400,
+        )
+
+    if direction != GroupDirectionEnum.IN and direction != GroupDirectionEnum.OUT:
+        return jsonify({"success": False, "error": gettext("Direction must be IN or OUT")}), 400
+
+    for group_id in groups:
+        db.session.execute(
+            insert(FederationGroups)
+            .values(federation_id=federation_id, group_id=group_id, direction=direction)
+            .on_conflict_do_nothing()
+        )
+
+    db.session.commit()
+
+    federation_connection = db.session.execute(
+        db.session.query(FederationConnection).filter_by(id=federation_id)
+    ).first()
+    if federation_connection and direction == GroupDirectionEnum.OUT:
+        federation_connection = federation_connection[0]
+        rabbit_connection, channel = get_blocking_rabbitmq_channel()
+        channel.basic_publish(
+            exchange="federation",
+            routing_key=f"{federation_connection.display_name}.groups",
+            body="",
+            properties=pika.BasicProperties(expiration="0"),
+        )
+        channel.close()
+        rabbit_connection.close()
+
+    return jsonify({"success": True})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/groups", methods=["DELETE"])
+def remove_federation_groups():
+    federation_id = request.args.get("federation_id")
+    group_id = request.args.get("group_id")
+    direction = request.args.get("direction")
+
+    if not federation_id or not group_id or not direction:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("Missing federation_id, group_id, or direction"),
+                }
+            ),
+            400,
+        )
+
+    try:
+        federation_id = int(bleach.clean(federation_id))
+        group_id = int(bleach.clean(group_id))
+    except BaseException as e:
+        return (
+            jsonify({"success": False, "error": gettext("Invalid federation_id or group_id")}),
+            400,
+        )
+
+    if direction != GroupDirectionEnum.IN and direction != GroupDirectionEnum.OUT:
+        return jsonify({"success": False, "error": gettext("Direction must be IN or OUT")}), 400
+
+    delete_query = delete(FederationGroups).where(
+        FederationGroups.federation_id == federation_id,
+        FederationGroups.group_id == group_id,
+        FederationGroups.direction == direction,
+    )
+
+    db.session.execute(delete_query)
+    db.session.commit()
+
+    federation_connection = db.session.execute(
+        db.session.query(FederationConnection).filter_by(id=federation_id)
+    ).first()
+    if federation_connection and direction == GroupDirectionEnum.OUT:
+        federation_connection = federation_connection[0]
+        rabbit_connection, channel = get_blocking_rabbitmq_channel()
+        channel.basic_publish(
+            exchange="federation",
+            routing_key=f"{federation_connection.display_name}.groups",
+            body="",
+            properties=pika.BasicProperties(expiration="0"),
+        )
+        channel.close()
+        rabbit_connection.close()
+
+    return jsonify({"success": True})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/federate_groups")
+def get_federate_groups():
+    federation_id = request.args.get("federation_id")
+
+    if not federation_id:
+        return jsonify({"success": False, "error": gettext("Missing federation_id")}), 400
+
+    try:
+        federation_id = int(federation_id)
+    except ValueError:
+        return jsonify({"success": False, "error": gettext("Invalid federation_id")}), 400
+
+    federate_groups = db.session.execute(
+        db.session.query(FederateGroups).filter_by(federation_id=federation_id)
+    ).scalars()
+
+    return_value = []
+    for federate_group in federate_groups:
+        return_value.append(federate_group.to_json())
+
+    return jsonify({"success": True, "results": return_value})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/group_mapping")
+def get_federate_group_mappings():
+    federation_id = request.args.get("federation_id")
+
+    if not federation_id:
+        return jsonify({"success": False, "error": gettext("Missing federation_id")}), 400
+
+    try:
+        federation_id = int(federation_id)
+    except ValueError:
+        return jsonify({"success": False, "error": gettext("Invalid federation_id")}), 400
+
+    mappings = db.session.execute(
+        db.session.query(FederateGroupMapping).filter_by(federation_id=federation_id)
+    ).scalars()
+
+    return_value = []
+    for mapping in mappings:
+        return_value.append(mapping.to_json())
+
+    return jsonify({"success": True, "results": return_value})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/group_mapping", methods=["POST"])
+def create_federate_group_mapping():
+    federate_group_id = request.json.get("federate_group_id")
+    group_id = request.json.get("group_id")
+    federation_id = request.json.get("federation_id")
+
+    if not federate_group_id or not group_id or not federation_id:
+        logger.info(f"{federate_group_id} {group_id} {federation_id}")
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("Missing federate_group_id, group_id, or federation_id"),
+                }
+            ),
+            400,
+        )
+
+    try:
+        federate_group_id = int(federate_group_id)
+        group_id = int(group_id)
+        federation_id = int(federation_id)
+    except ValueError:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("Invalid federate_group_id, group_id, or federation_id"),
+                }
+            ),
+            400,
+        )
+
+    mapping = FederateGroupMapping(
+        federate_group_id=federate_group_id,
+        group_id=group_id,
+        federation_id=federation_id,
+    )
+    db.session.add(mapping)
+
+    try:
+        db.session.commit()
+    except BaseException as e:
+        logger.error(f"Failed to add group mapping: {e}")
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    return jsonify({"success": True})
+
+
+@roles_required("administrator")
+@federation_blueprint.route("/api/federation/group_mapping", methods=["DELETE"])
+def delete_federate_group_mapping():
+    federate_group_id = request.args.get("federate_group_id")
+    group_id = request.args.get("group_id")
+
+    if not federate_group_id or not group_id:
+        return jsonify(
+            {
+                "success": False,
+                "error": gettext("Missing federate_group_id, group_id"),
+            },
+            400,
+        )
+
+    try:
+        federate_group_id = int(federate_group_id)
+        group_id = int(group_id)
+    except ValueError:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("Invalid federate_group_id, group_id"),
+                }
+            ),
+            400,
+        )
+
+    db.session.execute(
+        delete(FederateGroupMapping).filter_by(
+            federate_group_id=federate_group_id, group_id=group_id
+        )
+    )
+
+    try:
+        db.session.commit()
+    except BaseException as e:
+        logger.error(f"Failed to delete group mapping: {e}")
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    return jsonify({"success": True})

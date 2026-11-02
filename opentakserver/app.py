@@ -3,6 +3,7 @@ monkey.patch_all()
 
 from opentakserver.models.Mission import Mission
 from opentakserver.models.MissionRole import MissionRole
+from opentakserver.models.FederationConnection import FederationConnection
 
 import uuid
 import logging
@@ -11,6 +12,7 @@ import platform
 import sqlite3
 import sys
 import traceback
+import subprocess
 from datetime import datetime, timezone
 from logging.handlers import TimedRotatingFileHandler
 
@@ -177,7 +179,6 @@ def init_extensions(app):
         },
         supports_credentials=True,
     )
-    flask_wtf.CSRFProtect(app)
 
     socketio_logger = False
     if app.config.get("DEBUG"):
@@ -209,6 +210,7 @@ def init_extensions(app):
         "firehose", durable=True, exchange_type="fanout"
     )  # A firehose of all CoT data
     channel.exchange_declare("flask-socketio", durable=False, exchange_type="fanout")
+    channel.exchange_declare("federation", durable=True, exchange_type="fanout")
     channel.close()
     rabbit_connection.close()
 
@@ -349,8 +351,6 @@ def create_app(cli=True):
             db.init_app(app)
             Migrate(app, db)
 
-        flask_wtf.CSRFProtect(app)
-
         try:
             fsqla.FsModels.set_db_info(db)
         except sqlalchemy.exc.InvalidRequestError:
@@ -441,6 +441,21 @@ def create_default_groups(app):
                 meshtastic_group.bitpos = meshtastic_group.get_next_bitpos()
                 db.session.add(meshtastic_group)
                 db.session.commit()
+
+
+def start_federation_connections(app):
+    with app.app_context():
+        fed_connections = db.session.execute(db.session.query(FederationConnection).filter_by(enabled=True)).scalars()
+        for fed_connection in fed_connections:
+
+            path = os.path.dirname(sys.executable)
+            subprocess.Popen(
+                f"{os.path.join(path, 'fed_daemon')} --connection-id {fed_connection.id}",
+                shell=True,
+                stdin=None,
+                stdout=None,
+                stderr=None,
+            )
 
 
 def main(app):
@@ -566,6 +581,7 @@ def main(app):
     app.start_time = datetime.now(timezone.utc)
 
     create_default_groups(app)
+    start_federation_connections(app)
 
     try:
         socketio.run(

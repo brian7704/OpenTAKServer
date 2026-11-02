@@ -65,6 +65,10 @@ from opentakserver.models.VideoStream import VideoStream
 from opentakserver.models.WebAuthn import WebAuthn
 from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.CITrap import CITrap
+from opentakserver.models.FederationGroups import FederationGroups
+from opentakserver.models.FederationConnection import FederationConnection
+from opentakserver.models.Federate import Federate
+from opentakserver.models.FederateToken import FederateToken
 
 
 class EudHandler(socketserver.BaseRequestHandler):
@@ -261,6 +265,7 @@ class EudHandler(socketserver.BaseRequestHandler):
                 # pika is not thread safe, so run the RabbitMQ cleanup on the connection's own I/O loop thread
                 self.rabbit_connection.ioloop.add_callback_threadsafe(self.cleanup_rabbitmq)
             else:
+                self.mark_disconnected_in_db()
                 self.cleanup_done.set()
 
         # The forking server calls os._exit() as soon as handle() returns, which used to kill this process
@@ -285,6 +290,23 @@ class EudHandler(socketserver.BaseRequestHandler):
         elif self.rabbit_connection and self.rabbit_connection.is_open:
             self.rabbit_connection.ioloop.add_callback_threadsafe(call)
 
+    def mark_disconnected_in_db(self):
+        # Without RabbitMQ, cot_parser never hears about the disconnect, so record it directly (#404)
+        if not self.uid:
+            return
+        try:
+            with self.app.app_context():
+                db.session.execute(
+                    update(EUD)
+                    .filter(EUD.uid == self.uid)
+                    .values(
+                        last_status="Disconnected", last_event_time=iso8601_string_from_datetime()
+                    )
+                )
+                db.session.commit()
+        except BaseException as e:
+            self.logger.error(f"Failed to mark {self.callsign} disconnected: {e}")
+
     def publish_disconnect(self):
         self.rabbit_channel.basic_publish(
             exchange="cot_parser",
@@ -303,6 +325,7 @@ class EudHandler(socketserver.BaseRequestHandler):
     def cleanup_rabbitmq(self):
         # Runs on the pika I/O loop thread
         if not self.rabbit_channel or not self.rabbit_channel.is_open:
+            self.mark_disconnected_in_db()
             self.finish_rabbitmq_cleanup()
             return
 
@@ -614,6 +637,14 @@ class EudHandler(socketserver.BaseRequestHandler):
             body=json.dumps({"uid": self.uid, "cot": str(event)}),
             routing_key="",
             properties=pika.BasicProperties(expiration=self.app.config.get("OTS_RABBITMQ_TTL")),
+        )
+
+        self.rabbit_threadsafe(
+            self.rabbit_channel.basic_publish,
+            exchange="federation",
+            body=json.dumps({"uid": self.uid, "cot": str(event)}),
+            routing_key="outgoing_messages",
+            properties=pika.BasicProperties(expiration="0"),
         )
 
         # Route all cots to the cot_parser direct exchange to be processed by a pool of cot_parser processes

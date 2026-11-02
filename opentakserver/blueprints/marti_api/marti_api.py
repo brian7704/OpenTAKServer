@@ -13,6 +13,7 @@ from cryptography.x509 import UnsupportedGeneralNameType
 from cryptography.x509.verification import VerificationError
 from simplekml import Document, GxMultiTrack, GxTrack, Icon, IconStyle, Kml, Style
 
+import opentakserver
 from opentakserver import __version__ as version
 from opentakserver.extensions import db, logger
 from opentakserver.functions import datetime_from_iso8601_string, iso8601_string_from_datetime
@@ -83,6 +84,11 @@ def client_end_points():
         )
 
     return return_value, 200, {"Content-Type": "application/json"}
+
+
+@marti_api.route("/Marti/api/version")
+def marti_version():
+    return f"OpenTAKServer {opentakserver.__version__}"
 
 
 @marti_api.route("/Marti/api/version/config", methods=["GET"])

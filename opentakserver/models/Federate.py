@@ -1,0 +1,79 @@
+from opentakserver.forms.FederateForm import FederateForm
+from sqlalchemy import JSON, TEXT, DateTime, ForeignKey, Integer, String, Boolean
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from opentakserver.extensions import db
+from opentakserver.functions import iso8601_string_from_datetime
+
+"""
+    Note to self: either make fed_truststore.jks or save individual certs and associate them with federates
+"""
+
+
+class Federate(db.Model):
+    __tablename__ = "federates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    shared_alerts: Mapped[bool] = mapped_column(Boolean, default=True)
+    archive: Mapped[bool] = mapped_column(Boolean, default=False)
+    federate_group_mapping: Mapped[bool] = mapped_column(Boolean, default=True)
+    automatic_group_mapping: Mapped[bool] = mapped_column(Boolean, default=True)
+    fallback_group_mapping: Mapped[bool] = mapped_column(Boolean, default=False)
+    # -1 is takserver's default for no limit
+    max_hops: Mapped[int] = mapped_column(Integer, default=-1)
+    # When enabled, group hop limiting will be used in place of max hops. Individual group hop limits can be configured on the 'edit groups' page
+    use_group_hop_limiting: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+    )
+    # takserver notes field says "Notes may contain upper and lower case letters, numbers, spaces and underscores up to 30 characters."
+    notes: Mapped[str] = mapped_column(String(255), nullable=True)
+    certificate_file: Mapped[str] = mapped_column(String(255))
+    issuer: Mapped[str] = mapped_column(String(255))
+    subject: Mapped[str] = mapped_column(String(255))
+    serial_number: Mapped[str] = mapped_column(String(255), unique=True)
+    common_name: Mapped[str] = mapped_column(String(255), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    federation_connections = relationship("FederationConnection", back_populates="federate")
+
+    def from_wtf(self, form: FederateForm):
+        self.name = form.name.data
+        self.shared_alerts = form.shared_alerts.data
+        self.archive = form.archive.data
+        self.federate_group_mapping = form.federate_group_mapping.data
+        self.automatic_group_mapping = form.automatic_group_mapping.data
+        self.fallback_group_mapping = form.fallback_group_mapping.data
+        self.max_hops = form.max_hops.data
+        self.use_group_hop_limiting = form.use_group_hop_limiting.data
+        self.notes = form.notes.data
+        self.certificate_file = form.certificate_file.data
+        self.issuer = form.issuer.data
+        self.subject = form.subject.data
+        self.common_name = form.common_name.data
+        self.serial_number = form.serial_number.data
+        self.enabled = form.enabled.data
+
+    def serialize(self):
+        return {
+            "name": self.name,
+            "shared_alerts": self.shared_alerts,
+            "archive": self.archive,
+            "federate_group_mapping": self.federate_group_mapping,
+            "automatic_group_mapping": self.automatic_group_mapping,
+            "fallback_group_mapping": self.fallback_group_mapping,
+            "max_hops": self.max_hops,
+            "use_group_hop_limiting": self.use_group_hop_limiting,
+            "notes": self.notes,
+            "certificate_file": self.certificate_file,
+            "issuer": self.issuer,
+            "subject": self.subject,
+            "common_name": self.common_name,
+            "serial_number": self.serial_number,
+            "enabled": self.enabled,
+        }
+
+    def to_json(self):
+        return_value = self.serialize()
+        return_value["id"] = self.id
+        return return_value
