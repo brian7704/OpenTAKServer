@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-23 07:41-0400\n"
-"PO-Revision-Date: 2026-10-29 04:09+0000\n"
+"PO-Revision-Date: 2026-11-04 17:00+0000\n"
 "Last-Translator: Brian Wallen <bwallen@gmail.com>\n"
 "Language: uk\n"
 "Language-Team: Ukrainian <https://weblate.opentakserver.io/projects/"
@@ -39,19 +39,17 @@ msgid "report.xml not found"
 msgstr "report.xml не знайдено"
 
 #: blueprints/marti_api/citrap_api.py:96
-#, fuzzy
 msgid "Invalid report file"
-msgstr "Недійсний сертифікат"
+msgstr "Недійсний файл звіту"
 
 #: blueprints/marti_api/citrap_api.py:161
-#, fuzzy, python-format
+#, python-format
 msgid "Failed to add report"
-msgstr "Не вдалося додати місію: %(e)s"
+msgstr "Не вдалося додати звіт"
 
 #: blueprints/marti_api/citrap_api.py:165
-#, fuzzy
 msgid "Failed to verify certificate"
-msgstr "Недійсний сертифікат"
+msgstr "Не вдалося перевірити сертифікат"
 
 #: blueprints/marti_api/citrap_api.py:296
 msgid "Forbidden"
@@ -81,9 +79,8 @@ msgid "Invalid file extension: %(extension)s"
 msgstr "Недійсне розширення файлу: %(extension)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:215
-#, fuzzy
 msgid "Invalid file hash"
-msgstr "Недійсний/невідомий хеш"
+msgstr "Недійсний хеш файлу"
 
 #: blueprints/marti_api/data_package_marti_api.py:391
 #, python-format
@@ -262,7 +259,7 @@ msgid "Invalid invitation type: %(invitation)s"
 msgstr "Недійсний тип запрошення: %(invitation)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1154
-#, fuzzy, python-format
+#, python-format
 msgid "No such mission found: %(mission_name)s"
 msgstr "Такої місії не знайдено: %(mission_name)s"
 
@@ -346,12 +343,12 @@ msgid "No such file with hash %(content_hash)s"
 msgstr "Немає такого файлу з хешем %(content_hash)s"
 
 #: blueprints/marti_api/mission_marti_api.py:2118
-#, fuzzy, python-format
+#, python-format
 msgid "UID %(uid)s not found"
 msgstr "UID %(uid)s не знайдено"
 
 #: blueprints/marti_api/mission_marti_api.py:2148
-#, fuzzy, python-format
+#, python-format
 msgid "No content found with hash %(hash)s"
 msgstr "Не знайдено вмісту з хешем %(hash)s"
 
@@ -792,11 +789,11 @@ msgstr "Запис не знайдено"
 
 #: eud_handler/eud_handler.py:31
 msgid "Enable SSL"
-msgstr ""
+msgstr "Увімкнути SSL"
 
 #: eud_handler/eud_handler.py:34
 msgid "UDP Server"
-msgstr ""
+msgstr "UDP-сервер"
 
 #~ msgid "Mission %(mission_name)S not found"
 #~ msgstr "Місія %(mission_name)S не знайдена"
