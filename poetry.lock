@@ -2154,14 +2154,14 @@ mfa = ["cryptography (>=45.0.7)", "phonenumberslite (>=8.13.11)", "qrcode (>=7.4
 
 [[package]]
 name = "flask-socketio"
-version = "5.6.1"
+version = "5.7.0"
 description = "Socket.IO integration for Flask applications"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "flask_socketio-5.6.1-py3-none-any.whl", hash = "sha256:51a3f71b28b4476c650829607e3a993e076034db6c3cc31f718f0a4b45939d42"},
-    {file = "flask_socketio-5.6.1.tar.gz", hash = "sha256:fe5bd995c3ed4da9a98f335d0d830fa1a19d84a64789f6265642a671fdacaeac"},
+    {file = "flask_socketio-5.7.0-py3-none-any.whl", hash = "sha256:2e399a4a747c6248baec188d3b1294081fda8a85597d11815a2219836bafcbad"},
+    {file = "flask_socketio-5.7.0.tar.gz", hash = "sha256:aa01e50106962808dadc245407c3b6354295b1526e888bd154dc7ff4801a7c88"},
 ]
 
 [package.dependencies]
@@ -7019,4 +7019,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.15"
-content-hash = "0f84cc114c8c6149850db52c0b0e8548de1df0bae4ba8d8af469223a1c71d6be"
+content-hash = "f298fb9167e8c0cdf2ae3b7db8eb579e4815f72887ba11aca917b2c257d66832"
