@@ -3119,14 +3119,14 @@ zookeeper = ["kazoo (>=2.8.0)"]
 
 [[package]]
 name = "lastversion"
-version = "3.6.17"
+version = "3.6.19"
 description = "A CLI tool to find the latest stable version of an arbitrary project"
 optional = false
 python-versions = ">=3.6"
 groups = ["main"]
 files = [
-    {file = "lastversion-3.6.17-py3-none-any.whl", hash = "sha256:73917d489360d1b3d475c8d92708023168e4db0171be247d1fed0711c4ac53c2"},
-    {file = "lastversion-3.6.17.tar.gz", hash = "sha256:d74f9d0995768d4fb31e3d2dcb7b45eb63cf3efdc25d37bdaf1a1a295f0b3d07"},
+    {file = "lastversion-3.6.19-py3-none-any.whl", hash = "sha256:d6c717ba3612432b5ec6c254d03da31dcaa04ff8fcd55dd7d11cd2cd50a61c36"},
+    {file = "lastversion-3.6.19.tar.gz", hash = "sha256:8150845a944d01b405cee4f9984d0493507e27c4175e1c62a74aa3aa16c437b1"},
 ]
 
 [package.dependencies]
