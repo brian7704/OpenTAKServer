@@ -2011,14 +2011,14 @@ Werkzeug = ">=0.7"
 
 [[package]]
 name = "flask-ldap3-login"
-version = "1.0.2"
+version = "1.1.0"
 description = "LDAP Support for Flask"
 optional = false
 python-versions = ">=3.5"
 groups = ["main"]
 files = [
-    {file = "flask_ldap3_login-1.0.2-py3-none-any.whl", hash = "sha256:72368ea58b5faac4935d1f3e5ec1fcfdce51cc16adbec41a74c834247422ac61"},
-    {file = "flask_ldap3_login-1.0.2.tar.gz", hash = "sha256:969d2e4263aa0908383174d9700e03198a5eb3db483b26a18f9ea634032cbdd4"},
+    {file = "flask_ldap3_login-1.1.0-py3-none-any.whl", hash = "sha256:a9a506c2d056855aa8b6a4082c8b690f666c46f540e5beb91146a39134d1abb3"},
+    {file = "flask_ldap3_login-1.1.0.tar.gz", hash = "sha256:b5011c44f791325820c159a6470aeb74319067c203e3f48ab7d1696abd00aa33"},
 ]
 
 [package.dependencies]
