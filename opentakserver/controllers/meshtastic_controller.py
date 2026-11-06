@@ -15,13 +15,19 @@ from google.protobuf.json_format import MessageToJson
 from meshtastic import BROADCAST_NUM, mesh_pb2, mqtt_pb2, portnums_pb2, protocols
 from pika.spec import Basic, BasicProperties, Channel
 
-from opentakserver.rabbitmq_client import RabbitMQClient
+from opentakserver.controllers.meshtastic_team_filter import (
+    normalize_atak_enum_role,
+    normalize_atak_enum_team,
+    parse_callsign_and_team,
+    resolve_meshtastic_identity,
+)
 from opentakserver.extensions import db, logger, socketio
 from opentakserver.models.EUD import EUD
 from opentakserver.models.Meshtastic import MeshtasticChannel
 from opentakserver.models.Point import Point
 from opentakserver.models.Team import Team
 from opentakserver.proto import atak_pb2
+from opentakserver.rabbitmq_client import RabbitMQClient
 
 
 class MeshtasticController(RabbitMQClient):
@@ -34,17 +40,53 @@ class MeshtasticController(RabbitMQClient):
         self.get_channels()
 
     def get_euds(self):
+        parse_suffix = bool(self.context.app.config.get("OTS_MESHTASTIC_PARSE_TEAM_SUFFIX"))
         with self.context:
-            euds = self.db.session.execute(self.db.session.query(EUD)).scalars()
+            existing_teams = {
+                t.name: t.id
+                for t in self.db.session.execute(self.db.session.query(Team)).scalars().all()
+            }
+            for color_name in Team.colors:
+                if color_name not in existing_teams:
+                    new_team = Team(name=color_name)
+                    self.db.session.add(new_team)
+                    self.db.session.commit()
+                    existing_teams[color_name] = new_team.id
+
+            euds = self.db.session.execute(self.db.session.query(EUD)).scalars().all()
             for eud in euds:
-                meshtastic_id = eud.meshtastic_id
                 if not eud.meshtastic_id:
                     eud.meshtastic_id = int.from_bytes(os.urandom(4), "big")
                     self.db.session.add(eud)
                     self.db.session.commit()
+
+                long_name = eud.callsign
+                team_name = eud.team.name if eud.team else "Cyan"
+                role_name = eud.team_role if eud.team_role else "Team Member"
+
+                if parse_suffix and eud.platform == "Meshtastic" and eud.callsign:
+                    clean_cs, suffix_team = parse_callsign_and_team(
+                        eud.callsign, fallback_name=f"Meshtastic {str(eud.uid)[-4:]}"
+                    )
+                    long_name = clean_cs
+                    if suffix_team:
+                        team_name = suffix_team
+                        conflict = self.db.session.execute(
+                            self.db.session.query(EUD).filter(
+                                EUD.callsign == clean_cs, EUD.uid != eud.uid
+                            )
+                        ).scalar()
+                        eud.callsign = (
+                            f"{clean_cs} ({str(eud.uid)[-4:]})" if conflict else clean_cs
+                        )
+                        if suffix_team in existing_teams:
+                            eud.team_id = existing_teams[suffix_team]
+                        self.db.session.add(eud)
+                        self.db.session.commit()
+
                 self.meshtastic_devices[eud.uid] = {
                     "hw_model": eud.device,
-                    "long_name": eud.callsign,
+                    "long_name": long_name,
                     "short_name": "",
                     "firmware_version": eud.version,
                     "last_lat": "0.0",
@@ -56,8 +98,8 @@ class MeshtasticController(RabbitMQClient):
                     "last_alt": "9999999.0",
                     "course": "0.0",
                     "speed": "0.0",
-                    "team": "Cyan",
-                    "role": "Team Member",
+                    "team": team_name,
+                    "role": role_name,
                     "uid": eud.uid,
                     "macaddr": eud.meshtastic_macaddr,
                 }
@@ -311,9 +353,12 @@ class MeshtasticController(RabbitMQClient):
         return event
 
     def insert_or_update_eud(self, uid: str, from_id: str, update_if_exists: bool = True):
+        desired_callsign = self.meshtastic_devices[from_id]["long_name"]
+        team_name = self.meshtastic_devices[from_id]["team"] or "Cyan"
+
         eud = EUD()
         eud.uid = uid
-        eud.callsign = self.meshtastic_devices[from_id]["long_name"]
+        eud.callsign = desired_callsign
         eud.device = self.meshtastic_devices[from_id]["hw_model"]
         eud.os = "Meshtastic"
         eud.platform = "Meshtastic"
@@ -323,14 +368,27 @@ class MeshtasticController(RabbitMQClient):
         eud.meshtastic_macaddr = self.meshtastic_devices[from_id]["macaddr"]
 
         with self.context:
-            socketio.emit("eud", eud.to_json(), namespace="/socket.io")
-
-        with self.context:
             team = db.session.execute(
-                db.session.query(Team).filter_by(name=self.meshtastic_devices[from_id]["team"])
+                db.session.query(Team).filter_by(name=team_name)
             ).scalar()
+            if not team and team_name in Team.colors:
+                team = Team(name=team_name)
+                db.session.add(team)
+                db.session.commit()
             if team:
                 eud.team_id = team.id
+                eud.team = team
+
+            if desired_callsign:
+                conflict = db.session.execute(
+                    db.session.query(EUD).filter(
+                        EUD.callsign == desired_callsign, EUD.uid != uid
+                    )
+                ).scalar()
+                if conflict:
+                    eud.callsign = f"{desired_callsign} ({str(uid)[-4:]})"
+
+            socketio.emit("eud", eud.to_json(), namespace="/socket.io")
 
             try:
                 db.session.add(eud)
@@ -345,54 +403,29 @@ class MeshtasticController(RabbitMQClient):
 
     def position(self, pb, from_id, to_id, portnum):
         try:
-            if (
-                portnum == "MAP_REPORT_APP"
-                and pb.firmware_version != self.meshtastic_devices[from_id]["firmware_version"]
-            ):
+            if portnum == "MAP_REPORT_APP":
                 try:
-                    with self.context:
-                        eud = self.db.session.execute(
-                            self.db.session.query(EUD).filter_by(uid=from_id)
-                        ).first()[0]
-                        eud.version = pb.firmware_version
-                        eud.device = pb.hw_model
-                        eud.callsign = pb.long_name
-                        self.db.session.add(eud)
-                        self.db.session.commit()
-                        if from_id not in self.meshtastic_devices:
-                            self.meshtastic_devices[from_id] = {
-                                "hw_model": "",
-                                "long_name": f"Meshtastic {str(from_id)[-4:]}",
-                                "short_name": str(from_id)[-4:],
-                                "macaddr": "",
-                                "firmware_version": "",
-                                "last_lat": "0.0",
-                                "last_lon": "0.0",
-                                "battery": 0,
-                                "meshtastic_id": "",
-                                "voltage": 0,
-                                "uptime": 0,
-                                "last_alt": "9999999.0",
-                                "course": "0.0",
-                                "speed": "0.0",
-                                "team": "Cyan",
-                                "role": "Team Member",
-                                "uid": None,
-                            }
-
-                        self.meshtastic_devices[from_id]["firmware_version"] = pb.firmware_version
-                        self.meshtastic_devices[from_id]["hw_model"] = mesh_pb2.HardwareModel.Name(
-                            pb.hw_model
-                        )
-                        self.meshtastic_devices[from_id]["long_name"] = (
-                            pb.long_name or f"Meshtastic {str(from_id)}"
-                        )
-                        self.meshtastic_devices[from_id]["short_name"] = (
-                            pb.short_name or str(from_id)[-4:]
-                        )
+                    parse_suffix = bool(
+                        self.context.app.config.get("OTS_MESHTASTIC_PARSE_TEAM_SUFFIX")
+                    )
+                    clean_long, clean_short, resolved_team = resolve_meshtastic_identity(
+                        pb.long_name,
+                        pb.short_name,
+                        from_id,
+                        default_team="Cyan",
+                        parse_suffix=parse_suffix,
+                    )
+                    self.meshtastic_devices[from_id]["firmware_version"] = pb.firmware_version
+                    self.meshtastic_devices[from_id]["hw_model"] = mesh_pb2.HardwareModel.Name(
+                        pb.hw_model
+                    )
+                    self.meshtastic_devices[from_id]["long_name"] = clean_long
+                    self.meshtastic_devices[from_id]["short_name"] = clean_short
+                    self.meshtastic_devices[from_id]["team"] = resolved_team
+                    self.insert_or_update_eud(from_id, from_id, True)
                 except BaseException as e:
                     self.logger.error(
-                        "Failed to update {}'s firmware version: {}".format(from_id, e)
+                        "Failed to update {}'s map report info: {}".format(from_id, e)
                     )
 
             self.meshtastic_devices[from_id]["last_lat"] = pb.latitude_i * 0.0000001
@@ -488,29 +521,50 @@ class MeshtasticController(RabbitMQClient):
         return event
 
     def node_info(self, pb, from_id, to_id, portnum):
+        parse_suffix = bool(self.context.app.config.get("OTS_MESHTASTIC_PARSE_TEAM_SUFFIX"))
         if portnum == "ATAK_PLUGIN":
             uid = unishox2.decompress(pb.contact.device_callsign, len(pb.contact.device_callsign))
-            self.meshtastic_devices[from_id]["uid"] = uid
-            self.meshtastic_devices[from_id]["long_name"] = unishox2.decompress(
+            raw_callsign = unishox2.decompress(
                 pb.contact.callsign, len(pb.contact.callsign)
             )
-            self.meshtastic_devices[from_id]["short_name"] = uid[-4:]
+            proto_team = (
+                normalize_atak_enum_team(atak_pb2.Team.Name(pb.group.team))
+                if pb.group.team != 0
+                else "Cyan"
+            )
+            clean_long, clean_short, resolved_team = resolve_meshtastic_identity(
+                raw_callsign,
+                uid[-4:],
+                from_id,
+                default_team=proto_team,
+                parse_suffix=parse_suffix,
+            )
+            self.meshtastic_devices[from_id]["uid"] = uid
+            self.meshtastic_devices[from_id]["long_name"] = clean_long
+            self.meshtastic_devices[from_id]["short_name"] = clean_short
             self.meshtastic_devices[from_id]["battery"] = pb.status.battery
-            if pb.group.team != 0:
-                self.meshtastic_devices[from_id]["team"] = atak_pb2.Team.Name(pb.group.team)
+            self.meshtastic_devices[from_id]["team"] = resolved_team
             if pb.group.role != 0:
-                self.meshtastic_devices[from_id]["role"] = atak_pb2.MemberRole.Name(pb.group.role)
+                self.meshtastic_devices[from_id]["role"] = normalize_atak_enum_role(
+                    atak_pb2.MemberRole.Name(pb.group.role)
+                )
 
             self.insert_or_update_eud(uid, from_id)
         else:
             hw_model = mesh_pb2.HardwareModel.Name(pb.hw_model)
             self.meshtastic_devices[from_id]["hw_model"] = hw_model if hw_model else ""
-            self.meshtastic_devices[from_id]["long_name"] = (
-                str(pb.long_name) if pb.long_name else f"Meshtastic {str(from_id)[-4:]}"
+            raw_long = str(pb.long_name) if pb.long_name else ""
+            raw_short = str(pb.short_name) if pb.short_name else ""
+            clean_long, clean_short, resolved_team = resolve_meshtastic_identity(
+                raw_long,
+                raw_short,
+                from_id,
+                default_team="Cyan",
+                parse_suffix=parse_suffix,
             )
-            self.meshtastic_devices[from_id]["short_name"] = (
-                str(pb.short_name) if pb.short_name else str(from_id)[-4:]
-            )
+            self.meshtastic_devices[from_id]["long_name"] = clean_long
+            self.meshtastic_devices[from_id]["short_name"] = clean_short
+            self.meshtastic_devices[from_id]["team"] = resolved_team
             self.meshtastic_devices[from_id]["macaddr"] = (
                 base64.b64encode(pb.macaddr).decode("ascii") if pb.macaddr else ""
             )

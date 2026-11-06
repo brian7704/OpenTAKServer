@@ -151,6 +151,9 @@ class DefaultConfig:
     OTS_MESHTASTIC_DOWNLINK_CHANNELS = []
     OTS_MESHTASTIC_NODEINFO_INTERVAL = 3
     OTS_MESHTASTIC_GROUP = "Meshtastic"
+    OTS_MESHTASTIC_PARSE_TEAM_SUFFIX = os.getenv(
+        "OTS_MESHTASTIC_PARSE_TEAM_SUFFIX", "False"
+    ).lower() in ["true", "1", "yes"]
 
     # Email settings
     OTS_ENABLE_EMAIL = os.getenv("OTS_ENABLE_EMAIL", "False").lower() in ["true", "1", "yes"]
