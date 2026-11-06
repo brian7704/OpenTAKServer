@@ -4,7 +4,7 @@ import os
 import pathlib
 import traceback
 import uuid
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import bleach
 import requests
@@ -23,7 +23,7 @@ from werkzeug.datastructures import ImmutableMultiDict
 from opentakserver.extensions import db, ldap_manager, logger
 from opentakserver.forms.MediaMTXPathConfig import MediaMTXPathConfig
 from opentakserver.models.VideoRecording import VideoRecording
-from opentakserver.models.VideoStream import VideoStream
+from opentakserver.models.VideoStream import VideoStream, user_can_access_video_stream
 
 mediamtx_api_blueprint = Blueprint("mediamtx_api_blueprint", __name__)
 
@@ -311,6 +311,16 @@ def add_update_stream():
             )
 
         video = db.session.query(VideoStream).where(VideoStream.path == path).first()
+        if video and not user_can_access_video_stream(current_user, video):
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": gettext("You do not have permission to access this video stream"),
+                    }
+                ),
+                403,
+            )
         if not video and request.path.endswith("add"):
             video = VideoStream()
             video.path = path
@@ -398,25 +408,37 @@ def add_update_stream():
 @auth_required()
 def delete_stream():
     try:
-        path = bleach.clean(request.args.get("path", ""))
+        path = bleach.clean(request.args.get("path", "")).lstrip("/")
 
         if not path:
             return jsonify({"success": False, "error": gettext("Please specify a path name")}), 400
 
-        r = requests.delete(
-            "{}/v3/config/paths/delete/{}".format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"), path)
-        )
-        logger.debug("Delete status code: {}".format(r.status_code))
-        video = db.session.query(VideoStream).filter(VideoStream.path == path)
+        video = db.session.query(VideoStream).filter(VideoStream.path == path).first()
         if not video:
             return (
                 jsonify({"success": False, "error": gettext("Path %(path)s not found", path=path)}),
                 400,
             )
 
-        video.delete()
+        if not user_can_access_video_stream(current_user, video):
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": gettext("You do not have permission to access this video stream"),
+                    }
+                ),
+                403,
+            )
+
+        r = requests.delete(
+            "{}/v3/config/paths/delete/{}".format(app.config.get("OTS_MEDIAMTX_API_ADDRESS"), path)
+        )
+        logger.debug("Delete status code: {}".format(r.status_code))
+
+        db.session.delete(video)
         db.session.commit()
-    except requests.exceptions.ConnectionError as e:
+    except requests.exceptions.ConnectionError:
         logger.error(traceback.format_exc())
         return jsonify({"success": False, "error": gettext("MediaMTX is not running")}), 500
 
@@ -429,96 +451,156 @@ def delete_stream():
 # This is mainly for mediamtx authentication
 @mediamtx_api_blueprint.route("/api/external_auth", methods=["POST"])
 def external_auth():
-    username = bleach.clean(request.json.get("user"))
-    password = bleach.clean(request.json.get("password"))
-    action = bleach.clean(request.json.get("action"))
-    query = bleach.clean(request.json.get("query"))
-    ip = bleach.clean(request.json.get("ip"))
+    payload = request.get_json(silent=True) or {}
+    raw_user = payload.get("user") or ""
+    username = bleach.clean(raw_user) if raw_user else ""
+    password = payload.get("password") or ""
+    raw_action = payload.get("action") or ""
+    action = bleach.clean(raw_action) if raw_action else ""
+    raw_query = payload.get("query") or ""
+    raw_ip = payload.get("ip") or ""
+    ip = bleach.clean(raw_ip) if raw_ip else ""
+    raw_protocol = payload.get("protocol") or ""
+    protocol = bleach.clean(raw_protocol).lower() if raw_protocol else ""
+    raw_path = payload.get("path") or ""
+    path = bleach.clean(raw_path).lstrip("/") if raw_path else ""
+    query_params = parse_qs(raw_query)
 
-    # Whitelist 127.0.0.1 to make things like YouTube video re-streaming work
-    if ip and ip in app.config.get("OTS_IP_WHITELIST"):
+    if "token" in query_params:
+        if query_params["token"][0] == app.config.get("OTS_MEDIAMTX_TOKEN"):
+            return "", 200
+        return "", 401
+
+    # Whitelist local non-proxied connections (e.g. local ffmpeg YouTube re-streaming).
+    # HLS and WebRTC requests are reverse-proxied by nginx from 127.0.0.1 and must still authenticate.
+    if (
+        ip
+        and ip in (app.config.get("OTS_IP_WHITELIST") or [])
+        and protocol not in ("hls", "webrtc")
+        and not username
+        and "jwt" not in query_params
+    ):
         return "", 200
 
+    user = None
+
     # Token auth to prevent high CPU usage when reading HLS streams
-    if "jwt" in query or "token" in query:
-        query = query.split("&")
-        for q in query:
-            if "=" not in q:
-                continue
-            key, value = q.split("=")
-            if key == "jwt":
-                try:
-                    parse_auth_token(value)
-                    return "", 200
-                except BaseException as e:
-                    logger.error(f"Invalid token: {e}")
-                    return "", 401
-            elif key == "token":
-                if value == app.config.get("OTS_MEDIAMTX_TOKEN"):
-                    return "", 200
-                else:
-                    return "", 401
+    if "jwt" in query_params:
+        try:
+            token_data = parse_auth_token(query_params["jwt"][0])
+        except BaseException as e:
+            logger.error(f"Invalid token: {e}")
+            return "", 401
 
-    auth_success = False
-
+        uid = (
+            token_data.get("uid")
+            if isinstance(token_data, dict)
+            else getattr(token_data, "fs_uniquifier", None)
+        )
+        if uid:
+            user = app.security.datastore.find_user(fs_uniquifier=uid)
+        if not user or not user.active:
+            return "", 401
+        username = user.username
     # LDAP Auth
-    if app.config.get("OTS_ENABLE_LDAP"):
+    elif app.config.get("OTS_ENABLE_LDAP"):
+        if not username:
+            return "", 401
         result = ldap_manager.authenticate(username, password)
         if result.status == AuthenticationResponseStatus.success:
             # Keep this import here to avoid a circular import when OTS is started
             from opentakserver.blueprints.ots_api.ldap_api import save_user
 
-            save_user(result.user_dn, result.user_id, result.user_info, result.user_groups)
-            auth_success = True
+            user = save_user(result.user_dn, result.user_id, result.user_info, result.user_groups)
+            username = user.username
         else:
             return "", 401
     # Flask-Security auth
     else:
+        if not username:
+            return "", 401
         user = app.security.datastore.find_user(username=username)
-        if not user:
+        if not user or not user.active:
             return "", 401
         if not verify_password(password, user.password):
             return "", 401
-        auth_success = True
 
-    if auth_success:
-        if action == "publish":
-            logger.debug("Publish {}".format(request.json.get("path")))
-            v = VideoStream()
-            v.uid = bleach.clean(request.json.get("id")) if request.json.get("id") else None
-            v.rover_port = -1
-            v.ignore_embedded_klv = False
-            v.buffer_time = None
-            v.network_timeout = 10000
-            v.protocol = bleach.clean(request.json.get("protocol"))
-            v.path = bleach.clean(request.json.get("path"))
-            v.alias = v.path.split("/")[-1]
-            v.username = bleach.clean(request.json.get("user"))
-            path_config = MediaMTXPathConfig(None).serialize()
-            path_config["sourceOnDemand"] = False
-            v.mediamtx_settings = json.dumps(path_config)
+    if action == "publish":
+        logger.debug("Publish {}".format(path))
+        v = VideoStream()
+        v.uid = bleach.clean(payload.get("id")) if payload.get("id") else None
+        v.rover_port = -1
+        v.ignore_embedded_klv = False
+        v.buffer_time = None
+        v.network_timeout = 10000
+        v.protocol = protocol or "rtsp"
+        v.path = path
+        v.alias = v.path.split("/")[-1]
+        v.username = username
+        path_config = MediaMTXPathConfig(None).serialize()
+        path_config["sourceOnDemand"] = False
+        v.mediamtx_settings = json.dumps(path_config)
 
-            if v.protocol == "rtsp":
-                v.port = 8554
-                v.rtsp_reliable = 1
-            elif v.protocol == "rtmp":
-                v.port = 1935
-                v.rtsp_reliable = 1
-            else:
-                v.rtsp_reliable = 0
+        if v.protocol == "rtsp":
+            v.port = 8554
+            v.rtsp_reliable = 1
+        elif v.protocol == "rtmp":
+            v.port = 1935
+            v.rtsp_reliable = 1
+        else:
+            v.rtsp_reliable = 0
 
-            v.generate_xml(request.json.get("ip"))
+        v.generate_xml(ip)
 
-            with app.app_context():
+        with app.app_context():
+            try:
+                db.session.add(v)
+                db.session.commit()
+                r = requests.post(
+                    "{}/v3/config/paths/add/{}".format(
+                        app.config.get("OTS_MEDIAMTX_API_ADDRESS"), v.path
+                    ),
+                    json=path_config,
+                )
+                if r.status_code == 200:
+                    logger.debug("Added path {} to mediamtx".format(v.path))
+                else:
+                    logger.error(
+                        "Failed to add path {} to mediamtx. Status code {} {}".format(
+                            v.path, r.status_code, r.text
+                        )
+                    )
+                logger.debug("Inserted video stream {}".format(v.uid))
+            except sqlalchemy.exc.IntegrityError:
+                db.session.rollback()
+                video = db.session.query(VideoStream).filter(VideoStream.path == v.path).first()
+                if video and video.ready and not user_can_access_video_stream(user, video):
+                    logger.warning(
+                        f"Denied publish override on active stream '{path}' for user '{username}'"
+                    )
+                    return "", 401
                 try:
-
-                    db.session.add(v)
-                    db.session.commit()
+                    if video:
+                        video.username = username
+                        video.protocol = v.protocol
+                        video.port = v.port
+                        video.rtsp_reliable = v.rtsp_reliable
+                        video.alias = v.alias
+                        video.cot_id = None
+                        video.generate_xml(ip)
+                        db.session.commit()
+                        settings = (
+                            json.loads(video.mediamtx_settings)
+                            if video.mediamtx_settings
+                            else path_config
+                        )
+                    else:
+                        settings = path_config
                     r = requests.post(
                         "{}/v3/config/paths/add/{}".format(
                             app.config.get("OTS_MEDIAMTX_API_ADDRESS"), v.path
                         ),
-                        json=path_config,
+                        json=settings,
                     )
                     if r.status_code == 200:
                         logger.debug("Added path {} to mediamtx".format(v.path))
@@ -528,37 +610,18 @@ def external_auth():
                                 v.path, r.status_code, r.text
                             )
                         )
-                    logger.debug("Inserted video stream {}".format(v.uid))
-                except sqlalchemy.exc.IntegrityError as e:
-                    try:
-                        db.session.rollback()
-                        video = (
-                            db.session.query(VideoStream).filter(VideoStream.path == v.path).first()
-                        )
-                        r = requests.post(
-                            "{}/v3/config/paths/add/{}".format(
-                                app.config.get("OTS_MEDIAMTX_API_ADDRESS"), v.path
-                            ),
-                            json=json.loads(video.mediamtx_settings),
-                        )
-                        if r.status_code == 200:
-                            logger.debug("Added path {} to mediamtx".format(v.path))
-                        else:
-                            logger.error(
-                                "Failed to add path {} to mediamtx. Status code {} {}".format(
-                                    v.path, r.status_code, r.text
-                                )
-                            )
-                    except:
-                        logger.error(traceback.format_exc())
+                except BaseException:
+                    logger.error(traceback.format_exc())
+    elif action in ("read", "playback"):
+        video = db.session.query(VideoStream).filter(VideoStream.path == path).first()
+        if not user_can_access_video_stream(user, video):
+            logger.warning(
+                f"Denied {action} access on video stream '{path}' for user '{username}'"
+            )
+            return "", 401
+    elif action in ("api", "metrics", "pprof"):
+        if not user.has_role("administrator"):
+            return "", 401
 
-        logger.debug("external_auth returning 200")
-        return "", 200
-    elif query:
-        for arg in query.split("&"):
-            key, value = arg.split("=")
-            if key == "token" and value == app.config.get("OTS_MEDIAMTX_TOKEN"):
-                return "", 200
-    else:
-        logger.debug("external_auth returning 401")
-        return "", 401
+    logger.debug("external_auth returning 200")
+    return "", 200
