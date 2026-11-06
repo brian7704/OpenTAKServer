@@ -12,7 +12,7 @@ RUN chown -R ots:ots /app
 RUN python -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
-RUN pip install git+https://github.com/brian7704/OpenTAKServer.git@docker
+RUN pip install git+https://github.com/brian7704/OpenTAKServer.git
 
 USER ots
 
