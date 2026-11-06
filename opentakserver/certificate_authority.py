@@ -161,7 +161,7 @@ class CertificateAuthority:
         self.sign_csr(csr_bytes, common_name, server)
 
         # Include ca.pem in each cert for full chain verification (required by fedhub)
-        command = f"cat {os.path.join(self.app.config.get('OTS_CA_FOLDER'), "ca.pem")} >> {os.path.join(self.app.config.get('OTS_CA_FOLDER'), "certs", common_name, common_name)}.pem"
+        command = f"cat {os.path.join(self.app.config.get('OTS_CA_FOLDER'), 'ca.pem')} >> {os.path.join(self.app.config.get('OTS_CA_FOLDER'), 'certs', common_name, common_name)}.pem"
 
         self.logger.debug(command)
 
