@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-23 07:41-0400\n"
-"PO-Revision-Date: 2026-10-29 06:48+0000\n"
+"PO-Revision-Date: 2026-11-12 15:24+0000\n"
 "Last-Translator: Sebastian Lee <RYOHEI19920102@hotmail.com>\n"
 "Language: zh_Hans\n"
 "Language-Team: Chinese (Simplified Han script) <https://"
@@ -759,11 +759,11 @@ msgstr "未找到录制内容"
 
 #: eud_handler/eud_handler.py:31
 msgid "Enable SSL"
-msgstr ""
+msgstr "启用 SSL"
 
 #: eud_handler/eud_handler.py:34
 msgid "UDP Server"
-msgstr ""
+msgstr "UDP 服务器"
 
 #~ msgid "No token found for %s(username)s"
 #~ msgstr ""
