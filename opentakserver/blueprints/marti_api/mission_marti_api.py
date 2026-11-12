@@ -1573,9 +1573,10 @@ def mission_unsubscribe(mission_name: str):
     return "", 200
 
 
+@mission_marti_api.route("/Marti/api/missions/guid/<mission_guid>/changes")
 @mission_marti_api.route("/Marti/api/missions/<mission_name>/changes", methods=["GET"])
-def mission_changes(mission_name):
-    permission_granted = check_permission(mission_name)
+def mission_changes(mission_name: str | None = None, mission_guid: str | None = None):
+    permission_granted = check_permission(mission_name, mission_guid)
     if isinstance(permission_granted, flask.Response):
         return permission_granted
 
@@ -1590,12 +1591,24 @@ def mission_changes(mission_name):
         "nodeId": app.config.get("OTS_NODE_ID"),
     }
 
-    changes = db.session.execute(
-        db.session.query(MissionChange).filter_by(mission_name=mission_name)
-    ).all()
+    if mission_name:
+        changes = db.session.execute(
+            db.session.query(MissionChange).filter_by(mission_name=mission_name)
+        ).all()
+    elif mission_guid:
+        changes = db.session.execute(
+            db.session.query(MissionChange).filter_by(mission_uid=mission_guid)
+        ).all()
+    else:
+        return (
+            jsonify({"success": False, "error": gettext("Please provide a mission name or GUID")}),
+            400,
+        )
+
     for change in changes:
         response["data"].append(change[0].to_json())
 
+    logger.debug(f"Returning {response}")
     return jsonify(response)
 
 
@@ -1858,7 +1871,7 @@ def add_content_keywords(content_hash: str):
 @mission_marti_api.route("/Marti/api/missions/<mission_name>/contents", methods=["PUT"])
 def mission_contents(mission_name: str | None = None, mission_guid: str | None = None):
     """Associates content/files with a mission"""
-    permission_granted = check_permission(mission_name)
+    permission_granted = check_permission(mission_name, mission_guid)
     if isinstance(permission_granted, flask.Response):
         return permission_granted
 
@@ -2231,7 +2244,7 @@ def add_content(mission_name):
 
 @mission_marti_api.route("/Marti/api/missions/<mission_name>/cot")
 @mission_marti_api.route("/Marti/api/missions/guid/<mission_guid>/cot")
-def get_mission_cots(mission_name: str = None, mission_guid: str = None):
+def get_mission_cots(mission_name: str | None = None, mission_guid: str | None = None):
     """
     Used by the Data Sync plugin to get all CoTs associated with a feed. Returns the CoTs encapsulated by an
     <events> tag
@@ -2265,6 +2278,12 @@ def get_mission_cots(mission_name: str = None, mission_guid: str = None):
     )
 
 
+@mission_marti_api.route("/Marti/api/missions/guid/<mission_guid>/layers")
 @mission_marti_api.route("/Marti/api/missions/<mission_name>/layers")
-def get_mission_layers(mission_name: str):
-    return ""
+def get_mission_layers(mission_name: str | None = None, mission_guid: str | None = None):
+    return {
+        "version": "3",
+        "type": "MissionLayer",
+        "data": [],
+        "nodeId": app.config.get("OTS_NODE_ID"),
+    }
