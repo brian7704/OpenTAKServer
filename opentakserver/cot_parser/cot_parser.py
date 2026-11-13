@@ -59,7 +59,7 @@ from opentakserver.models.Point import Point
 from opentakserver.models.RBLine import RBLine
 from opentakserver.models.Team import Team
 from opentakserver.models.VideoRecording import VideoRecording
-from opentakserver.models.VideoStream import VideoStream
+from opentakserver.models.VideoStream import VideoStream, user_can_access_video_stream
 from opentakserver.models.WebAuthn import WebAuthn
 from opentakserver.models.ZMIST import ZMIST
 from opentakserver.models.CITrap import CITrap
@@ -590,29 +590,53 @@ class CoTController:
             v.generate_xml(connection_entry.attrs["address"])
 
             with self.context:
+                sender_user = None
+                if cot_pk:
+                    cot = self.db.session.get(CoT, cot_pk)
+                    if cot and cot.eud and cot.eud.user:
+                        sender_user = cot.eud.user
+                        v.username = sender_user.username
+
                 try:
                     self.db.session.add(v)
                     self.db.session.commit()
                     self.logger.debug("Added video")
-                except exc.IntegrityError as e:
+                except exc.IntegrityError:
                     self.db.session.rollback()
+                    existing = self.db.session.get(VideoStream, path)
+                    if (
+                        existing
+                        and existing.ready
+                        and sender_user
+                        and not user_can_access_video_stream(sender_user, existing)
+                    ):
+                        self.logger.warning(
+                            f"Ignored video CoT update on active stream '{path}' from unauthorized user '{sender_user.username}'"
+                        )
+                        return
+
+                    update_values = dict(
+                        uid=connection_entry.attrs["uid"],
+                        network_timeout=connection_entry.attrs["networkTimeout"],
+                        protocol=connection_entry.attrs["protocol"],
+                        buffer_time=connection_entry.attrs["bufferTime"],
+                        # address=connection_entry.attrs['address'],
+                        port=connection_entry.attrs["port"],
+                        rover_port=connection_entry.attrs["roverPort"],
+                        rtsp_reliable=connection_entry.attrs["rtspReliable"],
+                        ignore_embedded_klv=(
+                            connection_entry.attrs["ignoreEmbeddedKLV"].lower() == "true"
+                        ),
+                        alias=connection_entry.attrs["alias"],
+                        cot_id=cot_pk,
+                        xml=v.xml,
+                    )
+                    if sender_user:
+                        update_values["username"] = sender_user.username
                     self.db.session.execute(
                         update(VideoStream)
-                        .where(VideoStream.uid == connection_entry.attrs["uid"])
-                        .values(
-                            network_timeout=connection_entry.attrs["networkTimeout"],
-                            protocol=connection_entry.attrs["protocol"],
-                            buffer_time=connection_entry.attrs["bufferTime"],
-                            # address=connection_entry.attrs['address'],
-                            port=connection_entry.attrs["port"],
-                            rover_port=connection_entry.attrs["roverPort"],
-                            rtsp_reliable=connection_entry.attrs["rtspReliable"],
-                            ignore_embedded_klv=(
-                                connection_entry.attrs["ignoreEmbeddedKLV"].lower() == "true"
-                            ),
-                            alias=connection_entry.attrs["alias"],
-                            xml=v.xml,
-                        )
+                        .where(VideoStream.path == path)
+                        .values(**update_values)
                     )
 
                     self.db.session.commit()
