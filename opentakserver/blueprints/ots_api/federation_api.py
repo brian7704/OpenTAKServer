@@ -151,6 +151,11 @@ def get_federations():
 @roles_required("administrator")
 @federation_blueprint.route("/api/federation/all")
 def get_all_federations():
+    """
+    Gets a list of all federation connections
+
+    :return: List
+    """
     federation_connections = db.session.execute(
         db.session.query(FederationConnection).order_by(FederationConnection.id.asc())
     ).scalars()
@@ -166,7 +171,18 @@ def get_all_federations():
 def create_federation():
     """
     Creates a new federation connection
-    :return:
+    :param display_name: Name of the connection (required)
+    :param address: Federate server's address (required)
+    :param port: Federate server's port number (required)
+    :param enabled: Enable or disable the connection, defaults to True
+    :param protocol_version: Federation protocol version, defaults to 2
+    :param reconnect_interval: Time between reconnection attempts, defaults to 30 seconds
+    :param unlimited_retries: Try to reconnect forever, defaults to False
+    :param max_retries: Maximum number of retries, defaults to 3. Has no effect if unlimited_retries is True.
+    :param federate_id: Federate certificate ID, required
+    :param description: Description of the connection
+
+    :return: 200 on success, 400 on error
     """
 
     form = FederationConnectionForm(formdata=ImmutableMultiDict(request.json))
@@ -201,8 +217,9 @@ def create_federation():
 def delete_federation():
     """
     Delete a federation connection
+    :param id: ID of the connection, required
 
-    :return:
+    :return: 200 on success, 400 on error
     """
 
     connection_id = request.args.get("id")
@@ -225,8 +242,18 @@ def delete_federation():
 def edit_federation():
     """
     Edits a federation connection
+    :param display_name: Name of the connection (required)
+    :param address: Federate server's address (required)
+    :param port: Federate server's port number (required)
+    :param enabled: Enable or disable the connection, defaults to True
+    :param protocol_version: Federation protocol version, defaults to 2
+    :param reconnect_interval: Time between reconnection attempts, defaults to 30 seconds
+    :param unlimited_retries: Try to reconnect forever, defaults to False
+    :param max_retries: Maximum number of retries, defaults to 3. Has no effect if unlimited_retries is True.
+    :param federate_id: Federate certificate ID, required
+    :param description: Description of the connection
 
-    :return:
+    :return: 200 on success, 400 on error
     """
 
     form = FederationConnectionForm(formdata=ImmutableMultiDict(request.json))
@@ -363,6 +390,12 @@ def get_all_federates():
 @roles_required("administrator")
 @federation_blueprint.route("/api/federation/federate", methods=["DELETE"])
 def delete_federate():
+    """
+    Deletes a federate certificate
+    :param id: Federate ID, required
+
+    :return: 200 on success, 400 on error
+    """
     federation_id = request.args.get("id", None)
     if not federation_id:
         return jsonify({"success": False, "error": gettext("Please provide a federation ID")}), 400
@@ -394,6 +427,23 @@ def delete_federate():
 @roles_required("administrator")
 @federation_blueprint.route("/api/federation/federate", methods=["POST"])
 def add_federate():
+    """
+    Adds a federate certificate
+    :param name: Federate name, required
+    :param federate_group_mapping: Boolean, allow mapping different groups between the federate and the local server
+    :param automatic_group_mapping: Boolean, automatically map federate groups with the same name as local groups
+    :param max_hops: Maximum number of federate server hops allowed per federate
+    :param use_group_hop_limiting: Boolean, enforces the max_hops value if enabled
+    :param notes: Notes about the federate certificate
+    :param certificate_file: The certificate file, required
+    :param issuer: The certificate issuer, required
+    :param subject: The certificate subject, required
+    :param common_name: The certificate common name, required
+    :param serial_number: The certificate serial number, required
+    :param enabled: Boolean, enable or disable this federate
+
+    :return: 200 on success, 400 on error
+    """
     form = FederateForm(formdata=ImmutableMultiDict(request.json))
     if form.validate():
         federate = Federate()
@@ -458,7 +508,9 @@ def add_federate():
 @federation_blueprint.route("/api/federation/certificate", methods=["POST"])
 def upload_federation_certificate():
     """
-    Uploads a new federate certificate
+    Uploads a new federate certificate and parses its metadata
+
+    :return: issuer, subject, common name, and serial number
     """
     # application/x-pem-file
     cert_file = request.files.get("cert_file")
