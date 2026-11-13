@@ -980,31 +980,32 @@ class CoTController:
             )
 
             message = json.dumps({"uid": uid, "cot": tostring(event).decode("utf-8")})
+            uid_queue_exists = self._queue_exists(uid)
             if self.rabbit_channel and not self.rabbit_channel.is_closed and user_id:
                 with self.context:
                     group_query = db.session.query(GroupUser).filter_by(
                         user_id=user_id, direction=Group.OUT, enabled=True
                     )
                     groups = db.session.execute(group_query).all()
-                    for group in groups:
-                        group = group[0]
+                    if groups:
+                        for group in groups:
+                            group = group[0]
+                            self.rabbit_channel.basic_publish(
+                                exchange="groups",
+                                routing_key=f"{group.group.name}.{group.direction}",
+                                body=message,
+                                properties=pika.BasicProperties(
+                                    expiration=app.config.get("OTS_RABBITMQ_TTL")
+                                ),
+                            )
+                    else:
                         self.rabbit_channel.basic_publish(
                             exchange="groups",
-                            routing_key=f"{group.group.name}.{group.direction}",
+                            routing_key=f"__ANON__.{Group.OUT}",
                             body=message,
                             properties=pika.BasicProperties(
                                 expiration=app.config.get("OTS_RABBITMQ_TTL")
                             ),
-                        )
-
-                        self.rabbit_channel.queue_unbind(
-                            queue=uid,
-                            exchange="groups",
-                            routing_key=f"{group.group.name}.{group.direction}",
-                        )
-
-                        self.logger.debug(
-                            f"Unbound {uid} from {group.group.name}.{group.direction}"
                         )
             elif self.rabbit_channel and not self.rabbit_channel.is_closed:
                 self.rabbit_channel.basic_publish(
@@ -1014,19 +1015,40 @@ class CoTController:
                     properties=pika.BasicProperties(expiration=app.config.get("OTS_RABBITMQ_TTL")),
                 )
 
-                self.rabbit_channel.queue_unbind(
-                    queue=uid, exchange="groups", routing_key=f"__ANON__.{Group.OUT}"
-                )
-
             with self.context:
-                missions = db.session.execute(db.session.query(Mission)).all()
-                for mission in missions:
-                    self.rabbit_channel.queue_unbind(
-                        queue=uid,
-                        exchange="missions",
-                        routing_key=f"missions.{mission[0].name}",
-                    )
-                    self.logger.debug(f"Unbound {uid} from mission.{mission[0].name}")
+                if (
+                    uid_queue_exists
+                    and self.rabbit_channel
+                    and not self.rabbit_channel.is_closed
+                ):
+                    if not app.config.get("OTS_ENABLE_LDAP"):
+                        all_groups = db.session.execute(select(Group)).scalars().all()
+                        group_names = {g.name for g in all_groups} | {"__ANON__"}
+                        for group_name in sorted(group_names):
+                            for direction in (Group.IN, Group.OUT):
+                                self.rabbit_channel.queue_unbind(
+                                    queue=uid,
+                                    exchange="groups",
+                                    routing_key=f"{group_name}.{direction}",
+                                )
+                                self.logger.debug(
+                                    f"Unbound {uid} from {group_name}.{direction}"
+                                )
+                    elif not user_id:
+                        self.rabbit_channel.queue_unbind(
+                            queue=uid,
+                            exchange="groups",
+                            routing_key=f"__ANON__.{Group.OUT}",
+                        )
+
+                    missions = db.session.execute(db.session.query(Mission)).all()
+                    for mission in missions:
+                        self.rabbit_channel.queue_unbind(
+                            queue=uid,
+                            exchange="missions",
+                            routing_key=f"missions.{mission[0].name}",
+                        )
+                        self.logger.debug(f"Unbound {uid} from mission.{mission[0].name}")
 
                 db.session.execute(
                     update(EUD)
@@ -1034,6 +1056,17 @@ class CoTController:
                     .values(last_status="Disconnected", last_event_time=now)
                 )
                 db.session.commit()
+
+    def _queue_exists(self, queue_name: str) -> bool:
+        if not queue_name or not self.rabbit_connection or self.rabbit_connection.is_closed:
+            return False
+        check_channel = self.rabbit_connection.channel()
+        try:
+            check_channel.queue_declare(queue=queue_name, passive=True)
+            check_channel.close()
+            return True
+        except pika.exceptions.ChannelClosedByBroker:
+            return False
 
     def generate_mission_change(self, uid: str, event: BeautifulSoup):
         destinations = event.find_all("dest")
