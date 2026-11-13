@@ -129,6 +129,7 @@ def create_token():
 def get_federations():
     """
     Gets a list of federation connections
+
     :param display_name: Name of the connection
     :param address: Federate server's address
     :param port: Federate server's port
@@ -171,6 +172,7 @@ def get_all_federations():
 def create_federation():
     """
     Creates a new federation connection
+
     :param display_name: Name of the connection (required)
     :param address: Federate server's address (required)
     :param port: Federate server's port number (required)
@@ -242,6 +244,7 @@ def delete_federation():
 def edit_federation():
     """
     Edits a federation connection
+
     :param display_name: Name of the connection (required)
     :param address: Federate server's address (required)
     :param port: Federate server's port number (required)
@@ -392,6 +395,7 @@ def get_all_federates():
 def delete_federate():
     """
     Deletes a federate certificate
+
     :param id: Federate ID, required
 
     :return: 200 on success, 400 on error
@@ -429,6 +433,7 @@ def delete_federate():
 def add_federate():
     """
     Adds a federate certificate
+
     :param name: Federate name, required
     :param federate_group_mapping: Boolean, allow mapping different groups between the federate and the local server
     :param automatic_group_mapping: Boolean, automatically map federate groups with the same name as local groups
