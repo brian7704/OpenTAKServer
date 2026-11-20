@@ -10,6 +10,7 @@ from flask_sqlalchemy import SQLAlchemy
 from opentakserver.models.Base import Base
 
 logger = colorlog.getLogger("OpenTAKServer")
+logger.propagate = False
 
 mail = Mail()
 
