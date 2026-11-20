@@ -8,179 +8,181 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-11-11 11:26-0500\n"
-"PO-Revision-Date: 2026-11-11 11:26-0500\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"PO-Revision-Date: 2026-11-20 18:32+0000\n"
+"Last-Translator: Ayman Elhag <outlawz@outlook.com>\n"
 "Language: ar\n"
-"Language-Team: ar <LL@li.org>\n"
-"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : "
-"n%100>=3 && n%100<=10 ? 3 : n%100>=0 && n%100<=2 ? 4 : 5);\n"
+"Language-Team: Arabic <https://weblate.opentakserver.io/projects/"
+"opentakserver/opentakserver/ar/>\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
+"&& n%100<=10 ? 3 : n%100>=0 && n%100<=2 ? 4 : 5);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
+"X-Generator: Weblate 2026.10.1\n"
 
 #: PasswordValidator.py:13 blueprints/ots_api/user_api.py:195
 msgid "Passwords should not include @ or : characters"
-msgstr ""
+msgstr "يجب ألا تتضمن كلمات المرور الأحرف @ أو :"
 
 #: blueprints/marti_api/certificate_enrollment_api.py:123
 msgid "Invalid Certificate Common Name"
-msgstr ""
+msgstr "اسم الشهادة غير صالح"
 
 #: blueprints/marti_api/citrap_api.py:70
 msgid "client_uid not found"
-msgstr ""
+msgstr "لم يتم العثور على client_uid"
 
 #: blueprints/marti_api/citrap_api.py:88
 msgid "report.xml not found"
-msgstr ""
+msgstr "لم يتم العثور على ملف report.xml"
 
 #: blueprints/marti_api/citrap_api.py:96
 msgid "Invalid report file"
-msgstr ""
+msgstr "ملف تقرير غير صالح"
 
 #: blueprints/marti_api/citrap_api.py:161
 msgid "Failed to add report"
-msgstr ""
+msgstr "فشل في اضافة مشتخدم"
 
 #: blueprints/marti_api/citrap_api.py:165
 msgid "Failed to verify certificate"
-msgstr ""
+msgstr "فشل التحقق من الشهادة"
 
 #: blueprints/marti_api/citrap_api.py:296
 msgid "Forbidden"
-msgstr ""
+msgstr "مُحرَّم"
 
 #: blueprints/marti_api/cot_marti_api.py:32
 #, python-format
 msgid "No CoT found for UID %(uid)s"
-msgstr ""
+msgstr "لم يتم العثور على CoT لـ UID %(uid)s"
 
 #: blueprints/marti_api/cot_marti_api.py:57
 #, python-format
 msgid "Invalid secago value: %(sec_ago)s"
-msgstr ""
+msgstr "قيمة secago غير صالحة: %(sec_ago)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:93
 msgid "This data package has already been uploaded"
-msgstr ""
+msgstr "تم تحميل حزمة البيانات هذه بالفعل"
 
 #: blueprints/marti_api/data_package_marti_api.py:182
 msgid "A file is required"
-msgstr ""
+msgstr "الملف مطلوب"
 
 #: blueprints/marti_api/data_package_marti_api.py:202
 #, python-format
 msgid "Invalid file extension: %(extension)s"
-msgstr ""
+msgstr "امتداد الملف غير صالح: %(extension)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:215
 msgid "Invalid file hash"
-msgstr ""
+msgstr "بيانات ملف غير صالحة"
 
 #: blueprints/marti_api/data_package_marti_api.py:391
 #, python-format
 msgid "File not found: %(filename)s}"
-msgstr ""
+msgstr "الملف غير موجود: %(filename)s}"
 
 #: blueprints/marti_api/group_marti_api.py:39
 msgid "Groups are only supported on SSL connections"
-msgstr ""
+msgstr "لا يتم دعم المجموعات إلا عبر اتصالات SSL"
 
 #: blueprints/marti_api/group_marti_api.py:108
 #: blueprints/marti_api/group_marti_api.py:166
 msgid "Please specify a groupNameFilter"
-msgstr ""
+msgstr "يرجى تحديد عامل تصفية اسم المجموعة"
 
 #: blueprints/marti_api/group_marti_api.py:120
 #: blueprints/marti_api/group_marti_api.py:178
 #, python-format
 msgid "Please specify a groupNameFilter that starts with %(prefix)s"
-msgstr ""
+msgstr "يرجى تحديد عامل تصفية اسم المجموعة الذي يبدأ بـ %(prefix)s"
 
 #: blueprints/marti_api/group_marti_api.py:133
 #: blueprints/marti_api/group_marti_api.py:191
 msgid "groupNameFilter must end with either _READ or _WRITE"
-msgstr ""
+msgstr "يجب أن ينتهي اسم المجموعة بـ _READ أو _WRITE"
 
 #: blueprints/marti_api/group_marti_api.py:293
 #: blueprints/ots_api/federation_api.py:581
 #: blueprints/ots_api/federation_api.py:638 blueprints/ots_api/group_api.py:365
 #: blueprints/ots_api/user_api.py:587
 msgid "Direction must be IN or OUT"
-msgstr ""
+msgstr "يجب أن يكون الاتجاه إما للداخل أو للخارج"
 
 #: blueprints/marti_api/group_marti_api.py:302
 msgid "The active attribute must be true or false"
-msgstr ""
+msgstr "يجب أن تكون السمة النشطة صحيحة أو خاطئة"
 
 #: blueprints/marti_api/group_marti_api.py:311
 msgid "Group name is required"
-msgstr ""
+msgstr "اسم المجموعة مطلوب"
 
 #: blueprints/marti_api/group_marti_api.py:354
 #, python-format
 msgid "%(username)s is not in the %(group_name)s group"
-msgstr ""
+msgstr "%(username)s ليس ضمن مجموعة %(group_name)s"
 
 #: blueprints/marti_api/group_marti_api.py:376
 #, python-format
 msgid "Failed to update group subscriptions for %(username)s: %(e)s"
-msgstr ""
+msgstr "فشل تحديث اشتراكات المجموعة لـ %(username)s: %(e)s"
 
 #: blueprints/marti_api/group_marti_api.py:405
 msgid "Please provide a group name and direction"
-msgstr ""
+msgstr "يرجى تقديم اسم المجموعة والاتجاه"
 
 #: blueprints/marti_api/group_marti_api.py:427
 #, python-format
 msgid "No group found: %(group_name)s, %(direction)s"
-msgstr ""
+msgstr "لم يتم العثور على أي مجموعة: %(group_name)s، %(direction)s"
 
 #: blueprints/marti_api/marti_api.py:128
 #, python-format
 msgid "No such UID: %(uid)s"
-msgstr ""
+msgstr "لا يوجد معرف فريد من نوعه: %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:326
 #: blueprints/marti_api/mission_marti_api.py:1277
 #, python-format
 msgid "No mission found with guid: %(mission_guid)s"
-msgstr ""
+msgstr "لم يتم العثور على مهمة باستخدام المعرف: %(mission_guid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:335
 #: blueprints/marti_api/mission_marti_api.py:1481
 #: blueprints/ots_api/mission_api.py:420
 msgid "Invalid password"
-msgstr ""
+msgstr "كلمة مرور غير صحيحة"
 
 #: blueprints/marti_api/mission_marti_api.py:451
 msgid "Missions are only supported on SSL connections"
-msgstr ""
+msgstr "لا يتم دعم المهام إلا عبر اتصالات SSL المشفرة"
 
 #: blueprints/marti_api/mission_marti_api.py:468
 msgid "Please provide a mission name and creatorUid"
-msgstr ""
+msgstr "يرجى تقديم اسم المهمة ومعرف المُنشئ"
 
 #: blueprints/marti_api/mission_marti_api.py:481
 #, python-format
 msgid "Invalid creatorUid: %(creator_uid)s"
-msgstr ""
+msgstr "معرف المُنشئ غير صالح: %(creator_uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:532
 #, python-format
 msgid "Group not found: %(group_name)s"
-msgstr ""
+msgstr "لم يتم العثور على المجموعة: %(group_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:624
 #: blueprints/ots_api/mission_api.py:202
 #, python-format
 msgid "Failed to add mission: %(e)s"
-msgstr ""
+msgstr "فشل في إضافة المهمة: %(e)s"
 
 #: blueprints/marti_api/mission_marti_api.py:652
 msgid "Invalid mission name"
-msgstr ""
+msgstr "اسم المهمة غير صالح"
 
 #: blueprints/marti_api/mission_marti_api.py:664
 #: blueprints/marti_api/mission_marti_api.py:755
@@ -191,7 +193,7 @@ msgstr ""
 #: blueprints/ots_api/mission_api.py:316
 #, python-format
 msgid "Mission %(mission_name)s not found"
-msgstr ""
+msgstr "لم يتم العثور على المهمة %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:695
 #: blueprints/marti_api/mission_marti_api.py:769
@@ -200,377 +202,384 @@ msgstr ""
 #: blueprints/marti_api/mission_marti_api.py:2065
 #: blueprints/marti_api/mission_marti_api.py:2227
 msgid "Missing or invalid token"
-msgstr ""
+msgstr "رمز مميز مفقود أو غير صالح"
 
 #: blueprints/marti_api/mission_marti_api.py:719
 msgid "Only mission owners can delete missions"
-msgstr ""
+msgstr "لا يمكن حذف المهام إلا من قبل مالكي المهام."
 
 #: blueprints/marti_api/mission_marti_api.py:779
 msgid "Please provide the password"
-msgstr ""
+msgstr "يرجى تقديم كلمة المرور"
 
 #: blueprints/marti_api/mission_marti_api.py:790
 msgid "You do not have permission to change this mission's password"
-msgstr ""
+msgstr "ليس لديك إذن لتغيير كلمة مرور هذه المهمة"
 
 #: blueprints/marti_api/mission_marti_api.py:851
 #, python-format
 msgid "No EUD found with UID %(invitee)s"
-msgstr ""
+msgstr "لم يتم العثور على EUD باستخدام UID %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:866
 #, python-format
 msgid "No EUD found with callsign %(invitee)s"
-msgstr ""
+msgstr "لم يتم العثور على جهاز EUD يحمل رمز النداء %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:882
 #, python-format
 msgid "No user found with username %(invitee)s"
-msgstr ""
+msgstr "لم يتم العثور على مستخدم باسم المستخدم %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:898
 #, python-format
 msgid "No group found: %(invitee)s"
-msgstr ""
+msgstr "لم يتم العثور على مجموعة: %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:913
 #, python-format
 msgid "Team not found: %(invitee)s"
-msgstr ""
+msgstr "لم يتم العثور على الفريق: %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:976
 #, python-format
 msgid "Invalid invitation type: %(invitation_type)s"
-msgstr ""
+msgstr "نوع الدعوة غير صالح: %(invitation_type)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1024
 #: blueprints/marti_api/mission_marti_api.py:1617
 #: blueprints/ots_api/mission_api.py:396
 #, python-format
 msgid "Mission not found: %(mission_name)s"
-msgstr ""
+msgstr "لم يتم العثور على المهمة: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1062
 #, python-format
 msgid "Invalid invitation type: %(invitation)s"
-msgstr ""
+msgstr "نوع الدعوة غير صالح: %(invitation_type)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1154
 #, python-format
 msgid "No such mission found: %(mission_name)s"
-msgstr ""
+msgstr "لم يتم العثور على مثل هذه المهمة: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1170
 msgid "Only mission owners can change EUD roles"
-msgstr ""
+msgstr "لا يمكن تغيير أدوار المستخدم النهائي إلا من قبل مالكي المهمة"
 
 #: blueprints/marti_api/mission_marti_api.py:1177
 #: blueprints/ots_api/marker_api.py:86
 msgid "Please provide a UID"
-msgstr ""
+msgstr "يرجى تقديم معرف المستخدم (UID)"
 
 #: blueprints/marti_api/mission_marti_api.py:1185
 #, python-format
 msgid "Invalid UID: %(client_uid)s"
-msgstr ""
+msgstr "معرف المستخدم غير صالح: %(client_uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1199
 #, python-format
 msgid "Invalid role: %(new_role)s"
-msgstr ""
+msgstr "دور غير صالح: %(new_role)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1330
 #: blueprints/marti_api/mission_marti_api.py:1373
 #, python-format
 msgid "Cannot find mission %(mission_name)s"
-msgstr ""
+msgstr "لا يمكن العثور على المهمة %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1390
 #, python-format
 msgid "Cannot find mission %(mission_guid)s"
-msgstr ""
+msgstr "لا يمكن العثور على المهمة %(mission_guid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1416
 #, python-format
 msgid "%(username)s and mission %(mission_name)s are not in the same group"
-msgstr ""
+msgstr "%(username)s والمهمة %(mission_name)s ليستا في نفس المجموعة"
 
 #: blueprints/marti_api/mission_marti_api.py:1435
 #: blueprints/ots_api/mediamtx_api.py:58
 msgid "Invalid token"
-msgstr ""
+msgstr "الرمز غير صالح"
 
 #: blueprints/marti_api/mission_marti_api.py:1468
 msgid "Missing UID"
-msgstr ""
+msgstr "معرف المستخدم مفقود"
 
 #: blueprints/marti_api/mission_marti_api.py:1474
 #, python-format
 msgid "Invalid UID: %(uid)s"
-msgstr ""
+msgstr "معرف المستخدم غير صالح: %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1708
 msgid "Missing or invalid certificate"
-msgstr ""
+msgstr "شهادة مفقودة أو غير صالحة"
 
 #: blueprints/marti_api/mission_marti_api.py:1713
 msgid "File name cannot be blank"
-msgstr ""
+msgstr "لا يمكن أن يكون اسم الملف فارغًا"
 
 #: blueprints/marti_api/mission_marti_api.py:1759
 #, python-format
 msgid "%(extension)s is not an allowed file extension"
-msgstr ""
+msgstr "%(extension)s ليس امتداد ملف مسموحًا به"
 
 #: blueprints/marti_api/mission_marti_api.py:1835
 #, python-format
 msgid "No content found with hash: %(content_hash)s"
-msgstr ""
+msgstr "لم يتم العثور على أي محتوى باستخدام رمز التجزئة: %(content_hash)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1880
 #, python-format
 msgid "No such mission: %(mission_name)s"
-msgstr ""
+msgstr "لم يتم العثور على مثل هذه المهمة: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1902
 #, python-format
 msgid "No such file with hash %(content_hash)s"
-msgstr ""
+msgstr "لا يوجد ملف بهذا الرمز التجزئي %(content_hash)s"
 
 #: blueprints/marti_api/mission_marti_api.py:2118
 #, python-format
 msgid "UID %(uid)s not found"
-msgstr ""
+msgstr "لم يتم العثور على UID %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:2148
 #, python-format
 msgid "No content found with hash %(hash)s"
-msgstr ""
+msgstr "لم يتم العثور على أي محتوى باستخدام التجزئة %(hash)s"
 
 #: blueprints/marti_api/mission_marti_api.py:2175
 #, python-format
 msgid "Failed to delete content with hash %(hash)s: %(e)s"
-msgstr ""
+msgstr "فشل حذف المحتوى ذي التجزئة %(hash)s: %(e)s"
 
 #: blueprints/marti_api/video_marti_api.py:143
 msgid "Invalid Certificate"
-msgstr ""
+msgstr "شهادة غير صالحة"
 
 #: blueprints/marti_api/video_marti_api.py:194
 msgid "Video not found"
-msgstr ""
+msgstr "لم يتم العثور على الفيديو"
 
 #: blueprints/marti_api/video_marti_api.py:201
 #: blueprints/ots_api/group_api.py:209 blueprints/ots_api/user_api.py:521
 #, python-format
 msgid "User %(username)s not found"
-msgstr ""
+msgstr "لم يتم العثور على المستخدم %(username)s"
 
 #: blueprints/marti_api/video_marti_api.py:218
 #, python-format
 msgid "Video stream with uid %(uid)s not found"
-msgstr ""
+msgstr "لم يتم العثور على بث الفيديو ذي المعرف الفريد %(uid)s"
 
 #: blueprints/ots_api/api.py:91
 #, python-format
 msgid "Invalid sort column: %(sort_by)s"
-msgstr ""
+msgstr "عمود فرز غير صالح: %(sort_by)s"
 
 #: blueprints/ots_api/api.py:303
 #, python-format
 msgid "Invalid username: %(username)s"
-msgstr ""
+msgstr "اسم المستخدم غير صالح: %(username)s"
 
 #: blueprints/ots_api/api.py:345
 #, python-format
 msgid "Certificate already exists for %(username)s"
-msgstr ""
+msgstr "الشهادة موجودة بالفعل لـ %(username)s"
 
 #: blueprints/ots_api/api.py:380
 msgid "Please specify a callsign"
-msgstr ""
+msgstr "يرجى تحديد رمز النداء"
 
 #: blueprints/ots_api/casevac_api.py:134
 #, python-format
 msgid "Unknown UID: %(uid)s"
-msgstr ""
+msgstr "معرف فريد غير معروف: %(uid)s"
 
 #: blueprints/ots_api/data_package_api.py:48
 msgid ""
 "Server connection data packages can't be installed on enrollment or "
 "connection"
-msgstr ""
+msgstr "لا يمكن تثبيت حزم بيانات اتصال الخادم عند التسجيل أو الاتصال"
 
 #: blueprints/ots_api/data_package_api.py:83
 msgid "Invalid/unknown hash"
-msgstr ""
+msgstr "تجزئة غير صالحة/غير معروفة"
 
 #: blueprints/ots_api/data_package_api.py:134
 msgid "Please provide a data package hash"
-msgstr ""
+msgstr "يرجى تقديم تجزئة حزمة البيانات"
 
 #: blueprints/ots_api/data_package_api.py:150
 #, python-format
 msgid "Data package with hash '%(hash)s' not found"
-msgstr ""
+msgstr "لم يتم العثور على حزمة البيانات ذات التجزئة '%(hash)s'"
 
 #: blueprints/ots_api/device_profile_api.py:68
 msgid "Please specify the preference_key"
-msgstr ""
+msgstr "يرجى تحديد مفتاح التفضيل"
 
 #: blueprints/ots_api/device_profile_api.py:82
 #, python-format
 msgid "Unknown preference_key: %(preference_key)s"
-msgstr ""
+msgstr "مفتاح تفضيل غير معروف: %(preference_key)s"
 
 #: blueprints/ots_api/federation_api.py:188
 #, python-format
 msgid "Failed to create connection: %(error)s"
-msgstr ""
+msgstr "فشل إنشاء الاتصال: %(error)s"
 
 #: blueprints/ots_api/federation_api.py:210
 msgid "Missing connection ID"
-msgstr ""
+msgstr "معرف الاتصال مفقود"
 
 #: blueprints/ots_api/federation_api.py:237
 msgid "Missing federation ID"
-msgstr ""
+msgstr "هوية الاتحاد مفقودة"
 
 #: blueprints/ots_api/federation_api.py:368
 msgid "Please provide a federation ID"
-msgstr ""
+msgstr "يرجى تقديم معرف الاتحاد"
 
 #: blueprints/ots_api/federation_api.py:382
 msgid "Cannot delete a federate that is associated with a federation connection"
-msgstr ""
+msgstr "لا يمكن حذف عنصر اتحادي مرتبط باتصال اتحادي"
 
 #: blueprints/ots_api/federation_api.py:404
 msgid "Certificate file is required"
-msgstr ""
+msgstr "ملف الشهادة مطلوب"
 
 #: blueprints/ots_api/federation_api.py:417
 #, python-format
 msgid "Cannot find certificate file %(cert_file)s"
-msgstr ""
+msgstr "تعذر العثور على ملف الشهادة %(cert_file)s"
 
 #: blueprints/ots_api/federation_api.py:429
 msgid "Serial number, subject, and issuer are required"
-msgstr ""
+msgstr "الرقم التسلسلي والموضوع والجهة المصدرة مطلوبة"
 
 #: blueprints/ots_api/federation_api.py:466
 msgid "No file uploaded"
-msgstr ""
+msgstr "لم يتم تحميل أي ملف"
 
 #: blueprints/ots_api/federation_api.py:473
 msgid "Certificates must be in PEM format"
-msgstr ""
+msgstr "يجب أن تكون الشهادات بصيغة PEM"
 
 #: blueprints/ots_api/federation_api.py:493
 msgid "Invalid certificate: No common name found"
-msgstr ""
+msgstr "شهادة غير صالحة: لم يتم العثور على اسم شائع"
 
 #: blueprints/ots_api/federation_api.py:542
 #: blueprints/ots_api/federation_api.py:547
 #: blueprints/ots_api/federation_api.py:678
 #: blueprints/ots_api/federation_api.py:702
 msgid "Invalid federation_id"
-msgstr ""
+msgstr "معرّف الاتحاد غير صالح"
 
 #: blueprints/ots_api/federation_api.py:573
 msgid "Please provide a list of groups, a federation_id, and a direction"
-msgstr ""
+msgstr "يرجى تقديم قائمة بالمجموعات، ورقم تعريف الاتحاد، والاتجاه"
 
 #: blueprints/ots_api/federation_api.py:622
 msgid "Missing federation_id, group_id, or direction"
-msgstr ""
+msgstr "معرّف الاتحاد أو معرّف المجموعة أو الاتجاه مفقود"
 
 #: blueprints/ots_api/federation_api.py:633
 msgid "Invalid federation_id or group_id"
-msgstr ""
+msgstr "معرّف الاتحاد أو معرّف المجموعة غير صالح"
 
 #: blueprints/ots_api/federation_api.py:673
 #: blueprints/ots_api/federation_api.py:697
 msgid "Missing federation_id"
-msgstr ""
+msgstr "معرّف الاتحاد مفقود"
 
 #: blueprints/ots_api/federation_api.py:728
 msgid "Missing federate_group_id, group_id, or federation_id"
 msgstr ""
+"معرّف المجموعة الاتحادي (federate_group_id) أو معرّف المجموعة (group_id) أو "
+"معرّف الاتحاد (federation_id) مفقود"
 
 #: blueprints/ots_api/federation_api.py:743
 msgid "Invalid federate_group_id, group_id, or federation_id"
 msgstr ""
+"معرّف مجموعة الاتحاد غير صالح (federate_group_id، group_id، أو federation_id)."
 
 #: blueprints/ots_api/federation_api.py:776
 msgid "Missing federate_group_id, group_id"
-msgstr ""
+msgstr "معرف المجموعة الفيدرالية مفقود، معرف المجموعة"
 
 #: blueprints/ots_api/federation_api.py:789
 msgid "Invalid federate_group_id, group_id"
-msgstr ""
+msgstr "معرف مجموعة الاتحاد غير صالح، معرف المجموعة"
 
 #: blueprints/ots_api/group_api.py:42 blueprints/ots_api/group_api.py:125
 #: blueprints/ots_api/group_api.py:166
 msgid "LDAP is enabled. Please view and edit groups on your LDAP server"
 msgstr ""
+"تم تفعيل بروتوكول LDAP. يُرجى عرض المجموعات وتعديلها على خادم LDAP الخاص بك."
 
 #: blueprints/ots_api/group_api.py:182
 msgid "Please provide the username, group name, and direction"
-msgstr ""
+msgstr "يرجى تقديم اسم المستخدم واسم المجموعة والاتجاهات"
 
 #: blueprints/ots_api/group_api.py:197
 #, python-format
 msgid "Invalid direction: %(direction)s"
-msgstr ""
+msgstr "اتجاه غير صالح: %(direction)s"
 
 #: blueprints/ots_api/group_api.py:217
 #, python-format
 msgid "Group %(group_name)s not found"
-msgstr ""
+msgstr "لم يتم العثور على المجموعة %(group_name)s"
 
 #: blueprints/ots_api/group_api.py:250
 #, python-format
 msgid "Failed to remove %(username)s from %(group_name)s: %(e)s"
-msgstr ""
+msgstr "فشل في إزالة %(username)s من %(group_name)s: %(e)s"
 
 #: blueprints/ots_api/group_api.py:274
 msgid "LDAP is enabled, please use your LDAP server to add groups"
 msgstr ""
+"تم تفعيل بروتوكول LDAP، يُرجى استخدام خادم LDAP الخاص بك لإضافة المجموعات"
 
 #: blueprints/ots_api/group_api.py:281
 msgid "Missing name"
-msgstr ""
+msgstr "الاسم مفقود"
 
 #: blueprints/ots_api/group_api.py:303
 #, python-format
 msgid "%(name)s group already exists"
-msgstr ""
+msgstr "%(name)s المجموعة موجودة بالفعل"
 
 #: blueprints/ots_api/group_api.py:315
 #, python-format
 msgid "Failed to add %(name)s group: %(e)s"
-msgstr ""
+msgstr "فشل إضافة المجموعة %(name)s: %(e)s"
 
 #: blueprints/ots_api/group_api.py:342 blueprints/ots_api/user_api.py:562
 msgid "LDAP is enabled, please use your LDAP server to add users to groups"
 msgstr ""
+"تم تفعيل بروتوكول LDAP، يُرجى استخدام خادم LDAP الخاص بك لإضافة المستخدمين إلى "
+"المجموعات."
 
 #: blueprints/ots_api/group_api.py:358
 msgid "Please provide a list of users, group name, and direction"
-msgstr ""
+msgstr "يرجى تقديم قائمة بالمستخدمين واسم المجموعة والاتجاهات"
 
 #: blueprints/ots_api/group_api.py:374 blueprints/ots_api/user_api.py:249
 #: blueprints/ots_api/user_api.py:299 blueprints/ots_api/user_api.py:365
 #: blueprints/ots_api/user_api.py:403
 #, python-format
 msgid "User %(username)s does not exist"
-msgstr ""
+msgstr "المستخدم %(username)s غير موجود"
 
 #: blueprints/ots_api/group_api.py:387
 #, python-format
 msgid "Group %(group_name)s does not exist"
-msgstr ""
+msgstr "المجموعة %(group_name)s غير موجودة"
 
 #: blueprints/ots_api/group_api.py:417
 msgid "LDAP is enabled, please use your LDAP server to delete groups"
@@ -851,4 +860,3 @@ msgstr ""
 #: eud_handler/eud_handler.py:34
 msgid "UDP Server"
 msgstr ""
-
