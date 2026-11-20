@@ -7,6 +7,7 @@ import uuid
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 import pika
+import sqlalchemy
 import sqlalchemy.exc
 import unishox2
 from cryptography.hazmat.backends import default_backend
@@ -15,29 +16,208 @@ from google.protobuf.json_format import MessageToJson
 from meshtastic import BROADCAST_NUM, mesh_pb2, mqtt_pb2, portnums_pb2, protocols
 from pika.spec import Basic, BasicProperties, Channel
 
-from opentakserver.rabbitmq_client import RabbitMQClient
 from opentakserver.extensions import db, logger, socketio
+from opentakserver.functions import iso8601_string_from_datetime
 from opentakserver.models.EUD import EUD
 from opentakserver.models.Meshtastic import MeshtasticChannel
 from opentakserver.models.Point import Point
 from opentakserver.models.Team import Team
 from opentakserver.proto import atak_pb2
+from opentakserver.rabbitmq_client import RabbitMQClient
 
 
 class MeshtasticController(RabbitMQClient):
     def __init__(self, context):
-        super().__init__(context)
+        self._stale_timer = None
         self.node_names = {}
-        self.logger.info("Starting Meshtastic controller...")
         self.meshtastic_devices = {}
+        super().__init__(context)
+        self.logger.info("Starting Meshtastic controller...")
         self.get_euds()
         self.get_channels()
 
+    @staticmethod
+    def _normalize_utc(dt: datetime.datetime | None) -> datetime.datetime | None:
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=datetime.timezone.utc)
+        return dt.astimezone(datetime.timezone.utc)
+
+    def _get_stale_timedelta(self) -> datetime.timedelta | None:
+        stale_minutes = float(self.context.app.config.get("OTS_MESHTASTIC_STALE_MINUTES", 30))
+        if stale_minutes <= 0:
+            return None
+        return datetime.timedelta(minutes=stale_minutes)
+
+    def _get_in_memory_last_seen(self, uid: str) -> datetime.datetime | None:
+        direct = self.meshtastic_devices.get(uid, {}).get("last_seen")
+        if direct is not None:
+            return self._normalize_utc(direct)
+        for device in self.meshtastic_devices.values():
+            if device.get("uid") == uid and device.get("last_seen") is not None:
+                return self._normalize_utc(device["last_seen"])
+        return None
+
+    def _cancel_stale_timer(self):
+        if self._stale_timer is not None and getattr(self, "rabbit_connection", None):
+            try:
+                self.rabbit_connection.ioloop.remove_timeout(self._stale_timer)
+            except BaseException:
+                pass
+        self._stale_timer = None
+
+    def _schedule_stale_check(self, delay: float | None = None):
+        conn = getattr(self, "rabbit_connection", None)
+        if not conn or getattr(conn, "is_closing", False) or getattr(conn, "is_closed", False):
+            return
+        self._cancel_stale_timer()
+        if delay is None:
+            delay = max(
+                1.0,
+                float(self.context.app.config.get("OTS_MESHTASTIC_STALE_CHECK_INTERVAL", 60)),
+            )
+        self._stale_timer = conn.ioloop.call_later(delay, self.check_stale_euds)
+
+    def _publish_stale_disconnect_cot(self, uid: str, now: datetime.datetime | None = None):
+        if not self.rabbit_channel or getattr(self.rabbit_channel, "is_closed", False):
+            return
+
+        now = now or datetime.datetime.now(datetime.timezone.utc)
+        stale = now + datetime.timedelta(seconds=10)
+        now_str = iso8601_string_from_datetime(now)
+        stale_str = iso8601_string_from_datetime(stale)
+
+        event = Element(
+            "event",
+            {
+                "how": "h-g-i-g-o",
+                "type": "t-x-d-d",
+                "version": "2.0",
+                "uid": str(uuid.uuid4()),
+                "start": now_str,
+                "time": now_str,
+                "stale": stale_str,
+            },
+        )
+        SubElement(
+            event,
+            "point",
+            {"ce": "9999999", "le": "9999999", "hae": "0", "lat": "0", "lon": "0"},
+        )
+        detail = SubElement(event, "detail")
+        SubElement(detail, "link", {"relation": "p-p", "uid": uid, "type": "a-f-G-U-C"})
+        SubElement(
+            detail,
+            "_flow-tags_",
+            {f"TAK-Server-{self.context.app.config.get('OTS_NODE_ID')}": now_str},
+        )
+
+        message = json.dumps({"uid": uid, "cot": tostring(event).decode("utf-8")})
+        props = pika.BasicProperties(expiration=self.context.app.config.get("OTS_RABBITMQ_TTL"))
+        self.rabbit_channel.basic_publish(
+            exchange="firehose",
+            routing_key="",
+            body=message,
+            properties=props,
+        )
+        self.rabbit_channel.basic_publish(
+            exchange="groups",
+            routing_key=f"{self.context.app.config.get('OTS_MESHTASTIC_GROUP')}.OUT",
+            body=message,
+            properties=props,
+        )
+
+    def check_stale_euds(self) -> list[str]:
+        staled_uids = []
+        try:
+            stale_delta = self._get_stale_timedelta()
+            if stale_delta is None:
+                return staled_uids
+
+            now = datetime.datetime.now(datetime.timezone.utc)
+            cutoff = now - stale_delta
+
+            with self.context.app.app_context():
+                euds = (
+                    db.session.execute(
+                        db.session.query(EUD).filter(
+                            EUD.platform == "Meshtastic",
+                            sqlalchemy.or_(
+                                EUD.last_status.is_(None),
+                                EUD.last_status != "Disconnected",
+                            ),
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+
+                for eud in euds:
+                    last_time = self._normalize_utc(eud.last_event_time)
+                    if last_time is None:
+                        latest_point_ts = db.session.execute(
+                            db.session.query(Point.timestamp)
+                            .filter(Point.device_uid == eud.uid)
+                            .order_by(Point.timestamp.desc())
+                            .limit(1)
+                        ).scalar()
+                        if latest_point_ts is not None:
+                            last_time = self._normalize_utc(latest_point_ts)
+                            eud.last_event_time = latest_point_ts
+
+                    in_mem = self._get_in_memory_last_seen(eud.uid)
+                    if in_mem is not None and (last_time is None or in_mem > last_time):
+                        last_time = in_mem
+                        eud.last_event_time = in_mem
+
+                    if last_time is not None and last_time > cutoff:
+                        if eud.last_status != "Connected":
+                            eud.last_status = "Connected"
+                            db.session.add(eud)
+                            db.session.commit()
+                            socketio.emit("eud", eud.to_json(), namespace="/socket.io")
+                        continue
+
+                    eud.last_status = "Disconnected"
+                    db.session.add(eud)
+                    db.session.commit()
+
+                    socketio.emit("eud", eud.to_json(), namespace="/socket.io")
+                    self._publish_stale_disconnect_cot(eud.uid, now)
+                    staled_uids.append(eud.uid)
+                    self.logger.info(
+                        f"Meshtastic EUD {eud.uid} ({eud.callsign}) marked Disconnected"
+                    )
+        except BaseException as e:
+            self.logger.error(f"Failed to check stale Meshtastic EUDs: {e}")
+            self.logger.debug(traceback.format_exc())
+        finally:
+            self._schedule_stale_check()
+
+        return staled_uids
+
+    def record_node_activity(self, from_id: str):
+        now = datetime.datetime.now(datetime.timezone.utc)
+        if from_id in self.meshtastic_devices:
+            self.meshtastic_devices[from_id]["last_seen"] = now
+        uid = self.meshtastic_devices.get(from_id, {}).get("uid") or from_id
+
+        with self.context.app.app_context():
+            eud = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).scalar()
+            if eud:
+                was_connected = eud.last_status == "Connected"
+                eud.last_event_time = now
+                eud.last_status = "Connected"
+                db.session.add(eud)
+                db.session.commit()
+                if not was_connected:
+                    socketio.emit("eud", eud.to_json(), namespace="/socket.io")
+
     def get_euds(self):
-        with self.context:
+        with self.context.app.app_context():
             euds = self.db.session.execute(self.db.session.query(EUD)).scalars()
             for eud in euds:
-                meshtastic_id = eud.meshtastic_id
                 if not eud.meshtastic_id:
                     eud.meshtastic_id = int.from_bytes(os.urandom(4), "big")
                     self.db.session.add(eud)
@@ -60,10 +240,11 @@ class MeshtasticController(RabbitMQClient):
                     "role": "Team Member",
                     "uid": eud.uid,
                     "macaddr": eud.meshtastic_macaddr,
+                    "last_seen": self._normalize_utc(eud.last_event_time),
                 }
 
     def get_channels(self):
-        with self.context:
+        with self.context.app.app_context():
             channels = self.db.session.execute(self.db.session.query(MeshtasticChannel)).scalars()
             downlink_channels = {}
             for channel in channels:
@@ -79,6 +260,11 @@ class MeshtasticController(RabbitMQClient):
             queue="meshtastic", on_message_callback=self.on_message, auto_ack=True
         )
         self.rabbit_channel.add_on_close_callback(self.on_close)
+        self._schedule_stale_check(delay=1.0)
+
+    def on_close(self, channel, error):
+        self._cancel_stale_timer()
+        super().on_close(channel, error)
 
     def decrypt(self, mp: mesh_pb2.MeshPacket, channel_name: str) -> mesh_pb2.MeshPacket:
         if channel_name not in self.context.app.config.get("OTS_MESHTASTIC_DOWNLINK_CHANNELS"):
@@ -242,10 +428,10 @@ class MeshtasticController(RabbitMQClient):
         elif not uid:
             uid = from_id
 
-        now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        stale = (
-            datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
-        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        now_dt = datetime.datetime.now(datetime.timezone.utc)
+        now = now_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        stale_delta = self._get_stale_timedelta() or datetime.timedelta(days=1)
+        stale = (now_dt + stale_delta).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         event = Element(
             "event",
@@ -311,6 +497,9 @@ class MeshtasticController(RabbitMQClient):
         return event
 
     def insert_or_update_eud(self, uid: str, from_id: str, update_if_exists: bool = True):
+        now = datetime.datetime.now(datetime.timezone.utc)
+        self.meshtastic_devices[from_id]["last_seen"] = now
+
         eud = EUD()
         eud.uid = uid
         eud.callsign = self.meshtastic_devices[from_id]["long_name"]
@@ -321,16 +510,16 @@ class MeshtasticController(RabbitMQClient):
         eud.team_role = self.meshtastic_devices[from_id]["role"]
         eud.meshtastic_id = int(self.meshtastic_devices[from_id]["meshtastic_id"], 16)
         eud.meshtastic_macaddr = self.meshtastic_devices[from_id]["macaddr"]
+        eud.last_event_time = now
+        eud.last_status = "Connected"
 
-        with self.context:
-            socketio.emit("eud", eud.to_json(), namespace="/socket.io")
-
-        with self.context:
+        with self.context.app.app_context():
             team = db.session.execute(
                 db.session.query(Team).filter_by(name=self.meshtastic_devices[from_id]["team"])
             ).scalar()
             if team:
                 eud.team_id = team.id
+                eud.team = team
 
             try:
                 db.session.add(eud)
@@ -341,7 +530,18 @@ class MeshtasticController(RabbitMQClient):
                     db.session.execute(
                         sqlalchemy.update(EUD).where(EUD.uid == uid).values(**eud.serialize())
                     )
-                    db.session.commit()
+                else:
+                    db.session.execute(
+                        sqlalchemy.update(EUD)
+                        .where(EUD.uid == uid)
+                        .values(last_event_time=now, last_status="Connected")
+                    )
+                db.session.commit()
+                persisted = db.session.execute(db.session.query(EUD).filter_by(uid=uid)).scalar()
+                if persisted:
+                    eud = persisted
+
+            socketio.emit("eud", eud.to_json(), namespace="/socket.io")
 
     def position(self, pb, from_id, to_id, portnum):
         try:
@@ -350,7 +550,7 @@ class MeshtasticController(RabbitMQClient):
                 and pb.firmware_version != self.meshtastic_devices[from_id]["firmware_version"]
             ):
                 try:
-                    with self.context:
+                    with self.context.app.app_context():
                         eud = self.db.session.execute(
                             self.db.session.query(EUD).filter_by(uid=from_id)
                         ).first()[0]
@@ -378,6 +578,7 @@ class MeshtasticController(RabbitMQClient):
                                 "team": "Cyan",
                                 "role": "Team Member",
                                 "uid": None,
+                                "last_seen": None,
                             }
 
                         self.meshtastic_devices[from_id]["firmware_version"] = pb.firmware_version
@@ -419,7 +620,7 @@ class MeshtasticController(RabbitMQClient):
             point.timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
             point.point = f"POINT({self.meshtastic_devices[from_id]['last_lon']} {self.meshtastic_devices[from_id]['last_lat']})"
 
-            with self.context:
+            with self.context.app.app_context():
                 db.session.add(point)
                 db.session.commit()
 
@@ -628,18 +829,26 @@ class MeshtasticController(RabbitMQClient):
                 "team": "Cyan",
                 "role": "Team Member",
                 "uid": None,
+                "last_seen": None,
             }
 
+        eud_updated = False
         if portnum == "MAP_REPORT_APP" or (portnum == "POSITION_APP" and pb.latitude_i):
             event = self.position(pb, from_id, to_id, portnum)
+            eud_updated = True
         elif portnum == "NODEINFO_APP":
             event = self.node_info(pb, from_id, to_id, portnum)
+            eud_updated = True
         elif portnum == "TEXT_MESSAGE_APP":
             event = self.text_message(pb, from_id, to_id, portnum)
         elif portnum == "ATAK_PLUGIN":
             event = self.atak_plugin(pb, from_id, to_id, portnum)
+            eud_updated = True
         elif portnum == "TELEMETRY_APP":
             self.telemetry(pb, from_id, to_id, portnum)
+
+        if not eud_updated:
+            self.record_node_activity(from_id)
 
         try:
             if event:
