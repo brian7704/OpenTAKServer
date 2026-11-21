@@ -29,6 +29,7 @@ class Certificate(db.Model):
     user_cert_filename: Mapped[str] = mapped_column(String(255))
     csr: Mapped[str] = mapped_column(String(255), nullable=True)
     cert_password: Mapped[str] = mapped_column(String(255))
+    serial_number: Mapped[str] = mapped_column(String(64), nullable=True)
     user = relationship("User", back_populates="certificate", uselist=False)
     eud = relationship("EUD", cascade="all, delete", back_populates="certificate", uselist=False)
     data_package = relationship("DataPackage", back_populates="certificate", uselist=False)
@@ -56,4 +57,5 @@ class Certificate(db.Model):
             "data_package_filename": self.data_package.filename if self.data_package else None,
             "data_package_hash": self.data_package.hash if self.data_package else None,
             "eud_uid": self.eud_uid,
+            "serial_number": self.serial_number,
         }

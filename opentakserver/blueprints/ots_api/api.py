@@ -17,11 +17,11 @@ from flask import current_app as app
 from flask import jsonify, request, send_from_directory, session
 from flask_babel import gettext
 from flask_ldap3_login import AuthenticationResponseStatus
-from flask_security import auth_required, current_user, verify_password
+from flask_security import auth_required, current_user, roles_accepted, verify_password
 from sqlalchemy import String, Text, Unicode, UnicodeText, func, select
 
 from opentakserver import __version__ as version
-from opentakserver.certificate_authority import CertificateAuthority
+from opentakserver.certificate_authority import CertificateAuthority, get_serial_number
 from opentakserver.extensions import babel, db, ldap_manager, logger
 from opentakserver.models.Alert import Alert
 from opentakserver.models.APSchedulerJobs import APSchedulerJobs
@@ -36,6 +36,7 @@ from opentakserver.models.Icon import Icon
 from opentakserver.models.Marker import Marker
 from opentakserver.models.Point import Point
 from opentakserver.models.RBLine import RBLine
+from opentakserver.models.RevokedCertificate import RevokedCertificate
 from opentakserver.models.Token import Token
 from opentakserver.models.user import User
 from opentakserver.models.ZMIST import ZMIST
@@ -186,6 +187,78 @@ def get_blocking_rabbitmq_channel():
         pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
     )
     return rabbit_connection, rabbit_connection.channel()
+
+
+def disconnect_euds(routing_key: str, reason: str, serial_numbers: list[str] | None = None):
+    """Tells the EUD handlers to drop live connections.
+
+    :param routing_key: ``user:<username>`` for all of a user's connections or ``uid:<uid>`` for one EUD
+    :param reason: Logged by the EUD handler
+    :param serial_numbers: Only drop connections that use one of these certificate serial numbers
+    """
+    rabbit_connection, channel = get_blocking_rabbitmq_channel()
+    channel.basic_publish(
+        exchange="eud_control",
+        routing_key=routing_key,
+        body=json.dumps(
+            {"action": "disconnect", "reason": reason, "serial_numbers": serial_numbers}
+        ),
+    )
+    channel.close()
+    rabbit_connection.close()
+
+
+def revoke_certificates(certificates: list[Certificate]) -> tuple[list[str], list[Certificate]]:
+    """Adds certificates to the CRL and disconnects the EUDs that use them.
+
+    :return: The revoked serial numbers and the certificates whose serial number is unknown
+    """
+    revoked = {}
+    unresolved = []
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    for cert in certificates:
+        serial_number = cert.serial_number
+        if not serial_number:
+            # Certificates issued before serial numbers were recorded. Only the latest certificate
+            # for a common name is kept on disk, so older ones can't be revoked this way.
+            pem = os.path.join(
+                app.config.get("OTS_CA_FOLDER"),
+                "certs",
+                cert.common_name,
+                cert.common_name + ".pem",
+            )
+            if not os.path.exists(pem):
+                unresolved.append(cert)
+                continue
+            with open(pem, "rb") as f:
+                serial_number = get_serial_number(f.read())
+
+        if serial_number in revoked:
+            continue
+        revoked[serial_number] = cert.common_name
+
+        if not db.session.execute(
+            select(RevokedCertificate).filter_by(serial_number=serial_number)
+        ).first():
+            db.session.add(
+                RevokedCertificate(
+                    serial_number=serial_number,
+                    common_name=cert.common_name,
+                    eud_uid=cert.eud_uid,
+                    revoked_at=now,
+                    revoked_by=current_user.username,
+                )
+            )
+
+    db.session.commit()
+    CertificateAuthority(logger, app).generate_crl()
+
+    for common_name in set(revoked.values()):
+        serial_numbers = [serial for serial, cn in revoked.items() if cn == common_name]
+        disconnect_euds(f"user:{common_name}", "certificate revoked", serial_numbers)
+
+    return list(revoked.keys()), unresolved
 
 
 @api_blueprint.route("/files/api/config")
@@ -368,6 +441,13 @@ def certificate():
                 cert.user_cert_filename = user_filename
                 cert.cert_password = app.config.get("OTS_CA_PASSWORD")
                 cert.data_package_id = data_package.id if data_package else None
+                with open(
+                    os.path.join(
+                        app.config.get("OTS_CA_FOLDER"), "certs", username, username + ".pem"
+                    ),
+                    "rb",
+                ) as pem:
+                    cert.serial_number = get_serial_number(pem.read())
 
                 db.session.add(cert)
                 db.session.commit()
@@ -384,6 +464,59 @@ def certificate():
         query = search(query, Certificate, "username")
 
         return paginate(query)
+
+
+@api_blueprint.route("/api/certificate/revoke", methods=["POST"])
+@roles_accepted("administrator")
+def revoke_certificate():
+    """Revokes client certificates and disconnects the EUDs that use them.
+
+    :param serial_number: Revoke the certificate with this serial number (hex, as listed by
+        ``/api/certificate``)
+    :param eud_uid: Revoke all certificates of this EUD, including those of earlier enrollments
+    :param username: Revoke all certificates of this user
+    """
+    serial_number = bleach.clean(request.json.get("serial_number", "")) if request.json else ""
+    eud_uid = bleach.clean(request.json.get("eud_uid", "")) if request.json else ""
+    username = bleach.clean(request.json.get("username", "")) if request.json else ""
+
+    if serial_number:
+        query = select(Certificate).filter_by(serial_number=serial_number.lower())
+    elif eud_uid:
+        query = select(Certificate).filter_by(eud_uid=eud_uid)
+    elif username:
+        # Enrolled certificates only have the username as their common name
+        query = select(Certificate).where(
+            (Certificate.username == username) | (Certificate.common_name == username)
+        )
+    else:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": gettext("Please specify a serial_number, eud_uid or username"),
+                }
+            ),
+            400,
+        )
+
+    certificates = db.session.execute(query).scalars().all()
+    if not certificates:
+        return jsonify({"success": False, "error": gettext("No certificates found")}), 404
+
+    try:
+        revoked, unresolved = revoke_certificates(certificates)
+    except BaseException as e:
+        logger.error(traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 500
+
+    return jsonify(
+        {
+            "success": True,
+            "revoked": revoked,
+            "unresolved": [cert.eud_uid or cert.common_name for cert in unresolved],
+        }
+    )
 
 
 @api_blueprint.route("/api/me")
@@ -495,6 +628,16 @@ def rabbitmq_auth(path):
             return "allow", 200
         else:
             return "deny", 200
+    # Only OTS itself and administrators may tell the EUD handlers to drop connections
+    elif (
+        user
+        and path == "resource"
+        and request.form.get("resource") == "exchange"
+        and request.form.get("name") == "eud_control"
+        and request.form.get("permission") in ("configure", "write")
+        and not user.has_role("administrator")
+    ):
+        return "deny", 200
     # Always allow when path is topic, resource, or vhost if the user exists.
     # This only occurs after the user has been successfully authenticated
     elif user:
@@ -533,6 +676,47 @@ def get_euds():
     query = search(query, User, "username")
 
     return paginate(query, EUD)
+
+
+@api_blueprint.route("/api/eud", methods=["DELETE"])
+@roles_accepted("administrator")
+def delete_eud():
+    """Deletes an EUD, revokes its certificate and disconnects it.
+
+    :param uid: The EUD's UID
+    """
+    uid = bleach.clean(request.args.get("uid", ""))
+    if not uid:
+        return jsonify({"success": False, "error": gettext("Please specify an EUD UID")}), 400
+
+    eud = db.session.execute(select(EUD).filter_by(uid=uid)).scalar_one_or_none()
+    if not eud:
+        return (
+            jsonify({"success": False, "error": gettext("EUD %(eud_uid)s not found", eud_uid=uid)}),
+            404,
+        )
+
+    try:
+        certificates = (
+            db.session.execute(select(Certificate).filter_by(eud_uid=uid)).scalars().all()
+        )
+        revoked, unresolved = revoke_certificates(certificates) if certificates else ([], [])
+        disconnect_euds(f"uid:{uid}", "EUD deleted")
+
+        db.session.delete(eud)
+        db.session.commit()
+    except BaseException as e:
+        db.session.rollback()
+        logger.error(traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 500
+
+    return jsonify(
+        {
+            "success": True,
+            "revoked": revoked,
+            "unresolved": [cert.eud_uid or cert.common_name for cert in unresolved],
+        }
+    )
 
 
 @api_blueprint.route("/api/truststore")
