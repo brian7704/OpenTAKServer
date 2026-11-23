@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-23 07:41-0400\n"
-"PO-Revision-Date: 2026-11-20 00:59+0800\n"
+"PO-Revision-Date: 2026-11-23 03:54+0000\n"
 "Last-Translator: Sebastian Lee <RYOHEI19920102@hotmail.com>\n"
 "Language: zh_Hant\n"
 "Language-Team: Chinese (Traditional Han script) <https://"
@@ -34,7 +34,7 @@ msgstr "找不到 client_uid"
 
 #: blueprints/marti_api/citrap_api.py:88
 msgid "report.xml not found"
-msgstr "找不到 report.xml 檔案"
+msgstr "找不到 report.xml （報告）檔案"
 
 #: blueprints/marti_api/citrap_api.py:96
 msgid "Invalid report file"
