@@ -26,7 +26,7 @@ msgstr "密碼不應包含「@」或「:」字元"
 
 #: blueprints/marti_api/certificate_enrollment_api.py:123
 msgid "Invalid Certificate Common Name"
-msgstr "無效的憑證通用名稱"
+msgstr "憑證通用名稱無效"
 
 #: blueprints/marti_api/citrap_api.py:70
 msgid "client_uid not found"
@@ -38,7 +38,7 @@ msgstr "找不到 report.xml 檔案"
 
 #: blueprints/marti_api/citrap_api.py:96
 msgid "Invalid report file"
-msgstr "無效的報告檔案"
+msgstr "報告檔案無效"
 
 #: blueprints/marti_api/citrap_api.py:161
 #, python-format
@@ -65,7 +65,7 @@ msgstr "無效的 secago 值：%(sec_ago)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:93
 msgid "This data package has already been uploaded"
-msgstr "此資料包已經上傳"
+msgstr "此資料包已上傳"
 
 #: blueprints/marti_api/data_package_marti_api.py:182
 msgid "A file is required"
@@ -74,11 +74,11 @@ msgstr "必須提供檔案"
 #: blueprints/marti_api/data_package_marti_api.py:202
 #, python-format
 msgid "Invalid file extension: %(extension)s"
-msgstr "無效的副檔名：%(extension)s"
+msgstr "檔案副檔名無效：%(extension)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:215
 msgid "Invalid file hash"
-msgstr "無效的檔案雜湊值"
+msgstr "檔案雜湊值無效"
 
 #: blueprints/marti_api/data_package_marti_api.py:391
 #, python-format
@@ -180,7 +180,7 @@ msgstr "新增任務失敗：%(e)s"
 
 #: blueprints/marti_api/mission_marti_api.py:652
 msgid "Invalid mission name"
-msgstr "無效的任務名稱"
+msgstr "任務名稱無效"
 
 #: blueprints/marti_api/mission_marti_api.py:664
 #: blueprints/marti_api/mission_marti_api.py:755
@@ -242,7 +242,7 @@ msgstr "找不到團隊：%(invitee)s"
 #: blueprints/marti_api/mission_marti_api.py:976
 #, python-format
 msgid "Invalid invitation type: %(invitation_type)s"
-msgstr "無效的邀請類型：%(invitation_type)s"
+msgstr "邀請類型無效：%(invitation_type)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1024
 #: blueprints/marti_api/mission_marti_api.py:1617
@@ -254,12 +254,12 @@ msgstr "找不到任務：%(mission_name)s"
 #: blueprints/marti_api/mission_marti_api.py:1062
 #, python-format
 msgid "Invalid invitation type: %(invitation)s"
-msgstr "無效的邀請類型：%(invitation)s"
+msgstr "邀請類型無效：%(invitation)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1154
 #, python-format
 msgid "No such mission found: %(mission_name)s"
-msgstr "找不到此任務：%(mission_name)s"
+msgstr "找不到指定任務：%(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1170
 msgid "Only mission owners can change EUD roles"
@@ -278,7 +278,7 @@ msgstr "無效的 UID：%(client_uid)s"
 #: blueprints/marti_api/mission_marti_api.py:1199
 #, python-format
 msgid "Invalid role: %(new_role)s"
-msgstr "無效的角色：%(new_role)s"
+msgstr "角色無效：%(new_role)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1330
 #: blueprints/marti_api/mission_marti_api.py:1373
@@ -331,7 +331,7 @@ msgstr "找不到雜湊值為 %(content_hash)s 的內容"
 #: blueprints/marti_api/mission_marti_api.py:1880
 #, python-format
 msgid "No such mission: %(mission_name)s"
-msgstr "不存在此任務：%(mission_name)s"
+msgstr "找不到指定任務：%(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1902
 #, python-format
@@ -375,12 +375,12 @@ msgstr "找不到 UID 為 %(uid)s 的視訊串流"
 #: blueprints/ots_api/api.py:93
 #, python-format
 msgid "Invalid sort column: %(sort_by)s"
-msgstr "無效的排序欄位：%(sort_by)s"
+msgstr "排序欄位無效：%(sort_by)s"
 
 #: blueprints/ots_api/api.py:294
 #, python-format
 msgid "Invalid username: %(username)s"
-msgstr "無效的使用者名稱：%(username)s"
+msgstr "使用者名稱無效：%(username)s"
 
 #: blueprints/ots_api/api.py:336
 #, python-format
@@ -436,7 +436,7 @@ msgstr "請提供使用者名稱、群組名稱和方向"
 #: blueprints/ots_api/group_api.py:197
 #, python-format
 msgid "Invalid direction: %(direction)s"
-msgstr "無效的方向：%(direction)s"
+msgstr "方向無效：%(direction)s"
 
 #: blueprints/ots_api/group_api.py:217
 #, python-format
@@ -501,7 +501,7 @@ msgstr "無法刪除 __ANON__ 群組"
 #: blueprints/ots_api/group_api.py:442
 #, python-format
 msgid "No such group: %(group_name)s"
-msgstr "不存在此群組：%(group_name)s"
+msgstr "找不到指定群組：%(group_name)s"
 
 #: blueprints/ots_api/group_api.py:463
 #, python-format
@@ -542,7 +542,7 @@ msgstr "UID 格式錯誤。UID 必須為 UUID4 格式"
 #: blueprints/ots_api/marker_api.py:112
 #, python-format
 msgid "Invalid type: %(cot_type)s"
-msgstr "無效類型：%(cot_type)s"
+msgstr "類型無效：%(cot_type)s"
 
 #: blueprints/ots_api/marker_api.py:270
 #, python-format
@@ -583,7 +583,7 @@ msgstr "請提供要刪除的頻道 URL"
 #: blueprints/ots_api/mission_api.py:163 blueprints/ots_api/mission_api.py:288
 #, python-format
 msgid "Invalid property: %(key)s"
-msgstr "無效屬性：%(key)s"
+msgstr "屬性無效：%(key)s"
 
 #: blueprints/ots_api/mission_api.py:260
 msgid "Only an admin or the mission creator can change this mission"
@@ -751,7 +751,7 @@ msgstr "請指定有效路徑"
 #: blueprints/ots_api/video_api.py:73
 #, python-format
 msgid "Invalid recording_id: %(recording_id)s"
-msgstr "無效的錄影 ID：%(recording_id)s"
+msgstr "錄影 ID 無效：%(recording_id)s"
 
 #: blueprints/ots_api/video_api.py:97
 msgid "Recording not found"
