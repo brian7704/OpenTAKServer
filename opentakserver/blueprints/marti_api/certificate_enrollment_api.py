@@ -16,7 +16,7 @@ from flask_ldap3_login import AuthenticationResponseStatus
 from flask_security import verify_password
 from cryptography import x509
 
-from opentakserver.certificate_authority import CertificateAuthority
+from opentakserver.certificate_authority import CertificateAuthority, get_serial_number
 from opentakserver.extensions import db, ldap_manager, logger
 from opentakserver.models.Certificate import Certificate
 from opentakserver.models.EUD import EUD
@@ -129,6 +129,7 @@ def sign_csr_v2():
         cert_authority = CertificateAuthority(logger, app)
 
         signed_csr = cert_authority.sign_csr(csr.encode(), common_name, False).decode("utf-8")
+        serial_number = get_serial_number(signed_csr.encode())
         signed_csr = signed_csr.replace("-----BEGIN CERTIFICATE-----\n", "")
         signed_csr = signed_csr.replace("\n-----END CERTIFICATE-----\n", "")
 
@@ -202,6 +203,7 @@ def sign_csr_v2():
                     app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".csr"
                 )
                 certificate.cert_password = app.config.get("OTS_CA_PASSWORD")
+                certificate.serial_number = serial_number
 
                 db.session.add(certificate)
                 db.session.commit()
@@ -228,6 +230,7 @@ def sign_csr_v2():
                     app.config.get("OTS_CA_FOLDER"), "certs", common_name, common_name + ".csr"
                 )
                 certificate.cert_password = app.config.get("OTS_CA_PASSWORD")
+                certificate.serial_number = serial_number
 
                 db.session.commit()
 
