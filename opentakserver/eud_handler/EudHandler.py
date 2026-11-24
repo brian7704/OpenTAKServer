@@ -163,6 +163,9 @@ class EudHandler(socketserver.BaseRequestHandler):
         return False
 
     def setup(self):
+        self.cached_messages = []
+        self.bound_queues = []
+        self.group_memberships = []
         self.create_app()
 
         # RabbitMQ
@@ -548,71 +551,94 @@ class EudHandler(socketserver.BaseRequestHandler):
 
                     with self.app.app_context():
                         if self.is_ssl:
-                            group_memberships = db.session.execute(
-                                db.session.query(GroupUser).filter_by(
-                                    user_id=self.user.id, direction=Group.OUT
+                            out_memberships = (
+                                db.session.execute(
+                                    select(GroupUser).filter_by(
+                                        user_id=self.user.id, direction=Group.OUT
+                                    )
                                 )
-                            ).all()
-                            if not group_memberships:
+                                .scalars()
+                                .all()
+                            )
+                            in_memberships = (
+                                db.session.execute(
+                                    select(GroupUser).filter_by(
+                                        user_id=self.user.id, direction=Group.IN
+                                    )
+                                )
+                                .scalars()
+                                .all()
+                            )
+
+                            if not out_memberships:
+                                allowed_out_keys = {f"__ANON__.{Group.OUT}"}
+                                allowed_in_keys = (
+                                    {
+                                        f"{m.group.name}.{Group.IN}"
+                                        for m in in_memberships
+                                        if m.enabled
+                                    }
+                                    if in_memberships
+                                    else {f"__ANON__.{Group.IN}"}
+                                )
+                                self._reconcile_group_bindings(allowed_out_keys | allowed_in_keys)
+
                                 self.logger.debug(
                                     f"{self.callsign} doesn't belong to any groups, adding them to the __ANON__ group"
                                 )
                                 self.rabbit_channel.queue_bind(
-                                    exchange="groups", queue=self.uid, routing_key="__ANON__.OUT"
+                                    exchange="groups",
+                                    queue=self.uid,
+                                    routing_key=f"__ANON__.{Group.OUT}",
                                 )
-                                if {
-                                    "exchange": "groups",
-                                    "routing_key": "__ANON__.OUT",
-                                    "queue": self.uid,
-                                } not in self.bound_queues:
-                                    self.bound_queues.append(
-                                        {
-                                            "exchange": "groups",
-                                            "routing_key": "__ANON__.OUT",
-                                            "queue": self.uid,
-                                        }
+                                self._record_bound_queue(
+                                    "groups", f"__ANON__.{Group.OUT}", self.uid
+                                )
+                                if not in_memberships:
+                                    self._record_bound_queue(
+                                        "groups", f"__ANON__.{Group.IN}", self.uid
                                     )
 
-                            elif group_memberships and self.is_ssl:
-                                for membership in group_memberships:
-                                    membership: GroupUser = membership[0]
+                            else:
+                                allowed_out_keys = {
+                                    f"{m.group.name}.{Group.OUT}"
+                                    for m in out_memberships
+                                    if m.enabled
+                                }
+                                allowed_in_keys = {
+                                    f"{m.group.name}.{Group.IN}"
+                                    for m in in_memberships
+                                    if m.enabled
+                                }
+                                self._reconcile_group_bindings(allowed_out_keys | allowed_in_keys)
+
+                                for membership in out_memberships:
                                     self.group_memberships.append(membership)
 
                                     if membership.enabled:
                                         self.rabbit_channel.queue_bind(
                                             exchange="groups",
                                             queue=self.uid,
-                                            routing_key=f"{membership.group.name}.OUT",
+                                            routing_key=f"{membership.group.name}.{Group.OUT}",
                                         )
 
-                                    if {
-                                        "exchange": "groups",
-                                        "routing_key": f"{membership.group.name}.OUT",
-                                        "queue": self.uid,
-                                    } not in self.bound_queues:
-                                        self.bound_queues.append(
-                                            {
-                                                "exchange": "groups",
-                                                "routing_key": f"{membership.group.name}.OUT",
-                                                "queue": self.uid,
-                                            }
-                                        )
+                                    self._record_bound_queue(
+                                        "groups",
+                                        f"{membership.group.name}.{Group.OUT}",
+                                        self.uid,
+                                    )
+
+                            for membership in in_memberships:
+                                self._record_bound_queue(
+                                    "groups",
+                                    f"{membership.group.name}.{Group.IN}",
+                                    self.uid,
+                                )
 
                         self.rabbit_channel.queue_bind(
                             exchange="missions", routing_key="missions", queue=self.uid
                         )
-                        if {
-                            "exchange": "missions",
-                            "routing_key": "missions",
-                            "queue": self.uid,
-                        } not in self.bound_queues:
-                            self.bound_queues.append(
-                                {
-                                    "exchange": "missions",
-                                    "routing_key": "missions",
-                                    "queue": self.uid,
-                                }
-                            )
+                        self._record_bound_queue("missions", "missions", self.uid)
 
                         # The DMs queue also binds by callsign since the <dest> tag in CoT messages can be by callsign instead of UID
                         self.rabbit_channel.queue_bind(
@@ -622,41 +648,21 @@ class EudHandler(socketserver.BaseRequestHandler):
                             exchange="dms", queue=self.callsign, routing_key=self.callsign
                         )
 
-                        if {
-                            "exchange": "dms",
-                            "routing_key": self.uid,
-                            "queue": self.uid,
-                        } not in self.bound_queues:
-                            self.bound_queues.append(
-                                {"exchange": "dms", "routing_key": self.uid, "queue": self.uid}
-                            )
-
-                        if {
-                            "exchange": "dms",
-                            "routing_key": self.callsign,
-                            "queue": self.callsign,
-                        } not in self.bound_queues:
-                            self.bound_queues.append(
-                                {
-                                    "exchange": "dms",
-                                    "routing_key": self.callsign,
-                                    "queue": self.callsign,
-                                }
-                            )
+                        self._record_bound_queue("dms", self.uid, self.uid)
+                        self._record_bound_queue("dms", self.callsign, self.callsign)
 
                         if not self.is_ssl:
+                            self._reconcile_group_bindings({f"__ANON__.{Group.OUT}"})
                             self.logger.debug(
                                 f"{self.callsign} is connected via TCP, adding them to the __ANON__ group"
                             )
                             self.rabbit_channel.queue_bind(
-                                exchange="groups", queue=self.uid, routing_key="__ANON__.OUT"
+                                exchange="groups",
+                                queue=self.uid,
+                                routing_key=f"__ANON__.{Group.OUT}",
                             )
-                            self.bound_queues.append(
-                                {
-                                    "exchange": "groups",
-                                    "routing_key": "__ANON__.OUT",
-                                    "queue": self.uid,
-                                }
+                            self._record_bound_queue(
+                                "groups", f"__ANON__.{Group.OUT}", self.uid
                             )
 
                         self.rabbit_channel.basic_consume(
@@ -778,6 +784,28 @@ class EudHandler(socketserver.BaseRequestHandler):
                         ),
                     )
 
+    def _record_bound_queue(self, exchange: str, routing_key: str, queue: str):
+        binding = {"exchange": exchange, "routing_key": routing_key, "queue": queue}
+        if binding not in self.bound_queues:
+            self.bound_queues.append(binding)
+
+    def _reconcile_group_bindings(self, allowed_routing_keys: set[str]):
+        if self.app.config.get("OTS_ENABLE_LDAP"):
+            return
+
+        groups = db.session.execute(select(Group)).scalars().all()
+        group_names = {group.name for group in groups} | {"__ANON__"}
+
+        for group_name in sorted(group_names):
+            for direction in (Group.IN, Group.OUT):
+                routing_key = f"{group_name}.{direction}"
+                if routing_key not in allowed_routing_keys:
+                    self.rabbit_channel.queue_unbind(
+                        exchange="groups",
+                        queue=self.uid,
+                        routing_key=routing_key,
+                    )
+
     def unbind_rabbitmq_queues(self):
         if (
             self.uid
@@ -788,7 +816,6 @@ class EudHandler(socketserver.BaseRequestHandler):
             self.rabbit_channel.queue_unbind(
                 queue=self.uid, exchange="missions", routing_key="missions"
             )
-            self.rabbit_channel.queue_unbind(queue=self.uid, exchange="groups")
 
             for bind in self.bound_queues:
                 self.rabbit_channel.queue_unbind(

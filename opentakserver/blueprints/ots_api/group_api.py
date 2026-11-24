@@ -9,6 +9,7 @@ from flask import jsonify, request
 from flask_babel import gettext
 from flask_login import current_user
 from flask_security import auth_required, roles_required
+from sqlalchemy import select
 
 from opentakserver.blueprints.ots_api.api import paginate, search
 from opentakserver.extensions import db, ldap_manager, logger
@@ -16,6 +17,18 @@ from opentakserver.models.Group import Group
 from opentakserver.models.GroupUser import GroupUser
 
 group_api = Blueprint("group_api", __name__)
+
+
+def _queue_exists(rabbit_connection: pika.BlockingConnection, queue_name: str) -> bool:
+    if not queue_name:
+        return False
+    check_channel = rabbit_connection.channel()
+    try:
+        check_channel.queue_declare(queue=queue_name, passive=True)
+        check_channel.close()
+        return True
+    except pika.exceptions.ChannelClosedByBroker:
+        return False
 
 
 @group_api.route("/api/groups")
@@ -231,9 +244,10 @@ def remove_user_from_group():
         )
         channel = rabbit_connection.channel()
         for eud in user.euds:
-            channel.queue_unbind(
-                exchange="groups", queue=eud.uid, routing_key=f"{group_name}.{direction}"
-            )
+            if _queue_exists(rabbit_connection, eud.uid):
+                channel.queue_unbind(
+                    exchange="groups", queue=eud.uid, routing_key=f"{group_name}.{direction}"
+                )
 
         channel.close()
         rabbit_connection.close()
@@ -364,6 +378,7 @@ def add_user_to_group():
     if direction != "IN" and direction != "OUT":
         return jsonify({"success": False, "error": gettext("Direction must be IN or OUT")}), 400
 
+    updated_users = []
     for username in users:
         user = app.security.datastore.find_user(username=username)
         if not user:
@@ -399,8 +414,41 @@ def add_user_to_group():
         try:
             db.session.add(membership)
             db.session.commit()
+            updated_users.append(user)
         except sqlalchemy.exc.IntegrityError:
             db.session.rollback()
+
+    if updated_users:
+        try:
+            rabbit_credentials = pika.PlainCredentials(
+                app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD")
+            )
+            rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+            rabbit_connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
+            )
+            channel = rabbit_connection.channel()
+            for user in updated_users:
+                for eud in user.euds:
+                    if _queue_exists(rabbit_connection, eud.uid):
+                        channel.queue_unbind(
+                            exchange="groups",
+                            queue=eud.uid,
+                            routing_key=f"__ANON__.{direction}",
+                        )
+                        if direction == Group.OUT:
+                            channel.queue_bind(
+                                exchange="groups",
+                                queue=eud.uid,
+                                routing_key=f"{group_name}.{Group.OUT}",
+                            )
+            channel.close()
+            rabbit_connection.close()
+        except BaseException as e:
+            logger.error(
+                f"Failed to update RabbitMQ bindings when adding users to {group_name}: {e}"
+            )
+            logger.debug(traceback.format_exc())
 
     return jsonify({"success": True})
 
@@ -448,10 +496,36 @@ def delete_group():
             )
 
         group = group[0]
+        memberships = (
+            db.session.execute(select(GroupUser).filter_by(group_id=group.id)).scalars().all()
+        )
+        affected_uids = {
+            eud.uid for membership in memberships for eud in membership.user.euds if eud.uid
+        }
 
         GroupUser.query.filter_by(group_id=group.id).delete()
         db.session.delete(group)
         db.session.commit()
+
+        if affected_uids:
+            rabbit_credentials = pika.PlainCredentials(
+                app.config.get("OTS_RABBITMQ_USERNAME"), app.config.get("OTS_RABBITMQ_PASSWORD")
+            )
+            rabbit_host = app.config.get("OTS_RABBITMQ_SERVER_ADDRESS")
+            rabbit_connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=rabbit_host, credentials=rabbit_credentials)
+            )
+            channel = rabbit_connection.channel()
+            for eud_uid in sorted(affected_uids):
+                if _queue_exists(rabbit_connection, eud_uid):
+                    for direction in (Group.IN, Group.OUT):
+                        channel.queue_unbind(
+                            exchange="groups",
+                            queue=eud_uid,
+                            routing_key=f"{group_name}.{direction}",
+                        )
+            channel.close()
+            rabbit_connection.close()
     except BaseException as e:
         logger.error(f"Failed to delete {request.args.get('group_name')}: {e}")
         logger.debug(traceback.format_exc())
