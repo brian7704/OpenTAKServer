@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-23 07:41-0400\n"
-"PO-Revision-Date: 2026-11-24 04:07+0000\n"
+"PO-Revision-Date: 2026-11-24 04:14+0000\n"
 "Last-Translator: Sebastian Lee <RYOHEI19920102@hotmail.com>\n"
 "Language: zh_Hant\n"
 "Language-Team: Chinese (Traditional Han script) <https://"
@@ -26,7 +26,7 @@ msgstr "密碼不應包含「@」或「:」字元"
 
 #: blueprints/marti_api/certificate_enrollment_api.py:123
 msgid "Invalid Certificate Common Name"
-msgstr "憑證通用名稱無效"
+msgstr "憑證通用名稱 (CN) 無效"
 
 #: blueprints/marti_api/citrap_api.py:70
 msgid "client_uid not found"
