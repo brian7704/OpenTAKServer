@@ -9,7 +9,9 @@ from flask import request
 from sqlalchemy import TEXT, Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from opentakserver.extensions import db
+from opentakserver.extensions import db, ldap_manager
+from opentakserver.models.Group import Group
+from opentakserver.models.GroupUser import GroupUser
 
 
 @dataclass
@@ -166,3 +168,55 @@ class VideoStream(db.Model):
         )
 
         self.xml = tostring(feed).decode("utf-8")
+
+
+def get_video_owner(video: "VideoStream | None"):
+    if not video:
+        return None
+    if video.user:
+        return video.user
+    if video.username:
+        return app.security.datastore.find_user(username=video.username)
+    if video.cot and video.cot.eud and video.cot.eud.user:
+        return video.cot.eud.user
+    return None
+
+
+def get_user_group_names(user, direction: str) -> set[str]:
+    if not user:
+        return {"__ANON__"}
+
+    if app.config.get("OTS_ENABLE_LDAP"):
+        suffix = "_write" if direction == Group.IN else "_read"
+        prefix = app.config.get("OTS_LDAP_GROUP_PREFIX") or ""
+        names = set()
+        for group in ldap_manager.get_user_groups(user.username):
+            cn = group.get("cn", "")
+            if prefix and not cn.startswith(prefix):
+                continue
+            if cn.lower().endswith(suffix):
+                names.add(cn[: -len(suffix)].lower())
+        return names or {"__ANON__"}
+
+    memberships = (
+        db.session.execute(
+            db.select(GroupUser).filter_by(user_id=user.id, direction=direction, enabled=True)
+        )
+        .scalars()
+        .all()
+    )
+    names = {m.group.name for m in memberships if m.group}
+    return names or {"__ANON__"}
+
+
+def user_can_access_video_stream(user, video: "VideoStream | None") -> bool:
+    if user and user.has_role("administrator"):
+        return True
+
+    owner = get_video_owner(video)
+    if user and owner and user.id == owner.id:
+        return True
+
+    publisher_groups = get_user_group_names(owner, Group.IN)
+    reader_groups = get_user_group_names(user, Group.OUT)
+    return bool(publisher_groups & reader_groups)
