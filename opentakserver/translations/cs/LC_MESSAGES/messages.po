@@ -8,8 +8,8 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-11-09 00:05-0500\n"
-"PO-Revision-Date: 2026-11-10 13:18+0000\n"
-"Last-Translator: David L <david.ludvik@adlenergy.com>\n"
+"PO-Revision-Date: 2026-11-25 10:34+0000\n"
+"Last-Translator: AnthonyG <tonyjr@thegellfamily.com>\n"
 "Language: cs\n"
 "Language-Team: Czech <https://weblate.opentakserver.io/projects/"
 "opentakserver/opentakserver/cs/>\n"
@@ -518,7 +518,7 @@ msgstr "Neplatné federate_group_id nebo group_id"
 #: blueprints/ots_api/group_api.py:42 blueprints/ots_api/group_api.py:125
 #: blueprints/ots_api/group_api.py:166
 msgid "LDAP is enabled. Please view and edit groups on your LDAP server"
-msgstr "LDAP je aktivní. Skupiny spravujte na svém LDAP serveru."
+msgstr "LDAP je aktivní. Skupiny spravujte na svém LDAP serveru"
 
 #: blueprints/ots_api/group_api.py:182
 msgid "Please provide the username, group name, and direction"

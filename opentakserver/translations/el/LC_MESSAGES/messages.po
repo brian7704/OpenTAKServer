@@ -8,176 +8,195 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-23 07:41-0400\n"
-"PO-Revision-Date: 2026-01-02 23:02-0500\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"PO-Revision-Date: 2026-11-25 10:34+0000\n"
+"Last-Translator: AnthonyG <tonyjr@thegellfamily.com>\n"
 "Language: el\n"
-"Language-Team: el <LL@li.org>\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language-Team: Greek <https://weblate.opentakserver.io/projects/"
+"opentakserver/opentakserver/el/>\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
+"X-Generator: Weblate 2026.10.1\n"
 
 #: PasswordValidator.py:13 blueprints/ots_api/user_api.py:195
+#, fuzzy
 msgid "Passwords should not include @ or : characters"
-msgstr ""
+msgstr "Οι κωδικοί πρόσβασης δεν πρέπει να περιλαμβάνουν χαρακτήρες @ ή :"
 
 #: blueprints/marti_api/certificate_enrollment_api.py:123
+#, fuzzy
 msgid "Invalid Certificate Common Name"
-msgstr ""
+msgstr "Μη έγκυρο κοινό όνομα πιστοποιητικού"
 
 #: blueprints/marti_api/citrap_api.py:70
+#, fuzzy
 msgid "client_uid not found"
-msgstr ""
+msgstr "client_uid δεν βρέθηκε"
 
 #: blueprints/marti_api/citrap_api.py:88
+#, fuzzy
 msgid "report.xml not found"
-msgstr ""
+msgstr "Το report.xml δεν βρέθηκε"
 
 #: blueprints/marti_api/citrap_api.py:96
+#, fuzzy
 msgid "Invalid report file"
-msgstr ""
+msgstr "Μη έγκυρο αρχείο αναφοράς"
 
 #: blueprints/marti_api/citrap_api.py:161
+#, fuzzy
 msgid "Failed to add report"
-msgstr ""
+msgstr "Η προσθήκη αναφοράς απέτυχε"
 
 #: blueprints/marti_api/citrap_api.py:165
+#, fuzzy
 msgid "Failed to verify certificate"
-msgstr ""
+msgstr "Αποτυχία επαλήθευσης πιστοποιητικού"
 
 #: blueprints/marti_api/citrap_api.py:296
+#, fuzzy
 msgid "Forbidden"
-msgstr ""
+msgstr "Απαγορευμένος"
 
 #: blueprints/marti_api/cot_marti_api.py:32
-#, python-format
+#, fuzzy, python-format
 msgid "No CoT found for UID %(uid)s"
-msgstr ""
+msgstr "Δεν βρέθηκε CoT για UID %(uid)s"
 
 #: blueprints/marti_api/cot_marti_api.py:57
-#, python-format
+#, fuzzy, python-format
 msgid "Invalid secago value: %(sec_ago)s"
-msgstr ""
+msgstr "Μη έγκυρη τιμή secago: %(sec_ago)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:93
+#, fuzzy
 msgid "This data package has already been uploaded"
-msgstr ""
+msgstr "Αυτό το πακέτο δεδομένων έχει ήδη μεταφορτωθεί"
 
 #: blueprints/marti_api/data_package_marti_api.py:182
+#, fuzzy
 msgid "A file is required"
-msgstr ""
+msgstr "Απαιτείται ένα αρχείο"
 
 #: blueprints/marti_api/data_package_marti_api.py:202
-#, python-format
+#, fuzzy, python-format
 msgid "Invalid file extension: %(extension)s"
-msgstr ""
+msgstr "Μη έγκυρη επέκταση αρχείου: %(extension)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:215
+#, fuzzy
 msgid "Invalid file hash"
-msgstr ""
+msgstr "Μη έγκυρο hash αρχείου"
 
 #: blueprints/marti_api/data_package_marti_api.py:391
-#, python-format
+#, fuzzy, python-format
 msgid "File not found: %(filename)s}"
-msgstr ""
+msgstr "Το αρχείο δεν βρέθηκε: %(filename)s}"
 
 #: blueprints/marti_api/group_marti_api.py:39
+#, fuzzy
 msgid "Groups are only supported on SSL connections"
-msgstr ""
+msgstr "Οι ομάδες υποστηρίζονται μόνο σε συνδέσεις SSL"
 
 #: blueprints/marti_api/group_marti_api.py:108
 #: blueprints/marti_api/group_marti_api.py:166
+#, fuzzy
 msgid "Please specify a groupNameFilter"
-msgstr ""
+msgstr "Παρακαλώ καθορίστε ένα groupNameFilter"
 
 #: blueprints/marti_api/group_marti_api.py:120
 #: blueprints/marti_api/group_marti_api.py:178
-#, python-format
+#, fuzzy, python-format
 msgid "Please specify a groupNameFilter that starts with %(prefix)s"
-msgstr ""
+msgstr "Παρακαλώ καθορίστε ένα groupNameFilter που ξεκινά με %(prefix)s"
 
 #: blueprints/marti_api/group_marti_api.py:133
 #: blueprints/marti_api/group_marti_api.py:191
+#, fuzzy
 msgid "groupNameFilter must end with either _READ or _WRITE"
-msgstr ""
+msgstr "Το groupNameFilter πρέπει να τελειώνει είτε με _READ είτε με _WRITE"
 
 #: blueprints/marti_api/group_marti_api.py:293
 #: blueprints/ots_api/group_api.py:365 blueprints/ots_api/user_api.py:587
+#, fuzzy
 msgid "Direction must be IN or OUT"
-msgstr ""
+msgstr "Η κατεύθυνση πρέπει να είναι ΜΕΣΑ ή ΕΞΩ"
 
 #: blueprints/marti_api/group_marti_api.py:302
+#, fuzzy
 msgid "The active attribute must be true or false"
-msgstr ""
+msgstr "Το ενεργό χαρακτηριστικό πρέπει να είναι true ή false"
 
 #: blueprints/marti_api/group_marti_api.py:311
+#, fuzzy
 msgid "Group name is required"
-msgstr ""
+msgstr "Απαιτείται όνομα ομάδας"
 
 #: blueprints/marti_api/group_marti_api.py:354
-#, python-format
+#, fuzzy, python-format
 msgid "%(username)s is not in the %(group_name)s group"
-msgstr ""
+msgstr "Το %(username)s δεν ανήκει στην ομάδα %(group_name)s"
 
 #: blueprints/marti_api/group_marti_api.py:376
-#, python-format
+#, fuzzy, python-format
 msgid "Failed to update group subscriptions for %(username)s: %(e)s"
-msgstr ""
+msgstr "Αποτυχία ενημέρωσης συνδρομών ομάδας για %(username)s: %(e)s"
 
 #: blueprints/marti_api/group_marti_api.py:405
 msgid "Please provide a group name and direction"
-msgstr ""
+msgstr "Παρακαλώ δώστε ένα όνομα ομάδας και κατεύθυνση"
 
 #: blueprints/marti_api/group_marti_api.py:427
-#, python-format
+#, fuzzy, python-format
 msgid "No group found: %(group_name)s, %(direction)s"
-msgstr ""
+msgstr "Δεν βρέθηκε ομάδα: %(group_name)s, %(direction)s"
 
 #: blueprints/marti_api/marti_api.py:122
-#, python-format
+#, fuzzy, python-format
 msgid "No such UID: %(uid)s"
-msgstr ""
+msgstr "Δεν υπάρχει τέτοιο UID: %(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:326
 #: blueprints/marti_api/mission_marti_api.py:1277
 #, python-format
 msgid "No mission found with guid: %(mission_guid)s"
-msgstr ""
+msgstr "Δεν βρέθηκε αποστολή με τον οδηγό: %(mission_guid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:335
 #: blueprints/marti_api/mission_marti_api.py:1481
 #: blueprints/ots_api/mission_api.py:420
 msgid "Invalid password"
-msgstr ""
+msgstr "Μη έγκυρος κωδικός πρόσβασης"
 
 #: blueprints/marti_api/mission_marti_api.py:451
 msgid "Missions are only supported on SSL connections"
-msgstr ""
+msgstr "Οι αποστολές υποστηρίζονται μόνο σε συνδέσεις SSL"
 
 #: blueprints/marti_api/mission_marti_api.py:468
 msgid "Please provide a mission name and creatorUid"
-msgstr ""
+msgstr "Παρακαλώ δώστε ένα όνομα αποστολής και ένα creatorUid"
 
 #: blueprints/marti_api/mission_marti_api.py:481
 #, python-format
 msgid "Invalid creatorUid: %(creator_uid)s"
-msgstr ""
+msgstr "Μη έγκυρο creatorUid: %(creator_uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:532
 #, python-format
 msgid "Group not found: %(group_name)s"
-msgstr ""
+msgstr "Η ομάδα δεν βρέθηκε: %(group_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:624
 #: blueprints/ots_api/mission_api.py:202
 #, python-format
 msgid "Failed to add mission: %(e)s"
-msgstr ""
+msgstr "Αποτυχία προσθήκης αποστολής: %(e)s"
 
 #: blueprints/marti_api/mission_marti_api.py:652
 msgid "Invalid mission name"
-msgstr ""
+msgstr "Μη έγκυρο όνομα αποστολής"
 
 #: blueprints/marti_api/mission_marti_api.py:664
 #: blueprints/marti_api/mission_marti_api.py:755
@@ -188,7 +207,7 @@ msgstr ""
 #: blueprints/ots_api/mission_api.py:316
 #, python-format
 msgid "Mission %(mission_name)s not found"
-msgstr ""
+msgstr "Η αποστολή %(mission_name)s δεν βρέθηκε"
 
 #: blueprints/marti_api/mission_marti_api.py:695
 #: blueprints/marti_api/mission_marti_api.py:769
@@ -197,106 +216,107 @@ msgstr ""
 #: blueprints/marti_api/mission_marti_api.py:2065
 #: blueprints/marti_api/mission_marti_api.py:2227
 msgid "Missing or invalid token"
-msgstr ""
+msgstr "Λείπει ή δεν είναι έγκυρο το διακριτικό"
 
 #: blueprints/marti_api/mission_marti_api.py:719
 msgid "Only mission owners can delete missions"
-msgstr ""
+msgstr "Μόνο οι κάτοχοι αποστολών μπορούν να διαγράψουν αποστολές"
 
 #: blueprints/marti_api/mission_marti_api.py:779
 msgid "Please provide the password"
-msgstr ""
+msgstr "Παρακαλώ δώστε τον κωδικό πρόσβασης"
 
 #: blueprints/marti_api/mission_marti_api.py:790
 msgid "You do not have permission to change this mission's password"
-msgstr ""
+msgstr "Δεν έχετε άδεια να αλλάξετε τον κωδικό πρόσβασης αυτής της αποστολής"
 
 #: blueprints/marti_api/mission_marti_api.py:851
 #, python-format
 msgid "No EUD found with UID %(invitee)s"
-msgstr ""
+msgstr "Δεν βρέθηκε EUD με UID %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:866
 #, python-format
 msgid "No EUD found with callsign %(invitee)s"
-msgstr ""
+msgstr "Δεν βρέθηκε EUD με UID %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:882
 #, python-format
 msgid "No user found with username %(invitee)s"
-msgstr ""
+msgstr "Δεν βρέθηκε χρήστης με όνομα χρήστη %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:898
 #, python-format
 msgid "No group found: %(invitee)s"
-msgstr ""
+msgstr "Δεν βρέθηκε ομάδα: %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:913
 #, python-format
 msgid "Team not found: %(invitee)s"
-msgstr ""
+msgstr "Η ομάδα δεν βρέθηκε: %(invitee)s"
 
 #: blueprints/marti_api/mission_marti_api.py:976
 #, python-format
 msgid "Invalid invitation type: %(invitation_type)s"
-msgstr ""
+msgstr "Μη έγκυρος τύπος πρόσκλησης: %(invitation_type)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1024
 #: blueprints/marti_api/mission_marti_api.py:1617
 #: blueprints/ots_api/mission_api.py:396
 #, python-format
 msgid "Mission not found: %(mission_name)s"
-msgstr ""
+msgstr "Η αποστολή δεν βρέθηκε: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1062
 #, python-format
 msgid "Invalid invitation type: %(invitation)s"
-msgstr ""
+msgstr "Μη έγκυρος τύπος πρόσκλησης: %(invitation)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1154
 #, python-format
 msgid "No such mission found: %(mission_name)s"
-msgstr ""
+msgstr "Η αποστολή δεν βρέθηκε: %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1170
 msgid "Only mission owners can change EUD roles"
-msgstr ""
+msgstr "Μόνο οι ιδιοκτήτες αποστολών μπορούν να αλλάξουν τους ρόλους των EUD"
 
 #: blueprints/marti_api/mission_marti_api.py:1177
 #: blueprints/ots_api/marker_api.py:86
 msgid "Please provide a UID"
-msgstr ""
+msgstr "Παρακαλώ δώστε ένα UID"
 
 #: blueprints/marti_api/mission_marti_api.py:1185
 #, python-format
 msgid "Invalid UID: %(client_uid)s"
-msgstr ""
+msgstr "Μη έγκυρο UID: %(client_uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1199
 #, python-format
 msgid "Invalid role: %(new_role)s"
-msgstr ""
+msgstr "Μη έγκυρος ρόλος: %(new_role)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1330
 #: blueprints/marti_api/mission_marti_api.py:1373
 #, python-format
 msgid "Cannot find mission %(mission_name)s"
-msgstr ""
+msgstr "Δεν είναι δυνατή η εύρεση της αποστολής %(mission_name)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1390
 #, python-format
 msgid "Cannot find mission %(mission_guid)s"
-msgstr ""
+msgstr "Δεν είναι δυνατή η εύρεση της αποστολής %(mission_guid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1416
 #, python-format
 msgid "%(username)s and mission %(mission_name)s are not in the same group"
 msgstr ""
+"Το %(username)s και η αποστολή %(mission_name)s δεν ανήκουν στην ίδια ομάδα"
 
 #: blueprints/marti_api/mission_marti_api.py:1435
 #: blueprints/ots_api/mediamtx_api.py:58
 msgid "Invalid token"
-msgstr ""
+msgstr "Μη έγκυρο διακριτικό"
 
 #: blueprints/marti_api/mission_marti_api.py:1468
 msgid "Missing UID"
@@ -770,4 +790,3 @@ msgstr ""
 
 #~ msgid "clientUid required"
 #~ msgstr ""
-

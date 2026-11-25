@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-23 07:41-0400\n"
-"PO-Revision-Date: 2026-11-23 03:54+0000\n"
+"PO-Revision-Date: 2026-11-24 04:14+0000\n"
 "Last-Translator: Sebastian Lee <RYOHEI19920102@hotmail.com>\n"
 "Language: zh_Hant\n"
 "Language-Team: Chinese (Traditional Han script) <https://"
@@ -26,7 +26,7 @@ msgstr "密碼不應包含「@」或「:」字元"
 
 #: blueprints/marti_api/certificate_enrollment_api.py:123
 msgid "Invalid Certificate Common Name"
-msgstr "無效的憑證通用名稱"
+msgstr "憑證通用名稱 (CN) 無效"
 
 #: blueprints/marti_api/citrap_api.py:70
 msgid "client_uid not found"
@@ -34,7 +34,7 @@ msgstr "找不到 client_uid"
 
 #: blueprints/marti_api/citrap_api.py:88
 msgid "report.xml not found"
-msgstr "找不到 report.xml （報告）檔案"
+msgstr "找不到 report.xml 檔案"
 
 #: blueprints/marti_api/citrap_api.py:96
 msgid "Invalid report file"
@@ -74,7 +74,7 @@ msgstr "必須提供檔案"
 #: blueprints/marti_api/data_package_marti_api.py:202
 #, python-format
 msgid "Invalid file extension: %(extension)s"
-msgstr "無效的副檔名：%(extension)s"
+msgstr "無效的檔案副檔名：%(extension)s"
 
 #: blueprints/marti_api/data_package_marti_api.py:215
 msgid "Invalid file hash"
@@ -130,7 +130,7 @@ msgstr "更新 %(username)s 的群組訂閱失敗：%(e)s"
 
 #: blueprints/marti_api/group_marti_api.py:405
 msgid "Please provide a group name and direction"
-msgstr "請提供群組名稱及傳輸方向"
+msgstr "請提供群組名稱和傳輸方向"
 
 #: blueprints/marti_api/group_marti_api.py:427
 #, python-format
@@ -200,7 +200,7 @@ msgstr "找不到任務 %(mission_name)s"
 #: blueprints/marti_api/mission_marti_api.py:2065
 #: blueprints/marti_api/mission_marti_api.py:2227
 msgid "Missing or invalid token"
-msgstr "權杖缺失或無效"
+msgstr "缺少權杖或權杖無效"
 
 #: blueprints/marti_api/mission_marti_api.py:719
 msgid "Only mission owners can delete missions"
@@ -268,7 +268,7 @@ msgstr "只有任務擁有者才能變更終端裝置 (EUD) 角色"
 #: blueprints/marti_api/mission_marti_api.py:1177
 #: blueprints/ots_api/marker_api.py:86
 msgid "Please provide a UID"
-msgstr "請輸入 UID"
+msgstr "請提供 UID"
 
 #: blueprints/marti_api/mission_marti_api.py:1185
 #, python-format
@@ -289,7 +289,7 @@ msgstr "找不到任務 %(mission_name)s"
 #: blueprints/marti_api/mission_marti_api.py:1390
 #, python-format
 msgid "Cannot find mission %(mission_guid)s"
-msgstr "找不到任務 %(mission_guid)s"
+msgstr "找不到 GUID 為 %(mission_guid)s 的任務"
 
 #: blueprints/marti_api/mission_marti_api.py:1416
 #, python-format
@@ -312,7 +312,7 @@ msgstr "無效的 UID：%(uid)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1708
 msgid "Missing or invalid certificate"
-msgstr "憑證缺失或無效"
+msgstr "缺少憑證或憑證無效"
 
 #: blueprints/marti_api/mission_marti_api.py:1713
 msgid "File name cannot be blank"
@@ -321,7 +321,7 @@ msgstr "檔案名稱不得為空白"
 #: blueprints/marti_api/mission_marti_api.py:1759
 #, python-format
 msgid "%(extension)s is not an allowed file extension"
-msgstr "不允許的副檔名：%(extension)s"
+msgstr "不允許使用的檔案副檔名：%(extension)s"
 
 #: blueprints/marti_api/mission_marti_api.py:1835
 #, python-format
@@ -385,7 +385,7 @@ msgstr "無效的使用者名稱：%(username)s"
 #: blueprints/ots_api/api.py:336
 #, python-format
 msgid "Certificate already exists for %(username)s"
-msgstr "使用者 %(username)s 已存在憑證"
+msgstr "使用者 %(username)s 已有憑證"
 
 #: blueprints/ots_api/api.py:371
 msgid "Please specify a callsign"
@@ -408,7 +408,7 @@ msgstr "無效或未知的雜湊值"
 
 #: blueprints/ots_api/data_package_api.py:134
 msgid "Please provide a data package hash"
-msgstr "請輸入資料包的雜湊值"
+msgstr "請提供資料包的雜湊值"
 
 #: blueprints/ots_api/data_package_api.py:150
 #, python-format
@@ -427,16 +427,16 @@ msgstr "無法識別的偏好設定鍵：%(preference_key)s"
 #: blueprints/ots_api/group_api.py:42 blueprints/ots_api/group_api.py:125
 #: blueprints/ots_api/group_api.py:166
 msgid "LDAP is enabled. Please view and edit groups on your LDAP server"
-msgstr "已啟用 LDAP。請在您的 LDAP 伺服器上檢視與編輯群組"
+msgstr "已啟用 LDAP。請在您的 LDAP 伺服器上查看及編輯群組"
 
 #: blueprints/ots_api/group_api.py:182
 msgid "Please provide the username, group name, and direction"
-msgstr "請提供使用者名稱、群組名稱和方向"
+msgstr "請提供使用者名稱、群組名稱和傳輸方向"
 
 #: blueprints/ots_api/group_api.py:197
 #, python-format
 msgid "Invalid direction: %(direction)s"
-msgstr "無效的方向：%(direction)s"
+msgstr "無效的傳輸方向：%(direction)s"
 
 #: blueprints/ots_api/group_api.py:217
 #, python-format
@@ -472,7 +472,7 @@ msgstr "已啟用 LDAP，請使用您的 LDAP 伺服器將使用者加入群組"
 
 #: blueprints/ots_api/group_api.py:358
 msgid "Please provide a list of users, group name, and direction"
-msgstr "請提供使用者清單、群組名稱和方向"
+msgstr "請提供使用者清單、群組名稱和傳輸方向"
 
 #: blueprints/ots_api/group_api.py:374 blueprints/ots_api/user_api.py:249
 #: blueprints/ots_api/user_api.py:299 blueprints/ots_api/user_api.py:365
@@ -529,7 +529,7 @@ msgstr "經度無效：%(longitude)s"
 #: blueprints/ots_api/marker_api.py:80
 #, python-format
 msgid "Failed to parse lat/lon: %(e)s"
-msgstr "解析經緯度發生錯誤：%(e)s"
+msgstr "解析經緯度失敗：%(e)s"
 
 #: blueprints/ots_api/marker_api.py:88
 msgid "Please provide a name"
@@ -537,7 +537,7 @@ msgstr "請提供名稱"
 
 #: blueprints/ots_api/marker_api.py:96
 msgid "Invalid UID. UIDs need to be in UUID4 format"
-msgstr "UID 格式錯誤。UID 必須為 UUID4 格式"
+msgstr "UID 無效，必須採用 UUID4 格式"
 
 #: blueprints/ots_api/marker_api.py:112
 #, python-format
@@ -574,7 +574,7 @@ msgstr "找不到路徑 %(path)s"
 
 #: blueprints/ots_api/mediamtx_api.py:421
 msgid "MediaMTX is not running"
-msgstr "MediaMTX 尚未執行"
+msgstr "MediaMTX 未執行"
 
 #: blueprints/ots_api/meshtastic_api.py:167
 msgid "Please provide the URL of the channel to delete"
@@ -685,7 +685,7 @@ msgstr "請指定要停用的使用者名稱"
 #: blueprints/ots_api/user_api.py:263
 #, python-format
 msgid "%(username)s is already deactivated"
-msgstr "使用者 %(username)s 已處於停用狀態"
+msgstr "使用者 %(username)s 已停用"
 
 #: blueprints/ots_api/user_api.py:277
 msgid "LDAP is enabled, please use your LDAP server to activate users"
@@ -698,7 +698,7 @@ msgstr "請指定要啟用的使用者名稱"
 #: blueprints/ots_api/user_api.py:313
 #, python-format
 msgid "%(username)s is already activated"
-msgstr "使用者 %(username)s 已處於啟用狀態"
+msgstr "使用者 %(username)s 已啟用"
 
 #: blueprints/ots_api/user_api.py:327
 msgid "LDAP is enabled, please use your LDAP server to assign roles"
@@ -732,7 +732,7 @@ msgstr "請提供使用者名稱"
 
 #: blueprints/ots_api/user_api.py:579
 msgid "Please provide a list of groups, a username, and a direction"
-msgstr "請提供群組清單、使用者名稱和方向"
+msgstr "請提供群組清單、使用者名稱和傳輸方向"
 
 #: blueprints/ots_api/user_api.py:595
 #, python-format
@@ -751,7 +751,7 @@ msgstr "請指定有效路徑"
 #: blueprints/ots_api/video_api.py:73
 #, python-format
 msgid "Invalid recording_id: %(recording_id)s"
-msgstr "無效的錄影 ID：%(recording_id)s"
+msgstr "無效的錄影識別碼：%(recording_id)s"
 
 #: blueprints/ots_api/video_api.py:97
 msgid "Recording not found"
